@@ -105,16 +105,19 @@ defToRule name term =
 --------------------------------------------------------------------------------
 
 data CompiledLang = CompiledLang
-  { clName    :: String
-  , clVocab   :: S.Set String
-  , clGrammar :: M.Map String (GrammarExpr ())
-  , clRules   :: [Rule]
-  , clTests   :: [Test]
-  , clImports :: [String]  -- track imports for resolution
+  { clName     :: String
+  , clVocab    :: S.Set String
+  , clGrammar  :: M.Map String (GrammarExpr ())
+  , clRules    :: [Rule]
+  , clTests    :: [Test]
+  , clImports  :: [String]   -- track imports for resolution
+  , clLaws     :: [Law]      -- algebraic laws
+  , clInherits :: [String]   -- inherit declarations (qualified names)
+  , clAutocuts :: [String]   -- @autocut production names
   } deriving (Show)
 
 emptyCompiled :: String -> CompiledLang
-emptyCompiled name = CompiledLang name S.empty M.empty [] [] []
+emptyCompiled name = CompiledLang name S.empty M.empty [] [] [] [] [] []
 
 --------------------------------------------------------------------------------
 -- Validation
@@ -318,6 +321,15 @@ processDeclWithMapAndResolved langMap resolvedMap cl (DPiece name parents body) 
   let piece = (poCompiledLang base inner) { clName = name }
   -- Add piece to the current language AND to the langMap for future references
   Right $ poCompiledLang cl piece
+processDeclWithMapAndResolved _ _ cl (DLaw law) =
+  -- law "name": lhs ≅ rhs - algebraic law declaration
+  Right $ cl { clLaws = clLaws cl ++ [law] }
+processDeclWithMapAndResolved _ _ cl (DInherit qual) =
+  -- inherit Module.Production - grammar composition
+  Right $ cl { clInherits = clInherits cl ++ [qual] }
+processDeclWithMapAndResolved _ _ cl (DAutocut name) =
+  -- @autocut production - mark production for automatic cut insertion
+  Right $ cl { clAutocuts = clAutocuts cl ++ [name] }
 
 -- | Look up a language by name in langMap or resolvedMap
 lookupLang :: M.Map String [LegoDecl] -> M.Map String CompiledLang -> String -> Either String CompiledLang
@@ -348,6 +360,9 @@ poCompiledLang cl1 cl2 = CompiledLang
   , clRules = clRules cl1 ++ clRules cl2
   , clTests = clTests cl1 ++ clTests cl2
   , clImports = clImports cl1 ++ clImports cl2
+  , clLaws = clLaws cl1 ++ clLaws cl2
+  , clInherits = clInherits cl1 ++ clInherits cl2
+  , clAutocuts = clAutocuts cl1 ++ clAutocuts cl2
   }
 
 -- | Legacy alias for backwards compatibility

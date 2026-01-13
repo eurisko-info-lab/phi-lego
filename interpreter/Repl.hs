@@ -176,6 +176,9 @@ loadFile st path = do
       putStrLn $ "  " ++ show (M.size (E.clGrammar lang)) ++ " grammar productions"
       putStrLn $ "  " ++ show (length (E.clRules lang)) ++ " rules"
       putStrLn $ "  " ++ show (length (E.clTests lang)) ++ " tests"
+      let lawCount = length (E.clLaws lang)
+      when (lawCount > 0) $
+        putStrLn $ "  " ++ show lawCount ++ " laws"
       return st { rsLang = Just lang }
 
 reloadFile :: ReplState -> IO ReplState

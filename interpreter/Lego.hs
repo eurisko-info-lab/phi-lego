@@ -27,6 +27,7 @@ module Lego
   , Lang(..), LangF(..), emptyLang
   , TypeRule(..)
   , LegoDecl(..)
+  , Law(..)
     -- * The 3 Operations
   , poGraph, poLang, poLangChecked
   , LangConflict(..), formatConflicts
@@ -1198,7 +1199,17 @@ data LegoDecl
   | DTest Test                       -- test (legacy)
   | DTestSpec TestSpec               -- test (enhanced)
   | DDef String Term                 -- def name = term (desugars to rule)
+  | DLaw Law                         -- law "name": expr ≅ expr
+  | DInherit String                  -- inherit Module.Production
+  | DAutocut String                  -- @autocut production
   deriving (Eq, Show)
+
+-- | Law declaration for algebraic laws
+data Law = Law
+  { lawName  :: String     -- name of the law
+  , lawLhs   :: Term       -- left-hand side expression
+  , lawRhs   :: Term       -- right-hand side expression
+  } deriving (Eq, Show)
 
 -- | Run a basic test (legacy)
 runTest :: [Rule] -> Test -> TestResult

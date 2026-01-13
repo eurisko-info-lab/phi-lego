@@ -142,7 +142,16 @@ piece Test
   parseTest ::= "test" string ":" term
 
 -----------------------------------------------------
--- PIECE 8: File
+-- PIECE 8: Law
+-- Algebraic law declarations
+-----------------------------------------------------
+
+piece Law
+  law ::= "law" string ":" term "≅" term 
+        | "law" string ":" term "==" term  -- ASCII alternative
+
+-----------------------------------------------------
+-- PIECE 9: File
 -- Complete file structure  
 -----------------------------------------------------
 
@@ -160,6 +169,9 @@ piece File
              | pieceDecl
              | ruleDecl
              | testDecl
+             | lawDecl
+             | inheritDecl
+             | autocutDecl
              | defDecl
 
   -- Language declaration with direct body
@@ -180,6 +192,9 @@ piece File
              | ruleDecl
              | ruleStub
              | testDecl
+             | lawDecl
+             | inheritDecl
+             | autocutDecl
              | defDecl
              | sectionMarker
 
@@ -210,6 +225,17 @@ piece File
   testExpected ::= testExpectedArrow | testExpectedDouble
   testExpectedArrow ::= whitespace? "~~>" whitespace? term
   testExpectedDouble ::= whitespace? "==>" whitespace? term
+  
+  -- Law declaration (algebraic laws)
+  lawDecl ::= "law" string ":" term lawOp term
+  lawOp ::= "≅" | "=="  -- isomorphism or equality
+  
+  -- Inherit declaration (grammar composition)
+  inheritDecl ::= "inherit" qualIdent
+  qualIdent ::= ident ("." ident)*
+  
+  -- Autocut annotation
+  autocutDecl ::= "@autocut" ident
   
   -- Def declaration
   defDecl ::= "def" ident "=" term

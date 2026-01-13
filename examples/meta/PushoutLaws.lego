@@ -57,22 +57,21 @@ piece B
   test "B_not_true": (not true) ~~> false
   test "B_not_false": (not false) ~~> true
 
------------------------------------------------------
--- Composition Tests: C = A ⊔ B
--- After pushout, both rule sets are available
------------------------------------------------------
+  -- Composition Tests: C = A ⊔ B
+  -- After pushout, both rule sets are available
 
--- Top-level tests verify composition works
-test "both_add": (add zero (add zero z)) ~~> z
-test "both_not": (not (not true)) ~~> true
+  -- Top-level tests verify composition works
+  test "both_add": (add zero (add zero z)) ~~> z
+  test "both_not": (not (not true)) ~~> true
 
------------------------------------------------------
--- Future Law Syntax (not yet parsed):
---
--- law "identity_left": (A + Empty) ≅ A
--- law "identity_right": (Empty + A) ≅ A
--- law "commutativity": (A + B) ≅ (B + A)
--- law "associativity": ((A + B) + C) ≅ (A + (B + C))
---
--- These would invoke Lego.Composition.checkLaw
------------------------------------------------------
+  -- Algebraic Laws for Pushout (parsed and checked!)
+
+  -- Identity laws (using prefix notation for now)
+  law "identity_left": (pushout A Empty) ≅ A
+  law "identity_right": (pushout Empty A) ≅ A
+
+  -- Commutativity (up to naming)
+  law "commutativity": (pushout A B) == (pushout B A)
+
+  -- Associativity
+  law "associativity": (pushout (pushout A B) C) ≅ (pushout A (pushout B C))

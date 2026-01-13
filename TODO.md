@@ -1,6 +1,6 @@
 # Lego TODO
 
-> **Current Status**: 195/234 lego tests • 725/725 redtt parsing (100%)
+> **Current Status**: 201/240 lego tests • 725/725 redtt parsing (100%)
 
 ## Completed ✅
 
@@ -21,17 +21,22 @@
 - ✅ **Keyword cuts (GCut)**: Added `GCut` constructor for commit points in grammar
 - ✅ **Location tracking**: `TraceStep.tsLocation` field for source spans through normalization
 
+### Priority 2: Composition & Algebraic Laws (January 2026)
+- ✅ **Law syntax**: `law "name": lhs ≅ rhs` parsed and stored in `CompiledLang`
+- ✅ **Inherit syntax**: `inherit Qualified.Name` for grammar composition
+- ✅ **@autocut annotation**: `@autocut production` marks productions for auto-cut
+- ✅ **Test file**: `examples/meta/PushoutLaws.lego` with algebraic laws
+
 ## In Progress 🔶
 
-### Priority 2: Composition & Conflict System (January 2026)
+### Priority 2: Composition & Conflict System (continued)
 
 Multi-level pushout composition with algebraic law verification:
 
 #### Phase 1: Pushout Laws & Conflict Detection
 - [ ] `poLangFull`: pushout with conflict reporting
 - [ ] Conflict types: `GrammarConflict`, `RuleConflict`, `VocabConflict`
-- [ ] Law test syntax: `law "name": (A + B) ≅ (B + A)`
-- [ ] Test file: `examples/meta/PushoutLaws.lego`
+- ✅ Law test syntax: `law "name": lhs ≅ rhs`
 
 #### Phase 2: Automatic Vocab Inference
 - [ ] `inferVocab`: scan grammar → keywords/symbols/literals
@@ -44,8 +49,8 @@ Multi-level pushout composition with algebraic law verification:
 - [ ] Prevents greedy identifier capture in nested contexts
 
 #### Phase 4: Declarative Cuts & Composition Syntax
-- [ ] `@autocut` annotation on productions
-- [ ] `inherit Base.Term` syntax for grammar composition
+- ✅ `@autocut` annotation on productions
+- ✅ `inherit Base.Term` syntax for grammar composition
 - [ ] Conflict resolution: local shadows inherited
 
 ### Test Coverage (195/234 = 83%)

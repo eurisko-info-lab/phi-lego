@@ -119,9 +119,12 @@ legoKeywords =
   , "rule"      -- rewrite rule
   , "test"      -- test declaration
   , "def"       -- definition
+  , "law"       -- algebraic law
+  , "inherit"   -- grammar inheritance
   -- Sections (any indent)
   , "code"
   , "prelude"
+  , "@autocut"  -- automatic cut insertion marker (any indent inside lang body)
   -- Expression keywords (any indent)
   , "when", "in", "let", "where", "case", "of", "if", "then", "else", "match"
   ]
@@ -129,11 +132,11 @@ legoKeywords =
 -- DEPRECATED: Split keyword lists (kept for isKeywordAt)
 topLevelKeywords :: [String]
 topLevelKeywords = 
-  [ "lang", "import", "piece", "rule", "test", "def" ]
+  [ "lang", "import", "piece", "rule", "test", "def", "law", "inherit" ]
 
 sectionKeywords :: [String]
 sectionKeywords =
-  [ "code", "prelude"
+  [ "code", "prelude", "@autocut"
   ]
 
 exprKeywords :: [String]
@@ -179,11 +182,14 @@ arrowSymbols =
   , "~>"                 -- forward rule
   , "->"                 -- function type (ASCII)
   , "=>"                 -- implication/match arrow
+  , "==>"                -- alternative test arrow
   , "→"                  -- function type (Unicode)
   , "←"                  -- reverse arrow
   , "↦"                  -- mapsto
   , "⇒"                  -- double arrow
   , "↔"                  -- bidirectional
+  , "≅"                  -- isomorphism (for laws)
+  , "=="                 -- equality (for laws)
   ]
 
 -- | Cubical type theory symbols
@@ -325,6 +331,15 @@ tokenizeWithSymbolList doClassify symbolList input =
     go col ind ('-':'-':cs) = go col ind (dropWhile (/= '\n') cs)  -- comment
     go col ind ('$':cs) = let (ident, rest) = span isIdChar cs
                           in TSym "$" : (if null ident then id else (TIdent ident :)) (go (col + length ident + 1) ind rest)
+    -- @-prefixed keywords (like @autocut) - must come BEFORE matchSym!
+    go col ind ('@':c:rest) | isAlpha c =
+      let ident = c : takeWhile isIdChar rest
+          rest' = dropWhile isIdChar rest
+          atIdent = '@' : ident
+          isKw = doClassify && isKeywordAt ind atIdent
+      in if isKw
+         then TKeyword atIdent : go (col + length atIdent) ind rest'
+         else TSym "@" : TIdent ident : go (col + length atIdent) ind rest'
     go col ind cs | Just (sym, rest) <- matchSym cs = TSym sym : go (col + length sym) ind rest
     go col ind cs@(c:_) | isAlpha c || c == '_' =
       let (ident, rest) = span isIdChar cs
@@ -390,6 +405,13 @@ tokenizeWithInfo = go 1 1 0  -- (line, column, indent)
           toks = TokenInfo (TSym "$") ln col ind : 
                  if null ident then [] else [TokenInfo (TIdent ident) ln (col+1) ind]
       in toks ++ go ln (col + length ident + 1) ind rest
+    -- @-prefixed keywords (like @autocut) - must come BEFORE matchSym!
+    go ln col ind ('@':c:rest) | isAlpha c =
+      let ident = c : takeWhile isIdChar rest
+          rest' = dropWhile isIdChar rest
+          atIdent = '@' : ident
+          tok = if isKeywordAt ind atIdent then TKeyword atIdent else TIdent atIdent
+      in TokenInfo tok ln col ind : go ln (col + length atIdent) ind rest'
     go ln col ind cs | Just (sym, rest) <- matchSym cs = 
       TokenInfo (TSym sym) ln col ind : go ln (col + length sym) ind rest
     go ln col ind cs@(c:_) | isAlpha c || c == '_' =

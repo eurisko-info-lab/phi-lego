@@ -102,6 +102,7 @@ runLegoFile path = do
           let tests = E.clTests cl
           let rules = E.clRules cl
           let grammar = E.clGrammar cl
+          let laws = E.clLaws cl
           let results = E.runTestsWithGrammar grammar rules tests
           let (passed, failed) = partitionResults results
           -- Print failures
@@ -113,11 +114,13 @@ runLegoFile path = do
             Pass _ -> return ()  -- shouldn't happen since filtered
           let grammarCount = length (E.clGrammar cl)
           let ruleCount = length rules
+          let lawCount = length laws
           let passedCount = length passed
           let totalCount = length tests
           let stats = show passedCount ++ "/" ++ show totalCount ++ " tests, " 
                    ++ show ruleCount ++ " rules, " 
                    ++ show grammarCount ++ " grammars"
+                   ++ (if lawCount > 0 then ", " ++ show lawCount ++ " laws" else "")
           return $ Right (stats, (passedCount, totalCount, ruleCount, grammarCount))
 
 -- | Run a single file

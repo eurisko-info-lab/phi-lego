@@ -12,7 +12,7 @@ module Lego.GrammarParser
 import Lego (Term, pattern TmVar, pattern TmCon, pattern TmLit,
              pattern GRef, pattern GLit, pattern GAlt, pattern GSeq, 
              pattern GStar, pattern GBind, pattern GAny, pattern GNode, pattern GEmpty,
-             GrammarExpr, LegoDecl(..), Rule(..), RuleDir(..), Test(..),
+             GrammarExpr, LegoDecl(..), Rule(..), RuleDir(..), Test(..), Law(..),
              Mode(..), BiState(..))
 import Lego.Token (Token(..), TokenInfo(..), tokenizeWithInfo)
 import Lego.GrammarDef (legoGrammar)
@@ -100,8 +100,39 @@ termToDecl (TmCon "DGrammar" [TmLit name, gramTerm]) =
 termToDecl (TmCon "section" _) = Nothing
 -- Comment (skip)
 termToDecl (TmCon "comment" _) = Nothing
+-- Law (4 children: name, lhs, op, rhs - but we ignore the op for now)
+termToDecl (TmCon "DLaw" [TmLit name, lhs, _, rhs]) =
+  Just $ DLaw $ Law name lhs rhs
+termToDecl (TmCon "DLaw" [TmVar name, lhs, _, rhs]) =
+  Just $ DLaw $ Law name lhs rhs
+-- Alternate: 3 children if op is not captured
+termToDecl (TmCon "DLaw" [TmLit name, lhs, rhs]) =
+  Just $ DLaw $ Law name lhs rhs
+termToDecl (TmCon "DLaw" [TmVar name, lhs, rhs]) =
+  Just $ DLaw $ Law name lhs rhs
+-- Inherit
+termToDecl (TmCon "DInherit" [TmVar qual]) =
+  Just $ DInherit qual
+termToDecl (TmCon "DInherit" [TmLit qual]) =
+  Just $ DInherit qual
+termToDecl (TmCon "DInherit" args) =
+  Just $ DInherit (intercalateQual args)
+-- Autocut
+termToDecl (TmCon "DAutocut" [TmVar name]) =
+  Just $ DAutocut name
+termToDecl (TmCon "DAutocut" [TmLit name]) =
+  Just $ DAutocut name
 -- Unknown
 termToDecl _ = Nothing
+
+-- | Extract qualified name from nested terms
+intercalateQual :: [Term] -> String
+intercalateQual [] = ""
+intercalateQual [TmVar s] = s
+intercalateQual [TmLit s] = s
+intercalateQual (TmVar s:rest) = s ++ "." ++ intercalateQual rest
+intercalateQual (TmLit s:rest) = s ++ "." ++ intercalateQual rest
+intercalateQual (_:rest) = intercalateQual rest
 
 extractNames :: Term -> [String]
 extractNames (TmCon "parents" children) = mapMaybe getName children
@@ -151,6 +182,28 @@ extractPieceDecl _ (TmCon "DDef" [TmVar name, value]) =
   [DDef name value]
 extractPieceDecl _ (TmCon "DDef" [TmLit name, value]) = 
   [DDef name value]
+-- Laws within pieces (4 children: name, lhs, op, rhs)
+extractPieceDecl _ (TmCon "DLaw" [TmLit name, lhs, _, rhs]) =
+  [DLaw $ Law name lhs rhs]
+extractPieceDecl _ (TmCon "DLaw" [TmVar name, lhs, _, rhs]) =
+  [DLaw $ Law name lhs rhs]
+-- Alternate: 3 children if op is not captured
+extractPieceDecl _ (TmCon "DLaw" [TmLit name, lhs, rhs]) =
+  [DLaw $ Law name lhs rhs]
+extractPieceDecl _ (TmCon "DLaw" [TmVar name, lhs, rhs]) =
+  [DLaw $ Law name lhs rhs]
+-- Inherit within pieces
+extractPieceDecl _ (TmCon "DInherit" [TmVar qual]) =
+  [DInherit qual]
+extractPieceDecl _ (TmCon "DInherit" [TmLit qual]) =
+  [DInherit qual]
+extractPieceDecl _ (TmCon "DInherit" args) =
+  [DInherit (intercalateQual args)]
+-- Autocut within pieces
+extractPieceDecl _ (TmCon "DAutocut" [TmVar name]) =
+  [DAutocut name]
+extractPieceDecl _ (TmCon "DAutocut" [TmLit name]) =
+  [DAutocut name]
 extractPieceDecl _ _ = []
 
 --------------------------------------------------------------------------------

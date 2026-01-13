@@ -175,12 +175,14 @@ buildVocabFromLiterals name conv literals =
 topLevelKeywords :: Set String
 topLevelKeywords = S.fromList
   [ "lang", "import", "piece", "rule", "test", "def", "prelude", "code"
+  , "law", "inherit", "@autocut"
   ]
 
 -- | Section keywords (valid inside language body)
 sectionKeywords :: Set String
 sectionKeywords = S.fromList
   [ "prelude", "code", "piece", "rule", "test", "def"
+  , "law", "inherit", "@autocut"
   ]
 
 -- | Keywords valid anywhere
