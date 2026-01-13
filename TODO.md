@@ -34,8 +34,8 @@
 Multi-level pushout composition with algebraic law verification:
 
 #### Phase 1: Pushout Laws & Conflict Detection
-- [ ] `poLangFull`: pushout with conflict reporting
-- [ ] Conflict types: `GrammarConflict`, `RuleConflict`, `VocabConflict`
+- ✅ `poLangChecked`: pushout with conflict reporting (returns `(Lang a, [LangConflict])`)
+- ✅ Conflict types: `GrammarConflict`, `RuleConflict`, `VocabConflict`
 - ✅ Law test syntax: `law "name": lhs ≅ rhs`
 - ✅ **Wire up `Lang`/`LangF`/`poLang`**: `CompiledLang = Lang ()`, runtime uses unified algebraic structure
 
