@@ -98,11 +98,9 @@ transform prodName = go
     
     go :: GrammarExpr () -> GrammarExpr ()
     go GEmpty = GEmpty
-    go (GLit s) 
-      | isKeyword s = GSyntax s  -- Keywords become syntax
-      | otherwise = GLit s       -- Regular literals stay as lit
-    go (GSyntax s) = GSyntax s
-    go (GKeyword s) = GSyntax s
+    go (GLit s) = GLit s         -- All literals are just lit
+    go (GSyntax s) = GLit s      -- syntax → lit (unified)
+    go (GKeyword s) = GLit s     -- keyword → lit (unified)
     go (GRegex s) = GRegex s
     go (GChar s) = GChar s
     go (GRef s) = GRef (qualifyRef piecePrefix s)
@@ -154,14 +152,6 @@ qualifyRef piecePrefix ref
     lawRefs = ["law"]
 
 -- | Check if a string is a keyword (should use syntax instead of lit)
-isKeyword :: String -> Bool
-isKeyword s = s `elem` keywords
-  where
-    keywords = ["lang", "import", "grammar", "piece", "rule", "test", "def", "law", "inherit",
-                "@autocut", ":=", "::=", "~>", "<~", "<~>", "~~>", "==>", ":", ".", ",",
-                "(", ")", "[", "]", "{", "}", "|", "*", "+", "?", "=", "==", "≅",
-                "prelude", "code", "when", "λ", "\\", "λᵢ", "Π", "Σ", "∀", "$", "?",
-                "μ", "ε", "<", ">"]
 
 -- | Format grammar map as sexpr with nice formatting
 formatGrammar :: M.Map String (GrammarExpr ()) -> String

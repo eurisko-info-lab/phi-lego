@@ -157,8 +157,8 @@ escapeString = concatMap escape
 grammarToSExpr :: GrammarExpr a -> SExpr
 grammarToSExpr GEmpty = List [Atom "empty"]
 grammarToSExpr (GLit s) = List [Atom "lit", Atom s]
-grammarToSExpr (GSyntax s) = List [Atom "syntax", Atom s]
-grammarToSExpr (GKeyword s) = List [Atom "keyword", Atom s]
+grammarToSExpr (GSyntax s) = List [Atom "lit", Atom s]  -- syntax → lit (unified)
+grammarToSExpr (GKeyword s) = List [Atom "lit", Atom s]  -- keyword → lit (unified)
 grammarToSExpr (GRegex s) = List [Atom "regex", Atom s]
 grammarToSExpr (GChar s) = List [Atom "char", Atom s]
 grammarToSExpr (GRef s) = List [Atom "ref", Atom s]
@@ -205,8 +205,8 @@ sexprToGrammar :: SExpr -> Either String (GrammarExpr ())
 sexprToGrammar (Atom s) = Right (GRef s)  -- Bare atom = reference
 sexprToGrammar (List [Atom "empty"]) = Right GEmpty
 sexprToGrammar (List [Atom "lit", Atom s]) = Right (GLit s)
-sexprToGrammar (List [Atom "syntax", Atom s]) = Right (GSyntax s)
-sexprToGrammar (List [Atom "keyword", Atom s]) = Right (GKeyword s)
+sexprToGrammar (List [Atom "syntax", Atom s]) = Right (GLit s)  -- syntax is just lit
+sexprToGrammar (List [Atom "keyword", Atom s]) = Right (GLit s)  -- keyword is just lit
 sexprToGrammar (List [Atom "regex", Atom s]) = Right (GRegex s)
 sexprToGrammar (List [Atom "char", Atom s]) = Right (GChar s)
 sexprToGrammar (List [Atom "ref", Atom s]) = Right (GRef s)
