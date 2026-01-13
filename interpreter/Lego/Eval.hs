@@ -48,8 +48,10 @@ module Lego.Eval
   , loadLang
   , loadLangFile
   , loadLangWithImports
-    -- * Compiled Language
-  , CompiledLang(..)
+    -- * Compiled Language (re-exported from Lego)
+  , CompiledLang
+  , mkCompiledLang, emptyCompiled
+  , clName, clVocab, clGrammar, clRules, clTests, clLaws, clImports, clInherits, clAutocuts
     -- * Pushout (Language Composition)
   , poCompiledLang
   , mergeLang  -- legacy alias
@@ -101,23 +103,13 @@ defToRule name term =
   in Rule name pat template Nothing Forward  -- definitions are forward-only
 
 --------------------------------------------------------------------------------
--- Compiled Language
+-- Compiled Language (now defined in Lego.hs, re-exported here)
 --------------------------------------------------------------------------------
 
-data CompiledLang = CompiledLang
-  { clName     :: String
-  , clVocab    :: S.Set String
-  , clGrammar  :: M.Map String (GrammarExpr ())
-  , clRules    :: [Rule]
-  , clTests    :: [Test]
-  , clImports  :: [String]   -- track imports for resolution
-  , clLaws     :: [Law]      -- algebraic laws
-  , clInherits :: [String]   -- inherit declarations (qualified names)
-  , clAutocuts :: [String]   -- @autocut production names
-  } deriving (Show)
-
-emptyCompiled :: String -> CompiledLang
-emptyCompiled name = CompiledLang name S.empty M.empty [] [] [] [] [] []
+-- CompiledLang = Lang ()
+-- Accessors: clName, clVocab, clGrammar, clRules, clTests, clLaws, clImports, clInherits, clAutocuts
+-- Constructor: mkCompiledLang, emptyCompiled
+-- All imported from Lego module
 
 --------------------------------------------------------------------------------
 -- Validation
@@ -275,34 +267,33 @@ processDeclWithMapAndResolved langMap resolvedMap cl (DLang name parents body) =
   let base = foldl poCompiledLang (emptyCompiled name) parentLangs
   -- Then process body on top of parents
   inner <- loadLangWithMapAndResolved langMap (M.elems resolvedMap) body
-  Right $ (poCompiledLang cl (poCompiledLang base inner)) { clName = name }
+  Right $ renameLang name (poCompiledLang cl (poCompiledLang base inner))
 processDeclWithMapAndResolved _ _ cl (DImport name) = 
   -- import L - makes L available in scope but does NOT pushout
   -- The actual resolution happens via resolvedMap passed to loadLangWithMapAndResolved
   -- We just record that this import exists
-  Right $ cl { clImports = clImports cl ++ [name] }
+  Right $ addImport name cl
 processDeclWithMapAndResolved langMap resolvedMap cl (DPushout name1 name2) = do
   -- Explicit pushout: L1 ⊔ L2
   l1 <- lookupLang langMap resolvedMap name1
   l2 <- lookupLang langMap resolvedMap name2
   Right $ poCompiledLang cl (poCompiledLang l1 l2)
 processDeclWithMapAndResolved _ _ cl (DVocab kws syms) =
-  Right $ cl { clVocab = S.union (clVocab cl) (S.fromList (kws ++ syms)) }
+  Right $ addVocab (S.fromList (kws ++ syms)) cl
 processDeclWithMapAndResolved _ _ cl (DGrammar name g) =
   -- Auto-extract vocabulary from grammar literals
   let vocab = S.fromList (collectLiterals g)
-  in Right $ cl { clGrammar = M.insert name g (clGrammar cl)
-                , clVocab = S.union (clVocab cl) vocab }
+  in Right $ addVocab vocab (addGrammar name g cl)
 processDeclWithMapAndResolved _ _ cl (DRule rule) =
-  Right $ cl { clRules = clRules cl ++ [rule] }
+  Right $ addRule rule cl
 processDeclWithMapAndResolved _ _ cl (DDef name term) =
   -- Desugar def to rule: def f = \x. body => (f $x) ~> body
   let rule = defToRule name term
-  in Right $ cl { clRules = clRules cl ++ [rule] }
+  in Right $ addRule rule cl
 processDeclWithMapAndResolved _ _ cl (DType _) =
   Right cl  -- type rules handled separately
 processDeclWithMapAndResolved _ _ cl (DTest test) =
-  Right $ cl { clTests = clTests cl ++ [test] }
+  Right $ addTest test cl
 processDeclWithMapAndResolved _ _ cl (DTestSpec spec) =
   -- Convert TestSpec to legacy Test for now (enhanced execution handled elsewhere)
   let legacyTest = case tsExpect spec of
@@ -310,7 +301,7 @@ processDeclWithMapAndResolved _ _ cl (DTestSpec spec) =
         ExpectParse -> Test (tsName spec) (tsInput spec) (tsInput spec)
         ExpectNoChange -> Test (tsName spec) (tsInput spec) (tsInput spec)
         _ -> Test (tsName spec) (tsInput spec) (TmVar "_")
-  in Right $ cl { clTests = clTests cl ++ [legacyTest] }
+  in Right $ addTest legacyTest cl
 processDeclWithMapAndResolved langMap resolvedMap cl (DPiece name parents body) = do
   -- piece Name is Parents with: body
   -- First load all parents and compose them
@@ -318,18 +309,18 @@ processDeclWithMapAndResolved langMap resolvedMap cl (DPiece name parents body) 
   let base = foldl poCompiledLang (emptyCompiled name) parentLangs
   -- Then load body on top of parents
   inner <- loadLangWithMapAndResolved langMap (M.elems resolvedMap) body
-  let piece = (poCompiledLang base inner) { clName = name }
+  let piece = renameLang name (poCompiledLang base inner)
   -- Add piece to the current language AND to the langMap for future references
   Right $ poCompiledLang cl piece
 processDeclWithMapAndResolved _ _ cl (DLaw law) =
   -- law "name": lhs ≅ rhs - algebraic law declaration
-  Right $ cl { clLaws = clLaws cl ++ [law] }
+  Right $ addLaw law cl
 processDeclWithMapAndResolved _ _ cl (DInherit qual) =
   -- inherit Module.Production - grammar composition
-  Right $ cl { clInherits = clInherits cl ++ [qual] }
+  Right $ addInherit qual cl
 processDeclWithMapAndResolved _ _ cl (DAutocut name) =
   -- @autocut production - mark production for automatic cut insertion
-  Right $ cl { clAutocuts = clAutocuts cl ++ [name] }
+  Right $ addAutocut name cl
 
 -- | Look up a language by name in langMap or resolvedMap
 lookupLang :: M.Map String [LegoDecl] -> M.Map String CompiledLang -> String -> Either String CompiledLang
@@ -338,7 +329,7 @@ lookupLang langMap resolvedMap name =
     Just body -> loadLangWithMapAndResolved langMap (M.elems resolvedMap) body
     Nothing -> case M.lookup name resolvedMap of
       Just cl -> Right cl
-      Nothing -> Right $ (emptyCompiled name) { clImports = [name] }
+      Nothing -> Right $ addImport name (emptyCompiled name)
 
 -- | Pushout of compiled languages
 --
@@ -353,17 +344,7 @@ lookupLang langMap resolvedMap name =
 --   Commutativity: L1 ⊔ L2 ≅ L2 ⊔ L1 (up to ordering)
 --   Associativity: (L1 ⊔ L2) ⊔ L3 = L1 ⊔ (L2 ⊔ L3)
 poCompiledLang :: CompiledLang -> CompiledLang -> CompiledLang
-poCompiledLang cl1 cl2 = CompiledLang
-  { clName = clName cl1
-  , clVocab = S.union (clVocab cl1) (clVocab cl2)
-  , clGrammar = M.union (clGrammar cl1) (clGrammar cl2)
-  , clRules = clRules cl1 ++ clRules cl2
-  , clTests = clTests cl1 ++ clTests cl2
-  , clImports = clImports cl1 ++ clImports cl2
-  , clLaws = clLaws cl1 ++ clLaws cl2
-  , clInherits = clInherits cl1 ++ clInherits cl2
-  , clAutocuts = clAutocuts cl1 ++ clAutocuts cl2
-  }
+poCompiledLang = poLang  -- Now uses the unified algebraic pushout!
 
 -- | Legacy alias for backwards compatibility
 mergeLang :: CompiledLang -> CompiledLang -> CompiledLang

@@ -25,6 +25,10 @@ module Lego
   , mkRule, flipRule, canForward, canBackward
   , patternName, isPatVar, patVarName
   , Lang(..), LangF(..), emptyLang
+  , CompiledLang, mkCompiledLang, emptyCompiled, renameLang
+  , addImport, addImports, addTest, addTests, addLaw, addInherit, addAutocut
+  , addVocab, addGrammar, addRule
+  , clName, clVocab, clGrammar, clRules, clTests, clLaws, clImports, clInherits, clAutocuts
   , TypeRule(..)
   , LegoDecl(..)
   , Law(..)
@@ -516,17 +520,29 @@ canBackward Forward = False
 -- PIECE 5: Lang (Initial Algebra)
 --------------------------------------------------------------------------------
 
+-- | Language functor: the shape of a language definition
+-- This is the core algebraic structure. Runtime uses Lang () for concrete languages.
 data LangF a l = LangF
   { lfName     :: String
   , lfVocab    :: Set String           -- keywords + symbols
   , lfGrammar  :: Map String (GrammarExpr a)  -- production name → grammar
   , lfRules    :: [Rule]
   , lfTypes    :: [TypeRule]           -- typing judgements
-  , lfExtends  :: [l]                  -- base languages
+  , lfExtends  :: [l]                  -- base languages (recursive)
+  -- Runtime fields (used during evaluation)
+  , lfTests    :: [Test]               -- test declarations
+  , lfLaws     :: [Law]                -- algebraic laws
+  , lfImports  :: [String]             -- import names (for lazy resolution)
+  , lfInherits :: [String]             -- inherit declarations
+  , lfAutocuts :: [String]             -- @autocut production names
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 newtype Lang a = Lang { unLang :: LangF a (Lang a) }
   deriving (Eq, Show)
+
+-- | Compiled language: concrete Lang with unit annotation
+-- This is what the evaluator works with at runtime
+type CompiledLang = Lang ()
 
 data TypeRule = TypeRule
   { trName     :: String
@@ -534,8 +550,83 @@ data TypeRule = TypeRule
   , trConclusion :: Term
   } deriving (Eq, Show)
 
+-- | Empty language with given name
 emptyLang :: String -> Lang a
-emptyLang name = Lang $ LangF name S.empty M.empty [] [] []
+emptyLang name = Lang $ LangF name S.empty M.empty [] [] [] [] [] [] [] []
+
+-- | Accessor functions for CompiledLang (compatibility layer)
+clName :: CompiledLang -> String
+clName = lfName . unLang
+
+clVocab :: CompiledLang -> Set String
+clVocab = lfVocab . unLang
+
+clGrammar :: CompiledLang -> Map String (GrammarExpr ())
+clGrammar = lfGrammar . unLang
+
+clRules :: CompiledLang -> [Rule]
+clRules = lfRules . unLang
+
+clTests :: CompiledLang -> [Test]
+clTests = lfTests . unLang
+
+clLaws :: CompiledLang -> [Law]
+clLaws = lfLaws . unLang
+
+clImports :: CompiledLang -> [String]
+clImports = lfImports . unLang
+
+clInherits :: CompiledLang -> [String]
+clInherits = lfInherits . unLang
+
+clAutocuts :: CompiledLang -> [String]
+clAutocuts = lfAutocuts . unLang
+
+-- | Smart constructor for CompiledLang
+mkCompiledLang :: String -> Set String -> Map String (GrammarExpr ()) 
+               -> [Rule] -> [Test] -> [String] -> [Law] -> [String] -> [String]
+               -> CompiledLang
+mkCompiledLang name vocab grammar rules tests imports laws inherits autocuts =
+  Lang $ LangF name vocab grammar rules [] [] tests laws imports inherits autocuts
+
+-- | Empty compiled language
+emptyCompiled :: String -> CompiledLang
+emptyCompiled name = Lang $ LangF name S.empty M.empty [] [] [] [] [] [] [] []
+
+-- | Rename a language (returns a new lang with the given name)
+renameLang :: String -> Lang a -> Lang a
+renameLang name (Lang l) = Lang $ l { lfName = name }
+
+-- | Modify functions for CompiledLang
+addImport :: String -> CompiledLang -> CompiledLang
+addImport imp (Lang l) = Lang $ l { lfImports = lfImports l ++ [imp] }
+
+addImports :: [String] -> CompiledLang -> CompiledLang
+addImports imps (Lang l) = Lang $ l { lfImports = lfImports l ++ imps }
+
+addTest :: Test -> CompiledLang -> CompiledLang
+addTest t (Lang l) = Lang $ l { lfTests = lfTests l ++ [t] }
+
+addTests :: [Test] -> CompiledLang -> CompiledLang
+addTests ts (Lang l) = Lang $ l { lfTests = lfTests l ++ ts }
+
+addLaw :: Law -> CompiledLang -> CompiledLang
+addLaw lw (Lang l) = Lang $ l { lfLaws = lfLaws l ++ [lw] }
+
+addInherit :: String -> CompiledLang -> CompiledLang
+addInherit inh (Lang l) = Lang $ l { lfInherits = lfInherits l ++ [inh] }
+
+addAutocut :: String -> CompiledLang -> CompiledLang
+addAutocut ac (Lang l) = Lang $ l { lfAutocuts = lfAutocuts l ++ [ac] }
+
+addVocab :: Set String -> CompiledLang -> CompiledLang
+addVocab v (Lang l) = Lang $ l { lfVocab = S.union (lfVocab l) v }
+
+addGrammar :: String -> GrammarExpr () -> CompiledLang -> CompiledLang
+addGrammar name g (Lang l) = Lang $ l { lfGrammar = M.insert name g (lfGrammar l) }
+
+addRule :: Rule -> CompiledLang -> CompiledLang
+addRule r (Lang l) = Lang $ l { lfRules = lfRules l ++ [r] }
 
 --------------------------------------------------------------------------------
 -- Pushout with Conflict Detection
@@ -559,6 +650,12 @@ poLang (Lang l1) (Lang l2) = Lang $ LangF
   , lfRules = lfRules l1 ++ lfRules l2
   , lfTypes = lfTypes l1 ++ lfTypes l2
   , lfExtends = []  -- Flattened
+  -- Runtime fields: merge
+  , lfTests = lfTests l1 ++ lfTests l2
+  , lfLaws = lfLaws l1 ++ lfLaws l2
+  , lfImports = lfImports l1 ++ lfImports l2
+  , lfInherits = lfInherits l1 ++ lfInherits l2
+  , lfAutocuts = lfAutocuts l1 ++ lfAutocuts l2
   }
 
 -- | Pushout with conflict detection

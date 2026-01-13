@@ -37,7 +37,7 @@ Multi-level pushout composition with algebraic law verification:
 - [ ] `poLangFull`: pushout with conflict reporting
 - [ ] Conflict types: `GrammarConflict`, `RuleConflict`, `VocabConflict`
 - ✅ Law test syntax: `law "name": lhs ≅ rhs`
-- [ ] **Wire up `Lang`/`LangF`/`poLang`**: Currently defined but runtime uses `GrammarDefs` directly
+- ✅ **Wire up `Lang`/`LangF`/`poLang`**: `CompiledLang = Lang ()`, runtime uses unified algebraic structure
 
 #### Phase 2: Automatic Vocab Inference
 - [ ] `inferVocab`: scan grammar → keywords/symbols/literals
