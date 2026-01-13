@@ -61,6 +61,11 @@ module Lego.Eval
   , runPrintWithEnv
     -- * Testing
   , runTestsWithGrammar
+    -- * Validation
+  , validateLang
+  , ValidationResult(..)
+  , ValidationError(..)
+  , ValidationWarning(..)
   ) where
 
 import Lego
@@ -68,6 +73,7 @@ import Lego.GrammarParser (parseLegoFile)
 import Lego.GrammarInterp (parseTerm)
 import Lego.GrammarAnalysis (collectLiterals)
 import Lego.Token (Token(..), tokenize)
+import Lego.Validation (validate, ValidationResult(..), ValidationError(..), ValidationWarning(..), formatError, formatWarning)
 import qualified Lego.Registry as R
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -109,6 +115,18 @@ data CompiledLang = CompiledLang
 
 emptyCompiled :: String -> CompiledLang
 emptyCompiled name = CompiledLang name S.empty M.empty [] [] []
+
+--------------------------------------------------------------------------------
+-- Validation
+--------------------------------------------------------------------------------
+
+-- | Validate a compiled language for semantic errors
+-- Returns ValidationResult with errors and warnings
+validateLang :: CompiledLang -> ValidationResult
+validateLang cl = 
+  let -- Convert rules to (name, pattern, template) format
+      ruleTriples = [(ruleName r, rulePattern r, ruleTemplate r) | r <- clRules cl]
+  in validate (clGrammar cl) ruleTriples
 
 --------------------------------------------------------------------------------
 -- Language Loading

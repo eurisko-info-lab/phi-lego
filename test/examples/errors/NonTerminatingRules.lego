@@ -1,0 +1,19 @@
+-- ERROR TEST: Non-terminating rewrite rules
+-- Expected: Warning about potential infinite loop
+
+lang NonTerminatingRules :=
+
+piece Grammar
+  expr ::= f | g | num
+  f ::= "(" "f" expr ")"
+  g ::= "(" "g" expr ")"
+  num ::= "0"
+
+-- These rules loop forever: f -> g -> f -> g -> ...
+rule f_to_g:
+  (f $x) ~> (g $x)
+
+rule g_to_f:
+  (g $x) ~> (f $x)
+
+test "infinite_loop": (f 0) ~~> 0  -- never terminates!

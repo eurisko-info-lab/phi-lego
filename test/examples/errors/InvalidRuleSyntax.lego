@@ -1,0 +1,11 @@
+-- ERROR TEST: Invalid rule syntax
+-- Expected: Parse error about rule format
+
+lang InvalidRuleSyntax :=
+
+num ::= "0" | "1"
+
+rule no_arrow:
+  (foo x) (bar y)   -- missing ~> arrow
+
+test "invalid": 0 ~~> 0

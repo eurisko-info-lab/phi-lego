@@ -3,8 +3,9 @@
 -- Runs tests on .lego files
 module Main where
 
-import Lego
+import Lego hiding (formatError)
 import qualified Lego.Eval as E
+import qualified Lego.Validation as V
 import System.Environment (getArgs)
 import System.Directory (listDirectory, doesFileExist, doesDirectoryExist)
 import System.FilePath ((</>), takeExtension)
@@ -89,6 +90,15 @@ runLegoFile path = do
       case result of
         Left err -> return $ Left err
         Right cl -> do
+          -- Run validation
+          let validation = E.validateLang cl
+          -- Print validation errors
+          forM_ (E.vrErrors validation) $ \err ->
+            putStrLn $ "    " ++ V.formatError err
+          -- Print validation warnings
+          forM_ (E.vrWarnings validation) $ \warn ->
+            putStrLn $ "    " ++ V.formatWarning warn
+          
           let tests = E.clTests cl
           let rules = E.clRules cl
           let grammar = E.clGrammar cl

@@ -1,0 +1,10 @@
+-- ERROR TEST: Invalid test syntax  
+-- Expected: Parse error about test format
+
+lang InvalidTestSyntax :=
+
+num ::= "0" | "1"
+
+test "missing_arrow" 0 0   -- missing ~~> or :
+
+test "wrong_arrow": 0 -> 0  -- wrong arrow type

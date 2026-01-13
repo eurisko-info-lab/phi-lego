@@ -1,0 +1,9 @@
+-- ERROR TEST: Mismatched or invalid quotes
+-- Expected: Tokenizer error about unterminated string
+
+lang BadQuotes :=
+
+expr ::= "unterminated
+num ::= 'also bad
+
+test "quotes": 0 ~~> 0
