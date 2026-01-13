@@ -205,7 +205,7 @@ resolveExternalImportsPhase dir visited imports = do
 -- 
 -- Resolution order:
 --   1. Registry lookup (qualified or short name)
---   2. Known roots: lego/prelude/, lego/examples/, lego/phi/
+--   2. Known roots: prelude/, examples/, phi/
 --   3. Current directory and siblings
 --   4. Working directory
 resolveImportWithRegistry :: R.ResolveContext -> String -> IO (Either String CompiledLang)

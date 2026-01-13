@@ -6,7 +6,7 @@
 -- Keywords: language, is, with, import, piece, rule, test
 -- Design: Grammar is an EXPRESSION, not a procedure.
 
-language LegoGrammar
+lang LegoGrammar :=
 
 -----------------------------------------------------
 -- PIECE 1: Atom

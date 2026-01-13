@@ -95,11 +95,11 @@ emptyRegistry = Registry M.empty M.empty S.empty
 
 -- | Known Lego root directories (relative to workspace)
 legoRoots :: [FilePath]
-legoRoots = ["lego/prelude", "lego/examples", "lego/phi"]
+legoRoots = ["prelude", "examples", "phi"]
 
 -- | Convert file path to package name
--- "lego/prelude/lego/Grammar.lego" → "prelude.lego.Grammar"
--- "lego/examples/basics/Bool.lego" → "examples.basics.Bool"
+-- "prelude/lego/Grammar.lego" → "prelude.lego.Grammar"
+-- "examples/basics/Bool.lego" → "examples.basics.Bool"
 pathToPackage :: FilePath -> PackageName
 pathToPackage path = 
   let normalized = normalise path
@@ -244,7 +244,7 @@ resolveImport ctx name
 --   1. Current directory: dir/Name.lego
 --   2. Parent directory: parent/Name.lego
 --   3. Sibling directories: parent/*/Name.lego (for examples/advanced → examples/types)
---   4. Known roots: lego/prelude/, lego/examples/, lego/phi/
+--   4. Known roots: prelude/, examples/, phi/
 --   5. Working directory
 findPackageFile :: FilePath -> String -> IO (Maybe FilePath)
 findPackageFile currentDir name = do
@@ -271,18 +271,18 @@ findPackageFile currentDir name = do
   workDir <- getCurrentDirectory
   let rootCandidates = 
         [ workDir </> root </> nameAsPath
-        | root <- ["lego/prelude", "lego/examples", "lego/phi"]
+        | root <- ["prelude", "examples", "phi"]
         ] ++
         [ workDir </> root </> nameAsPathLower
-        | root <- ["lego/prelude", "lego/examples", "lego/phi"]
+        | root <- ["prelude", "examples", "phi"]
         ] ++
         -- Also search subdirectories of known roots
         [ workDir </> root </> subdir </> name ++ ".lego"
-        | root <- ["lego/examples"]
+        | root <- ["examples"]
         , subdir <- ["basics", "types", "advanced", "meta"]
         ] ++
         [ workDir </> root </> subdir </> lowerName ++ ".lego"
-        | root <- ["lego/examples"]
+        | root <- ["examples"]
         , subdir <- ["basics", "types", "advanced", "meta"]
         ]
   

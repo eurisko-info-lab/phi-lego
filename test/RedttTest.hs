@@ -29,7 +29,7 @@ isInteresting _ = True
 -- | Main test entry point
 main :: IO ()
 main = do
-  contents <- readFile "lego/examples/languages/red/RedttParser.lego"
+  contents <- readFile "examples/languages/red/RedttParser.lego"
   case parseLegoFile contents of
     Left err -> do
       putStrLn $ "Grammar parse error: " ++ err
@@ -40,7 +40,7 @@ main = do
       runGoldenDecls gramDefs
       
       -- Find all .red files
-      redFiles <- findRedFiles "lego/vendor/redtt/library"
+      redFiles <- findRedFiles "vendor/redtt/library"
       let sortedFiles = sortBy (comparing takeFileName) redFiles
       
       putStrLn $ "Found " ++ show (length sortedFiles) ++ " files\n"

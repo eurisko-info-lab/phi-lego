@@ -27,8 +27,8 @@ runAllTests = do
 -- | Run tests on .lego files
 runLegoTests :: IO ()
 runLegoTests = do
-  -- Test files from lego/examples and its subdirectories
-  let legoDir = "lego/examples"
+  -- Test files from examples and its subdirectories
+  let legoDir = "examples"
   exists <- doesDirectoryExist legoDir
   if exists then do
     legoFiles <- findLegoFilesRecursive legoDir

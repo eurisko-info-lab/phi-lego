@@ -5,7 +5,7 @@ Reference sources:
 - `redtt/src/frontend/Lex.mll` (lexer: keyword table + tokenization constraints)
 - `redtt/src/frontend/Grammar.mly` (parser: Menhir grammar for surface `econ`)
 
-Our current parser target is `lego/examples/languages/red/RedttParser.lego` as used by `cabal test redtt-test`.
+Our current parser target is `examples/languages/red/RedttParser.lego` as used by `cabal test redtt-test`.
 
 ## Status
 
@@ -59,7 +59,7 @@ RedTT supports:
 - `elim scrut in mot [| ... ]`
 - `elim in mot [| ... ]`
 
-- [x] Add `elim … in …` motive support in [lego/examples/languages/red/RedttParser.lego](lego/examples/languages/red/RedttParser.lego)
+- [x] Add `elim … in …` motive support in [examples/languages/red/RedttParser.lego](examples/languages/red/RedttParser.lego)
 - [ ] Confirm we also cover `with ... end` blocks (RedTT allows both `WITH ... END` and `[ ... ]`).
  - [x] `with ... end` blocks are supported as a second surface form (forward-compat), and covered by golden tests.
 
