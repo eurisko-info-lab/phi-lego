@@ -36,10 +36,8 @@ module Lego.GrammarInterp
     loadGrammarDefs
   , GrammarDefs(..)
   , extractKeywords
-  , extractReservedKeywords
   , extractSymbols
   , extractAllKeywords
-  , extractAllReservedKeywords
   , extractAllSymbols
     -- * Parsing (Grammar → Parser)
   , parseWith
@@ -51,9 +49,6 @@ module Lego.GrammarInterp
   , Mode(..)
   , BiState(..)
   , runGrammar
-    -- * Grammar Compilation
-  , compileGrammar
-  , CompiledGrammar(..)
     -- * Convenience parsing
   , parseTerm
   , termGrammarDefs
@@ -127,56 +122,33 @@ data GrammarDefs = GrammarDefs
 emptyGrammarDefs :: GrammarDefs
 emptyGrammarDefs = GrammarDefs S.empty S.empty M.empty []
 
+-- | Generic fold over grammar expressions (catamorphism)
+-- The function handles GLit; recursion handles everything else
+foldGrammarLits :: (String -> S.Set String) -> GrammarExpr () -> S.Set String
+foldGrammarLits f = go
+  where
+    go GEmpty = S.empty
+    go (GLit s) = f s
+    go (GRegex _) = S.empty
+    go (GChar _) = S.empty
+    go (GNode _ gs) = S.unions (map go gs)
+    go (GSeq g1 g2) = S.union (go g1) (go g2)
+    go (GAlt g1 g2) = S.union (go g1) (go g2)
+    go (GStar g) = go g
+    go (GRec _ g) = go g
+    go (GRef _) = S.empty
+    go (GBind _ g) = go g
+    go (GCut g) = go g
+    go (GVar _) = S.empty
+    go GAny = S.empty
+
 -- | Extract all keyword literals from a grammar expression
 extractKeywords :: GrammarExpr () -> S.Set String
-extractKeywords GEmpty = S.empty
-extractKeywords (GLit s) = S.singleton s
-extractKeywords (GRegex _) = S.empty  -- regex patterns are not keywords
-extractKeywords (GChar _) = S.empty  -- char classes are not keywords
-extractKeywords (GNode _ gs) = S.unions (map extractKeywords gs)
-extractKeywords (GSeq g1 g2) = S.union (extractKeywords g1) (extractKeywords g2)
-extractKeywords (GAlt g1 g2) = S.union (extractKeywords g1) (extractKeywords g2)
-extractKeywords (GStar g) = extractKeywords g
-extractKeywords (GRec _ g) = extractKeywords g
-extractKeywords (GRef _) = S.empty
-extractKeywords (GBind _ g) = extractKeywords g
-extractKeywords (GCut g) = extractKeywords g  -- cut passes through
-extractKeywords (GVar _) = S.empty
-extractKeywords GAny = S.empty
-
--- | Extract reserved keywords (for identifier rejection)
-extractReservedKeywords :: GrammarExpr () -> S.Set String
-extractReservedKeywords GEmpty = S.empty
-extractReservedKeywords (GLit _) = S.empty  -- GLit not reserved by default
-extractReservedKeywords (GRegex _) = S.empty
-extractReservedKeywords (GChar _) = S.empty
-extractReservedKeywords (GNode _ gs) = S.unions (map extractReservedKeywords gs)
-extractReservedKeywords (GSeq g1 g2) = S.union (extractReservedKeywords g1) (extractReservedKeywords g2)
-extractReservedKeywords (GAlt g1 g2) = S.union (extractReservedKeywords g1) (extractReservedKeywords g2)
-extractReservedKeywords (GStar g) = extractReservedKeywords g
-extractReservedKeywords (GRec _ g) = extractReservedKeywords g
-extractReservedKeywords (GRef _) = S.empty
-extractReservedKeywords (GBind _ g) = extractReservedKeywords g
-extractReservedKeywords (GCut g) = extractReservedKeywords g  -- cut passes through
-extractReservedKeywords (GVar _) = S.empty
-extractReservedKeywords GAny = S.empty
+extractKeywords = foldGrammarLits S.singleton
 
 -- | Extract symbol literals from a grammar expression.
 extractSymbols :: GrammarExpr () -> S.Set String
-extractSymbols GEmpty = S.empty
-extractSymbols (GLit s) = if isSymbol s then S.singleton s else S.empty
-extractSymbols (GRegex _) = S.empty
-extractSymbols (GChar _) = S.empty
-extractSymbols (GNode _ gs) = S.unions (map extractSymbols gs)
-extractSymbols (GSeq g1 g2) = S.union (extractSymbols g1) (extractSymbols g2)
-extractSymbols (GAlt g1 g2) = S.union (extractSymbols g1) (extractSymbols g2)
-extractSymbols (GStar g) = extractSymbols g
-extractSymbols (GRec _ g) = extractSymbols g
-extractSymbols (GRef _) = S.empty
-extractSymbols (GBind _ g) = extractSymbols g
-extractSymbols (GCut g) = extractSymbols g  -- cut passes through
-extractSymbols (GVar _) = S.empty
-extractSymbols GAny = S.empty
+extractSymbols = foldGrammarLits (\s -> if isSymbol s then S.singleton s else S.empty)
 
 -- | Extract all keywords from grammar definitions
 extractAllKeywords :: GrammarDefs -> S.Set String
@@ -184,11 +156,6 @@ extractAllKeywords gd =
   let fromGrammars = S.unions (map extractKeywords (M.elems (gdProductions gd)))
       fromVocab = gdKeywords gd
   in S.union fromGrammars fromVocab
-
--- | Extract only reserved keywords (backticks) from grammar definitions
-extractAllReservedKeywords :: GrammarDefs -> S.Set String
-extractAllReservedKeywords gd = 
-  S.unions (map extractReservedKeywords (M.elems (gdProductions gd)))
 
 -- | Extract all symbol literals from grammar definitions.
 -- Includes both explicit 'vocab:' symbols (if present) and symbols appearing
@@ -1032,64 +999,3 @@ termGrammarDefs = GrammarDefs
 parseTerm :: String -> Either String Term
 parseTerm input = parseWith termGrammarDefs "Term.term" input
 
---------------------------------------------------------------------------------
--- Grammar Compilation (Optimization)
---------------------------------------------------------------------------------
-
--- | Compiled grammar for faster interpretation
-data CompiledGrammar = CompiledGrammar
-  { cgFirst     :: S.Set String  -- FIRST set (tokens that can start this grammar)
-  , cgNullable  :: Bool          -- can match empty input?
-  , cgGrammar   :: GrammarExpr ()
-  , cgProds     :: M.Map String CompiledGrammar
-  } deriving (Show)
-
--- | Compile grammar definitions for optimized parsing
--- Computes FIRST sets and nullable analysis for LL(k) prediction
-compileGrammar :: GrammarDefs -> M.Map String CompiledGrammar
-compileGrammar gd = M.mapWithKey compile (gdProductions gd)
-  where
-    compile _name g = CompiledGrammar
-      { cgFirst = computeFirst g
-      , cgNullable = computeNullable g
-      , cgGrammar = g
-      , cgProds = M.empty  -- will be filled in lazily
-      }
-    
-    computeFirst :: GrammarExpr () -> S.Set String
-    computeFirst GEmpty = S.empty
-    computeFirst (GLit s) = S.singleton s
-    computeFirst (GRegex s) = S.singleton s
-    computeFirst (GChar s) = S.singleton s
-    computeFirst (GSeq g1 g2) 
-      | computeNullable g1 = S.union (computeFirst g1) (computeFirst g2)
-      | otherwise = computeFirst g1
-    computeFirst (GAlt g1 g2) = S.union (computeFirst g1) (computeFirst g2)
-    computeFirst (GStar g) = computeFirst g
-    computeFirst (GRec _ g) = computeFirst g
-    computeFirst (GRef name) = case M.lookup name (gdProductions gd) of
-      Just g -> computeFirst g
-      Nothing -> S.empty
-    computeFirst (GBind _ g) = computeFirst g
-    computeFirst (GCut g) = computeFirst g  -- cut passes through
-    computeFirst (GVar _) = S.empty
-    computeFirst (GNode _ _) = S.empty
-    computeFirst GAny = S.empty  -- special: matches anything
-    
-    computeNullable :: GrammarExpr () -> Bool
-    computeNullable GEmpty = True
-    computeNullable (GLit _) = False
-    computeNullable (GRegex _) = False
-    computeNullable (GChar _) = False
-    computeNullable (GSeq g1 g2) = computeNullable g1 && computeNullable g2
-    computeNullable (GAlt g1 g2) = computeNullable g1 || computeNullable g2
-    computeNullable (GStar _) = True
-    computeNullable (GRec _ g) = computeNullable g  -- approximation
-    computeNullable (GRef name) = case M.lookup name (gdProductions gd) of
-      Just g -> computeNullable g
-      Nothing -> False
-    computeNullable (GBind _ g) = computeNullable g
-    computeNullable (GCut g) = computeNullable g  -- cut passes through
-    computeNullable (GVar _) = True
-    computeNullable (GNode _ args) = all computeNullable args
-    computeNullable GAny = False
