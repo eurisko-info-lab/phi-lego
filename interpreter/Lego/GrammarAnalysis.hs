@@ -26,6 +26,11 @@ module Lego.GrammarAnalysis
   , collectLiterals
     -- * Vocabulary Building
   , buildVocabFromGrammar
+    -- * Vocabulary Inference
+  , InferredVocab(..)
+  , inferVocab
+  , inferCutPoints
+  , CutPoint(..)
     -- * Production Analysis
   , scanProductions
   , checkProductionNaming
@@ -42,7 +47,7 @@ import qualified Data.Set as S
 
 import Lego
   ( GrammarExpr
-  , pattern GEmpty, pattern GLit, pattern GSyntax, pattern GNode
+  , pattern GEmpty, pattern GLit, pattern GSyntax, pattern GKeyword, pattern GNode
   , pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef
   , pattern GBind, pattern GCut, pattern GAny
   )
@@ -103,6 +108,100 @@ buildVocabFromGrammar name conv grammar =
     , vocabSpecial = M.empty
     , vocabSource = name
     }
+
+--------------------------------------------------------------------------------
+-- Vocabulary Inference
+--------------------------------------------------------------------------------
+
+-- | Inferred vocabulary from grammar analysis
+--
+-- This is computed automatically by scanning the grammar for:
+--   - GKeyword (backtick literals): reserved keywords
+--   - GSyntax (single-quoted): syntax markers (parens, etc.)
+--   - GLit (double-quoted): literal matches
+data InferredVocab = InferredVocab
+  { ivKeywords   :: Set String  -- Backtick `let` → reserved
+  , ivSymbols    :: Set String  -- Single-char operators and punctuation
+  , ivLiterals   :: Set String  -- All literals (for lexer hints)
+  , ivCutPoints  :: [CutPoint]  -- Where to auto-insert cuts
+  } deriving (Show, Eq)
+
+-- | A point where a cut should be inserted for better error recovery
+data CutPoint = CutPoint
+  { cpProduction :: String  -- Production name
+  , cpKeyword    :: String  -- Keyword after which to cut
+  , cpPosition   :: Int     -- Position in production (for multi-keyword prods)
+  } deriving (Show, Eq)
+
+-- | Infer vocabulary from grammar by scanning all productions
+--
+-- This replaces manual vocab: declarations in most cases.
+-- The grammar itself declares what's reserved via construct choice:
+--   - GKeyword `x` → x is reserved (cannot be identifier)
+--   - GSyntax 'x' → x is syntax (punctuation)
+--   - GLit "x" → x is literal (match exactly)
+inferVocab :: Map String (GrammarExpr a) -> InferredVocab
+inferVocab grammar = InferredVocab
+  { ivKeywords  = S.fromList $ concatMap collectKeywords (M.elems grammar)
+  , ivSymbols   = S.fromList $ filter isSymbol allLits
+  , ivLiterals  = S.fromList allLits
+  , ivCutPoints = inferCutPoints grammar
+  }
+  where
+    allLits = concatMap collectLiterals (M.elems grammar)
+
+-- | Collect GKeyword (backtick) reserved words
+collectKeywords :: GrammarExpr a -> [String]
+collectKeywords = \case
+  GKeyword s -> [s]
+  GSeq g1 g2 -> collectKeywords g1 ++ collectKeywords g2
+  GAlt g1 g2 -> collectKeywords g1 ++ collectKeywords g2
+  GStar g -> collectKeywords g
+  GRec _ g -> collectKeywords g
+  GBind _ g -> collectKeywords g
+  GCut g -> collectKeywords g
+  GNode _ gs -> concatMap collectKeywords gs
+  _ -> []
+
+-- | Infer where cuts should be inserted for error recovery
+--
+-- Strategy: A cut should follow any keyword that STARTS a production alternative.
+-- This commits the parse after seeing the keyword, preventing backtracking.
+--
+-- Example:
+--   ruleDecl ::= "rule" name ":" pattern "~>" template
+--   After seeing "rule", we commit - if the rest fails, don't try other alts.
+inferCutPoints :: Map String (GrammarExpr a) -> [CutPoint]
+inferCutPoints grammar = 
+  concatMap (uncurry findCutPoints) (M.toList grammar)
+
+-- | Find cut points in a single production
+findCutPoints :: String -> GrammarExpr a -> [CutPoint]
+findCutPoints prodName = go 0
+  where
+    go pos g = case g of
+      -- A literal/keyword at the start of a production is a cut point
+      GLit kw | isKeywordLike kw -> [CutPoint prodName kw pos]
+      GKeyword kw -> [CutPoint prodName kw pos]
+      
+      -- Alternatives: find cut points in each branch
+      GAlt g1 g2 -> go pos g1 ++ go pos g2
+      
+      -- Sequence: only look at the first element
+      GSeq g1 _ -> go pos g1
+      
+      -- Recurse through structure
+      GRec _ g' -> go pos g'
+      GBind _ g' -> go pos g'
+      
+      -- Already has cut - don't duplicate
+      GCut _ -> []
+      
+      _ -> []
+    
+    -- Keywords are alphabetic identifiers (not symbols)
+    isKeywordLike s = not (null s) && all isAlphaLike s
+    isAlphaLike c = c `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'])
 
 --------------------------------------------------------------------------------
 -- Production Naming Analysis

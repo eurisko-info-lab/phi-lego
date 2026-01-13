@@ -23,6 +23,31 @@
 
 ## In Progress 🔶
 
+### Priority 2: Composition & Conflict System (January 2026)
+
+Multi-level pushout composition with algebraic law verification:
+
+#### Phase 1: Pushout Laws & Conflict Detection
+- [ ] `poLangFull`: pushout with conflict reporting
+- [ ] Conflict types: `GrammarConflict`, `RuleConflict`, `VocabConflict`
+- [ ] Law test syntax: `law "name": (A + B) ≅ (B + A)`
+- [ ] Test file: `examples/meta/PushoutLaws.lego`
+
+#### Phase 2: Automatic Vocab Inference
+- [ ] `inferVocab`: scan grammar → keywords/symbols/literals
+- [ ] `inferCutPoints`: auto-detect where cuts should go (after prod-initial keywords)
+- [ ] Remove manual `vocab:` when derivable from grammar
+
+#### Phase 3: Local (Scoped) Keywords
+- [ ] Two-phase tokenization: atoms first, then per-production classification
+- [ ] Backtick `` `in` `` reserved only within its production scope
+- [ ] Prevents greedy identifier capture in nested contexts
+
+#### Phase 4: Declarative Cuts & Composition Syntax
+- [ ] `@autocut` annotation on productions
+- [ ] `inherit Base.Term` syntax for grammar composition
+- [ ] Conflict resolution: local shadows inherited
+
 ### Test Coverage (195/234 = 83%)
 - 39 failing tests in `.lego` files
 - Most are grammar-only files needing reduction rules
@@ -34,12 +59,12 @@
 
 ## Future Work 📋
 
-### Priority 2: Language Features
+### Priority 3: Language Features
 - [ ] Add reduction rules to grammar-only files
 - [ ] Type checking (optional)
 - [ ] Module system enhancements
 
-### Priority 3: Advanced
+### Priority 4: Advanced
 - [ ] Interaction net compilation
 - [ ] Optimal reduction backend
 - [ ] Self-hosting (Lego parser in Lego)

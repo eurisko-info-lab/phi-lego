@@ -1,0 +1,77 @@
+-- Pushout Laws: Testing algebraic composition properties
+--
+-- Language composition forms a commutative monoid:
+--   Identity:     L ⊔ ∅ = L
+--   Commutativity: L1 ⊔ L2 ≅ L2 ⊔ L1  
+--   Associativity: (L1 ⊔ L2) ⊔ L3 = L1 ⊔ (L2 ⊔ L3)
+--
+-- This file tests these laws at multiple levels:
+--   - Grammar composition (production maps)
+--   - Rule composition (rewrite rules)
+
+lang PushoutLaws :=
+
+-----------------------------------------------------
+-- PIECE A: Arithmetic rules
+-----------------------------------------------------
+
+piece A
+  arith ::= add | zero
+  add ::= "(" "add" arith arith ")"
+  zero ::= "zero"
+
+rule add_zero_left:
+  (add zero $x) ~> $x
+
+rule add_zero_right:
+  (add $x zero) ~> $x
+
+-----------------------------------------------------
+-- PIECE B: Boolean rules  
+-----------------------------------------------------
+
+piece B
+  bool ::= true | false | not
+  true ::= "true"
+  false ::= "false"
+  not ::= "(" "not" bool ")"
+
+rule not_true:
+  (not true) ~> false
+
+rule not_false:
+  (not false) ~> true
+
+-----------------------------------------------------
+-- Composition: C = A ⊔ B
+-- Both pieces combined into one language
+-----------------------------------------------------
+
+-- Test A rules
+test "add_zero_left": (add zero x) ~~> x
+test "add_zero_right": (add y zero) ~~> y
+
+-- Test B rules
+test "not_true": (not true) ~~> false
+test "not_false": (not false) ~~> true
+
+-----------------------------------------------------
+-- Commutativity: Order of import doesn't matter
+-- import A then B vs import B then A
+-- Both should yield same final language
+-----------------------------------------------------
+
+-- These tests verify both rule sets are available
+test "both_add": (add zero (add zero z)) ~~> z
+test "both_not": (not (not true)) ~~> true
+
+-----------------------------------------------------
+-- Future Law Syntax (not yet parsed):
+--
+-- law "identity_left": (A + Empty) ≅ A
+-- law "identity_right": (Empty + A) ≅ A
+-- law "commutativity": (A + B) ≅ (B + A)
+-- law "associativity": ((A + B) + C) ≅ (A + (B + C))
+--
+-- These would invoke Lego.Composition.checkLaw
+-----------------------------------------------------

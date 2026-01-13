@@ -35,6 +35,7 @@ library
         Lego.Token
         Lego.Vocabulary
         Lego.GrammarAnalysis
+        Lego.Composition
         Lego.Eval
         Lego.Registry
         Lego.GrammarInterp
