@@ -1,0 +1,56 @@
+-- StringOps.lego: Test string operations
+--
+-- Tests the new string builtins for text transformation
+
+lang StringOps :=
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+
+-- concat
+test "concat_test": (concat "hello" " world") ~~> "hello world"
+
+-- startsWith
+test "prefix_yes": (startsWith "he" "hello") ~~> true
+test "prefix_no": (startsWith "wo" "hello") ~~> false
+
+-- endsWith
+test "suffix_yes": (endsWith "lo" "hello") ~~> true
+test "suffix_no": (endsWith "he" "hello") ~~> false
+
+-- contains
+test "contains_yes": (contains "ell" "hello") ~~> true
+test "contains_no": (contains "xyz" "hello") ~~> false
+
+-- replace
+test "replace_test": (replace "old" "new" "old is old") ~~> "new is new"
+
+-- take/drop
+test "take_test": (take "3" "hello") ~~> "hel"
+test "drop_test": (drop "2" "hello") ~~> "llo"
+
+-- length
+test "length_test": (length "hello") ~~> "5"
+
+-- strip
+test "strip_test": (strip "  hello  ") ~~> "hello"
+
+-- case conversion
+test "upper_test": (toUpper "hello") ~~> "HELLO"
+test "lower_test": (toLower "HELLO") ~~> "hello"
+
+-- charAt
+test "char_test": (charAt "1" "hello") ~~> "e"
+
+-- substring
+test "substr_test": (substring "1" "4" "hello") ~~> "ell"
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for StringOps
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: string operations
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

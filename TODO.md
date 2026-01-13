@@ -1,0 +1,55 @@
+# Lego TODO
+
+> **Current Status**: 195/234 lego tests • 725/725 redtt parsing (100%)
+
+## Completed ✅
+
+### Infrastructure
+- ✅ **Standalone package**: `lego.cabal` with library + executables
+- ✅ **Grammar.sexpr**: Portable grammar format, source of truth
+- ✅ **GrammarAnalysis**: `collectLiterals` for vocab extraction
+- ✅ **Bidirectional parsing**: Same grammar for parse AND print
+- ✅ **RedTT parsing**: 725/725 declarations (100%)
+
+### Error Handling
+- ✅ **Rule Tracing**: `TraceStep`, `normalizeTrace`, `formatTrace`
+- ✅ **Structured Errors**: `LegoError` with `SrcSpan` locations
+- ✅ **Enhanced Tests**: Boolean combinators, wildcards
+
+## In Progress 🔶
+
+### Test Coverage (195/234 = 83%)
+- 39 failing tests in `.lego` files
+- Most are grammar-only files needing reduction rules
+- See [EXECUTABLE-STATUS.md](EXECUTABLE-STATUS.md) for details
+
+### Grammar Completeness
+- Parser support for extended test syntax (`via`, `steps`)
+- File-level grammar productions (replace hand-coded dispatch)
+
+## Future Work 📋
+
+### Priority 1: Core Improvements
+- [ ] Pure grammar-driven parsing (no hand-coded dispatch)
+- [ ] Better error recovery with keyword cuts
+- [ ] Location tracking through normalization
+
+### Priority 2: Language Features
+- [ ] Add reduction rules to grammar-only files
+- [ ] Type checking (optional)
+- [ ] Module system enhancements
+
+### Priority 3: Advanced
+- [ ] Interaction net compilation
+- [ ] Optimal reduction backend
+- [ ] Self-hosting (Lego parser in Lego)
+
+## Test Syntax (Implemented Types, Parser TODO)
+
+```
+test "name": term                           -- parse only
+test "name": term ~~> expected              -- normalize & check
+test "name": term ~~> _                     -- wildcard (any result OK)
+test "name": term ~~> expected via beta     -- require specific rule
+test "name": term ~~> expected steps 3      -- exact step count
+```

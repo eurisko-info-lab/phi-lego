@@ -1,0 +1,125 @@
+-- Phi Grammar: Extension of Lego for meta-language definitions
+-- Phi adds composition operators and section-based syntax
+--
+-- Lego (base):  language, piece, rule, test, import, is, with
+-- Phi (extends): lang :=, grammar:, rules:, tests:, vocab:, +, ⊔
+
+language PhiGrammar is LegoGrammar with:
+
+-----------------------------------------------------
+-- Phi-specific Vocabulary
+-----------------------------------------------------
+
+vocab:
+  keywords lang vocab grammar rules tests types when sig def
+  symbols  + ⊔
+
+-----------------------------------------------------
+-- PIECE: PhiLang
+-- Lang definition with composition syntax
+-- This is the "meta-language" for defining languages
+-----------------------------------------------------
+
+piece PhiLang
+  -- Composition: lang Name := A + B + C
+  phiLang ::= "lang" name:ident ":=" comp:composition
+                                                 → ⟨DLang name (map DImport comp)⟩
+            | "lang" name:ident ":=" body:phiBody
+                                                 → ⟨DLang name body⟩
+  
+  composition ::= b1:ident "+" rest:composition  → ⟨cons b1 rest⟩
+                | b1:ident "⊔" rest:composition  → ⟨cons b1 rest⟩
+                | b:ident                        → ⟨list b⟩
+
+-----------------------------------------------------
+-- PIECE: PhiBody
+-- Section-based lang body (phi-style)
+-----------------------------------------------------
+
+piece PhiBody
+  phiBody ::= decls:phiDecl*                     → decls
+  
+  phiDecl ::= importDecl 
+            | vocabSection 
+            | grammarSection 
+            | rulesSection 
+            | testsSection
+            | typesSection
+  
+  -- Sections with colon syntax
+  vocabSection ::= "vocab" ":" kws:keywordDecl? syms:symbolDecl?
+                                                 → ⟨DVocab kws syms⟩
+  
+  keywordDecl ::= "keywords" kws:ident*          → kws
+  symbolDecl  ::= "symbols" syms:symbol*         → syms
+  
+  grammarSection ::= "grammar" ":" ps:production*
+                                                 → ⟨DGrammar ps⟩
+  
+  rulesSection ::= "rules" ":" rs:phiRule*       → ⟨DRules rs⟩
+  
+  testsSection ::= "tests" ":" ts:phiTest*       → ⟨DTests ts⟩
+  
+  typesSection ::= "types" ":" trs:typeRule*     → ⟨DTypes trs⟩
+
+-----------------------------------------------------
+-- PIECE: PhiRule  
+-- Rules with optional guards
+-----------------------------------------------------
+
+piece PhiRule
+  phiRule ::= p:pattern "~>" t:template g:guard?
+                                                 → ⟨Rule p t g⟩
+            | p:pattern "~~>" t:template g:guard?
+                                                 → ⟨Rule p t g⟩
+  
+  guard ::= "when" c:condition                   → c
+  
+  condition ::= "(" op:ident args:term* ")"      → ⟨Cond op args⟩
+
+-----------------------------------------------------
+-- PIECE: PhiTest
+-- Test declarations (phi-style, colon not required)
+-----------------------------------------------------
+
+piece PhiTest
+  phiTest ::= name:ident ":" input:term "~>" expected:term
+                                                 → ⟨Test name input expected⟩
+            | name:ident ":" input:term "~~>" expected:term
+                                                 → ⟨Test name input expected⟩
+            | name:ident ":" input:term "=>" expected:term
+                                                 → ⟨Test name input expected⟩
+
+-----------------------------------------------------
+-- PIECE: TypeRule
+-- Type inference rules
+-----------------------------------------------------
+
+piece TypeRule
+  typeRule ::= name:ident ":" ctx:context "⊢" term:term ":" type:term
+                                                 → ⟨TypeRule name ctx term type⟩
+  
+  context ::= bindings:binding*                  → bindings
+  binding ::= x:ident ":" t:term                 → ⟨x t⟩
+
+-----------------------------------------------------
+-- PIECE: PhiFile
+-- Complete phi file structure
+-----------------------------------------------------
+
+piece PhiFile
+  phiFile ::= decls:phiFileDecl*                 → decls
+  
+  phiFileDecl ::= phiLang | importDecl | lang | pieceDecl
+
+-----------------------------------------------------
+-- Relationship to Lego
+-- 
+-- Phi extends Lego's grammar with:
+-- 1. lang Name := ... (composition syntax)
+-- 2. Section headers (grammar:, rules:, tests:)
+-- 3. Composition operators (+, ⊔)
+--
+-- A phi file can import lego pieces and extend them.
+-- The GrammarParser handles both syntaxes.
+-----------------------------------------------------

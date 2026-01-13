@@ -1,0 +1,118 @@
+-- Phi in Lego: Core Types
+-- This is the Lego equivalent of src/Phi.hs
+
+lang Graph :=
+  -- Graph = Monoid of nodes + edges
+  -- The carrier set for all language composition
+  
+  grammar:
+    graph := "{" nodes:node* edges:edge* "}"
+    node  := id:Name ":" label:Name
+    edge  := port1:Port "~" port2:Port
+    Port  := id:Name "." slot:Name
+  
+  -- Monoid laws (axioms, not reduction rules)
+  -- {} <> G = G (left identity)
+  -- G <> {} = G (right identity)
+  -- (G1 <> G2) <> G3 = G1 <> (G2 <> G3) (associativity)
+
+lang Name :=
+  -- Names are the atomic set
+  -- Just identifiers, no structure
+  
+  grammar:
+    name := <identifier>
+
+lang GrammarExpr :=
+  -- Grammar = Free Algebra
+  -- Syntax specification as expression
+  
+  grammar:
+    -- Empty (unit)
+    | "ε"                              → ⟨empty⟩
+    
+    -- Literal token
+    | "\"" tok:Name "\""               → ⟨lit tok⟩
+    
+    -- Node constructor
+    | "⟨" con:Name args:GrammarExpr* "⟩" → ⟨node con args⟩
+    
+    -- Sequence (monoidal)
+    | g1:GrammarExpr "·" g2:GrammarExpr → ⟨seq g1 g2⟩
+    
+    -- Alternative (coproduct)
+    | g1:GrammarExpr "|" g2:GrammarExpr → ⟨alt g1 g2⟩
+    
+    -- Kleene star (free monoid)
+    | g:GrammarExpr "*"                 → ⟨star g⟩
+    
+    -- Recursion (fixed point)
+    | "μ" x:Name "." g:GrammarExpr      → ⟨rec x g⟩
+    
+    -- Reference
+    | x:Name                            → ⟨ref x⟩
+    
+    -- Binding (capture)
+    | x:Name "←" g:GrammarExpr          → ⟨bind x g⟩
+    
+    -- Variable (use captured)
+    | "$" x:Name                        → ⟨var x⟩
+
+lang Rule :=
+  -- Rule = Rewrite specification
+  -- Pattern → Template
+  
+  import GrammarExpr
+  
+  grammar:
+    rule     := pat:Pattern "~>" tmpl:Template guard:Guard?
+    Pattern  := "$" x:Name              → ⟨pvar x⟩
+              | "(" con:Name args:Pattern* ")" → ⟨pcon con args⟩
+              | lit:Name                → ⟨plit lit⟩
+    Template := "$" x:Name              → ⟨tvar x⟩
+              | "(" con:Name args:Template* ")" → ⟨tcon con args⟩
+              | "[" x:Name ":=" t1:Template "]" t2:Template → ⟨subst x t1 t2⟩
+              | lit:Name                → ⟨tlit lit⟩
+    Guard    := "when" cond:Term
+
+lang Lang :=
+  -- Lang = Initial Algebra (μLangF)
+  -- The fixed point of the language functor
+  
+  import Name
+  import Graph
+  import GrammarExpr
+  import Rule
+  
+  grammar:
+    lang := "lang" name:Name ":=" body:LangBody
+    
+    LangBody := vocab:Vocab?
+                grammar:GrammarSection?
+                rules:RulesSection?
+                types:TypesSection?
+                tests:TestsSection?
+    
+    Vocab := "vocab" ":" "{" keywords:Name* "}" "{" symbols:Name* "}"
+    
+    GrammarSection := "grammar" ":" prods:Production*
+    Production := name:Name ":=" g:GrammarExpr
+    
+    RulesSection := "rules" ":" rules:Rule*
+    
+    TypesSection := "types" ":" typerules:TypeRule*
+    TypeRule := premises:Judgement* "───" name:Name conclusion:Judgement
+    Judgement := ctx:Name "⊢" term:Term ":" type:Term
+    
+    TestsSection := "tests" ":" tests:Test*
+    Test := name:Name ":" input:Term "~~>" expected:Term
+  
+  -- The fundamental operation: PUSHOUT
+  -- L1 ⊔ L2 = poLang L1 L2
+  rules:
+    -- Composition is associative
+    (pushout (pushout $a $b) $c) ~> (pushout $a (pushout $b $c))
+    
+    -- Empty language is identity
+    (pushout empty $l) ~> $l
+    (pushout $l empty) ~> $l

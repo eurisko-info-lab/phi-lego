@@ -1,0 +1,71 @@
+-- TypeFamilies.lego: Type families (type-level functions)
+-- Haskell-style associated types and type functions
+-- Composes: TypeLevel
+
+import TypeLevel
+
+lang TypeFamilies (TypeLevel) :=
+
+-----------------------------------------------------
+-- Open type families
+-----------------------------------------------------
+piece OpenFamily
+  openfam ::= "type" "family" name params "::" kind
+            | "type" "instance" name types "=" type
+  types ::= type | type types
+
+-----------------------------------------------------
+-- Closed type families
+-----------------------------------------------------
+piece ClosedFamily
+  closedfam ::= "type" "family" name params "::" kind "where" "{" tfeqns "}"
+  tfeqns ::= tfeqn | tfeqn ";" tfeqns
+  tfeqn ::= name types "=" type
+
+-----------------------------------------------------
+-- Associated type families
+-----------------------------------------------------
+piece Associated
+  assoc ::= "class" name params "where" "{" assocdef "}"
+  assocdef ::= "type" name params "::" kind
+             | assocdef ";" assocdef
+
+-----------------------------------------------------
+-- Data families
+-----------------------------------------------------
+piece DataFamily
+  datafam ::= "data" "family" name params "::" kind
+            | "data" "instance" name types "where" "{" constructors "}"
+  constructors ::= constructor | constructor ";" constructors
+  constructor ::= name ":" type
+
+-----------------------------------------------------
+-- Type family injectivity
+-----------------------------------------------------
+piece Injectivity
+  inject ::= name "=" name "|" injspec
+  injspec ::= "result" "→" params
+            | params "→" "result"
+
+-----------------------------------------------------
+-- Rules (type computation)
+-----------------------------------------------------
+rule tf_reduce:
+  (TF $fam $args) ~> (lookup-tf $fam $args)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "type_family": (type family Elem c :: *)
+test "instance": (type instance Elem (List a) = a)
+test "closed": (type family If b t f :: * where { If True t f = t ; If False t f = f })
+test "data_family": (data family Array n a :: *)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for TypeFamilies
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

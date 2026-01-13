@@ -1,0 +1,86 @@
+-- GADTs.lego: Generalized Algebraic Data Types
+-- Type-indexed constructors with refined return types
+-- Composes: TypeLevel
+
+import TypeLevel
+
+lang GADTs (TypeLevel) :=
+
+-----------------------------------------------------
+-- GADT declarations
+-----------------------------------------------------
+piece GADTDecl
+  gadt ::= "data" name params "where" "{" gadtcons "}"
+  gadtcons ::= gadtcon_single | gadtcons_cons
+  gadtcon_single ::= gadtcon
+  gadtcons_cons ::= gadtcon ";" gadtcons
+  gadtcon ::= name "::" gadtsig
+  gadtsig ::= gadtsig_forall | gadtsig_constraint | gadtsig_type
+  gadtsig_forall ::= "forall" name "." gadtsig
+  gadtsig_constraint ::= constraints "=>" gadtsig
+  gadtsig_type ::= type
+
+  test "gadt_decl": (gadt Expr (params a) (gadtcon_single (gadtcon Lit (gadtsig_type (arrow Nat (Expr Nat))))))
+
+-----------------------------------------------------
+-- Type equality constraints
+-----------------------------------------------------
+piece TypeEqConstraint
+  teq ::= type_eq | type_heq | coercible
+  type_eq ::= type "~" type             -- type equality
+  type_heq ::= type "~~" type           -- heterogeneous equality
+  coercible ::= "Coercible" type type   -- safe coercion
+
+  constraints ::= constraint_single | constraints_tuple
+  constraint_single ::= constraint
+  constraints_tuple ::= "(" constraint "," constraints ")"
+  constraint ::= constraint_eq | constraint_class
+  constraint_eq ::= type "~" type
+  constraint_class ::= name type
+
+  rule type_eq_refl:
+    (type_eq $T $T) ~> (Refl $T)
+
+  test "type_eq": (type_eq Nat Nat)
+
+-----------------------------------------------------
+-- GADT pattern matching
+-----------------------------------------------------
+piece GADTMatch
+  gadtmatch ::= "case" term "of" "{" gadtbranches "}"
+  gadtbranches ::= gadtbranch_single | gadtbranches_cons
+  gadtbranch_single ::= gadtbranch
+  gadtbranches_cons ::= gadtbranch ";" gadtbranches
+  gadtbranch ::= name patlist "=>" term  -- with type refinement
+
+  test "gadt_match": (gadtmatch e (gadtbranch_single (gadtbranch Lit (n) n)))
+
+-----------------------------------------------------
+-- Existential quantification
+-----------------------------------------------------
+piece Existential
+  exist ::= exist_type | exist_pack | exist_unpack
+  exist_type ::= "exists" name "." type
+  exist_pack ::= "pack" type term "as" type
+  exist_unpack ::= "unpack" term "as" "(" name "," name ")" "in" term
+
+  test "exists": (exist_type a (pair (Show a) a))
+
+-----------------------------------------------------
+-- Type refinement
+-----------------------------------------------------
+piece TypeRefine
+  refine ::= refine_by | cast_type
+  refine_by ::= "refine" type "by" teq
+  cast_type ::= "cast" term ":" type "~" type
+
+  test "refine": (refine_by T (type_eq Nat Nat))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for GADTs
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

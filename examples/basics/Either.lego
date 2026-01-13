@@ -1,0 +1,73 @@
+-- Either.lego: Either/Result type with left/right
+-- Exercises: sum type patterns, bimap
+
+lang Either :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Either
+  either ::= left | right
+  left ::= "(" "left" term ")"
+  right ::= "(" "right" term ")"
+  term ::= name | num | either | mapLeft | mapRight | bimap | fold
+
+piece Ops
+  mapLeft ::= "(" "mapLeft" term either ")"
+  mapRight ::= "(" "mapRight" term either ")"
+  bimap ::= "(" "bimap" term term either ")"
+  fold ::= "(" "fold" term term either ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule mapLeft_left:
+  (mapLeft $f (left $x)) ~> (left ($f $x))
+
+rule mapLeft_right:
+  (mapLeft $f (right $x)) ~> (right $x)
+
+rule mapRight_left:
+  (mapRight $f (left $x)) ~> (left $x)
+
+rule mapRight_right:
+  (mapRight $f (right $x)) ~> (right ($f $x))
+
+rule bimap_left:
+  (bimap $f $g (left $x)) ~> (left ($f $x))
+
+rule bimap_right:
+  (bimap $f $g (right $x)) ~> (right ($g $x))
+
+rule fold_left:
+  (fold $f $g (left $x)) ~> ($f $x)
+
+rule fold_right:
+  (fold $f $g (right $x)) ~> ($g $x)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "left_val": (left error)
+test "right_val": (right success)
+
+test "mapLeft_left_test": (mapLeft f (left x)) ~~> (left (app f x))
+test "mapLeft_right_test": (mapLeft f (right x)) ~~> (right x)
+
+test "mapRight_left_test": (mapRight f (left x)) ~~> (left x)
+test "mapRight_right_test": (mapRight f (right x)) ~~> (right (app f x))
+
+test "bimap_left_test": (bimap f g (left x)) ~~> (left (app f x))
+test "bimap_right_test": (bimap f g (right x)) ~~> (right (app g x))
+
+test "fold_left_test": (fold onError onSuccess (left err)) ~~> (app onError err)
+test "fold_right_test": (fold onError onSuccess (right val)) ~~> (app onSuccess val)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Either
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: mapLeft, mapRight, bimap, fold
+-- [x] Normalization: either ops reduce correctly
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,102 @@
+-- Phi in Lego: First-Class Continuations
+-- This is the Lego equivalent of src/Phi/Type/Cont.hs
+
+lang Cont :=
+  import Type
+  import Effect
+  
+  -- Continuation: "the rest of the computation"
+  -- Cont r a = (a -> r) -> r
+  
+  grammar:
+    ContType ::= 'Cont' Ty Ty  -- Cont r a
+    
+  rules:
+    -- call/cc : ((a -> Cont r b) -> Cont r a) -> Cont r a
+    -- "call with current continuation"
+    (typeof callcc) ~>
+      (pi $r type
+        (pi $a type
+          (arrow (arrow (arrow $a (cont $r $b)) (cont $r $a))
+                 (cont $r $a))))
+    
+    -- Monad instance for Cont
+    (typeof (return-cont $x)) ~> 
+      (cont $r (typeof $x))
+    
+    (return-cont $a) ~> (fn $k ($k $a))
+    
+    (bind-cont $m $f) ~>
+      (fn $k ($m (fn $a (($f $a) $k))))
+    
+    -- call/cc implementation
+    (callcc $f) ~>
+      (fn $k (($f (fn $a (fn $k' ($k $a)))) $k))
+    
+    -- abort: discard continuation
+    (abort $v) ~> (fn $k $v)
+    
+    -- shift/reset: delimited continuations
+    (reset $comp) ~> ($comp id)
+    
+    (shift $f) ~>
+      (fn $k ($f $k))
+
+lang Prompt :=
+  import Cont
+  
+  -- Prompt-based delimited continuations
+  -- More structured than shift/reset
+  
+  grammar:
+    PromptType ::= 'Prompt' Ty
+    
+  rules:
+    -- newPrompt : () -> Prompt a
+    -- pushPrompt : Prompt a -> Cont a a -> Cont r a
+    -- withSubCont : Prompt a -> ((Cont a b) -> Cont a a) -> Cont r b
+    
+    (typeof newPrompt) ~>
+      (arrow unit (prompt $a))
+    
+    (typeof (pushPrompt $p $m)) ~>
+      (case (typeof $p)
+        (prompt $a)
+          (case (typeof $m)
+            (cont $a $a) (cont $r $a)))
+    
+    (typeof (withSubCont $p $f)) ~>
+      (case (typeof $p)
+        (prompt $a)
+          (cont $r $b))
+    
+    -- Implementation via effect-like semantics
+    (evalPrompt (return $v) $stack) ~> $v
+    
+    (evalPrompt (pushPrompt $p $m) $stack) ~>
+      (evalPrompt $m (push $p $stack))
+    
+    (evalPrompt (withSubCont $p $f) $stack) ~>
+      (let ($above $below) (splitAt $p $stack)
+        (evalPrompt ($f (composeCont $above)) $below))
+
+lang ContExamples :=
+  import Cont
+  import Prompt
+  
+  -- Example: exception via callcc
+  rules:
+    (tryCatch $try $catch) ~>
+      (callcc (fn $throw
+        (let $result ($try (fn $e (abort ($catch $e))))
+          (return-cont $result))))
+    
+    -- Example: generators via shift/reset
+    (yield $v) ~>
+      (shift (fn $k (cons $v (reset ($k unit)))))
+    
+    (runGenerator $gen) ~>
+      (reset $gen)
+
+-- Composition
+lang ContLang := Cont + Prompt + ContExamples

@@ -1,0 +1,64 @@
+-- Observational.lego: Observational Type Theory (OTT)
+-- Propositional equality that computes
+-- Composes: Base + Equality
+
+import Base
+
+lang Observational (Base) :=
+
+-----------------------------------------------------
+-- Observational equality
+-----------------------------------------------------
+piece ObsEq
+  obseq ::= obs_eq | obs_coe | obs_coh
+  obs_eq ::= term "~" term ":" term    -- a ~ b : A (equality at type)
+  obs_coe ::= "coe" term term term     -- coercion
+  obs_coh ::= "coh" term               -- coherence
+
+  rule coe_refl:
+    (obs_coe $A $A $a) ~> $a
+
+  test "obs_eq": (obs_eq true true Bool)
+  test "coe": (obs_coe Bool Bool true)
+
+-----------------------------------------------------
+-- Type equality (structural)
+-----------------------------------------------------
+piece TypeEq
+  typeq ::= tyeq | tyeq_refl
+  tyeq ::= "TyEq" term term          -- type equality
+  tyeq_refl ::= "refl_ty"            -- reflexivity for types
+
+  test "type_eq": (tyeq Bool Bool)
+
+-----------------------------------------------------
+-- Propositional vs definitional
+-----------------------------------------------------
+piece PropDef
+  pdef ::= prop_content | def_content | prop_irr
+  prop_content ::= "prop" term        -- propositional content
+  def_content ::= "def" term          -- definitional content
+  prop_irr ::= "prop_irr" term        -- proof irrelevance
+
+  test "prop": (prop_content x)
+
+-----------------------------------------------------
+-- Quotient types
+-----------------------------------------------------
+piece Quotient
+  quot ::= quot_type | equiv_class | quot_lift | quot_elim
+  quot_type ::= term "/" term              -- quotient type
+  equiv_class ::= "cls" term               -- equivalence class (renamed from [])
+  quot_lift ::= "lift" term term           -- lift function
+  quot_elim ::= "quot_elim" term term      -- elimination
+
+  test "quotient": (quot_type Int (obs_eq x y Int))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Observational
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

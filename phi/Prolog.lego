@@ -1,0 +1,136 @@
+-- Phi in Lego: Prolog / Logic Programming
+-- This is the Lego equivalent of src/Phi/Logic/Prolog.hs
+
+lang Prolog :=
+  import Term
+  
+  -- Prolog: Horn clauses with unification and backtracking
+  
+  grammar:
+    Atom ::= identifier '(' Term* ')'
+    Clause ::= Atom ':-' Atom* '.'
+    Query ::= '?-' Atom* '.'
+    
+  -- A clause H :- B1, ..., Bn means:
+  -- To prove H, prove all of B1...Bn
+  
+  rules:
+    -- Empty goal: success
+    (solve nil $subst) ~> (yield $subst)
+    
+    -- Non-empty goal: resolve first, then rest
+    (solve (cons $goal $goals) $subst) ~>
+      (flatMap
+        (fn $clause
+          (let ($head $body) (freshen $clause)
+            (case (unify $goal $head $subst)
+              nothing fail
+              (just $subst')
+                (solve (append $body $goals) $subst'))))
+        (clausesFor (predicate $goal)))
+    
+    -- Unification for terms
+    (unify (var $x) $t $subst) ~>
+      (case (lookup $x $subst)
+        (just $t') (unify $t' $t $subst)
+        nothing (if (occursIn $x $t)
+                  nothing
+                  (just (extend $x $t $subst))))
+    
+    (unify $t (var $x) $subst) ~> (unify (var $x) $t $subst)
+    
+    (unify (con $c1 $args1) (con $c2 $args2) $subst) ~>
+      (if (eq $c1 $c2)
+        (unifyAll $args1 $args2 $subst)
+        nothing)
+    
+    (unify (lit $l1) (lit $l2) $subst) ~>
+      (if (eq $l1 $l2) (just $subst) nothing)
+    
+    -- Unify lists
+    (unifyAll nil nil $subst) ~> (just $subst)
+    (unifyAll (cons $t1 $ts1) (cons $t2 $ts2) $subst) ~>
+      (case (unify $t1 $t2 $subst)
+        nothing nothing
+        (just $subst') (unifyAll $ts1 $ts2 $subst'))
+    (unifyAll _ _ $subst) ~> nothing
+    
+    -- Freshen: rename variables to avoid capture
+    (freshen $clause) ~>
+      (let $mapping (freshMapping (vars $clause))
+        (rename $mapping $clause))
+
+lang Cut :=
+  import Prolog
+  
+  -- Cut (!): prune choice points
+  -- Once we commit past a cut, no backtracking
+  
+  rules:
+    (solve (cons cut $goals) $subst) ~>
+      (once (solve $goals $subst))
+    
+    -- once: take first solution only
+    (once (yield $subst)) ~> (yield $subst)
+    (once fail) ~> fail
+    (once (choice $a $b)) ~> (once $a)
+
+lang Negation :=
+  import Prolog
+  import Cut
+  
+  -- Negation as failure
+  -- not(G) succeeds iff G fails
+  
+  rules:
+    (solve (cons (not $goal) $goals) $subst) ~>
+      (if (fails (solve (cons $goal nil) $subst))
+        (solve $goals $subst)
+        fail)
+    
+    (fails fail) ~> true
+    (fails (yield $x)) ~> false
+    (fails (choice $a $b)) ~> (and (fails $a) (fails $b))
+
+lang DCG :=
+  import Prolog
+  
+  -- Definite Clause Grammars: Prolog + difference lists
+  -- phrase --> word1, word2, [terminal], {prolog_goal}
+  
+  grammar:
+    DCGRule ::= identifier '-->' DCGBody '.'
+    DCGBody ::= DCGItem (',' DCGItem)*
+    DCGItem ::= identifier | '[' Term* ']' | '{' Atom* '}'
+    
+  rules:
+    -- Compile DCG to Prolog
+    (compileDCG ($head --> $body)) ~>
+      (let ($s0 $sn) (freshPair)
+        (clause (addArgs $head $s0 $sn)
+                (compileDCGBody $body $s0 $sn)))
+    
+    -- Non-terminal: add difference list args
+    (compileDCGBody (nt $n) $s0 $sn) ~>
+      (cons (addArgs $n $s0 $sn) nil)
+    
+    -- Terminal: consume from list
+    (compileDCGBody (term $ts) $s0 $sn) ~>
+      (cons (eq $s0 (append $ts $sn)) nil)
+    
+    -- Prolog goal: pass through unchanged
+    (compileDCGBody (goal $gs) $s0 $sn) ~>
+      (append $gs (cons (eq $s0 $sn) nil))
+    
+    -- Sequence
+    (compileDCGBody (seq $items) $s0 $sn) ~>
+      (compileDCGSeq $items $s0 $sn)
+    
+    (compileDCGSeq nil $s $sn) ~> (cons (eq $s $sn) nil)
+    (compileDCGSeq (cons $i $is) $s0 $sn) ~>
+      (let $s1 (fresh)
+        (append (compileDCGBody $i $s0 $s1)
+                (compileDCGSeq $is $s1 $sn)))
+
+-- Composition
+lang PrologLang := Prolog + Cut + Negation + DCG

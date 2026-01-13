@@ -1,0 +1,49 @@
+-- Pattern.lego: Base for dependent pattern matching
+-- Shared by With, Copattern
+
+import Base
+
+lang Pattern (Base) :=
+
+-----------------------------------------------------
+-- Basic patterns
+-----------------------------------------------------
+piece BasicPat
+  pat ::= "_"                   -- wildcard
+        | name                  -- variable binding
+        | "(" con patlist ")"   -- constructor pattern
+        | pat "@" pat           -- as-pattern
+        | "!" pat               -- strict/irrefutable
+  patlist ::= pat | pat "," patlist
+
+-----------------------------------------------------
+-- Case expressions
+-----------------------------------------------------
+piece Case
+  case ::= "case" term "of" "{" branches "}"
+  branches ::= branch | branch ";" branches
+  branch ::= pat "→" term
+
+-----------------------------------------------------
+-- Dependent case
+-----------------------------------------------------
+piece DepCase
+  depcase ::= "match" term "as" name "in" term "return" term "with" "{" dbranches "}"
+  dbranches ::= dbranch | dbranch ";" dbranches
+  dbranch ::= pat "→" term
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "wildcard": _
+test "constructor": (Cons x xs)
+test "case": (case b of { true → 1 ; false → 0 })
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Pattern
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

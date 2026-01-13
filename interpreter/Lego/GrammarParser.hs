@@ -1,0 +1,187 @@
+{-# LANGUAGE PatternSynonyms #-}
+-- | Grammar-Based Parser: Parsing via grammar interpretation
+--
+-- Grammar is EXPRESSION (data), not PROCEDURE (code).
+-- Grammar is loaded from Grammar.sexpr (via GrammarDef).
+--
+module Lego.GrammarParser
+  ( parseLegoFile
+  , LegoDecl(..)
+  ) where
+
+import Lego (Term, pattern TmVar, pattern TmCon, pattern TmLit,
+             pattern GRef, pattern GLit, pattern GAlt, pattern GSeq, 
+             pattern GStar, pattern GBind, pattern GAny, pattern GNode, pattern GEmpty,
+             GrammarExpr, LegoDecl(..), Rule(..), RuleDir(..), Test(..),
+             Mode(..), BiState(..))
+import Lego.Token (Token(..), TokenInfo(..), tokenizeWithInfo)
+import Lego.GrammarDef (legoGrammar)
+import Lego.GrammarInterp (runGrammar)
+import qualified Data.Map as M
+import Data.Maybe (mapMaybe)
+
+--------------------------------------------------------------------------------
+-- File Parsing
+--------------------------------------------------------------------------------
+
+-- | Parse a complete .lego file
+parseLegoFile :: String -> Either String [LegoDecl]
+parseLegoFile content = 
+  let tokInfos = tokenizeWithInfo content
+      toks = map tiToken tokInfos
+      posMap = [(tiToken ti, tiLine ti, tiColumn ti) | ti <- tokInfos]
+  in case parseFileG toks of
+       Just (decls, []) -> Right decls
+       Just (_, rest) -> Left $ formatError posMap rest
+       Nothing -> Left $ formatError posMap toks
+
+-- | Run File.legoFile grammar
+parseFileG :: [Token] -> Maybe ([LegoDecl], [Token])
+parseFileG toks = 
+  case M.lookup "File.legoFile" legoGrammar of
+    Nothing -> Nothing
+    Just g ->
+      let st0 = BiState toks [M.empty] Nothing Parse legoGrammar M.empty
+      in case runGrammar g st0 of
+           [] -> Nothing
+           (st:_) -> 
+             let decls = case bsTerm st of
+                   Just t -> extractDecls t
+                   Nothing -> []
+             in Just (decls, bsTokens st)
+
+--------------------------------------------------------------------------------
+-- Term → LegoDecl conversion
+--------------------------------------------------------------------------------
+
+extractDecls :: Term -> [LegoDecl]
+extractDecls (TmCon "seq" ts) = concatMap extractDecls ts
+extractDecls (TmCon "decl" (d:_)) = extractDecls d
+extractDecls t = mapMaybe termToDecl [t]
+
+termToDecl :: Term -> Maybe LegoDecl
+-- Import
+termToDecl (TmCon "DImport" [TmVar name]) = Just $ DImport name
+termToDecl (TmCon "DImport" [TmLit name]) = Just $ DImport name
+-- Def
+termToDecl (TmCon "DDef" [TmVar name, value]) = Just $ DDef name value
+termToDecl (TmCon "DDef" [TmLit name, value]) = Just $ DDef name value
+-- Test
+termToDecl (TmCon "DTest" [TmLit name, input]) = 
+  Just $ DTest $ Test name input input
+termToDecl (TmCon "DTest" [TmLit name, input, expected]) = 
+  Just $ DTest $ Test name input expected
+-- Rule
+termToDecl (TmCon "DRule" [TmVar name, pat, tmpl]) = 
+  Just $ DRule $ Rule name pat tmpl Nothing Forward
+termToDecl (TmCon "DRule" [TmLit name, pat, tmpl]) = 
+  Just $ DRule $ Rule name pat tmpl Nothing Forward
+-- Rule stub (empty)
+termToDecl (TmCon "DRuleStub" [TmVar name]) = 
+  Just $ DRule $ Rule name (TmLit "") (TmLit "") Nothing Forward
+termToDecl (TmCon "DRuleStub" [TmLit name]) = 
+  Just $ DRule $ Rule name (TmLit "") (TmLit "") Nothing Forward
+-- Lang
+termToDecl (TmCon "DLang" [TmVar name, parentsTerm, bodyTerm]) = 
+  Just $ DLang name (extractNames parentsTerm) (extractBody bodyTerm)
+termToDecl (TmCon "DLang" [TmLit name, parentsTerm, bodyTerm]) = 
+  Just $ DLang name (extractNames parentsTerm) (extractBody bodyTerm)
+-- Piece
+termToDecl (TmCon "DPiece" (TmVar name : rest)) = 
+  Just $ DPiece name [] (extractProds name rest)
+termToDecl (TmCon "DPiece" (TmLit name : rest)) = 
+  Just $ DPiece name [] (extractProds name rest)
+-- Grammar production
+termToDecl (TmCon "DGrammar" [TmVar name, gramTerm]) = 
+  Just $ DGrammar name (termToGrammar gramTerm)
+termToDecl (TmCon "DGrammar" [TmLit name, gramTerm]) = 
+  Just $ DGrammar name (termToGrammar gramTerm)
+-- Section marker (skip)
+termToDecl (TmCon "section" _) = Nothing
+-- Comment (skip)
+termToDecl (TmCon "comment" _) = Nothing
+-- Unknown
+termToDecl _ = Nothing
+
+extractNames :: Term -> [String]
+extractNames (TmCon "parents" children) = mapMaybe getName children
+extractNames (TmCon "seq" children) = mapMaybe getName children
+extractNames _ = []
+
+getName :: Term -> Maybe String
+getName (TmVar s) = Just s
+getName (TmLit s) = Just s
+getName _ = Nothing
+
+extractBody :: Term -> [LegoDecl]
+extractBody (TmCon "body" children) = concatMap extractBodyItem children
+extractBody (TmCon "seq" children) = concatMap extractBodyItem children
+extractBody t = extractBodyItem t
+
+extractBodyItem :: Term -> [LegoDecl]
+extractBodyItem (TmCon "seq" children) = concatMap extractBodyItem children
+extractBodyItem (TmCon "item" (d:_)) = mapMaybe termToDecl [d]
+extractBodyItem t = mapMaybe termToDecl [t]
+
+extractProds :: String -> [Term] -> [LegoDecl]
+extractProds pn = concatMap (extractProd pn)
+
+extractProd :: String -> Term -> [LegoDecl]
+extractProd pn (TmCon "seq" ts) = concatMap (extractProd pn) ts
+extractProd pn (TmCon "prodWrap" (d:_)) = extractProd pn d
+extractProd pn (TmCon "DGrammar" [TmVar name, gramTerm]) = 
+  [DGrammar (pn ++ "." ++ name) (termToGrammar gramTerm)]
+extractProd pn (TmCon "DGrammar" [TmLit name, gramTerm]) = 
+  [DGrammar (pn ++ "." ++ name) (termToGrammar gramTerm)]
+extractProd _ _ = []
+
+--------------------------------------------------------------------------------
+-- Term → GrammarExpr conversion
+--------------------------------------------------------------------------------
+
+termToGrammar :: Term -> GrammarExpr ()
+termToGrammar (TmVar s) = GRef s
+termToGrammar (TmLit s) = GLit s
+termToGrammar (TmCon "alt" [g1, _, g2]) = GAlt (termToGrammar g1) (termToGrammar g2)
+termToGrammar (TmCon "alt" [g1, g2]) = GAlt (termToGrammar g1) (termToGrammar g2)
+termToGrammar (TmCon "seq" [g1, g2]) = GSeq (termToGrammar g1) (termToGrammar g2)
+termToGrammar (TmCon "seq" gs) = foldr GSeq GEmpty (map termToGrammar gs)
+termToGrammar (TmCon "star" [g]) = GStar (termToGrammar g)
+termToGrammar (TmCon "plus" [g]) = GSeq (termToGrammar g) (GStar (termToGrammar g))
+termToGrammar (TmCon "opt" [g]) = GAlt (termToGrammar g) GEmpty
+termToGrammar (TmCon "bind" [TmVar x]) = GBind x GAny
+termToGrammar (TmCon "special" [TmVar name]) = GNode name []
+termToGrammar (TmCon "empty" []) = GEmpty
+termToGrammar (TmCon "unit" []) = GEmpty
+termToGrammar _ = GEmpty
+
+--------------------------------------------------------------------------------
+-- Error formatting
+--------------------------------------------------------------------------------
+
+formatError :: [(Token, Int, Int)] -> [Token] -> String
+formatError posMap rest = 
+  let pos = case rest of
+        (t:_) -> case filter (\(tok,_,_) -> tok == t) posMap of
+          ((_, ln, col):_) -> " at line " ++ show ln ++ ", column " ++ show col
+          [] -> ""
+        [] -> ""
+      toks = take 5 $ filter significant rest
+      preview = unwords $ map showTok toks
+  in "Parse error" ++ pos ++ ": unexpected " ++ preview
+
+significant :: Token -> Bool
+significant TNewline = False
+significant (TIndent _) = False
+significant _ = True
+
+showTok :: Token -> String
+showTok (TKeyword k) = "'" ++ k ++ "'"
+showTok (TIdent i) = "'" ++ i ++ "'"
+showTok (TSym s) = "'" ++ s ++ "'"
+showTok (TString s) = show s
+showTok (TReserved r) = "`" ++ r ++ "`"
+showTok TNewline = "<newline>"
+showTok (TIndent n) = "<indent " ++ show n ++ ">"
+showTok (TRegex r) = "/" ++ r ++ "/"
+showTok (TChar c) = show c

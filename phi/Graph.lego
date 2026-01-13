@@ -1,0 +1,169 @@
+-- Phi in Lego: Interaction Nets & Optimal Reduction
+-- This is the Lego equivalent of src/Phi/Graph/Optimal.hs, GrammarNet.hs
+
+lang INet :=
+  import Graph
+  
+  -- Interaction Net: graph with typed ports and interaction rules
+  -- Key insight: sharing is explicit via duplication nodes
+  
+  grammar:
+    -- Port: node port with polarity
+    Port ::= identifier '.' number
+    
+    -- Edge: connection between ports
+    Edge ::= Port '~' Port
+    
+    -- Node types in lambda calculus net
+    NodeType ::= 'App' | 'Lam' | 'Var' | 'Era' | 'Dup' | 'Share'
+    
+    -- Net: set of nodes + edges
+    Net ::= 'net' '{' (NodeDecl | Edge)* '}'
+    
+  -- Port conventions:
+  -- App: [0:result, 1:func, 2:arg]
+  -- Lam: [0:result, 1:type, 2:body, 3:binder]
+  -- Var: [0:value]
+  -- Dup: [0:value, 1:copy1, 2:copy2]
+  -- Era: [0:value] (garbage collection)
+  
+  rules:
+    -- β-interaction: Lam-App annihilation
+    (interact (lam $l) (app $a)) ~>
+      -- Connect function body to result, argument to binder
+      (net (edge (port $l 2) (port $a 0))    -- body -> result
+           (edge (port $l 3) (port $a 2)))   -- binder -> arg
+    
+    -- Commuting: App through Dup
+    (interact (app $a) (dup $d)) ~>
+      -- Duplicate the application
+      (let ($a1 $a2 $d1 $d2) (fresh 4)
+        (net
+          (node app $a1) (node app $a2)
+          (node dup $d1) (node dup $d2)
+          (edge (port $d1 0) (port $a 1))    -- dup func
+          (edge (port $d1 1) (port $a1 1))
+          (edge (port $d1 2) (port $a2 1))
+          (edge (port $d2 0) (port $a 2))    -- dup arg
+          (edge (port $d2 1) (port $a1 2))
+          (edge (port $d2 2) (port $a2 2))
+          (edge (port $a1 0) (port $d 1))
+          (edge (port $a2 0) (port $d 2))))
+    
+    -- Commuting: Lam through Dup
+    (interact (lam $l) (dup $d)) ~>
+      (let ($l1 $l2 $d1 $d2 $d3) (fresh 5)
+        (net
+          (node lam $l1) (node lam $l2)
+          (node dup $d1) (node dup $d2) (node dup $d3)
+          -- dup type
+          (edge (port $d1 0) (port $l 1))
+          (edge (port $d1 1) (port $l1 1))
+          (edge (port $d1 2) (port $l2 1))
+          -- dup body
+          (edge (port $d2 0) (port $l 2))
+          (edge (port $d2 1) (port $l1 2))
+          (edge (port $d2 2) (port $l2 2))
+          -- dup binder (shared!)
+          (edge (port $d3 0) (port $l 3))
+          (edge (port $d3 1) (port $l1 3))
+          (edge (port $d3 2) (port $l2 3))
+          -- results
+          (edge (port $l1 0) (port $d 1))
+          (edge (port $l2 0) (port $d 2))))
+    
+    -- Annihilation: Dup-Dup (same level)
+    (interact (dup $d1) (dup $d2)) ~>
+      (net (edge (port $d1 1) (port $d2 1))
+           (edge (port $d1 2) (port $d2 2)))
+    
+    -- Erasure: Era-* annihilates anything
+    (interact (era $e) (node $type $n)) ~>
+      (eraseAll (ports $type $n))
+    
+    (eraseAll nil) ~> (net)
+    (eraseAll (cons $p $ps)) ~>
+      (let $e (fresh 1)
+        (netUnion (net (node era $e) (edge (port $e 0) $p))
+                  (eraseAll $ps)))
+
+lang Optimal :=
+  import INet
+  
+  -- Optimal reduction: no repeated work
+  -- Uses level labels to track sharing
+  
+  rules:
+    -- Reduce: find active pair and interact
+    (reduce $net) ~>
+      (case (findActivePair $net)
+        nothing $net  -- normal form
+        (just ($n1 $n2))
+          (reduce (interact $n1 $n2)))
+    
+    -- Active pair: two nodes connected at principal ports
+    (findActivePair $net) ~>
+      (findFirst 
+        (fn $edge
+          (case $edge
+            (edge (port $n1 0) (port $n2 0)) (just ($n1 $n2))
+            _ nothing))
+        (edges $net))
+    
+    -- Convert Term to INet
+    (toINet $term) ~> (toINet' $term fresh-supply)
+    
+    (toINet' (var $x) $supply) ~> 
+      (let ($n $supply') (freshNode var $supply)
+        (net (node var $n)
+             (wire (port $n 0) (lookup $x port-env))))
+    
+    (toINet' (lam $x $t $b) $supply) ~>
+      (let ($n $supply1) (freshNode lam $supply)
+        (let ($tNet $supply2) (toINet' $t $supply1)
+          (let ($bNet $supply3) (inEnv $x (port $n 3) (toINet' $b $supply2))
+            (netUnion (net (node lam $n))
+                      (connect (port $n 1) (root $tNet))
+                      (connect (port $n 2) (root $bNet))
+                      $tNet $bNet))))
+    
+    (toINet' (app $f $a) $supply) ~>
+      (let ($n $supply1) (freshNode app $supply)
+        (let ($fNet $supply2) (toINet' $f $supply1)
+          (let ($aNet $supply3) (toINet' $a $supply2)
+            (netUnion (net (node app $n))
+                      (connect (port $n 1) (root $fNet))
+                      (connect (port $n 2) (root $aNet))
+                      $fNet $aNet))))
+
+lang CallGraph :=
+  import Graph
+  
+  -- Call graph: which functions call which
+  grammar:
+    CallEdge ::= identifier '->' identifier
+    CallGraph ::= 'calls' '{' CallEdge* '}'
+    
+  rules:
+    -- Build call graph from definitions
+    (callGraph (defs $ds)) ~>
+      (foldl
+        (fn $cg $def
+          (case $def
+            (define $name $body)
+              (addEdges $name (findCalls $body) $cg)))
+        emptyGraph
+        $ds)
+    
+    -- Find all function references in a term
+    (findCalls (var $x)) ~> (singleton $x)
+    (findCalls (lam $x $t $b)) ~> 
+      (union (findCalls $t) (remove $x (findCalls $b)))
+    (findCalls (app $f $a)) ~>
+      (union (findCalls $f) (findCalls $a))
+    (findCalls (con $c $args)) ~>
+      (foldl union empty (map findCalls $args))
+    (findCalls (lit $l)) ~> empty
+
+-- Composition
+lang GraphLang := INet + Optimal + CallGraph

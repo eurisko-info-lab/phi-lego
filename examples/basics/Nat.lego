@@ -1,0 +1,81 @@
+-- Nat.lego: Natural numbers with successor and predecessor
+-- Exercises: constructor patterns, recursive rules
+
+lang Nat :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Nat
+  nat ::= zero | succ | pred | add | mul | eq
+  zero ::= "zero"
+  succ ::= "(" "succ" nat ")"
+  pred ::= "(" "pred" nat ")"
+  add ::= "(" "add" nat nat ")"
+  mul ::= "(" "mul" nat nat ")"
+  eq ::= "(" "eq" nat nat ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule pred_zero:
+  (pred zero) ~> zero
+
+rule pred_succ:
+  (pred (succ $n)) ~> $n
+
+rule add_zero:
+  (add zero $n) ~> $n
+
+rule add_succ:
+  (add (succ $m) $n) ~> (succ (add $m $n))
+
+rule mul_zero:
+  (mul zero $n) ~> zero
+
+rule mul_succ:
+  (mul (succ $m) $n) ~> (add $n (mul $m $n))
+
+rule eq_zero_zero:
+  (eq zero zero) ~> true
+
+rule eq_zero_succ:
+  (eq zero (succ $n)) ~> false
+
+rule eq_succ_zero:
+  (eq (succ $n) zero) ~> false
+
+rule eq_succ_succ:
+  (eq (succ $m) (succ $n)) ~> (eq $m $n)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "zero_val": zero
+test "one_val": (succ zero)
+test "two_val": (succ (succ zero))
+test "three_val": (succ (succ (succ zero)))
+
+test "pred_one": (pred (succ zero)) ~~> zero
+test "pred_two": (pred (succ (succ zero))) ~~> (succ zero)
+
+test "add_0_0": (add zero zero) ~~> zero
+test "add_0_2": (add zero (succ (succ zero))) ~~> (succ (succ zero))
+test "add_1_1": (add (succ zero) (succ zero)) ~~> (succ (succ zero))
+test "add_2_1": (add (succ (succ zero)) (succ zero)) ~~> (succ (succ (succ zero)))
+
+test "mul_0_n": (mul zero (succ (succ zero))) ~~> zero
+test "mul_1_2": (mul (succ zero) (succ (succ zero))) ~~> (succ (succ zero))
+test "mul_2_2": (mul (succ (succ zero)) (succ (succ zero))) ~~> (succ (succ (succ (succ zero))))
+
+test "eq_same": (eq (succ zero) (succ zero)) ~~> true
+test "eq_diff": (eq zero (succ zero)) ~~> false
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Nat
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: Peano arithmetic (pred, add, mul, eq)
+-- [x] Normalization: recursive rules reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,67 @@
+-- Phi in Lego: Term Representation
+-- This is the Lego equivalent of src/Phi/Core/Term.hs
+
+lang Term :=
+  import Name
+  
+  -- RTerm: Runtime term representation
+  -- This is the "free algebra" of terms
+  
+  grammar:
+    -- Variable
+    | x:Name                           → ⟨var x⟩
+    
+    -- Constructor application
+    | "(" con:Name args:Term* ")"      → ⟨con con args⟩
+    
+    -- Literal
+    | lit:String                       → ⟨lit lit⟩
+    
+    -- Choice (for parsing ambiguity)
+    | "⟦" t1:Term "|" t2:Term "⟧"      → ⟨choice t1 t2⟩
+  
+  -- Substitution: [x := v] t
+  -- This is a fundamental operation
+  rules:
+    -- Variable substitution
+    (subst $x $v (var $x)) ~> $v
+    (subst $x $v (var $y)) ~> (var $y) when (neq $x $y)
+    
+    -- Constructor: substitute in all args
+    (subst $x $v (con $c)) ~> (con $c)
+    (subst $x $v (con $c $a)) ~> (con $c (subst $x $v $a))
+    (subst $x $v (con $c $a $b)) ~> (con $c (subst $x $v $a) (subst $x $v $b))
+    
+    -- Literal: unchanged
+    (subst $x $v (lit $s)) ~> (lit $s)
+  
+  -- Free variables
+  -- freeIn x t = true if x occurs free in t
+  rules:
+    (freeIn $x (var $x)) ~> true
+    (freeIn $x (var $y)) ~> false when (neq $x $y)
+    (freeIn $x (con $c)) ~> false
+    (freeIn $x (con $c $a)) ~> (freeIn $x $a)
+    (freeIn $x (con $c $a $b)) ~> (or (freeIn $x $a) (freeIn $x $b))
+    (freeIn $x (lit $s)) ~> false
+
+lang RType :=
+  import Term
+  
+  -- Types are just terms with certain structure
+  grammar:
+    -- Type : Kind (the sort axiom)
+    | "Type"                           → ⟨type⟩
+    | "Kind"                           → ⟨kind⟩
+    
+    -- Arrow type
+    | "(" dom:RType "→" cod:RType ")"  → ⟨arrow dom cod⟩
+    
+    -- Pi type (dependent)
+    | "(" "Π" x:Name ":" dom:RType "." cod:RType ")" → ⟨pi x dom cod⟩
+    
+    -- Type application
+    | "(" f:RType a:Term ")"           → ⟨tapp f a⟩
+    
+    -- Type variable
+    | x:Name                           → ⟨tvar x⟩

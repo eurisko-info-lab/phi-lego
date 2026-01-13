@@ -1,0 +1,215 @@
+-- CubicalVM.lego
+-- A cubical virtual machine for executing rewriting via paths
+-- Execution = path normalization
+-- Rewriting = transport
+-- Control = interval variables
+
+lang CubicalVM :=
+
+-----------------------------------------------------
+-- Core values
+-----------------------------------------------------
+piece Value
+  value ::= term
+          | path
+          | interval
+
+-----------------------------------------------------
+-- Interval (cubical dimension)
+-----------------------------------------------------
+piece Interval
+  interval ::= i0 | i1 | ivar
+
+-----------------------------------------------------
+-- Terms (opaque to the VM)
+-----------------------------------------------------
+piece Term
+  term ::= atom
+         | con term*
+         | lam name term
+         | app term term
+
+-----------------------------------------------------
+-- Paths (first-class)
+-----------------------------------------------------
+piece Path
+  path ::= refl term
+         | sym path
+         | comp path path
+         | lamPath name path
+         | appPath path path
+         | transport path term
+
+-----------------------------------------------------
+-- Machine state
+-----------------------------------------------------
+piece State
+  state ::= State heap env pathstack ictx
+
+  heap ::= Heap term*
+  env  ::= EmptyEnv | Bind name term env
+  pathstack ::= EmptyStack | Push path pathstack
+  ictx ::= EmptyICtx | IBind name interval ictx
+
+-----------------------------------------------------
+-- Micro-instructions
+-----------------------------------------------------
+piece Instr
+  instr ::= PUSH_TERM term
+          | LOAD name
+          | STORE name
+          | PUSH_PATH path
+          | PATH_REFL
+          | PATH_SYM
+          | PATH_COMP
+          | TRANSPORT
+          | NEW_INTERVAL name
+          | SET_INTERVAL name interval
+          | CASE_INTERVAL name instr instr
+          | FAIL
+
+-----------------------------------------------------
+-- Instruction semantics (cubical rewriting)
+-----------------------------------------------------
+
+-- Reflexivity
+rule exec_refl:
+  (PATH_REFL ; PUSH_TERM $t) ~>
+    (PUSH_PATH (refl $t))
+
+-- Symmetry
+rule exec_sym:
+  (PUSH_PATH $p ; PATH_SYM) ~>
+    (PUSH_PATH (sym $p))
+
+-- Composition
+rule exec_comp:
+  (PUSH_PATH $p1 ; PUSH_PATH $p2 ; PATH_COMP) ~>
+    (PUSH_PATH (comp $p1 $p2))
+
+-- Transport = evaluation
+rule exec_transport:
+  (PUSH_PATH $p ; PUSH_TERM $t ; TRANSPORT) ~>
+    (PUSH_TERM (transport $p $t))
+
+-----------------------------------------------------
+-- Interval control
+-----------------------------------------------------
+
+rule exec_new_interval:
+  (NEW_INTERVAL $i) ~>
+    (SET_INTERVAL $i ivar)
+
+rule exec_interval_i0:
+  (SET_INTERVAL $i i0 ; CASE_INTERVAL $i $l0 $l1) ~>
+    $l0
+
+rule exec_interval_i1:
+  (SET_INTERVAL $i i1 ; CASE_INTERVAL $i $l0 $l1) ~>
+    $l1
+
+-----------------------------------------------------
+-- Lambda calculus via paths
+-----------------------------------------------------
+
+-- β-path constructor
+rule beta_path:
+  (app (lam $x $body) $arg) ~>
+    (transport
+      (lamPath $x (refl $body))
+      $arg)
+
+-----------------------------------------------------
+-- Cubical Kan operations
+-----------------------------------------------------
+
+-- Path application
+rule path_apply:
+  (@ $p $i) ~>
+    (transport $p $i)
+
+-- Endpoint computation
+rule path_endpoint_i0:
+  (@ (lamPath $x $p) i0) ~>
+    (transport $p i0)
+
+rule path_endpoint_i1:
+  (@ (lamPath $x $p) i1) ~>
+    (transport $p i1)
+
+-----------------------------------------------------
+-- Transport (coe)
+-----------------------------------------------------
+
+-- coe A i0 a = a
+rule coe_i0:
+  (transport (refl $A) $a) ~>
+    $a
+
+-- coe respects composition
+rule coe_comp:
+  (transport (comp $p $q) $a) ~>
+    (transport $q (transport $p $a))
+
+-----------------------------------------------------
+-- Path operations
+-----------------------------------------------------
+piece PathOps
+  inv ::= sym path
+  concat ::= path "∙" path
+
+rule inv_def:
+  (sym (refl $a)) ~>
+    (refl $a)
+
+rule concat_refl_l:
+  ((refl $a) ∙ $p) ~>
+    $p
+
+rule concat_refl_r:
+  ($p ∙ (refl $a)) ~>
+    $p
+
+-----------------------------------------------------
+-- Higher inductive types (schematic)
+-----------------------------------------------------
+piece HIT
+  hit ::= circle | base | loop
+        | susp term
+        | trunc nat term
+
+rule loop_endpoint:
+  (@ loop i0) ~> base
+
+rule loop_endpoint1:
+  (@ loop i1) ~> base
+
+-----------------------------------------------------
+-- Interaction Nets as paths
+-----------------------------------------------------
+
+-- Interaction rule compiled as a path
+rule inet_beta:
+  (interact (lam $l) (app $a)) ~>
+    (transport beta_path (net $l $a))
+
+-----------------------------------------------------
+-- Normalization driver
+-----------------------------------------------------
+
+rule normalize:
+  (eval $t) ~>
+    (transport (refl $t) $t)
+
+-----------------------------------------------------
+-- VM invariants (informal)
+-----------------------------------------------------
+-- 1. VM never inspects term structure
+-- 2. All computation is transport
+-- 3. Sharing = path reuse
+-- 4. Confluence via higher paths
+-- 5. INets, LC, HoTT all compile here
+
+-----------------------------------------------------
+-- End CubicalVM
+-----------------------------------------------------

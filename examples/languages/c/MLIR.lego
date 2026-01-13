@@ -1,0 +1,94 @@
+-- ============================================================
+-- MLIR.lego
+-- A simplified MLIR core subset for compilation target
+-- ============================================================
+
+lang MLIR :=
+
+------------------------------------------------------------
+-- Types
+------------------------------------------------------------
+piece MLType
+  mtype ::= i32 | i1 | (memref $t:mtype) | (func $args:mtypes $ret:mtype)
+  mtypes ::= "(" mtype* ")"
+
+------------------------------------------------------------
+-- SSA values
+------------------------------------------------------------
+piece SSA
+  ssa ::= (ssa $name:name)
+  ssas ::= "(" ssa* ")"
+
+------------------------------------------------------------
+-- Operations
+------------------------------------------------------------
+piece MLOp
+  mlop ::= (constant $v:mlvalue)
+         | (add $a:ssa $b:ssa)
+         | (sub $a:ssa $b:ssa)
+         | (mul $a:ssa $b:ssa)
+         | (load $addr:ssa)
+         | (store $val:ssa $addr:ssa)
+         | (call $fn:ssa $args:ssas)
+         | (cmp $op:cmpop $a:ssa $b:ssa)
+         | (br $label:label)
+         | (cond_br $cond:ssa $then:label $else:label)
+         | (ret $v:ssa)
+         | nop
+  
+  mlops ::= mlop*
+  cmpop ::= eq | ne | lt | gt | le | ge
+  mlvalue ::= (intval $n:nat) | (boolval $b:bool)
+
+------------------------------------------------------------
+-- Labels and blocks
+------------------------------------------------------------
+piece MLIRCFG
+  label ::= (label $name:name)
+  
+  blockparam ::= "(" $v:ssa ":" $ty:mtype ")"
+  blockparams ::= blockparam*
+  
+  block ::= (block $l:label $params:blockparams $ops:mlops)
+  blocks ::= block*
+  
+  region ::= (region $blocks:blocks)
+  regions ::= region*
+  
+  module ::= (module $regions:regions)
+
+------------------------------------------------------------
+-- SSA definition (assignment)
+------------------------------------------------------------
+piece SSADef
+  ssadef ::= (def $v:ssa $op:mlop)
+  ssadefs ::= ssadef*
+
+------------------------------------------------------------
+-- MLIR is SSA, so we mainly transform, not evaluate
+-- Simple constant folding rules
+------------------------------------------------------------
+piece MLIRFold
+  -- Add constants
+  rule mlir_add_const:
+    (add (ssa a) (ssa b)) <~> (add (ssa a) (ssa b))
+  
+  -- Fold constant addition
+  rule mlir_fold_add:
+    (def $r (add (constant (intval $n1)) (constant (intval $n2))))
+      ~> (def $r (constant (intval (add $n1 $n2))))
+  
+  -- Fold constant subtraction
+  rule mlir_fold_sub:
+    (def $r (sub (constant (intval $n1)) (constant (intval $n2))))
+      ~> (def $r (constant (intval (sub $n1 $n2))))
+
+  -- Tests
+  test "mlir_fold_add":
+    (def r (add (constant (intval n1)) (constant (intval n2))))
+      ~~> (def r (constant (intval (add n1 n2))))
+  
+  test "mlir_fold_sub":
+    (def r (sub (constant (intval n1)) (constant (intval n2))))
+      ~~> (def r (constant (intval (sub n1 n2))))
+

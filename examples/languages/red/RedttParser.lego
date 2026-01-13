@@ -1,0 +1,641 @@
+-----------------------------------------------------
+-- RedttParser: A parser for redtt files
+--
+-- This is a simplified grammar focused on actually parsing
+-- .red files from the redtt library.
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- File Structure
+-----------------------------------------------------
+
+piece File
+  file ::= decl*
+  decl ::= importdecl | datadecl | defdecl
+
+-----------------------------------------------------
+-- Imports  
+-----------------------------------------------------
+
+piece Import
+  importdecl ::= ["public"] "import" modpath
+  modpath ::= <ident> ("." <ident>)*
+
+-----------------------------------------------------
+-- Data Declarations (HITs)
+-----------------------------------------------------
+
+piece Data
+  -- data Name where | Con | Con (x : T) ...
+  -- (A : type) ⊢ data Name where ...   (parameterized)
+  -- RedTT library commonly uses: data (A : type) ⊢ F where ...
+  datadecl ::= "data" [datatele] <ident> "where" constructors
+  datatele ::= dataparams "⊢"
+  dataparams ::= "(" <ident> (<ident>)* ":" term ")" ("(" <ident> (<ident>)* ":" term ")")*
+  constructors ::= ("|" constructor)*
+  
+  -- Constructor: | name | ☆ | name (x : A) | name (i : 𝕀) [∂[i] → base]
+  -- Some RedTT libraries use symbol constructors (e.g. ☆ for free monoids).
+  -- NOTE: grammar references are piece-scoped, so we define this here.
+  slashqualident ::= <ident> (("/" | "+") <ident>)*
+
+  conname ::= slashqualident | "☆" | "★"
+  constructor ::= conname conargs [conbdy]
+  conargs ::= conarg*
+  conarg ::= "(" <ident> (<ident>)* ":" term ")"
+  
+  -- HIT boundary: [∂[i] → base] or [i=0 → M | i=1 → N]
+  conbdy ::= "[" ["|"] conbdyconstr ("|" conbdyconstr)* "]"
+  conbdyconstr ::= bdyformula "→" term
+
+  -- Boundary endpoints and meet/join appear inside boundary formulas.
+  -- NOTE: references are piece-scoped, so we define these locally.
+  endpoint ::= "0" | "1" | <ident>
+  meetjoin ::= <ident> "∧" <ident>
+            | <ident> "∨" <ident>
+  -- Boundary formulas appear in several places and use `|` as disjunction.
+  -- Examples from the RedTT library:
+  --   ∂[i]
+  --   ∂[i k]
+  --   i=0
+  --   ∂[i] | j=0
+  --   (∂[i] | j=0)
+  bdyatom ::= "∂" "[" <ident>+ "]"            -- ∂[i], ∂[i k]
+           | <ident> "=" endpoint               -- i=0, i=1
+           | meetjoin                             -- i ∧ j, i ∨ j
+           | "(" bdyformula ")"
+
+  bdyformula ::= bdyatom ("|" bdyatom)*
+
+-----------------------------------------------------
+-- Definitions
+-----------------------------------------------------
+
+piece Def
+  -- def name : type = body
+  -- def name (x : A) (y : B) : C = body
+  -- opaque def name : type = body (marks definition as opaque)
+  defdecl ::= ["opaque"] "def" defname defargs [":" term] "=" term
+  -- Definition names can be qualified with separators (/, →, etc), and some
+  -- library definitions use operator-like names that end with a separator (e.g. `p→`).
+  defname ::= qualident
+  defargs ::= defarg*
+  -- Parameters can be slash-qualified in the RedTT library (e.g. A/l).
+  defarg ::= "(" slashqualident (slashqualident)* ":" term ")"   -- (x y : A)
+           | slashqualident                                           -- untyped
+  -- Qualified identifier: allows name or name/name or name→name, composition, exponents
+  -- Supports separators: /, →, ~, ∘, and exponents: ^ followed by a number
+  -- Also allow a trailing `→` (no following ident) for operator-like names.
+  qualident ::= <ident> qualtail*
+  qualtail ::= qualsep <ident>
+           | "→"
+           | "^" <number>
+  qualsep ::= "/"
+           | "→"
+           | "~"
+           | "∘"
+           | "+"
+           | "≃"
+           | "≈"
+
+  -- Slash-qualified identifier (no `→`), for contexts where `→` must remain a delimiter
+  -- (notably eliminator patterns: `pat → body`).
+  slashqualident ::= <ident> (("/" | "+") <ident>)*
+
+-----------------------------------------------------
+-- Terms (full grammar)
+-----------------------------------------------------
+
+piece Term
+  -- Qualified identifier: allows name, name/name, name→name, composition, exponents.
+  -- NOTE: grammar references are piece-scoped, so we define this here.
+  qid ::= <ident> (("/" | "→" | "~" | "∘" | "+" | "≃" | "≈") <ident> | "^" <number>)*
+
+  -- Slash-qualified identifier requiring at least one "/".
+  -- This prevents keyword-starting atoms like `symm` from stealing
+  -- occurrences such as `symm/filler`.
+  slashqid ::= <ident> "/" <ident> (("/" | "→" | "~" | "∘" | "+" | "≃" | "≈") <ident> | "^" <number>)*
+
+  -- Slash-qualified identifier (no `→`), for binder positions where `→` must remain a delimiter.
+  slashqualident ::= <ident> (("/" | "+") <ident>)*
+
+  -- Full term grammar with proper precedence
+  -- Precedence (low to high): → < × < application < projection
+  term ::= lamexpr | arrowexpr
+  
+  -- Lambda: λ x → body  or  λ x y z → body
+  lamexpr ::= "λ" lambinder+ "→" term
+  lambinder ::= slashqualident
+             | dimbinders
+             | "*"
+             | "_"
+             | "(" slashqualident ":" term ")"
+             | "(" lampattern ")"
+
+  -- Dimension binder lists: [i] or [i, j] (common in cubical code)
+  -- Some examples also use anonymous binders: `[, ]`.
+  dimbinders ::= "[" [<ident>] ("," [<ident>])* "]"
+  -- Tuple patterns for lambda: (x, y) or (x, (y, z))
+  lampattern ::= lampatpart ("," lampatpart)*
+  lampatpart ::= <ident> | "*" | "_" | "(" lampattern ")"
+  
+  -- Arrow/Pi types:
+  --   A → B
+  --   (x : A) → B
+  --   (x : A) (y : B) → C   (telescope)
+  arrowexpr ::= binder binder* "→" term
+            | sigmaexpr ["→" term]
+  
+  -- Sigma types: A × B  or  (x : A) × B  
+  -- Try dependent binders first, then simple application expressions
+  sigmaexpr ::= binder ("×" sigmaexpr | "→" term)   -- dependent: (x : A) × B or (x : A) → B
+             | appexpr ["×" sigmaexpr]               -- simple: A or A × B
+  
+  -- Typed binder: (x : A) or (x y : A) for multiple variables
+  binder ::= "(" slashqualident (slashqualident)* ":" term ")"
+  
+  -- Application: f x y z (left-associative)
+  appexpr ::= projexpr+
+  
+  -- Projections: x.fst x.snd x.vproj (and any identifier)
+  projexpr ::= atom ("." projname)*
+  projname ::= "fst" | "snd" | "vproj" | "cap" | <ident>
+  
+  -- Atoms
+  -- Note: letexpr, elimexpr, and other keyword-starting forms must come BEFORE qid
+  -- since <ident> matches both TIdent and TKeyword tokens
+    atom ::= letexpr
+      | elimexpr
+      | holeexpr
+      | quoteexpr
+      | bracketexpr
+      | pathtype
+      | slashqid
+      | pathcomb
+      | equivexpr
+      | squaretype
+      | compexpr
+      | coeexpr
+      | glueexpr
+      | unglueexpr
+      | connectionexpr
+      | fillerexpr
+      | boxcapexpr
+      | vtype
+      | interval                        -- 𝕀 (interval type)
+      | "★"                             -- unit value (star)
+      | "☆"                             -- free-monoid multiplication operator
+      | qid
+      | hlevelexpr
+      | <number>
+      | "type" ["^" <number>]         -- universe levels: type, type^1, type^2
+      | "refl"
+      | "_"
+      | tuple
+      | "(" term ")"
+
+    -- Atomic terms (approximation of upstream `atomic` in Grammar.mly).
+    --
+    -- Key property: excludes `let ... in ...` and other general `term` forms,
+    -- but still allows complex expressions when parenthesized.
+    atomic ::= elimexpr
+      | holeexpr
+      | quoteexpr
+      | bracketexpr
+      | interval
+      | "★"
+      | "☆"
+      | slashqid
+      | qid
+      | hlevelexpr
+      | <number>
+      | "type" ["^" <number>]
+      | "refl"
+      | "_"
+      | tuple
+      | "(" term ")"
+
+    -- Holes / metavariables
+    -- Upstream RedTT supports `?` and `?name`.
+    -- We accept an optional identifier after `?` (tokenization is atom-first).
+    holeexpr ::= "?" [<ident>]
+
+    -- Comma tuples: (a, b) or (a, b, c, ...)
+    tuple ::= "(" term ("," term)+ ")"
+
+    -- RedML / tactic brackets appear in a few library examples.
+    -- We don't parse internal RedML here; we just accept the bracketed token shape.
+    bracketexpr ::= "⦉" brackettok* "⦊"
+    brackettok ::= <ident>
+          | <number>
+          | "!"
+                | "{"
+                | "}"
+                | "«"
+                | "»"
+                | "("
+                | ")"
+                | "["
+                | "]"
+                | ","
+                | ";"
+                | ":"
+                | "."
+                | "/"
+          | "="
+                | "→"
+                | "->"
+          | "*" | "_"
+          | "λ" | "★" | "☆"
+
+-----------------------------------------------------
+-- Path Combinators
+-----------------------------------------------------
+
+piece PathComb
+  -- trans A p q  (transitivity)
+  pathcomb ::= "trans" ["^" <number>] term term term
+            | "symm"  ["^" <number>] term term              -- symm^k A p
+            | "ap"    ["^" <number>] term term                -- ap^k f p
+            | "apd"   ["^" <number>] term term term term term  -- apd^k A P f x y p
+            | "cong"  ["^" <number>] term term              -- cong^k f p (alias)
+            | "funext"["^" <number>] term term term term term  -- funext^k A B f g p
+
+-----------------------------------------------------
+-- Equivalences & Univalence
+-----------------------------------------------------
+
+piece Equiv
+  equivexpr ::= "equiv" ["^" <number>] term term           -- equiv^k A B (the type)
+             | "iso→equiv" term term term   -- iso→equiv A B iso
+             | "ua" term term term          -- ua A B e
+             | "idequiv" term               -- idequiv A
+             | "fiber" term term term       -- fiber A B f b
+
+-----------------------------------------------------
+-- HLevel (homotopy levels)
+-----------------------------------------------------
+
+piece HLevel
+  hlevelexpr ::= "is-contr" term            -- is-contr A
+              | "is-prop" term               -- is-prop A
+              | "is-set" term                -- is-set A
+              | "prop→set" term              -- prop→set A
+              | "contr→prop" term            -- contr→prop A
+              | "is-equiv" term term term    -- is-equiv A B f
+
+-----------------------------------------------------
+-- Square and Cube Types
+-----------------------------------------------------
+
+piece Square
+  -- square A top bottom left right
+  squaretype ::= "square" term term term term term
+  
+  -- cube and higher dimensional paths
+  cubetype ::= "cube" term term*
+
+-----------------------------------------------------
+-- Path Types
+-----------------------------------------------------
+
+piece PathType
+  -- path A M N
+  pathsugar ::= "path" term term term
+  
+  -- pathd A M N  
+  pathdsugar ::= "pathd" term term term
+  
+  -- [i] A [| i=0 → M | i=1 → N]
+  -- [i j] A [| ...]
+  pathtype ::= "[" <ident>+ "]" term pathbdy
+    -- RedTT allows pipe blocks in two surface forms:
+    --   - bracketed: [| ... ] or [ ... ]
+    --   - keyword:   with | ... end
+    pathbdy ::= "[" [pathconstrs] "]"
+      | "with" "|" [pathconstrs1] "end"
+  pathconstrs ::= pathconstr ("|" pathconstr)*
+               | "|" pathconstr ("|" pathconstr)*
+    pathconstrs1 ::= pathconstr ("|" pathconstr)*
+  -- Allow multiple guards separated by `|` to share one RHS:
+  --   [| i=1 | k=0 → t]
+  pathconstr ::= bdyformulas <ident>* "→" term
+  bdyformulas ::= bdyformula ("|" bdyformula)*
+
+-----------------------------------------------------
+-- Eliminators
+-----------------------------------------------------
+
+piece Elim
+  -- Slash-qualified identifier (no `→`), for contexts where `→` must remain a delimiter.
+  -- NOTE: grammar references are piece-scoped, so we define this here.
+  slashqualident ::= <ident> (("/" | "+") <ident>)*
+
+  -- elim [| case → body | ...]
+  -- elim x [| case → body | ...]
+  -- elim [ case → body | case → body | ... ]  (first case may omit leading |)
+  -- Note: RedttParser.lego grammar expressions do not support backtick literals;
+  -- use quoted string literals instead.
+  -- `elim []` appears in the RedTT library (empty eliminator)
+  -- RedTT surface syntax supports an optional motive: `elim scrut in mot [| ... ]`.
+  -- See redtt/src/frontend/Grammar.mly:
+  --   ELIM; scrut = option(atomic); mot = option(preceded(IN,econ)); clauses = pipe_block(...)
+  --
+  -- IMPORTANT: since `term` can start with `[` (path types), we avoid the ambiguous
+  -- form `elim [term] [cases]` and instead enumerate ordered alternatives.
+  elimexpr ::= "elim" "in" term elimblock
+           | "elim" elimblock
+           | "elim" term "in" term elimblock
+           | "elim" term elimblock
+
+  -- Pipe block surface forms:
+  --   [| case → body | ...]
+  --   with | case → body | ... end
+  elimblock ::= "[" ["|"] [elimcases] "]"
+             | "with" "|" [elimcases1] "end"
+  -- Accept both forms: "elim [| case … | case …]" and "elim [ case … | case … ]"
+  elimcases ::= elimcase ("|" elimcase)*
+             | "|" elimcase ("|" elimcase)*
+  elimcases1 ::= elimcase ("|" elimcase)*
+  -- Case bodies are general terms; restricting to lambdas causes real library failures
+  -- (e.g. tuple-valued eliminator branches and parenthesized lambdas).
+  elimcase ::= elimpat "→" term
+  
+  -- Patterns (from library):
+  --   zero
+  --   suc n
+  --   suc (_ → ih/n)
+  --   predl-suc (z → ih/z) i
+  elimhead ::= slashqualident | "☆" | "★"
+  elimpat ::= elimhead elimarg*
+           | "*"                         -- wildcard (legacy examples)
+           | "_"                         -- wildcard (RedTT library)
+
+  elimarg ::= <ident>
+           | "*"
+           | "_"
+           | "(" elimargbase ["→" recbinder] ")"
+  elimargbase ::= <ident> | "*" | "_"
+  
+  -- Recursive binders use slash: l → l/ih
+  recbinder ::= slashqualident
+  slashident ::= <ident> "/" <ident>
+
+  -----------------------------------------------------
+  -- Backtick quotation (minimal)
+  -----------------------------------------------------
+
+  piece Quote
+    -- The official RedTT lexer treats backtick as a standalone token introducing
+    -- a quoted internal term (Grammar.mly: BACKTICK; t = tm).
+    --
+    -- For parsing the library, we don't need full internal-term semantics; we just
+    -- need to accept the quoted syntax shape. We therefore parse a lightweight
+    -- s-expression language that is rich enough for occurrences like:
+    --   `(vin i b (not b))
+    --   `(@ filler 0)
+    quoteexpr ::= "`" qtm
+    qtm ::= qatom
+     | "(" qtm* ")"
+    qatom ::= <ident>
+      | <number>
+      | "*"
+      | "@"
+      | "#"
+      | ":"
+      | "."
+      | "/"
+      | "→"
+      | "->"
+      | slashqid
+
+-----------------------------------------------------
+-- Cubical Operations  
+-----------------------------------------------------
+
+piece Cubical
+  -- Interval
+  interval ::= "𝕀"
+  endpoint ::= "0" | "1" | <ident>
+  
+  -- coe r r' a in A (where r, r' can be endpoints or interval vars)
+  -- Note: 4th position uses atom (not term) to stop before consuming "in"
+  -- This prevents greedy appexpr from eating "in A" as application
+  coeexpr ::= "coe" dimterm dimterm atom "in" term
+  
+  -- comp r r' a [| φ → u] (where r, r' can be 0, 1, or interval vars)
+  compexpr ::= "comp" dimterm dimterm term "in" term compbdy
+           | "comp" dimterm dimterm term compbdy
+    compbdy ::= "[" [compconstrs] "]"
+      | "with" "|" [compconstrs1] "end"
+  compconstrs ::= compconstr ("|" compconstr)*
+               | "|" compconstr ("|" compconstr)*
+    compconstrs1 ::= compconstr ("|" compconstr)*
+  -- Allow multiple guards separated by `|` to share one RHS:
+  --   [| i=1 | k=0 → t]
+  compconstr ::= bdyformulas <ident>* "→" term  -- | i=0 j k → M
+  
+  -- Dimension terms (interval endpoints or variables)
+  dimterm ::= "0" | "1" | <ident>
+  
+  -- V type (univalence)
+  -- Upstream (Grammar.mly) parses V as a spine constructor whose arguments
+  -- are `atomic` (not general terms). We approximate that here via `atomic`.
+  vtype ::= "V" dimterm atomic atomic atomic
+  
+  -- Glue type: glue A [| φ → (T, equiv)] (Glue types for univalence)
+  glueexpr ::= "glue" term gluebdy
+    gluebdy ::= "[" [glueconstrs] "]"
+      | "with" "|" [glueconstrs1] "end"
+  glueconstrs ::= glueconstr ("|" glueconstr)*
+               | "|" glueconstr ("|" glueconstr)*
+    glueconstrs1 ::= glueconstr ("|" glueconstr)*
+  glueconstr ::= bdyformula+ "→" "(" term "," term ")"
+  
+  -- unglue: unglue [| φ → e] a
+  unglueexpr ::= "unglue" gluebdy term
+  
+  -- Connection operators (Kan filling)
+  connectionexpr ::= "connection/and" term term term term   -- connection/and A p q i j
+                  | "connection/or" term term term term
+                  | "connection/both" term term term term term
+                  | "weak-connection/and" term term term term
+                  | "weak-connection/or" term term term term
+  
+  -- Filler operations
+  fillerexpr ::= "symm/filler" ["^" <number>] term term term term compbdy
+              | "trans/filler" ["^" <number>] term term term term term compbdy
+              | "symm/filler" term term term term   -- legacy: symm/filler A p k i
+              | "trans/filler" term term term term term  -- legacy: trans/filler A p q k i
+  
+  -- Box and cap (for Kan composition)
+  boxcapexpr ::= "box" atomic compbdy          -- box a [| φ → u]
+              | "cap" atomic compbdy            -- cap a [| φ → u]
+
+-----------------------------------------------------
+-- Formula operations (for boundaries)
+-----------------------------------------------------
+
+piece Formula
+  -- ∂[i] - boundary of dimension i
+  boundaryexpr ::= "∂" "[" <ident>+ "]"
+  
+  -- i ∧ j, i ∨ j (meet/join in interval)
+  meetjoin ::= <ident> "∧" <ident>
+            | <ident> "∨" <ident>
+
+-----------------------------------------------------
+-- Let Expressions (extended)
+-----------------------------------------------------
+
+piece Let  
+  -- Let-bound names in the library can be qualified/operator-like (e.g. `u→inner`).
+  -- Avoid brittle inline-alternation here; spell out the tail cases explicitly.
+  letname ::= <ident> letqualpart*
+  letqualpart ::= letqualsep <ident>
+              | "^" <number>
+  letqualsep ::= "/"
+              | "→"
+              | "~"
+              | "∘"
+              | "+"
+              | "≃"
+              | "≈"
+
+  -- let x = e in body
+  -- let x : T = e in body
+  -- let (a, b) = e in body (destructuring)
+  -- let f (x : A) : B = e in body (local function)
+  letexpr ::= "let" letpat letargs [":" term] "=" term "in" term
+  -- Destructuring lets are n-ary in the RedTT library: let (f, g, α, β) = I in ...
+  -- NOTE: the .lego grammar syntax does not support `+` repetition reliably here,
+  -- so we spell out “at least one comma” as `,` then `*`.
+  letpat ::= letname | "(" letpat "," letpat ("," letpat)* ")"
+  letargs ::= letarg*
+  letarg ::= "(" <ident>+ ":" term ")"
+         | <ident>
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+
+-- Import
+test "import": (importdecl (modpath prelude)) ~~> (importdecl (modpath prelude))
+test "import_nested": (importdecl (modpath data bool)) ~~> (importdecl (modpath data bool))
+
+-- Data declarations
+test "data_bool": (datadecl bool (constructors (constructor tt) (constructor ff)))
+  ~~> (datadecl bool (constructors (constructor tt) (constructor ff)))
+
+test "data_nat": (datadecl nat (constructors (constructor zero) (constructor suc (conarg x nat))))
+  ~~> (datadecl nat (constructors (constructor zero) (constructor suc (conarg x nat))))
+
+test "data_s1": (datadecl s1 (constructors 
+    (constructor base) 
+    (constructor loop (conarg i interval) (conbdy (conbdyconstr (bdyformula (boundary i)) base)))))
+  ~~> (datadecl s1 (constructors 
+    (constructor base) 
+    (constructor loop (conarg i interval) (conbdy (conbdyconstr (bdyformula (boundary i)) base)))))
+
+-- Definitions
+test "def_simple": (defdecl not (arr bool bool) (elimexpr (elimcases (elimcase tt ff) (elimcase ff tt))))
+  ~~> (defdecl not (arr bool bool) (elimexpr (elimcases (elimcase tt ff) (elimcase ff tt))))
+
+-- Elim
+test "elim": (elimexpr (elimcases (elimcase zero z) (elimcase (suc n rec) (app f rec))))
+  ~~> (elimexpr (elimcases (elimcase zero z) (elimcase (suc n rec) (app f rec))))
+
+-- Lambda
+test "lam": (lam x (app f x)) ~~> (lam x (app f x))
+test "lam_star": (lam (*) refl) ~~> (lam (*) refl)
+
+-- Path types
+test "path": (pathsugar A M N) ~~> (pathsugar A M N)
+
+-- Lambda
+test "lam_simple": (lamexpr x x) ~~> (lamexpr x x)
+test "lam_multi": (lamexpr i j (app f i j)) ~~> (lamexpr i j (app f i j))
+
+-- Arrow types
+test "arrow": (arrowexpr bool bool) ~~> (arrowexpr bool bool)
+test "pi": (arrowexpr (x A) (app B x)) ~~> (arrowexpr (x A) (app B x))
+
+-- Application
+test "app": (appexpr f x y) ~~> (appexpr f x y)
+
+-- Pairs & Sigma
+test "pair": (pair a b) ~~> (pair a b)
+test "sigma": (sigmaexpr (x A) B) ~~> (sigmaexpr (x A) B)
+
+-- Projections
+test "proj_fst": (projexpr p fst) ~~> (projexpr p fst)
+test "proj_snd": (projexpr p snd) ~~> (projexpr p snd)
+
+-- Path combinators
+test "trans": (pathcomb (trans A p q)) ~~> (pathcomb (trans A p q))
+test "symm": (pathcomb (symm A p)) ~~> (pathcomb (symm A p))
+
+-- Equivalences
+test "equiv": (equivexpr (equiv A B)) ~~> (equivexpr (equiv A B))
+test "ua": (equivexpr (ua A B e)) ~~> (equivexpr (ua A B e))
+
+-- Glue types
+test "glue": (glueexpr A (gluebdy (glueconstr (i 0) (B e)))) ~~> (glueexpr A (gluebdy (glueconstr (i 0) (B e))))
+test "unglue": (unglueexpr (gluebdy (glueconstr phi e)) a) ~~> (unglueexpr (gluebdy (glueconstr phi e)) a)
+
+-- Connection operators  
+test "connection_and": (connectionexpr (connection/and A p q i j)) ~~> (connectionexpr (connection/and A p q i j))
+test "weak_connection": (connectionexpr (weak-connection/or A p i k)) ~~> (connectionexpr (weak-connection/or A p i k))
+
+-- Let with destructuring
+test "let_destruct": (letexpr ((f g) iso) body) ~~> (letexpr ((f g) iso) body)
+
+-- HLevel
+test "is_prop": (hlevelexpr (is-prop A)) ~~> (hlevelexpr (is-prop A))
+test "is_contr": (hlevelexpr (is-contr A)) ~~> (hlevelexpr (is-contr A))
+test "is_set": (hlevelexpr (is-set A)) ~~> (hlevelexpr (is-set A))
+
+-- Fiber
+test "fiber": (equivexpr (fiber A B f b)) ~~> (equivexpr (fiber A B f b))
+
+-- Square
+test "square": (squaretype A top bot left right) ~~> (squaretype A top bot left right)
+
+-- Box/cap
+test "box": (boxcapexpr (box a (compbdy (compconstr (i 0) u)))) ~~> (boxcapexpr (box a (compbdy (compconstr (i 0) u))))
+
+-- Universe levels
+test "type_level": (type^1) ~~> (type^1)
+test "type_level2": (type^2) ~~> (type^2)
+
+-- Public import
+test "public_import": (importdecl public (modpath prelude path)) ~~> (importdecl public (modpath prelude path))
+
+-- Slash identifiers (recursive binders)
+test "elim_rec": (elimexpr (elimcases (elimcase (hsuc (l l/ih)) body))) 
+  ~~> (elimexpr (elimcases (elimcase (hsuc (l l/ih)) body)))
+
+-- General projections
+test "proj_gen": (projexpr p path) ~~> (projexpr p path)
+
+-- Opaque definitions
+test "opaque_def": (defdecl opaque f (arr A A) (lam x x)) ~~> (defdecl opaque f (arr A A) (lam x x))
+
+-- Comp with variable dimensions
+test "comp_var": (compexpr 1 l a (compbdy)) ~~> (compexpr 1 l a (compbdy))
+test "coe_var": (coeexpr r s a A) ~~> (coeexpr r s a A)
+test "cap": (boxcapexpr (cap a (compbdy (compconstr phi e)))) ~~> (boxcapexpr (cap a (compbdy (compconstr phi e))))
+
+-- Meet/join
+test "meet": (meetjoin (i meet j)) ~~> (meetjoin (i meet j))
+test "join": (meetjoin (i join j)) ~~> (meetjoin (i join j))
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for RedttParser
+-- =============================================================================
+-- [ ] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

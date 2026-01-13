@@ -1,0 +1,106 @@
+-- OCamlToCubical.lego
+-- Step 4: Lowering typed OCaml to Cubical VM
+
+lang OCamlToCubical :=
+
+piece TypedLambda
+  term ::= litterm | varterm | lamterm | appterm | letterm | letrecterm 
+         | ifterm | matchterm | refterm | derefterm | assignterm
+         | tupleterm | recordterm | variantterm | annotterm
+  litterm ::= "Lit" literal
+  varterm ::= "Var" ident
+  lamterm ::= "Lam" ident ty term
+  appterm ::= "App" term term
+  letterm ::= "Let" ident term term
+  letrecterm ::= "LetRec" bindings term
+  ifterm ::= "If" term term term
+  matchterm ::= "Match" term caselist
+  refterm ::= "Ref" term
+  derefterm ::= "Deref" term
+  assignterm ::= "Assign" term term
+  tupleterm ::= "Tuple" termlist
+  recordterm ::= "Record" fieldtermlist
+  variantterm ::= "Variant" label term
+  annotterm ::= "Annot" term ty
+  
+  literal ::= "int" | "float" | "char" | "string"
+  ident ::= name
+  ty ::= name
+  bindings ::= "nil" | "cons" binding bindings
+  binding ::= "bind" ident term
+  caselist ::= "nil" | "cons" caseitem caselist
+  caseitem ::= "case" pattern term
+  pattern ::= name
+  termlist ::= "nil" | "cons" term termlist
+  fieldtermlist ::= "nil" | "cons" fieldterm fieldtermlist
+  fieldterm ::= "field" ident term
+  label ::= name
+
+piece ExplicitSharing
+  eshare ::= shareterm | nodeterm | edgeterm
+  shareterm ::= "Share" ident term term
+  nodeterm ::= "Node" ident termlist
+  edgeterm ::= "Edge" ident ident
+  
+  rule share_flatten:
+    (Share $x $t $u) ~> (Node $x (cons $t nil))
+  
+  test "share_flatten": (Share x t u) ~~> (Node x (cons t nil))
+
+piece INetEncoding
+  cell ::= lambdacell | appcell | letcell | refcell | derefcell 
+         | assigncell | tuplecell | recordcell | variantcell | literalcell
+  lambdacell ::= "LambdaCell" ident term
+  appcell ::= "AppCell"
+  letcell ::= "LetCell" ident term
+  refcell ::= "RefCell"
+  derefcell ::= "DerefCell"
+  assigncell ::= "AssignCell"
+  tuplecell ::= "TupleCell" termlist
+  recordcell ::= "RecordCell" fieldtermlist
+  variantcell ::= "VariantCell" label term
+  literalcell ::= "LiteralCell" literal
+  
+  net ::= "Net" celllist edgelist
+  celllist ::= "nil" | "cons" cell celllist
+  edgelist ::= "nil" | "cons" edgeterm edgelist
+
+piece CubicalVMTranslation
+  cubecell ::= pathcell | coecell | transpcell | hcompcell | gluecell 
+             | funextcell | jelimcell | hitcell
+  pathcell ::= "PathCell" term
+  coecell ::= "CoeCell" term iterm iterm term
+  transpcell ::= "TranspCell" term iterm term
+  hcompcell ::= "HCompCell" term term term
+  gluecell ::= "GlueCell" term term term
+  funextcell ::= "FunextCell" term
+  jelimcell ::= "JElimCell" term term term term
+  hitcell ::= "HITCell" term
+  
+  iterm ::= "i0" | "i1" | "ivar" name
+  
+  rule lambda_to_path:
+    (LambdaCell $x $t) ~> (PathCell (Lam $x $t))
+  
+  rule ref_to_coe:
+    (RefCell $t) ~> (CoeCell TyRef i0 i1 $t)
+  
+  rule deref_to_transp:
+    (DerefCell $t) ~> (TranspCell TyRef i0 $t)
+  
+  test "lambda_to_path": (LambdaCell x t) ~~> (PathCell (Lam x t))
+
+piece LoweringPipeline
+  pipeline ::= "pipeline" term
+  
+  test "pipeline": (pipeline x)
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for OCamlToCubical
+-- =============================================================================
+-- [ ] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

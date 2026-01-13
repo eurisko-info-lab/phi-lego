@@ -1,0 +1,96 @@
+-- Linear.lego: Linear Type Theory
+-- Resources used exactly once (Girard's Linear Logic)
+-- Composes: Base
+
+import Base
+
+lang Linear (Base) :=
+
+-----------------------------------------------------
+-- Linear types (S-expression style)
+-----------------------------------------------------
+piece LinearType
+  ltype ::= lvar | lolli | tensor | withtype | plus | bang | unittype
+  lvar ::= "'" name
+  lolli ::= "(" ltype "-o" ltype ")"
+  tensor ::= "(" "tens-ty" ltype ltype ")"
+  withtype ::= "(" "with-ty" ltype ltype ")"
+  plus ::= "(" "plus-ty" ltype ltype ")"
+  bang ::= "(" "!" ltype ")"
+  unittype ::= "I"
+
+-----------------------------------------------------
+-- Terms (S-expression style)
+-----------------------------------------------------
+piece Term
+  term ::= var | lam | app | tenspair | lettens | inl | inr | casesum
+         | letbang | promote | proj1 | proj2 | withpair | unitterm
+  var ::= "(" "var" name ")"
+  lam ::= "(" "lin" name term ")"
+  app ::= "(" "app" term term ")"
+  tenspair ::= "(" "tens" term term ")"
+  lettens ::= "(" "let-tens" name name term term ")"
+  inl ::= "(" "inl" term ")"
+  inr ::= "(" "inr" term ")"
+  casesum ::= "(" "case" term name term name term ")"
+  promote ::= "(" "promote" term ")"
+  letbang ::= "(" "let-bang" name term term ")"
+  proj1 ::= "(" "p1" term ")"
+  proj2 ::= "(" "p2" term ")"
+  withpair ::= "(" "with" term term ")"
+  unitterm ::= "unit"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule beta:
+  (app (lin $x $body) $arg) ~> $body
+
+rule let_tensor:
+  (let-tens $x $y (tens $a $b) $body) ~> $body
+
+rule case_inl:
+  (case (inl $v) $x $l $y $r) ~> $l
+
+rule case_inr:
+  (case (inr $v) $x $l $y $r) ~> $r
+
+rule let_bang:
+  (let-bang $x (promote $v) $body) ~> $body
+
+rule proj1_with:
+  (p1 (with $a $b)) ~> $a
+
+rule proj2_with:
+  (p2 (with $a $b)) ~> $b
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "lolli_type": ('A -o 'B)
+test "tensor_type": (tens-ty 'A 'B)
+test "bang_type": (! 'A)
+test "with_type": (with-ty 'A 'B)
+test "plus_type": (plus-ty 'A 'B)
+test "linear_id": (lin x (var x))
+test "tensor_pair": (tens a b)
+test "with_pair": (with a b)
+test "beta_test": (app (lin x (var x)) y) ~~> (var y)
+test "tensor_elim": (let-tens x y (tens a b) result) ~~> result
+test "inl_test": (inl v)
+test "inr_test": (inr w)
+test "case_inl_test": (case (inl v) x left y right) ~~> left
+test "case_inr_test": (case (inr w) x left y right) ~~> right
+test "bang_intro": (promote v)
+test "bang_elim": (let-bang x (promote v) body) ~~> body
+test "with_proj1": (p1 (with a b)) ~~> a
+test "with_proj2": (p2 (with a b)) ~~> b
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Linear
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: linear type rules
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

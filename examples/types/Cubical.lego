@@ -1,0 +1,391 @@
+-- Cubical.lego: Cubical Type Theory
+-- Path types, transport, composition
+-- Composes: Base + Equality
+
+import Base
+
+lang Cubical (Base) :=
+
+-- Interval and paths
+piece Interval
+  dim ::= dimvar | i0dim | i1dim | revdim | meetdim | joindim
+  dimvar ::= "i" | "j" | "k"
+  i0dim ::= "i0"
+  i1dim ::= "i1"
+  revdim ::= "~" dim
+  meetdim ::= "meet" dim dim
+  joindim ::= "join" dim dim
+
+  interval ::= "I"
+  iterm ::= i0term | i1term | revterm | meetterm | jointerm
+  i0term ::= "i0"
+  i1term ::= "i1"
+  revterm ::= "~" iterm
+  meetterm ::= "meet" iterm iterm
+  jointerm ::= "join" iterm iterm
+  
+  rule interval_meet:
+    (meet i0 $x) ~> i0
+  
+  rule interval_join:
+    (join i0 $x) ~> $x
+  
+  rule interval_meet_i1:
+    (meet i1 $x) ~> $x
+  
+  rule interval_join_i1:
+    (join i1 $x) ~> i1
+  
+  rule interval_reversal_i0:
+    (~ i0) ~> i1
+  
+  rule interval_reversal_i1:
+    (~ i1) ~> i0
+  
+  test "interval_meet_i0": (meet i0 i1) ~~> i0
+  test "interval_join_i0": (join i0 i1) ~~> i1
+  test "interval_not_i0": (~ i0) ~~> i1
+  test "interval_not_i1": (~ i1) ~~> i0
+
+piece Path
+  path ::= pathtype | pathabs | pathapp
+  pathtype ::= "Path" term term term
+  pathabs ::= "pabs" name term
+  pathapp ::= "@" term iterm
+  
+  rule path_beta:
+    (@ (pabs $i $body) $j) ~> (subst $i $j $body)
+  
+  rule path_endpoints:
+    (@ (pabs $i $body) i0) ~> (subst $i i0 $body)
+  
+  test "pathabs_const": (@ (pabs i true) i0) ~~> true
+  test "pathabs_const_i1": (@ (pabs i false) i1) ~~> false
+
+-- Transport and composition
+piece Transport
+  transp ::= "transp" term iterm term
+  hcomp ::= "hcomp" term term term term
+  coe ::= "coe" term iterm iterm term
+  
+  rule transp_i1:
+    (transp $A i1 $a) ~> $a
+  
+  rule transp_const:
+    (transp (pabs $i $A) $phi $a) ~> $a
+  
+  rule coe_same_i0:
+    (coe $A i0 i0 $a) ~> $a
+  
+  rule coe_same_i1:
+    (coe $A i1 i1 $a) ~> $a
+  
+  rule coe_const:
+    (coe $A $r $r $a) ~> $a
+  
+  rule coe_to_transp:
+    (coe $A i0 i1 $a) ~> (transp $A i0 $a)
+  
+  test "transp_i1": (transp A i1 a) ~~> a
+  test "coe_same_i0": (coe A i0 i0 a) ~~> a
+  test "coe_same_i1": (coe A i1 i1 b) ~~> b
+
+-- Glue types (univalence)
+piece Glue
+  glue ::= gluetype | glueintro | glueelim
+  gluetype ::= "Glue" term term term
+  glueintro ::= "glue" term term
+  glueelim ::= "unglue" term
+
+-- Reflexivity, symmetry
+piece PathCombinators
+  refl ::= "refl" term
+  sym ::= "sym" term
+  trans ::= "trans" term term
+  
+  rule refl_app:
+    (@ (refl $a) $i) ~> $a
+  
+  rule sym_def:
+    (@ (sym $p) $i) ~> (@ $p (~ $i))
+  
+  test "refl_at_i0": (@ (refl x) i0) ~~> x
+  test "refl_at_i1": (@ (refl x) i1) ~~> x
+
+-- Function extensionality
+piece Funext
+  funext ::= "funext" term
+  
+  rule funext_apply:
+    (@ (funext $h) $i) ~> (lam x (@ ($h x) $i))
+
+-- J eliminator
+piece JElim
+  jelim ::= "J" term term term term
+  
+  rule J_refl:
+    (J $A $C $d (refl $a)) ~> $d
+  
+  test "J_refl": (J A C d (refl a)) ~~> d
+
+-- Circle (higher inductive type)
+piece Circle
+  circle ::= "S1"
+  cpoint ::= "base"
+  cpath ::= "loop"
+  celim ::= "S1-elim" term term term
+  
+  rule S1_elim_base:
+    (S1-elim $P $b $l base) ~> $b
+  
+  rule S1_elim_loop:
+    (@ (S1-elim $P $b $l loop) $i) ~> (@ $l $i)
+  
+  test "S1_elim_base": (S1-elim P b l base) ~~> b
+
+-- Suspension (higher inductive type)
+piece Suspension
+  susp ::= "Susp" term
+  north ::= "north"
+  south ::= "south"
+  merid ::= "merid" term
+  selim ::= "Susp-elim" term term term term
+  
+  rule Susp_elim_north:
+    (Susp-elim $P $n $s $m north) ~> $n
+  
+  rule Susp_elim_south:
+    (Susp-elim $P $n $s $m south) ~> $s
+  
+  test "susp_north": (Susp-elim P n s m north) ~~> n
+  test "susp_south": (Susp-elim P n s m south) ~~> s
+
+-- Pushout (higher inductive type)
+piece PushoutHIT
+  pushoutHIT ::= "Pushout" term term term
+  inl ::= "inl" term
+  inr ::= "inr" term
+  push ::= "push" term
+  pelim ::= "Pushout-elim" term term term term
+  
+  rule Pushout_elim_inl:
+    (Pushout-elim $P $f $g $p (inl $a)) ~> (app $f $a)
+  
+  rule Pushout_elim_inr:
+    (Pushout-elim $P $f $g $p (inr $b)) ~> (app $g $b)
+  
+  test "pushout_inl": (Pushout-elim P f g p (inl a)) ~~> (app f a)
+  test "pushout_inr": (Pushout-elim P f g p (inr b)) ~~> (app g b)
+
+-- Integer Z as HIT
+piece IntegerHIT
+  zint ::= "Z"
+  zzero ::= "zero"
+  zsucc ::= "succ" term
+  zpred ::= "pred" term
+  
+  rule Int_succ_pred:
+    (succ (pred $n)) ~> $n
+  
+  rule Int_pred_succ:
+    (pred (succ $n)) ~> $n
+  
+  test "int_chain_cancel": (succ (pred (succ (pred zero)))) ~~> zero
+  test "int_double_succ_pred": (succ (succ (pred (pred zero)))) ~~> zero
+
+-- Torus T2 as HIT
+piece TorusHIT
+  torus ::= "T2"
+  tbase ::= "tbase"
+  tline1 ::= "line1"
+  tline2 ::= "line2"
+  tsquare ::= "square"
+  telim ::= "T2-elim" term term term term term
+  
+  rule T2_elim_base:
+    (T2-elim $P $b $l1 $l2 $sq tbase) ~> $b
+  
+  rule T2_elim_line1:
+    (@ (T2-elim $P $b $l1 $l2 $sq line1) $i) ~> (@ $l1 $i)
+  
+  rule T2_elim_line2:
+    (@ (T2-elim $P $b $l1 $l2 $sq line2) $i) ~> (@ $l2 $i)
+  
+  test "torus_elim_base": (T2-elim P b l1 l2 sq tbase) ~~> b
+
+-- Propositional truncation
+piece TruncationHIT
+  trunc ::= "trunc" term
+  trin ::= "trunc-in" term
+  trsquash ::= "squash" term term
+  trelim ::= "trunc-elim" term term term
+  
+  rule Trunc_elim:
+    (trunc-elim $P $f $sq (trunc-in $a)) ~> (app $f $a)
+  
+  test "trunc_elim": (trunc-elim P f sq (trunc-in x)) ~~> (app f x)
+
+-- Set quotient
+piece QuotientHIT
+  quot ::= "quot" term term
+  qclass ::= "quot-class" term
+  qeq ::= "quot-eq" term
+  qelim ::= "quot-elim" term term term term
+  
+  rule Quot_elim:
+    (quot-elim $P $f $resp $trunc (quot-class $a)) ~> (app $f $a)
+  
+  test "quot_elim": (quot-elim P f resp trunc (quot-class x)) ~~> (app f x)
+
+-- Join A * B
+piece JoinHIT
+  jointype ::= "Join" term term
+  jinl ::= "jinl" term
+  jinr ::= "jinr" term
+  jpath ::= "jpath" term term
+  jelimj ::= "join-elim" term term term term
+  
+  rule Join_elim_inl:
+    (join-elim $P $f $g $p (jinl $a)) ~> (app $f $a)
+  
+  rule Join_elim_inr:
+    (join-elim $P $f $g $p (jinr $b)) ~> (app $g $b)
+  
+  test "join_elim_inl": (join-elim P f g p (jinl a)) ~~> (app f a)
+  test "join_elim_inr": (join-elim P f g p (jinr b)) ~~> (app g b)
+
+-- Wedge Sum
+piece WedgeSumHIT
+  wedge ::= "Wedge" term term
+  wbase ::= "wedge-pt"
+  winl ::= "wedge-inl" term
+  winr ::= "wedge-inr" term
+  wgluel ::= "glue-l"
+  wgluer ::= "glue-r"
+  welim ::= "wedge-elim" term term term term term term
+  
+  rule Wedge_elim_pt:
+    (wedge-elim $P $pt $fl $fr $gl $gr wedge-pt) ~> $pt
+  
+  rule Wedge_elim_inl:
+    (wedge-elim $P $pt $fl $fr $gl $gr (wedge-inl $a)) ~> (app $fl $a)
+  
+  rule Wedge_elim_inr:
+    (wedge-elim $P $pt $fl $fr $gl $gr (wedge-inr $b)) ~> (app $fr $b)
+  
+  test "wedge_elim_pt": (wedge-elim P pt fl fr gl gr wedge-pt) ~~> pt
+  test "wedge_elim_inl": (wedge-elim P pt fl fr gl gr (wedge-inl x)) ~~> (app fl x)
+
+-- Smash Product
+piece SmashProductHIT
+  smash ::= "Smash" term term
+  sproj ::= "smash-proj" term term
+  sbasel ::= "smash-basel"
+  sbaser ::= "smash-baser"
+  sgluel ::= "smash-gluel" term
+  sgluer ::= "smash-gluer" term
+  sglue ::= "smash-glue"
+  selims ::= "smash-elim" term term term term term term term
+  
+  rule Smash_elim_proj:
+    (smash-elim $P $f $bl $br $gl $gr $g (smash-proj $a $b)) ~> (app (app $f $a) $b)
+  
+  rule Smash_elim_basel:
+    (smash-elim $P $f $bl $br $gl $gr $g smash-basel) ~> $bl
+  
+  rule Smash_elim_baser:
+    (smash-elim $P $f $bl $br $gl $gr $g smash-baser) ~> $br
+  
+  test "smash_elim_proj": (smash-elim P f bl br gl gr g (smash-proj x y)) ~~> (app (app f x) y)
+  test "smash_elim_basel": (smash-elim P f bl br gl gr g smash-basel) ~~> bl
+
+-- Free Group
+piece FreeGroupHIT
+  freegroup ::= "FreeGroup" term
+  fgnil ::= "fg-nil"
+  fgcons ::= "fg-cons" term term
+  fginv ::= "fg-inv" term term
+  fgcancel ::= "fg-cancel" term term
+  fgelim ::= "fg-elim" term term term term term
+  
+  rule FG_elim_nil:
+    (fg-elim $P $e $cons $inv $cancel fg-nil) ~> $e
+  
+  rule FG_elim_cons:
+    (fg-elim $P $e $cons $inv $cancel (fg-cons $a $w)) ~>
+      (app (app $cons $a) (fg-elim $P $e $cons $inv $cancel $w))
+  
+  rule FG_elim_inv:
+    (fg-elim $P $e $cons $inv $cancel (fg-inv $a $w)) ~>
+      (app (app $inv $a) (fg-elim $P $e $cons $inv $cancel $w))
+  
+  rule FG_cancel:
+    (fg-cons $a (fg-inv $a $w)) ~> $w
+  
+  rule FG_cancel_inv:
+    (fg-inv $a (fg-cons $a $w)) ~> $w
+  
+  test "fg_nil": (fg-elim P e cons inv cancel fg-nil) ~~> e
+  test "fg_cancel_right": (fg-cons x (fg-inv x fg-nil)) ~~> fg-nil
+  test "fg_cancel_left": (fg-inv x (fg-cons x fg-nil)) ~~> fg-nil
+  test "fg_double_cancel": (fg-cons a (fg-cons b (fg-inv b (fg-inv a fg-nil)))) ~~> fg-nil
+
+-- Finite Multiset (Bag)
+piece FiniteMultisetHIT
+  bag ::= "Bag" term
+  bagnil ::= "bag-nil"
+  bagcons ::= "bag-cons" term term
+  bagswap ::= "bag-swap" term term term
+  bagelim ::= "bag-elim" term term term term term
+  
+  rule Bag_elim_nil:
+    (bag-elim $P $nil $cons $swap bag-nil) ~> $nil
+  
+  rule Bag_elim_cons:
+    (bag-elim $P $nil $cons $swap (bag-cons $a $xs)) ~>
+      (app (app $cons $a) (bag-elim $P $nil $cons $swap $xs))
+  
+  test "bag_nil": (bag-elim P nil cons swap bag-nil) ~~> nil
+  test "bag_singleton": (bag-elim P nil cons swap (bag-cons x bag-nil)) ~~> (app (app cons x) nil)
+
+-- Interval type as HIT
+piece IntervalHIT
+  intervalHIT ::= "Interval"
+  iend0 ::= "i0-pt"
+  iend1 ::= "i1-pt"
+  iseg ::= "seg"
+  ielim ::= "interval-elim" term term term term
+  
+  rule Interval_elim_i0:
+    (interval-elim $P $p0 $p1 $pseg i0-pt) ~> $p0
+  
+  rule Interval_elim_i1:
+    (interval-elim $P $p0 $p1 $pseg i1-pt) ~> $p1
+  
+  test "interval_i0": (interval-elim P p0 p1 pseg i0-pt) ~~> p0
+  test "interval_i1": (interval-elim P p0 p1 pseg i1-pt) ~~> p1
+
+-- Coequalizer
+piece CoequalizerHIT
+  coeq ::= "Coeq" term term
+  coeqincl ::= "coeq-incl" term
+  coeqglue ::= "coeq-glue" term
+  coeqelim ::= "coeq-elim" term term term
+  
+  rule Coeq_elim:
+    (coeq-elim $P $incl $glue (coeq-incl $a)) ~> (app $incl $a)
+  
+  test "coeq_incl": (coeq-elim P incl glue (coeq-incl x)) ~~> (app incl x)
+
+-- Complex composition tests
+piece ComplexTests
+  test "triple_HIT_compose": (trunc-elim Q h hsq (trunc-in (quot-elim R k resp tr (quot-class (T2-elim P b l1 l2 sq tbase))))) ~~> (app h (app k b))
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Cubical
+-- =============================================================================
+-- [ ] Normalize: reduction rules
+-- [ ] Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
+-- TODO: Cubical needs reduction rules

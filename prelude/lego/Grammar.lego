@@ -1,0 +1,215 @@
+-- Lego Grammar: Declarative syntax definition
+-- 
+-- SOURCE OF TRUTH: This file defines the grammar. GrammarDef.hs is generated from it.
+-- Run: cabal run gen-grammar-def -- lego/prelude/lego/Grammar.lego > lego/interpreter/Lego/GrammarDef.hs
+--
+-- Syntax: grammar "$ nodeName" specifies the AST node constructor
+--   "(" "λ" ident "." term ")" $ lam   -- produces node "lam" [...]
+--   Without $ annotation, production name is the node name
+--
+-- Grammar.lego → gen-grammar-def → GrammarDef.hs → GrammarInterp.hs
+
+lang LegoGrammar :=
+
+-----------------------------------------------------
+-- PIECE 1: Atoms
+-- Identifiers, literals, and basic tokens
+-----------------------------------------------------
+
+piece Atom
+  ident   ::= <identifier>
+  string  ::= <string>
+  regex   ::= <regex>
+  char    ::= <char>
+  number  ::= <digits>
+  metavar ::= "$" ident
+  chars   ::= <char>*
+
+-----------------------------------------------------
+-- PIECE 2: Term
+-- S-expression terms with variables and literals
+-----------------------------------------------------
+
+piece Term
+  term ::= "$" ident                       $ metavar  -- metavariable
+         | "?" ident                       $ hole     -- hole
+         | "." ident                       $ proj     -- projection
+         | "(" "λᵢ" ident "." term ")"     $ λᵢ       -- path abstraction (paren)
+         | "(" "λ" ident "." term ")"      $ lam      -- lambda (paren)
+         | "(" "\\" ident "." term ")"     $ lam      -- lambda (paren, ASCII)
+         | "(" "Π" typedBinder "." term ")" $ Π       -- dependent Pi
+         | "(" "Σ" typedBinder "." term ")" $ Σ       -- dependent Sigma
+         | "(" "∀" typedBinder "." term ")" $ ∀       -- universal quantification
+         | "(" ident term* ")"             $ constr   -- constructor
+         | "λᵢ" ident "." term             $ λᵢ       -- path abstraction (bare)
+         | "λ" ident "." term              $ lam      -- lambda (bare)
+         | "\\" ident "." term             $ lam      -- lambda (bare, ASCII)
+         | string                          $ str      -- string literal
+         | number                          $ num      -- number literal
+         | ident                           $ var      -- variable
+  
+  -- Typed binder for Π/Σ/∀: (x : A)
+  typedBinder ::= "(" ident ":" term ")" $ ":"
+
+-----------------------------------------------------
+-- PIECE 3: Pattern
+-- Patterns for matching in rules
+-----------------------------------------------------
+
+piece Pattern
+  pattern ::= "$" ident                         $ metavar
+            | "(" "λᵢ" pattern "." pattern ")"  $ λᵢ
+            | "(" ident pattern* ")"            $ constr
+            | "λᵢ" pattern "." pattern          $ λᵢ
+            | string                            $ pstr
+            | ident                             $ litIdent
+
+-----------------------------------------------------
+-- PIECE 4: Template  
+-- Templates for rule right-hand sides
+-----------------------------------------------------
+
+piece Template
+  template ::= "$" ident                          $ metavar
+             | "[" ident ":=" template "]" template $ subst
+             | "(" "λᵢ" template "." template ")" $ λᵢ
+             | "(" "λ" ident "." template ")"     $ lam
+             | "(" "\\" ident "." template ")"    $ lam
+             | "(" ident template* ")"            $ constr
+             | "λᵢ" template "." template         $ λᵢ
+             | "λ" ident "." template             $ lam
+             | "\\" ident "." template            $ lam
+             | string                             $ tstr
+             | ident                              $ litIdent
+
+-----------------------------------------------------
+-- PIECE 5: GrammarExpr
+-- Grammar expressions (the meta-language)
+-----------------------------------------------------
+
+piece GrammarExpr  
+  production ::= ident "::=" grammarExpr
+  
+  grammarExpr ::= grammarAlt
+  
+  grammarAlt ::= altBranch | grammarSeq
+  altBranch ::= grammarSeq "|" grammarAlt
+  
+  grammarSeq ::= seqHead | grammarSuffix
+  seqHead ::= grammarSuffix grammarSeq
+  
+  grammarSuffix ::= grammarAtom "*" $ starSuffix
+                  | grammarAtom "+" $ plusSuffix
+                  | grammarAtom "?" $ optSuffix
+                  | grammarAtom
+  
+  grammarAtom ::= string                    $ litAtom
+                | regex                     $ regexAtom
+                | char                      $ charAtom
+                | "$" ident                 $ captureAtom
+                | ident ":" ident "*"       $ namedStarAtom
+                | ident ":" ident           $ namedRefAtom
+                | "(" grammarExpr ")"       $ groupAtom
+                | "[" grammarExpr "]"       $ optGroupAtom
+                | ident                     $ refAtom
+                | "<" ident ">"             $ specialAtom
+                | "μ" ident "." grammarExpr $ recAtom
+                | "ε"                       $ emptyAtom
+  
+-----------------------------------------------------
+-- PIECE 6: Rule
+-- Rewrite rules
+-----------------------------------------------------
+
+piece Rule
+  rule ::= forwardRule | backwardRule | bidiRule
+  
+  forwardRule ::= pattern "~>" template guard?
+  backwardRule ::= pattern "<~" template guard?
+  bidiRule ::= pattern "<~>" template guard?
+  
+  guard ::= "when" term
+
+-----------------------------------------------------
+-- PIECE 7: Test
+-- Test declarations
+-----------------------------------------------------
+
+piece Test
+  test ::= fullTest | parseTest
+  
+  fullTest ::= "test" string ":" term "~~>" term
+  parseTest ::= "test" string ":" term
+
+-----------------------------------------------------
+-- PIECE 8: File
+-- Complete file structure  
+-----------------------------------------------------
+
+piece File
+  legoFile ::= whitespace? fileDeclWithWs*
+  
+  fileDeclWithWs ::= fileDecl whitespace?
+  
+  whitespace ::= wsItem*
+  wsItem ::= <newline> | <indent>
+  
+  fileDecl ::= langDecl
+             | importDecl
+             | grammarDecl
+             | pieceDecl
+             | ruleDecl
+             | testDecl
+             | defDecl
+
+  -- Language declaration with direct body
+  langDecl ::= "lang" ident langParentsOpt ":=" langDirectBody
+  
+  langParentsOpt ::= langParents
+  emptyParents ::= ε
+  langParents ::= "(" ident moreParents* ")"
+  moreParents ::= "," ident
+  
+  langDirectBody ::= whitespace? langItemWithWs*
+  
+  langItemWithWs ::= langItem whitespace?
+  
+  langItem ::= importDecl
+             | grammarDecl
+             | pieceDecl
+             | ruleDecl
+             | ruleStub
+             | testDecl
+             | defDecl
+             | sectionMarker
+
+  -- Section markers (prelude:, code:)
+  sectionMarker ::= sectionName ":"
+  sectionName ::= "prelude" | "code"
+  
+  -- Grammar declarations
+  grammarDecl ::= "grammar" ":" grammarProd*
+  grammarProd ::= whitespace? ident "::=" grammarExpr whitespace?
+  
+  -- Import declaration
+  importDecl ::= "import" ident
+  
+  -- Piece declaration
+  pieceDecl ::= "piece" ident whitespace? pieceItem*
+  pieceItem ::= productionWithWs
+  productionWithWs ::= production whitespace?
+  
+  -- Rule declaration
+  ruleDecl ::= "rule" ident ":" whitespace? pattern "~>" whitespace? template
+  
+  -- Rule stub (empty rule declaration)
+  ruleStub ::= "rule" ident ":"
+  
+  -- Test declaration
+  testDecl ::= "test" string ":" term testExpected?
+  testExpected ::= testExpectedArrow | testExpectedDouble
+  testExpectedArrow ::= whitespace? "~~>" whitespace? term
+  testExpectedDouble ::= whitespace? "==>" whitespace? term
+  
+  -- Def declaration
+  defDecl ::= "def" ident "=" term

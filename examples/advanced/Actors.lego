@@ -1,0 +1,90 @@
+-- Actors.lego: Actor model concurrency
+-- Erlang/Akka style message passing
+-- Composes: Concurrent
+
+import Concurrent
+
+lang Actors (Concurrent) :=
+
+-----------------------------------------------------
+-- Actor types
+-----------------------------------------------------
+piece ActorType
+  atype ::= "Actor" term            -- actor handling message type
+          | "ActorRef" term         -- reference to actor
+          | "Behavior" term         -- behavior type
+
+-----------------------------------------------------
+-- Actor creation
+-----------------------------------------------------
+piece ActorCreate
+  acreate ::= "spawn" term          -- spawn actor with behavior
+            | "self"                -- reference to self
+            | "parent"              -- reference to parent
+            | "children"            -- list of children
+
+-----------------------------------------------------
+-- Message passing
+-----------------------------------------------------
+piece Message
+  msg ::= term "!" term             -- send message (fire & forget)
+        | term "?" term             -- ask pattern (with reply)
+        | "receive" "{" handlers "}"-- receive with handlers
+        | "become" term             -- change behavior
+  handlers ::= handler | handler "," handlers
+  handler ::= pattern "=>" term
+
+-----------------------------------------------------
+-- Actor lifecycle
+-----------------------------------------------------
+piece Lifecycle
+  life ::= "preStart"               -- before starting
+         | "postStop"               -- after stopping
+         | "preRestart" term        -- before restart
+         | "postRestart" term       -- after restart
+
+-----------------------------------------------------
+-- Supervision
+-----------------------------------------------------
+piece Supervision
+  super ::= "supervisor" term       -- supervision strategy
+          | "OneForOne"             -- restart only failed
+          | "OneForAll"             -- restart all
+          | "RestForOne"            -- restart subsequent
+          | "resume" | "restart" | "stop" | "escalate"
+
+-----------------------------------------------------
+-- Actor patterns
+-----------------------------------------------------
+piece ActorPattern
+  apatt ::= "ask-pattern" term term term  -- ask with timeout
+          | "pipe-to" term term           -- pipe result to actor
+          | "forward" term term           -- forward message
+          | "stash"                       -- stash current message
+          | "unstash-all"                 -- process stashed
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule send_self:
+  (! self $msg) ~> (receive (handler $msg handle))
+
+rule become_behavior:
+  (become $b) ~> (set-behavior $b)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "actor_ref": (ActorRef String)
+test "send": (! actorRef "hello")
+test "receive": receive { ping => pong , stop => stopped }
+test "supervision": (supervisor OneForOne)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Actors
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: send_self, become_behavior
+-- [ ] Full actor semantics (needs runtime)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

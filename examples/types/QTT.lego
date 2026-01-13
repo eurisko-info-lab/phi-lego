@@ -1,0 +1,76 @@
+-- QTT.lego: Quantitative Type Theory
+-- Idris 2 style resource tracking
+-- Composes: Quantitative
+
+import Quantitative
+
+lang QTT (Quantitative) :=
+
+-----------------------------------------------------
+-- Multiplicities (0, 1, omega)
+-----------------------------------------------------
+piece Multiplicity
+  mult ::= m_zero | m_one | m_omega | m_add | m_mult
+  m_zero ::= "M0"              -- erased
+  m_one ::= "M1"               -- linear
+  m_omega ::= "Mw"             -- unrestricted
+  m_add ::= mult "+" mult      -- addition
+  m_mult ::= mult "*" mult     -- multiplication
+
+  rule mult_zero:
+    (m_mult m_zero $m) ~> m_zero
+
+  rule mult_one:
+    (m_mult m_one $m) ~> $m
+
+  rule mult_omega:
+    (m_mult m_omega m_omega) ~> m_omega
+
+  rule add_zero:
+    (m_add m_zero $m) ~> $m
+
+  test "m0": m_zero
+  test "m1": m_one
+  test "mult": (m_mult m_one m_omega)
+
+-----------------------------------------------------
+-- QTT judgments
+-----------------------------------------------------
+piece QJudgment
+  qjudge ::= context "|-" mult term ":" term
+  context ::= ctx_empty | ctx_ext
+  ctx_empty ::= "."
+  ctx_ext ::= context "," mult name ":" term
+
+  test "judgment": (qjudge ctx_empty m_one x Bool)
+
+-----------------------------------------------------
+-- Linearity checking
+-----------------------------------------------------
+piece LinearCheck
+  check ::= check_linear | check_erased | check_runtime
+  check_linear ::= "linear" term       -- assert linearity
+  check_erased ::= "erased" term       -- assert erasure (0)
+  check_runtime ::= "runtime" term     -- assert runtime (1 or omega)
+
+  test "linear": (check_linear x)
+
+-----------------------------------------------------
+-- Usage analysis
+-----------------------------------------------------
+piece Usage
+  usage ::= use_mark | use_split | use_scale
+  use_mark ::= "use" name          -- mark usage
+  use_split ::= "split" term term   -- split context
+  use_scale ::= "scale" mult term   -- scale context
+
+  test "use": (use_mark x)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for QTT
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

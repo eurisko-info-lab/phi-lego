@@ -1,0 +1,107 @@
+-- Phi in Lego: Effect System
+-- This is the Lego equivalent of src/Phi/Type/Effect.hs
+
+lang Effect :=
+  import Type
+  
+  -- Row-based effect system
+  -- Effects form a row: { eff1, eff2, ... | ρ }
+  
+  grammar:
+    EffectRow ::= '{' Effect* ('|' identifier)? '}'
+    Effect ::= identifier Type*
+    
+    -- Effectful arrow: A ->{E} B
+    EffArrow ::= Ty '->' EffectRow Ty
+    
+  -- Key effects:
+  -- IO : file operations, console
+  -- State s : mutable state
+  -- Exception e : throw/catch
+  -- Reader r : read environment
+  -- Writer w : append output
+  
+  rules:
+    -- Effect typing
+    (typeof (perform $eff $arg)) ~>
+      (case (lookupEffect $eff)
+        (effSig $paramTy $retTy $effLabel)
+          (case (checkType $arg $paramTy)
+            true (pair $retTy (singleton $effLabel))
+            false (error "effect argument type mismatch")))
+    
+    (typeof (handle $body $handlers)) ~>
+      (case (inferEffects $body)
+        (pair $retTy $effs)
+          (let $handled (handledEffects $handlers)
+            (let $remaining (setDiff $effs $handled)
+              (pair $retTy $remaining))))
+    
+    -- Handler: effect -> (continuation -> return)
+    (typeof (handler $eff $impl)) ~>
+      (case (lookupEffect $eff)
+        (effSig $paramTy $retTy $effLabel)
+          (handlerType $paramTy $retTy (typeof $impl)))
+    
+    -- Row operations
+    (rowExtend $eff $row) ~>
+      (case $row
+        (rowEmpty) (rowSingle $eff)
+        (rowSingle $e) (rowMany (cons $eff (cons $e nil)))
+        (rowMany $es) (rowMany (cons $eff $es))
+        (rowVar $r) (rowExtend' $eff $r))
+    
+    -- Unification for effect rows
+    (unifyRow $r1 $r2 $subst) ~>
+      (case (pair $r1 $r2)
+        (pair (rowEmpty) (rowEmpty)) (just $subst)
+        (pair (rowVar $v) $r) (just (extend $v $r $subst))
+        (pair $r (rowVar $v)) (just (extend $v $r $subst))
+        (pair (rowMany $es1) (rowMany $es2))
+          (unifyRowMany $es1 $es2 $subst))
+
+lang EffectHandlers :=
+  import Effect
+  
+  -- Deep vs Shallow handlers
+  
+  rules:
+    -- Deep handler: recursively handles effects in continuation
+    (evalDeep (return $v) $h) ~> (returnClause $h $v)
+    
+    (evalDeep (perform $eff $arg $k) $h) ~>
+      (case (lookupHandler $eff $h)
+        nothing (perform $eff $arg (fn $x (evalDeep ($k $x) $h)))
+        (just $impl) 
+          ($impl $arg (fn $x (evalDeep ($k $x) $h))))
+    
+    -- Shallow handler: handles one layer only
+    (evalShallow (return $v) $h) ~> (returnClause $h $v)
+    
+    (evalShallow (perform $eff $arg $k) $h) ~>
+      (case (lookupHandler $eff $h)
+        nothing (perform $eff $arg $k)
+        (just $impl) ($impl $arg $k))
+
+lang EffectExamples :=
+  import Effect
+  import EffectHandlers
+  
+  -- Example: State effect
+  rules:
+    -- get : () ->{State s} s
+    -- put : s ->{State s} ()
+    
+    (handleState $init $comp) ~>
+      (evalDeep $comp
+        (handler
+          (return $v (fn $s (pair $v $s)))
+          (get () $k (fn $s ($k $s $s)))
+          (put $s' $k (fn $s ($k () $s')))))
+    
+    -- Run with initial state
+    (runState $init $comp) ~>
+      ((handleState $init $comp) $init)
+
+-- Composition
+lang EffectLang := Effect + EffectHandlers + EffectExamples

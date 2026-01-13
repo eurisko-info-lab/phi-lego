@@ -1,0 +1,1309 @@
+-----------------------------------------------------
+-- CursorForLego.lego
+--
+-- A self-hosted semantic IDE architecture expressed
+-- entirely in Lego, using pieces and rewrite rules.
+--
+-- This file models:
+--  * Piece-based languages
+--  * Context budgeting
+--  * Tokenization scoping
+--  * Grammar pushouts
+--  * LLM-facing semantic slicing
+-----------------------------------------------------
+
+lang CursorForLego :=
+
+-----------------------------------------------------
+-- PIECE: Core identifiers and utilities
+-----------------------------------------------------
+
+piece Core
+  term ::= ident                     $ var
+         | "(" ident term* ")"       $ node
+         | string                    $ str
+         | number                    $ num
+
+-----------------------------------------------------
+-- PIECE: Piece Definition
+-- A piece is a first-class semantic unit
+-----------------------------------------------------
+
+piece PieceDef
+  pieceDef ::= "(" "piece" ident pieceBody ")" $ pieceDef
+
+  pieceBody ::= pieceItem*
+  pieceItem ::= grammarFrag
+              | tokenFrag
+              | ruleFrag
+              | weightFrag
+
+  grammarFrag ::= "(" "grammar" grammarExpr ")" $ grammarFrag
+  tokenFrag   ::= "(" "tokens" tokenList ")"    $ tokenFrag
+  ruleFrag    ::= "(" "rules" ruleList ")"      $ ruleFrag
+  weightFrag  ::= "(" "weight" number ")"       $ weightFrag
+
+  tokenList ::= "(" ident* ")"                   $ tokenList
+  ruleList  ::= "(" ident* ")"                   $ ruleList
+
+-----------------------------------------------------
+-- PIECE: Grammar Graph
+-- Tracks inclusion and pushouts
+-----------------------------------------------------
+
+piece GrammarGraph
+  graph ::= "(" "graph" graphItem* ")" $ graph
+
+  graphItem ::= includeEdge
+              | pushoutEdge
+
+  includeEdge ::= "(" "includes" ident ident ")" $ includes
+  pushoutEdge ::= "(" "pushout" ident ident ident ")" $ pushout
+
+-----------------------------------------------------
+-- PIECE: Tokenization
+-- Tokens are scoped by active pieces
+-----------------------------------------------------
+
+piece Tokenization
+  tokenScope ::= "(" "token-scope" ident tokenSet ")" $ tokenScope
+  tokenSet   ::= "(" ident* ")"                       $ tokenSet
+
+  tokenize ::= "(" "tokenize" ident term ")"          $ tokenize
+
+-----------------------------------------------------
+-- PIECE: Syntax vs Content Literals
+-----------------------------------------------------
+
+piece LiteralClass
+  literal ::= "(" "literal" ident literalRole ")" $ literal
+  literalRole ::= "syntax" | "content"
+
+-----------------------------------------------------
+-- PIECE: Rewrite Rules (Semantic Core)
+-----------------------------------------------------
+
+piece RewriteCore
+  rewrite ::= "(" "rewrite" pattern template ")" $ rewrite
+
+-----------------------------------------------------
+-- PIECE: Semantic Atoms
+-- Units of context for the LLM
+-----------------------------------------------------
+
+piece SemanticAtom
+  atom ::= "(" "atom"
+              atomKind
+              term        -- payload
+              number      -- cost
+              number      -- relevance
+              number      -- priority
+           ")" $ atom
+
+  atomKind ::= "grammar"
+             | "piece"
+             | "rule"
+             | "test"
+             | "example"
+
+-----------------------------------------------------
+-- PIECE: Context Budget
+-----------------------------------------------------
+
+piece ContextBudget
+  context ::= "(" "context" atom* ")" $ context
+  budget  ::= "(" "budget" number ")" $ budget
+
+-----------------------------------------------------
+-- PIECE: Context Selection
+-- Budgeted semantic slicing
+-----------------------------------------------------
+
+piece ContextSelect
+
+  select ::= "(" "select-context"
+                budget
+                context
+             ")" $ select
+
+-----------------------------------------------------
+-- PIECE: LLM Boundary
+-- The LLM never sees raw files, only contexts
+-----------------------------------------------------
+
+piece LLMInterface
+  prompt ::= "(" "prompt" context ")" $ prompt
+  answer ::= "(" "answer" term ")"    $ answer
+
+-----------------------------------------------------
+-- PIECE: IDE State
+-----------------------------------------------------
+
+piece IDE
+  ide ::= "(" "ide"
+            graph
+            context
+            term     -- focused AST
+         ")" $ ide
+
+-----------------------------------------------------
+-- RULES: Tokenization respects piece scope
+-----------------------------------------------------
+
+rule tokenize_scoped:
+  (tokenize $piece $t)
+  ~>
+  (node tokenize $piece $t)
+
+-----------------------------------------------------
+-- RULES: Syntax literals allow fallback
+-----------------------------------------------------
+
+rule syntax_literal_ok:
+  (literal $x syntax)
+  ~>
+  $x
+
+-----------------------------------------------------
+-- RULES: Content literals forbid fallback
+-----------------------------------------------------
+
+rule content_literal_strict:
+  (literal $x content)
+  ~>
+  (node error $x)
+
+-----------------------------------------------------
+-- RULES: Pushout merges token sets
+-----------------------------------------------------
+
+rule pushout_tokens:
+  (pushout $p1 $p2 $p3)
+  ~>
+  (token-scope $p3
+    (node merge
+      (token-scope $p1)
+      (token-scope $p2)))
+
+-----------------------------------------------------
+-- RULES: Context selection under budget
+-----------------------------------------------------
+
+rule select_context:
+  (select-context (budget $b) (context $atoms))
+  ~>
+  (context (node filter-by-budget $b $atoms))
+
+-----------------------------------------------------
+-- RULES: IDE → LLM Prompt
+-----------------------------------------------------
+
+rule ide_to_prompt:
+  (ide $g $ctx $focus)
+  ~>
+  (prompt $ctx)
+
+-----------------------------------------------------
+-- RULES: LLM Answer reintegration
+-----------------------------------------------------
+
+rule apply_answer:
+  (node apply (answer $t) (ide $g $ctx $focus))
+  ~>
+  (ide $g $ctx $t)
+
+-----------------------------------------------------
+-- TESTS: Token scoping sanity
+-----------------------------------------------------
+
+test "token_scope":
+  (tokenize Interval ∧)
+
+-----------------------------------------------------
+-- TESTS: Context budget trimming
+-----------------------------------------------------
+
+test "context_budget":
+  (select-context
+    (budget 10)
+    (context
+      (atom grammar g1 5 10 10)
+      (atom grammar g2 20 1 1)))
+
+-----------------------------------------------------
+-- TESTS: Syntax vs content literal
+-----------------------------------------------------
+
+test "syntax_literal":
+  (literal "(" syntax)
+
+test "content_literal":
+  (literal "true" content)
+
+-----------------------------------------------------
+-- END
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- PIECE: Normalization
+-----------------------------------------------------
+
+piece Normalization
+
+  normal ::= "(" "normal" term ")"        $ normal
+  step   ::= "(" "step" term ")"          $ step
+  nf     ::= "(" "nf" term ")"            $ nf
+
+-----------------------------------------------------
+-- RULES: One-step reduction
+-----------------------------------------------------
+
+rule step_rewrite:
+  (step (node rewrite $p $t))
+  ~>
+  (step $t)
+
+-----------------------------------------------------
+-- RULES: Normalization driver
+-----------------------------------------------------
+
+rule normalize_step:
+  (normal (step $t))
+  ~>
+  (normal $t)
+
+rule normalize_done:
+  (normal $t)
+  ~>
+  (nf $t)
+
+-----------------------------------------------------
+-- PIECE: Grammar Atoms
+-----------------------------------------------------
+
+piece GrammarAtoms
+
+  grammarAtom ::=
+    "(" "grammar-atom"
+        ident        -- piece name
+        grammarExpr  -- fragment
+        number       -- cost
+        number       -- relevance
+        number       -- priority
+    ")" $ grammarAtom
+
+-----------------------------------------------------
+-- RULES: Lift grammar fragments into context
+-----------------------------------------------------
+
+rule grammar_to_atom:
+  (grammarFrag $g)
+  ~>
+  (atom grammar $g 5 10 8)
+
+
+-----------------------------------------------------
+-- PIECE: Rewrite Dependency Graph
+-----------------------------------------------------
+
+piece RewriteDeps
+
+  rewriteId ::= ident
+
+  rewriteDef ::=
+    "(" "rewrite-def"
+        rewriteId
+        pattern
+        template
+    ")" $ rewriteDef
+
+  depends ::=
+    "(" "depends"
+        rewriteId
+        rewriteId
+    ")" $ depends
+
+  depGraph ::=
+    "(" "dep-graph" depends* ")" $ depGraph
+
+-----------------------------------------------------
+-- RULES: Extract rewrite dependencies
+-----------------------------------------------------
+
+rule rewrite_dependency:
+  (rewrite-def $r1 $p $t)
+  ~>
+  (depends $r1 (node find-rewrites $t))
+
+-----------------------------------------------------
+-- RULES: Rewrite atoms
+-----------------------------------------------------
+
+rule rewrite_to_atom:
+  (rewrite-def $id $p $t)
+  ~>
+  (atom rule
+        (node rewrite $p $t)
+        7     -- cost
+        9     -- relevance
+        9)    -- priority
+
+
+-----------------------------------------------------
+-- PIECE: IDE Extensions
+-----------------------------------------------------
+
+piece IDEExt
+  ideExt ::=
+    "(" "ide+"
+        graph
+        context
+        depGraph
+        term
+    ")" $ ideExt
+
+-----------------------------------------------------
+-- RULES: IDE → Prompt (with dependencies)
+-----------------------------------------------------
+
+rule ide_ext_to_prompt:
+  (ide+ $g $ctx $deps $focus)
+  ~>
+  (prompt
+    (context
+      $ctx
+      (atom example $deps 3 6 4)))
+
+
+-----------------------------------------------------
+-- PIECE: Visualization
+-----------------------------------------------------
+
+piece Visualization
+
+  vizNode ::= 
+    "(" "viz-node"
+        ident        -- node id
+        ident        -- label
+        number       -- x
+        number       -- y
+    ")" $ vizNode
+
+  vizEdge ::=
+    "(" "viz-edge"
+        ident        -- from
+        ident        -- to
+        string       -- label
+    ")" $ vizEdge
+
+  vizGraph ::=
+    "(" "viz-graph"
+        vizNode*
+        vizEdge*
+    ")" $ vizGraph
+
+-----------------------------------------------------
+-- RULES: Graph visualization
+-----------------------------------------------------
+
+rule visualize_node:
+  (node $type $id)
+  ~>
+  (viz-node $id $type 0 0)
+
+rule visualize_edge:
+  (edge (port $n1 $p1) (port $n2 $p2))
+  ~>
+  (viz-edge $n1 $n2 ".")
+
+rule visualize_net:
+  (net $xs)
+  ~>
+  (viz-graph
+    (map visualize_node (nodes $xs))
+    (map visualize_edge (edges $xs)))
+
+-----------------------------------------------------
+-- PIECE: SemanticDiff
+-----------------------------------------------------
+
+piece SemanticDiff
+
+  diffKind ::= "added" | "removed" | "changed"
+
+  diffAtom ::=
+    "(" "diff-atom"
+        diffKind
+        atom
+    ")" $ diffAtom
+
+  diffContext ::=
+    "(" "diff-context"
+        diffAtom*
+    ")" $ diffContext
+
+-----------------------------------------------------
+-- RULES: Semantic context diff
+-----------------------------------------------------
+
+rule diff_context:
+  (diff $ctx1 $ctx2)
+  ~>
+  (diff-context
+    (map added   (minus $ctx2 $ctx1))
+    (map removed (minus $ctx1 $ctx2))
+    (map changed (intersectChanged $ctx1 $ctx2)))
+
+
+-----------------------------------------------------
+-- PIECE: IncrementalPushout
+-----------------------------------------------------
+
+piece IncrementalPushout
+
+  pieceId ::= ident
+
+  dirty ::=
+    "(" "dirty" pieceId ")" $ dirty
+
+  pushoutState ::=
+    "(" "pushout-state"
+        grammar
+        context
+        dirty*
+    ")" $ pushoutState
+
+-----------------------------------------------------
+-- RULES: Incremental pushout
+-----------------------------------------------------
+
+rule pushout_incremental:
+  (pushout-state $g $ctx (dirty $p))
+  ~>
+  (pushout-state
+    (mergeGrammar $g (grammarOf $p))
+    (mergeContext $ctx (contextOf $p))
+    nil)
+
+
+-----------------------------------------------------
+-- PIECE: CubicalIDE
+-----------------------------------------------------
+
+piece CubicalIDE
+
+  dim ::= "i0" | "i1" | ident
+
+  path ::=
+    "(" "path"
+        dim
+        term
+        term
+    ")" $ path
+
+  edit ::=
+    "(" "edit"
+        term
+        term
+    ")" $ edit
+
+-----------------------------------------------------
+-- RULES: Edits as cubical paths
+-----------------------------------------------------
+
+rule edit_is_path:
+  (edit $t1 $t2)
+  ~>
+  (path i $t1 $t2)
+
+rule apply_path_i0:
+  (@ (path i $t1 $t2) i0)
+  ~>
+  $t1
+
+rule apply_path_i1:
+  (@ (path i $t1 $t2) i1)
+  ~>
+  $t2
+
+-----------------------------------------------------
+-- RULES: Rewrite → Cubical path
+-----------------------------------------------------
+
+rule rewrite_as_path:
+  (rewrite $p $t)
+  ~>
+  (path i $p $t)
+
+
+-----------------------------------------------------
+-- PIECE: CubicalPathOps
+-----------------------------------------------------
+
+piece CubicalPathOps
+
+  pathComp ::=
+    "(" "path-comp"
+        dim
+        path
+        path
+    ")" $ pathComp
+
+  pathInv ::=
+    "(" "path-inv"
+        path
+    ")" $ pathInv
+
+-----------------------------------------------------
+-- RULES: Path algebra
+-----------------------------------------------------
+
+rule path_comp_def:
+  (path-comp i
+    (path i $a $b)
+    (path i $b $c))
+  ~>
+  (path i $a $c)
+
+rule path_inv_def:
+  (path-inv (path i $a $b))
+  ~>
+  (path i $b $a)
+
+rule path_comp_i0:
+  (@ (path-comp i $p $q) i0)
+  ~>
+  (@ $p i0)
+
+rule path_comp_i1:
+  (@ (path-comp i $p $q) i1)
+  ~>
+  (@ $q i1)
+
+
+-----------------------------------------------------
+-- PIECE: ContextBudget
+-----------------------------------------------------
+
+piece ContextBudget
+
+  cost ::= number
+
+  budget ::=
+    "(" "budget"
+        cost
+    ")" $ budget
+
+  weightedAtom ::=
+    "(" "weighted"
+        atom
+        cost
+    ")" $ weightedAtom
+
+-----------------------------------------------------
+-- RULES: Context budgeting
+-----------------------------------------------------
+
+rule atom_cost:
+  (atom $k $v $c $r $p)
+  ~>
+  (weighted (atom $k $v $c $r $p) $c)
+
+rule context_select_budget:
+  (select-context (budget $b) $atoms)
+  ~>
+  (takeWhileCost $b (sortBy relevance $atoms))
+
+
+-----------------------------------------------------
+-- PIECE: ProofCarryingEdit
+-----------------------------------------------------
+
+piece ProofCarryingEdit
+
+  proof ::= term
+
+  pcEdit ::=
+    "(" "pc-edit"
+        edit
+        proof
+    ")" $ pcEdit
+
+-----------------------------------------------------
+-- RULES: Proof-carrying semantics
+-----------------------------------------------------
+
+rule pc_edit_sound:
+  (pc-edit (edit $t1 $t2) $pf)
+  ~>
+  (path i $t1 $t2)
+
+rule pc_edit_reject:
+  (pc-edit (edit $t1 $t2) $pf)
+  when (not (typechecks $pf))
+  ~>
+  (error "Invalid proof for edit")
+
+
+-----------------------------------------------------
+-- PIECE: CubicalProjection
+-----------------------------------------------------
+
+piece CubicalProjection
+
+  redttTerm ::= string
+  agdaTerm  ::= string
+
+-----------------------------------------------------
+-- RULES: RedTT projection
+-----------------------------------------------------
+
+rule path_to_redtt:
+  (path i $a $b)
+  ~>
+  "Path (λ i → $a → $b)"
+
+rule lam_to_redtt:
+  (lam $x $body)
+  ~>
+  "(λ $x → $body)"
+
+rule app_to_redtt:
+  (app $f $a)
+  ~>
+  "($f $a)"
+
+-----------------------------------------------------
+-- RULES: Cubical Agda projection
+-----------------------------------------------------
+
+rule path_to_agda:
+  (path i $a $b)
+  ~>
+  "PathP (λ i → _) $a $b"
+
+
+-----------------------------------------------------
+-- PIECE: CoolttProjection
+-----------------------------------------------------
+
+piece CoolttProjection
+
+  coolttTerm ::= string
+  coolttDecl ::= string
+
+-----------------------------------------------------
+-- RULES: Cooltt projection (path types)
+-----------------------------------------------------
+
+rule path_to_cooltt:
+  (path i $a $b)
+  ~>
+  "ext i => _ with [i=0 => $a | i=1 => $b]"
+
+rule path_type_to_cooltt:
+  (Path $A $a $b)
+  ~>
+  "path $A $a $b"
+
+-----------------------------------------------------
+-- RULES: Cooltt projection (lambda/application)
+-----------------------------------------------------
+
+rule lam_to_cooltt:
+  (lam $x $body)
+  ~>
+  "$x => $body"
+
+rule pi_to_cooltt:
+  (Pi $x $A $B)
+  ~>
+  "($x : $A) → $B"
+
+rule app_to_cooltt:
+  (app $f $a)
+  ~>
+  "{$f $a}"
+
+-----------------------------------------------------
+-- RULES: Cooltt projection (path operations)
+-----------------------------------------------------
+
+rule symm_to_cooltt:
+  (path-inv (path i $a $b))
+  ~>
+  "symm _ {i => $path}"
+
+rule trans_to_cooltt:
+  (path-comp i (path i $a $b) (path i $b $c))
+  ~>
+  "trans _ {i => $p} {i => $q}"
+
+rule refl_to_cooltt:
+  (reflJ $t)
+  ~>
+  "refl _ $t"
+
+-----------------------------------------------------
+-- RULES: Cooltt projection (hcom/coe)
+-----------------------------------------------------
+
+rule hcom_to_cooltt:
+  (hcom $A $r $s $phi $u)
+  ~>
+  "hcom $A $r $s {$phi} {$u}"
+
+rule coe_to_cooltt:
+  (coe $A $r $s $a)
+  ~>
+  "coe {i => $A i} $r $s $a"
+
+-----------------------------------------------------
+-- RULES: Cooltt projection (HITs)
+-----------------------------------------------------
+
+rule circle_to_cooltt:
+  (S¹)
+  ~>
+  "circle"
+
+rule base_to_cooltt:
+  (base)
+  ~>
+  "base"
+
+rule loop_to_cooltt:
+  (loop @ $i)
+  ~>
+  "loop $i"
+
+-----------------------------------------------------
+-- RULES: Cooltt projection (definitions)
+-----------------------------------------------------
+
+rule def_to_cooltt:
+  (define $name $type $body)
+  ~>
+  "def $name : $type := $body"
+
+rule abstract_to_cooltt:
+  (abstract $name $type $body)
+  ~>
+  "abstract\ndef $name : $type := $body"
+
+-----------------------------------------------------
+-- RULES: Cooltt projection (normalize directive)
+-----------------------------------------------------
+
+rule normalize_to_cooltt:
+  (normalize $t)
+  ~>
+  "#normalize $t"
+
+
+-- 🧩 How everything fits (important)
+
+-- At this point, you have:
+
+-- Feature	Representation
+-- Editing	Cubical paths
+-- Refactoring	Path composition
+-- Undo/redo	Path inversion
+-- IDE context	Budgeted semantic atoms
+-- Soundness	Proof-carrying edits
+-- Optimization	Incremental pushouts
+-- Visualization	Concrete graph IR
+-- Externalization	RedTT / Agda projection
+
+-- All of it:
+
+-- written in Lego
+-- compositional by pieces
+-- pushout-safe
+-- interpreter-agnostic
+
+
+-----------------------------------------------------
+-- PIECE: Judgment
+-----------------------------------------------------
+
+piece Judgment
+
+  Eq ::=
+    "(" "Eq" term term ")" $ Eq
+
+  reflJ ::=
+    "(" "reflJ" term ")" $ reflJ
+
+  symJ ::=
+    "(" "symJ" term ")" $ symJ
+
+  transJ ::=
+    "(" "transJ" term term ")" $ transJ
+
+-----------------------------------------------------
+-- RULES: Judgment equality
+-----------------------------------------------------
+
+rule Eq_refl:
+  (reflJ $t)
+  ~>
+  (path i $t $t)
+
+rule Eq_sym:
+  (symJ (path i $a $b))
+  ~>
+  (path i $b $a)
+
+rule Eq_trans:
+  (transJ (path i $a $b) (path i $b $c))
+  ~>
+  (path i $a $c)
+
+
+-----------------------------------------------------
+-- PIECE: EditCorrectness
+-----------------------------------------------------
+
+piece EditCorrectness
+
+  preserves ::=
+    "(" "preserves"
+        edit
+    ")" $ preserves
+
+-----------------------------------------------------
+-- THEOREM: Edit soundness
+-----------------------------------------------------
+
+rule edit_correct:
+  (preserves (edit $t1 $t2))
+  ~>
+  (Eq $t1 $t2)
+
+rule pc_edit_correct:
+  (pc-edit (edit $t1 $t2) $pf)
+  ~>
+  (Eq $t1 $t2)
+
+
+-----------------------------------------------------
+-- PIECE: RefactorCorrectness
+-----------------------------------------------------
+
+piece RefactorCorrectness
+
+  refactor ::=
+    "(" "refactor"
+        edit*
+    ")" $ refactor
+
+-----------------------------------------------------
+-- THEOREM: Refactor soundness
+-----------------------------------------------------
+
+rule refactor_correct:
+  (refactor $es)
+  ~>
+  (path i
+    (source $es)
+    (target $es))
+
+rule refactor_assoc:
+  (path-comp i
+    (path-comp i $p $q)
+    $r)
+  ~>
+  (path-comp i $p (path-comp i $q $r))
+
+
+-----------------------------------------------------
+-- PIECE: ContextCorrectness
+-----------------------------------------------------
+
+piece ContextCorrectness
+
+  contextEq ::=
+    "(" "contextEq"
+        context
+        context
+    ")" $ contextEq
+
+-----------------------------------------------------
+-- THEOREM: Context selection soundness
+-----------------------------------------------------
+
+rule budget_context_sound:
+  (select-context (budget $b) $ctx)
+  ~>
+  (contextEq
+    (select-context (budget $b) $ctx)
+    $ctx)
+
+
+-----------------------------------------------------
+-- PIECE: PushoutCorrectness
+-----------------------------------------------------
+
+piece PushoutCorrectness
+
+  coherent ::=
+    "(" "coherent"
+        grammar
+    ")" $ coherent
+
+-----------------------------------------------------
+-- THEOREM: Pushout coherence
+-----------------------------------------------------
+
+rule grammar_pushout_coherent:
+  (pushout $G1 $G2)
+  ~>
+  (coherent (pushout $G1 $G2))
+
+rule rewrite_confluence:
+  (rewrite $t)
+  ~>
+  (Eq
+    (normalize $t)
+    (normalize (rewrite $t)))
+
+
+-----------------------------------------------------
+-- PIECE: IDECorrectness
+-----------------------------------------------------
+
+piece IDECorrectness
+
+  IDE ::=
+    "(" "IDE"
+        grammar
+        context
+        editor
+    ")" $ IDE
+
+  correctIDE ::=
+    "(" "correctIDE"
+        IDE
+    ")" $ correctIDE
+
+-----------------------------------------------------
+-- THEOREM: IDE soundness
+-----------------------------------------------------
+
+rule IDE_correct:
+  (correctIDE
+    (IDE $G $C $E))
+  ~>
+  (forall $t .
+    Eq
+      $t
+      (apply-edits
+        (suggest $E (select-context (budget $b) $C))
+        $t))
+
+
+-----------------------------------------------------
+-- PIECE: NormalForm
+-----------------------------------------------------
+
+piece NormalForm
+
+  normal ::=
+    "(" "normal" term ")" $ normal
+
+  neutral ::=
+    "(" "neutral" term ")" $ neutral
+
+-----------------------------------------------------
+-- RULES: Normal forms
+-----------------------------------------------------
+
+rule normal_lam:
+  (normal (λ $x . $body))
+  ~>
+  true
+
+rule normal_path:
+  (normal (λᵢ $i . $body))
+  ~>
+  true
+
+rule normal_constr:
+  (normal ($c $args*))
+  ~>
+  (all-normal $args)
+
+rule neutral_var:
+  (neutral $x)
+  ~>
+  true
+
+rule normal_neutral:
+  (neutral $t)
+  ~>
+  (normal $t)
+
+
+-----------------------------------------------------
+-- PIECE: Termination
+-----------------------------------------------------
+
+piece Termination
+
+  terminates ::=
+    "(" "terminates" term ")" $ terminates
+
+  step ::=
+    "(" "step" term term ")" $ step
+
+-----------------------------------------------------
+-- RULE: Rewrite induces step
+-----------------------------------------------------
+
+rule rewrite_step:
+  (rewrite $t)
+  ~>
+  (step $t (normalize $t))
+
+-----------------------------------------------------
+-- RULE: Termination definition
+-----------------------------------------------------
+
+rule terminates_def:
+  (terminates $t)
+  ~>
+  (exists $n .
+    (normal (normalize^$n $t)))
+
+
+-----------------------------------------------------
+-- THEOREM: Global termination
+-----------------------------------------------------
+
+piece TerminationTheorem
+
+  SN ::=
+    "(" "SN" term ")" $ SN
+
+-----------------------------------------------------
+-- THEOREM: All terms terminate
+-----------------------------------------------------
+
+rule global_termination:
+  (wellformed $t)
+  ~>
+  (SN $t)
+
+rule SN_implies_terminates:
+  (SN $t)
+  ~>
+  (terminates $t)
+
+
+-----------------------------------------------------
+-- PIECE: Canonical
+-----------------------------------------------------
+
+piece Canonical
+
+  canonical ::=
+    "(" "canonical" term ")" $ canonical
+
+-----------------------------------------------------
+-- RULES: Canonical forms
+-----------------------------------------------------
+
+rule canonical_bool_true:
+  (canonical true)
+  ~>
+  true
+
+rule canonical_bool_false:
+  (canonical false)
+  ~>
+  true
+
+rule canonical_nat_zero:
+  (canonical zero)
+  ~>
+  true
+
+rule canonical_nat_succ:
+  (canonical (succ $n))
+  ~>
+  (canonical $n)
+
+-----------------------------------------------------
+-- PIECE: CanonicityTheorem
+-----------------------------------------------------
+
+piece CanonicityTheorem
+
+  canonicity ::=
+    "(" "canonicity"
+        term
+        term
+    ")" $ canonicity
+
+-----------------------------------------------------
+-- THEOREM: Canonicity
+-----------------------------------------------------
+
+rule canonicity_thm:
+  (closed $t)
+  ~>
+  (exists $v .
+    (canonical $v)
+    ∧
+    (Eq (normalize $t) $v))
+
+
+-----------------------------------------------------
+-- PIECE: CubicalCanonicity
+-----------------------------------------------------
+
+piece CubicalCanonicity
+
+  pathCanonical ::=
+    "(" "pathCanonical"
+        term
+    ")" $ pathCanonical
+
+-----------------------------------------------------
+-- THEOREM: Path endpoints are canonical
+-----------------------------------------------------
+
+rule path_endpoint_canonicity:
+  (path i $a $b)
+  ~>
+  ((canonical $a) ∧ (canonical $b))
+
+
+-----------------------------------------------------
+-- COROLLARY: IDE normalization safety
+-----------------------------------------------------
+
+rule IDE_normalizes:
+  (correctIDE $ide)
+  ~>
+  (forall $t .
+    (terminates
+      (apply-edits
+        (suggest $ide $ctx)
+        $t)))
+
+-----------------------------------------------------
+-- COROLLARY: IDE suggestions preserve canonicity
+-----------------------------------------------------
+
+rule IDE_canonical:
+  (correctIDE $ide)
+  ~>
+  (forall $t .
+    (canonical (normalize $t))
+    =
+    (canonical (normalize
+      (apply-edits
+        (suggest $ide $ctx)
+        $t))))
+
+
+-----------------------------------------------------
+-- PIECE: Confluence
+-----------------------------------------------------
+
+piece Confluence
+
+  joinable ::=
+    "(" "joinable" term term term ")" $ joinable
+    -- joinable t u v  means  t →* v  ∧ u →* v
+
+  confluent ::=
+    "(" "confluent" term ")" $ confluent
+
+rule joinable_def:
+  (joinable $t $u $v)
+  ~>
+  ((reduces* $t $v) ∧ (reduces* $u $v))
+
+rule confluence_thm:
+  (wellformed $t)
+  ~>
+  (forall $u1 $u2 .
+    ((step* $t $u1) ∧ (step* $t $u2))
+    → 
+    (exists $v .
+      (joinable $u1 $u2 $v))))
+
+
+-----------------------------------------------------
+-- PIECE: HITCanonicity
+-----------------------------------------------------
+
+piece HITCanonicity
+
+  hitCanonical ::=
+    "(" "hitCanonical" term ")" $ hitCanonical
+
+rule canonical_circle:
+  (hitCanonical S¹)
+  ~>
+  ((canonical base) ∧ (forall $i . canonical (loop @ $i)))
+
+rule canonical_suspension:
+  (hitCanonical (Σ $A))
+  ~>
+  ((canonical north) ∧ (canonical south) ∧ (forall $a . canonical (merid $a)))
+
+rule canonical_pushout:
+  (hitCanonical (Pushout $A $B $C))
+  ~>
+  ((forall $a . canonical (inl $a))
+   ∧ (forall $b . canonical (inr $b))
+   ∧ (forall $c . canonical (push $c)))
+
+rule canonical_torus:
+  (hitCanonical T²)
+  ~>
+  ((canonical tbase)
+   ∧ (forall $i . canonical (tline1 @ $i))
+   ∧ (forall $i . canonical (tline2 @ $i))
+   ∧ (forall $i j . canonical (tsquare @ $i @ $j)))
+
+rule hit_canonicity_thm:
+  (closed $t)
+  ∧ (typeOf $t = HIT)
+  ~>
+  (exists $v .
+    (hitCanonical $v)
+    ∧ (Eq (normalize $t) $v))
+
+
+-----------------------------------------------------
+-- PIECE: GrammarPushout
+-----------------------------------------------------
+
+piece GrammarPushout
+
+  pushoutComplete ::=
+    "(" "pushoutComplete" ident* ")" $ pushoutComplete
+
+rule pushout_merge:
+  (pushoutComplete $g1 $g2)
+  ~>
+  (forall $p .
+    (belongsTo $p $g1) ∨ (belongsTo $p $g2)
+    → (exists $q .
+         (belongsTo $q (pushout $g1 $g2)) ∧
+         (Eq $p $q)))
+
+rule token_context_merge:
+  (pushoutComplete $g1 $g2)
+  ∧ (piece $g1 $frag)
+  ∧ (piece $g2 $frag2)
+  ~>
+  (forall $sym .
+    (symbolInContext $sym $frag ∨ symbolInContext $sym $frag2)
+    → (symbolInContext $sym (pushout $g1 $g2)))
+

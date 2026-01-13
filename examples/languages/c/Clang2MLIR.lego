@@ -1,0 +1,68 @@
+-- ============================================================
+-- Clang2MLIR.lego
+-- Compiler from simplified C (Clang) to MLIR
+-- ============================================================
+
+import Clang
+import MLIR
+
+lang Clang2MLIR (Clang, MLIR) :=
+
+------------------------------------------------------------
+-- Compilation environment
+------------------------------------------------------------
+piece CompileEnv
+  cenv ::= (cenv $bindings:cenvbindings)
+  cenvbindings ::= cenvbinding*
+  cenvbinding ::= "(" $x:name "=" $v:ssa ")"
+
+------------------------------------------------------------
+-- Compilation result
+------------------------------------------------------------
+piece CompileResult
+  compresult ::= (compiled $v:ssa $ops:ssadefs)
+  stmtresult ::= (stmtcompiled $ops:ssadefs)
+
+------------------------------------------------------------
+-- Expression compilation
+------------------------------------------------------------
+piece CompileExpr
+  compexpr ::= (compile $e:expr $env:cenv)
+
+  rule compile_int:
+    (compile (intlit $n) $env)
+      ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (intval $n)))))
+  
+  rule compile_bool:
+    (compile (boollit $b) $env)
+      ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (boolval $b)))))
+  
+  test "compile_int":
+    (compile (intlit n) env)
+      ~~> (compiled (ssa fresh) ((def (ssa fresh) (constant (intval n)))))
+  
+  test "compile_bool":
+    (compile (boollit b) env)
+      ~~> (compiled (ssa fresh) ((def (ssa fresh) (constant (boolval b)))))
+
+------------------------------------------------------------
+-- Statement compilation
+------------------------------------------------------------
+piece CompileStmt
+  compilestmt ::= (compile_stmt $s:stmt $env:cenv)
+  
+  rule compile_return:
+    (compile_stmt (return (intlit $n)) $env)
+      ~> (stmtcompiled ((def (ssa v) (constant (intval $n))) (ret (ssa v))))
+  
+  rule compile_skip:
+    (compile_stmt skip $env)
+      ~> (stmtcompiled (nop))
+
+  test "compile_return":
+    (compile_stmt (return (intlit n)) env)
+      ~~> (stmtcompiled ((def (ssa v) (constant (intval n))) (ret (ssa v))))
+  
+  test "compile_skip":
+    (compile_stmt skip env)
+      ~~> (stmtcompiled (nop))

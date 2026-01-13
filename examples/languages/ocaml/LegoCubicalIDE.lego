@@ -1,0 +1,106 @@
+-- LegoCubicalIDE.lego
+-- IDE support and pretty printing for Cubical type theory
+
+lang LegoCubicalIDE :=
+
+piece SyntaxHighlighting
+  tokentype ::= keywordtoken | typetoken | bindtoken | littoken | optoken | commenttoken | dimtoken
+  keywordtoken ::= "Keyword" name
+  typetoken ::= "TypeToken" name
+  bindtoken ::= "BindToken" name
+  littoken ::= "LitToken" name
+  optoken ::= "OpToken" name
+  commenttoken ::= "CommentToken" name
+  dimtoken ::= "DimToken" name
+  
+  rule highlight_dim_i0:
+    (Highlight i0) ~> (DimToken i0)
+  
+  rule highlight_dim_i1:
+    (Highlight i1) ~> (DimToken i1)
+  
+  test "highlight_dim_i0": (Highlight i0) ~~> (DimToken i0)
+
+piece PrettyPrinting
+  doc ::= textdoc | nestdoc | catdoc | linedoc | groupdoc | aligndoc
+  textdoc ::= "Text" name
+  nestdoc ::= "Nest" name doc
+  catdoc ::= "Cat" doc doc
+  linedoc ::= "Line"
+  groupdoc ::= "Group" doc
+  aligndoc ::= "Align" doc
+  
+  rule pp_var:
+    (Pretty (Var $x)) ~> (Text $x)
+  
+  rule pp_app:
+    (Pretty (App $f $a)) ~> (Cat (Pretty $f) (Cat (Text space) (Pretty $a)))
+  
+  rule pp_lam:
+    (Pretty (Lam $x $t $body)) ~> (Cat (Text lam) (Cat (Text $x) (Cat (Text dot) (Pretty $body))))
+  
+  rule pp_pi:
+    (Pretty (Pi $x $a $b)) ~> (Cat (Text lparen) (Cat (Text $x) (Cat (Text colon) (Cat (Pretty $a) (Cat (Text rparen) (Cat (Text arrow) (Pretty $b)))))))
+  
+  test "pp_var": (Pretty (Var x)) ~~> (Text x)
+
+piece PathPrinting
+  rule pp_path:
+    (Pretty (Path $a $t $u)) ~> (Cat (Text path) (Cat (Pretty $a) (Cat (Pretty $t) (Pretty $u))))
+  
+  rule pp_pabs:
+    (Pretty (PathAbs $i $body)) ~> (Cat (Text lami) (Cat (Text $i) (Cat (Text dot) (Pretty $body))))
+  
+  rule pp_papp:
+    (Pretty (PathApp $p $r)) ~> (Cat (Pretty $p) (Cat (Text at) (Pretty $r)))
+  
+  test "pp_path": (Pretty (Path a t u)) ~~> (Cat (Text path) (Cat (Pretty a) (Cat (Pretty t) (Pretty u))))
+
+piece DimensionPrinting
+  rule pp_i0:
+    (Pretty I0) ~> (Text i0)
+  
+  rule pp_i1:
+    (Pretty I1) ~> (Text i1)
+  
+  rule pp_ivar:
+    (Pretty (IVar $i)) ~> (Text $i)
+  
+  test "pp_i0": (Pretty I0) ~~> (Text i0)
+  test "pp_i1": (Pretty I1) ~~> (Text i1)
+
+piece CoercionPrinting
+  rule pp_coe:
+    (Pretty (Coe $a $r $s $t)) ~> (Cat (Text coe) (Cat (Pretty $a) (Cat (Pretty $r) (Cat (Pretty $s) (Pretty $t)))))
+  
+  rule pp_hcom:
+    (Pretty (HCom $a $r $s $t $sys)) ~> (Cat (Text hcom) (Cat (Pretty $a) (Cat (Pretty $r) (Cat (Pretty $s) (Cat (Pretty $t) (Pretty $sys))))))
+  
+  test "pp_coe": (Pretty (Coe a r s t)) ~~> (Cat (Text coe) (Cat (Pretty a) (Cat (Pretty r) (Cat (Pretty s) (Pretty t)))))
+
+piece Rendering
+  render ::= "Render" doc name
+  
+  rule render_text:
+    (Render (Text $s) $acc) ~> (Concat $acc $s)
+  
+  rule render_line:
+    (Render Line $acc) ~> (Concat $acc newline)
+  
+  rule render_nest:
+    (Render (Nest $n $d) $acc) ~> (Render $d (Concat $acc (Spaces $n)))
+  
+  rule render_cat:
+    (Render (Cat $d1 $d2) $acc) ~> (Render $d2 (Render $d1 $acc))
+  
+  test "render_text": (Render (Text s) acc) ~~> (Concat acc s)
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for LegoCubicalIDE
+-- =============================================================================
+-- [ ] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

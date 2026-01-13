@@ -1,0 +1,50 @@
+-- Meta.lego: Base for metaprogramming
+-- Shared by Staging, Reflection
+
+import Base
+
+lang Meta (Base) :=
+
+-----------------------------------------------------
+-- Syntax representation
+-----------------------------------------------------
+piece Syntax
+  syntax ::= expr_syn | decl_syn | name_syn | quote_syn | unquote_syn
+  expr_syn ::= "Expr"           -- expression syntax
+  decl_syn ::= "Decl"           -- declaration syntax
+  name_syn ::= "Name"           -- name type
+  quote_syn ::= "quote" term    -- basic quoting
+  unquote_syn ::= "unquote" term  -- basic unquoting
+
+  test "expr": expr_syn
+
+-----------------------------------------------------
+-- Type of types (codes)
+-----------------------------------------------------
+piece CodeType
+  codetype ::= code_term | quotation | codesplice
+  code_term ::= "Code" term     -- Code A = repr of A
+  quotation ::= "<<" term ">>"  -- quotation (ASCII)
+  codesplice ::= "[[" term "]]"  -- splice (ASCII)
+
+  test "code_type": (code_term Bool)
+
+-----------------------------------------------------
+-- Name generation
+-----------------------------------------------------
+piece Fresh
+  fresh ::= fresh_name | gensym | name_from
+  fresh_name ::= "fresh" name   -- generate fresh name
+  gensym ::= "gensym"           -- unique symbol
+  name_from ::= "name" string   -- name from string
+
+  test "gensym": gensym
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Meta
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: quote/splice
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

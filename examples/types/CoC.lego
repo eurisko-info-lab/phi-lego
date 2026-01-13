@@ -1,0 +1,78 @@
+-- CoC.lego: Calculus of Constructions
+-- Pure Type System with Type : Type (impredicative)
+-- Composes: Base
+
+import Base
+
+lang CoC (Base) :=
+
+-----------------------------------------------------
+-- Sorts (Type hierarchy)
+-----------------------------------------------------
+piece Sorts
+  sort ::= prop | typelevel
+  prop ::= "Prop"
+  typelevel ::= "Type" nat
+
+-----------------------------------------------------
+-- Core terms (S-expression style for rules)
+-----------------------------------------------------
+piece Term
+  term ::= var | sort | pi | lam | app | letin
+  var ::= "(" "var" name ")"
+  pi ::= "(" "Pi" name term term ")"
+  lam ::= "(" "lam" name term term ")"
+  app ::= "(" "app" term term ")"
+  letin ::= "(" "let" name term term term ")"
+
+-----------------------------------------------------
+-- Typing judgment
+-----------------------------------------------------
+piece Judgment
+  judgment ::= check | infer | conv
+  check ::= "(" "check" ctx term term ")"
+  infer ::= "(" "infer" ctx term ")"
+  conv ::= "(" "conv" ctx term term ")"
+
+-----------------------------------------------------
+-- Context
+-----------------------------------------------------
+piece Context
+  ctx ::= ctxnil | ctxcons
+  ctxnil ::= "nil"
+  ctxcons ::= "(" "cons" ctx name term ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule axiom_prop:
+  (infer $ctx Prop) ~> (Type 0)
+
+rule axiom_type:
+  (infer $ctx (Type $n)) ~> (Type (succ $n))
+
+rule beta:
+  (app (lam $x $A $body) $arg) ~> $body
+
+rule eta:
+  (lam $x $A (app $f (var $x))) ~> $f
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "prop_sort": Prop
+test "type_sort": (Type 0)
+test "type1_sort": (Type 1)
+test "id_type": (Pi A (Type 0) (Pi x (var A) (var A)))
+test "id_fn": (lam A (Type 0) (lam x (var A) (var x)))
+test "church_bool": (Pi A (Type 0) (Pi t (var A) (Pi f (var A) (var A))))
+test "church_true": (lam A (Type 0) (lam t (var A) (lam f (var A) (var t))))
+test "beta_id": (app (lam x Nat (var x)) zero) ~~> zero
+test "eta_test": (lam x Nat (app f (var x))) ~~> f
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for CoC
+-- [x] Grammar
+-- [x] Rules: β, η, sort axioms
+-- [x] Normalization
+-- =============================================================================

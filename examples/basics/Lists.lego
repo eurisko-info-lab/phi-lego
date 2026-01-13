@@ -1,0 +1,67 @@
+-- Lists.lego: List operations with executable tests
+-- Exercises: cons/nil matching, head/tail/append builtins
+
+lang Lists :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece List
+  list ::= nil | cons
+  nil ::= "nil"
+  cons ::= "(" "cons" term list ")"
+  term ::= name | num | list
+
+piece Ops
+  op ::= head | tail | append | null
+  head ::= "(" "head" list ")"
+  tail ::= "(" "tail" list ")"
+  append ::= "(" "append" list list ")"
+  null ::= "(" "null" list ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule head_cons:
+  (head (cons $x $xs)) ~> $x
+
+rule tail_cons:
+  (tail (cons $x $xs)) ~> $xs
+
+rule null_nil:
+  (null nil) ~> true
+
+rule null_cons:
+  (null (cons $x $xs)) ~> false
+
+rule append_nil:
+  (append nil $ys) ~> $ys
+
+rule append_cons:
+  (append (cons $x $xs) $ys) ~> (cons $x (append $xs $ys))
+
+-----------------------------------------------------
+-- Tests with expected outputs
+-----------------------------------------------------
+test "nil_list": nil
+test "singleton": (cons 1 nil)
+test "pair_list": (cons 1 (cons 2 nil))
+
+test "head_test": (head (cons a (cons b nil))) ~~> a
+test "tail_test": (tail (cons a (cons b nil))) ~~> (cons b nil)
+
+test "null_nil_test": (null nil) ~~> true
+test "null_cons_test": (null (cons x nil)) ~~> false
+
+test "append_nil_test": (append nil (cons a nil)) ~~> (cons a nil)
+test "append_test": (append (cons 1 nil) (cons 2 nil)) ~~> (cons 1 (cons 2 nil))
+test "append_longer": (append (cons a (cons b nil)) (cons c nil)) ~~> (cons a (cons b (cons c nil)))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Lists
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: head, tail, null, append
+-- [x] Normalization: list ops reduce correctly
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

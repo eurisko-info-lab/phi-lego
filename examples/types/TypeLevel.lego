@@ -1,0 +1,49 @@
+-- TypeLevel.lego: Base for type-level computation
+-- Shared by TypeFamilies, GADTs
+
+import Base
+
+lang TypeLevel (Base) :=
+
+-----------------------------------------------------
+-- Kinds
+-----------------------------------------------------
+piece Kind
+  kind ::= "*"                      -- type kind
+         | kind "→" kind            -- arrow kind
+         | "Constraint"             -- constraint kind
+         | "(" kind ")"
+
+-----------------------------------------------------
+-- Type constructors
+-----------------------------------------------------
+piece TyCon
+  tycon ::= name                    -- type name
+          | tycon type              -- type application
+          | "∀" name ":" kind "." type  -- kind-polymorphic
+
+-----------------------------------------------------
+-- Type-level functions
+-----------------------------------------------------
+piece TyFun
+  tyfun ::= "type" name params "=" type
+          | "type" name params "::" kind "=" type
+  params ::= name | name params
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "kind_arrow": (* → *)
+test "constraint": Constraint
+test "forall_kind": (∀ k : * . (k → k))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for TypeLevel
+-- Category: TYPE  Current: 0
+0 rules, 3 tests
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

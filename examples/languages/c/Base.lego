@@ -1,0 +1,58 @@
+-- ============================================================
+-- Base.lego for C/MLIR language definitions
+-- Core types: nat (using literals), bool, name
+-- ============================================================
+
+lang Base :=
+
+------------------------------------------------------------
+-- Names and identifiers
+------------------------------------------------------------
+piece Names
+  name ::= <identifier>
+
+------------------------------------------------------------
+-- Booleans
+------------------------------------------------------------
+piece Bool
+  bool ::= "true" | "false"
+
+------------------------------------------------------------
+-- Natural numbers (using numeric literals)
+------------------------------------------------------------
+piece Nat
+  nat ::= <number>
+
+------------------------------------------------------------
+-- Arithmetic operations (symbolic, for rewriting)
+------------------------------------------------------------
+piece Arith
+  arithexpr ::= (add $a:nat $b:nat)
+              | (sub $a:nat $b:nat)
+              | (mul $a:nat $b:nat)
+  
+  -- These stay symbolic - no evaluation
+  -- The compiler produces MLIR ops that do the actual math
+
+------------------------------------------------------------
+-- Lists (for argument lists, etc.)
+------------------------------------------------------------
+piece List
+  list ::= "(" listelem* ")"
+  listelem ::= <any>
+
+------------------------------------------------------------
+-- Fresh name generation (symbolic)
+------------------------------------------------------------
+piece Fresh
+  fresh ::= "fresh"
+  -- Used symbolically in compilation rules
+
+------------------------------------------------------------
+-- Tests
+------------------------------------------------------------
+piece BaseTests
+  test "name": foo ~~> foo
+  test "bool_true": true ~~> true
+  test "bool_false": false ~~> false
+  test "nat": 42 ~~> 42

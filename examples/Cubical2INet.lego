@@ -1,0 +1,203 @@
+-- Cubical2INet.lego: Compile Cubical Type Theory to Interaction Nets
+-- 
+-- Key insight: Cubical path operations can be compiled to INet:
+--   - Path types become special nodes tracking interval dependencies
+--   - pabs (path abstraction) creates a node parameterized by dimension
+--   - Path application evaluates dimension arguments
+--   - Transport/composition become INet reduction rules
+--
+-- This enables optimal evaluation of cubical terms!
+
+import Cubical
+import INet
+
+lang Cubical2INet (Cubical, INet) :=
+
+-- Cubical Agents (special INet nodes)
+piece CubicalAgents
+  pathabs_node ::= "PATHABS"
+  pathapp_node ::= "PATHAPP"
+  i0_node ::= "I0"
+  i1_node ::= "I1"
+  meet_node ::= "MEET"
+  join_node ::= "JOIN"
+  rev_node ::= "REV"
+  transp_node ::= "TRANSP"
+  hcomp_node ::= "HCOMP"
+
+piece Prelude
+  pathAbsNode ::= "agent" "pathabs" "2"
+  pathAppNode ::= "agent" "pathapp" "2"
+  transpNode ::= "agent" "transp" "3"
+  hcompNode ::= "agent" "hcomp" "3"
+
+-- Interval Reduction Rules
+piece IntervalRules
+  rule rev_i0:
+    (interact (REV) (I0)) ~> (net (node I1 r))
+  
+  rule rev_i1:
+    (interact (REV) (I1)) ~> (net (node I0 r))
+  
+  rule meet_i0_left:
+    (interact (MEET) (I0)) ~> (net (node I0 r))
+  
+  rule meet_i1_right:
+    (interact (MEET) (I1)) ~> (net (wire input result))
+  
+  rule join_i0_left:
+    (interact (JOIN) (I0)) ~> (net (wire input result))
+  
+  rule join_i1_right:
+    (interact (JOIN) (I1)) ~> (net (node I1 r))
+  
+  test "rev_i0": (interact (REV) (I0)) ~~> (net (node I1 r))
+  test "rev_i1": (interact (REV) (I1)) ~~> (net (node I0 r))
+
+-- Path Reduction Rules
+piece PathRules
+  rule pathBeta:
+    (interact (PATHABS) (PATHAPP)) ~>
+      (net
+        (wire (port pathapp 2) (port pathabs 1))
+        (wire (port pathapp principal) (port pathabs 2)))
+  
+  rule pathApp_i0:
+    (interact (PATHAPP) (I0)) ~> (net (subst_dim I0))
+  
+  rule pathApp_i1:
+    (interact (PATHAPP) (I1)) ~> (net (subst_dim I1))
+
+-- Transport Reduction Rules
+piece TransportRules
+  rule transp_i1:
+    (interact (TRANSP) (I1)) ~> (net (wire base result))
+  
+  rule transp_const:
+    (interact (TRANSP) (const_path)) ~> (net (wire base result))
+
+-- Compilation: Cubical Terms -> INet
+piece Compiler
+  toCubicalINet ::= "toCubicalINet" term
+  rootOf ::= "rootOf" term
+  compiled ::= "compiled" net port
+  
+  rule compile_i0:
+    (toCubicalINet i0) ~> (net (node I0 n))
+  
+  rule compile_i1:
+    (toCubicalINet i1) ~> (net (node I1 n))
+  
+  rule compile_meet:
+    (toCubicalINet (meet $a $b)) ~>
+      (let n (fresh 1)
+        (netUnion
+          (net (node MEET n))
+          (toCubicalINet $a)
+          (toCubicalINet $b)
+          (net
+            (wire (rootOf $a) (port n 1))
+            (wire (rootOf $b) (port n 2)))))
+  
+  rule compile_join:
+    (toCubicalINet (join $a $b)) ~>
+      (let n (fresh 1)
+        (netUnion
+          (net (node JOIN n))
+          (toCubicalINet $a)
+          (toCubicalINet $b)
+          (net
+            (wire (rootOf $a) (port n 1))
+            (wire (rootOf $b) (port n 2)))))
+  
+  rule compile_rev:
+    (toCubicalINet (~ $a)) ~>
+      (let n (fresh 1)
+        (netUnion
+          (net (node REV n))
+          (toCubicalINet $a)
+          (net (wire (rootOf $a) (port n 1)))))
+  
+  rule compile_pathabs:
+    (toCubicalINet (pabs $i $body)) ~>
+      (let n (fresh 1)
+        (let bodyNet (toCubicalINet $body)
+          (compiled
+            (netUnion
+              (net (node PATHABS n))
+              bodyNet
+              (net (wire (rootOf bodyNet) (port n 2))))
+            (principal n))))
+  
+  rule compile_pathapp:
+    (toCubicalINet (@ $p $r)) ~>
+      (let n (fresh 1)
+        (let pNet (toCubicalINet $p)
+          (let rNet (toCubicalINet $r)
+            (compiled
+              (netUnion
+                (net (node PATHAPP n))
+                pNet
+                rNet
+                (net
+                  (wire (rootOf pNet) (port n 1))
+                  (wire (rootOf rNet) (port n 2))))
+              (principal n)))))
+  
+  rule compile_transp:
+    (toCubicalINet (transp $A $phi $a)) ~>
+      (let n (fresh 1)
+        (netUnion
+          (net (node TRANSP n))
+          (toCubicalINet $A)
+          (toCubicalINet $phi)
+          (toCubicalINet $a)
+          (net
+            (wire (rootOf $A) (port n 1))
+            (wire (rootOf $phi) (port n 2))
+            (wire (rootOf $a) (port n 3)))))
+  
+  rule compile_coe:
+    (toCubicalINet (coe $A $r $rp $a)) ~>
+      (let n (fresh 1)
+        (netUnion
+          (net (node COE n))
+          (toCubicalINet $A)
+          (toCubicalINet $r)
+          (toCubicalINet $rp)
+          (toCubicalINet $a)
+          (net
+            (wire (rootOf $A) (port n 1))
+            (wire (rootOf $r) (port n 2))
+            (wire (rootOf $rp) (port n 3))
+            (wire (rootOf $a) (port n 4)))))
+  
+  test "compile_i0": (toCubicalINet i0) ~~> (net (node I0 n))
+  test "compile_i1": (toCubicalINet i1) ~~> (net (node I1 n))
+
+-- Coercion Reduction Rules
+piece CoeRules
+  rule coe_same_i0:
+    (interact (COE) (I0 I0)) ~> (net (wire base result))
+  
+  rule coe_same_i1:
+    (interact (COE) (I1 I1)) ~> (net (wire base result))
+  
+  test "coe_same_endpoint": (coe A i0 i0 a) ~~> a
+  test "coe_same_i1_endpoint": (coe B i1 i1 b) ~~> b
+
+-- Dimension Substitution
+piece DimSubst
+  subst_marker ::= "subst" name dim
+  
+  rule subst_through:
+    (subst $i $d (node $type $n)) ~> (node $type $n (substPorts $i $d))
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Cubical2INet
+-- =============================================================================
+-- [ ] Normalize: reduction rules
+-- [ ] Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
+-- TODO: Cubical2INet needs reduction rules

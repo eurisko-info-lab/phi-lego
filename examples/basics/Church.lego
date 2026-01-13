@@ -1,0 +1,44 @@
+-- Church.lego: Church numerals and encodings
+-- Exercises: higher-order patterns, nested applications
+
+lang Church :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Term
+  term ::= var | lam | app
+  var ::= name
+  lam ::= "(" "λ" name "." term ")"
+  app ::= "(" term term ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule beta:
+  (app (lam $x $body) $arg) ~> $body
+
+prelude:
+  def zero = (λ f . (λ x . x))
+  def one = (λ f . (λ x . (f x)))
+  def two = (λ f . (λ x . (f (f x))))
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "zero": (λ f . (λ x . x))
+test "one": (λ f . (λ x . (f x)))
+test "two": (λ f . (λ x . (f (f x))))
+
+-- Apply one to successor and zero
+test "succ_app": ((λ f . (λ x . (f x))) s)
+test "apply_one": (((λ f . (λ x . (f x))) succ) zero)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Church
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: beta reduction
+-- [x] Normalization: Church numerals reduce
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,83 @@
+-- Staging.lego: Multi-stage programming
+-- MetaML / MetaOCaml style staging
+-- Composes: Meta
+
+import Meta
+
+lang Staging (Meta) :=
+
+-----------------------------------------------------
+-- Staging levels
+-----------------------------------------------------
+piece Level
+  level ::= now | later_level | offset_level
+  now ::= "now"                 -- stage 0 (current)
+  later_level ::= "later"       -- stage 1 (generated)
+  offset_level ::= level "+" nat  -- offset stage
+
+  test "now": now
+  test "later": later_level
+
+-----------------------------------------------------
+-- Staged types
+-----------------------------------------------------
+piece StagedType
+  staged ::= staged_at | lift_type | run_type
+  staged_at ::= "<" term ">" level  -- type at stage
+  lift_type ::= "up" term           -- lift to later stage
+  run_type ::= "down" term          -- run (stage 0 only)
+
+  test "staged": (staged_at Int now)
+
+-----------------------------------------------------
+-- Code generation
+-----------------------------------------------------
+piece CodeGen
+  codegen ::= quote | splice | run | lift
+  quote ::= "<|" term "|>"      -- quote (code generation)
+  splice ::= "~" term           -- splice (code insertion)
+  run ::= "run" term            -- execute generated code
+  lift ::= "lift" term          -- lift value to code
+
+  rule splice_quote:
+    (splice (quote $e)) ~> $e
+
+  rule run_quote:
+    (run (quote $e)) ~> $e
+
+  rule lift_value:
+    (splice (lift $v)) ~> $v
+
+  test "quote": (quote (lam x x))
+  test "splice": (splice (quote 42)) ~~> 42
+
+-----------------------------------------------------
+-- Let-insertion (for hygiene)
+-----------------------------------------------------
+piece LetInsert
+  letins ::= genlet | scope_delim
+  genlet ::= "genlet" name term term  -- let-insert
+  scope_delim ::= "scope" term        -- scope delimiter
+
+  test "genlet": (genlet x 1 (+ x x))
+
+-----------------------------------------------------
+-- Cross-stage persistence
+-----------------------------------------------------
+piece CSP
+  csp ::= persist | csp_explicit
+  persist ::= "%" term          -- cross-stage persist
+  csp_explicit ::= "csp" term   -- explicit CSP
+
+  test "csp": (persist y)
+
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Staging
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: splice_quote, run_quote, lift_value
+-- [ ] Full multi-stage (needs code generation)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

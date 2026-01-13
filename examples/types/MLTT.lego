@@ -1,0 +1,112 @@
+-- MLTT.lego: Martin-Löf Type Theory
+-- Dependent types with Π, Σ, Id, universes
+-- Composes: Base
+
+import Base
+
+lang MLTT (Base) :=
+
+-----------------------------------------------------
+-- Universes
+-----------------------------------------------------
+piece Universe
+  universe ::= "(" "U" nat ")"
+
+-----------------------------------------------------
+-- Core types (S-expression style)
+-----------------------------------------------------
+piece CoreType
+  type ::= universe | pi | sigma | id | nattype | booltype
+  pi ::= "(" "Pi" name term term ")"
+  sigma ::= "(" "Sigma" name term term ")"
+  id ::= "(" "Id" term term term ")"
+  nattype ::= "Nat"
+  booltype ::= "Bool"
+
+-----------------------------------------------------
+-- Natural numbers
+-----------------------------------------------------
+piece Nat
+  natterm ::= zero | succ | natrec
+  zero ::= "zero"
+  succ ::= "(" "succ" term ")"
+  natrec ::= "(" "natrec" term term term term ")"
+
+-----------------------------------------------------
+-- Booleans
+-----------------------------------------------------
+piece Bool
+  boolterm ::= btrue | bfalse | ite
+  btrue ::= "true"
+  bfalse ::= "false"
+  ite ::= "(" "if" term term term ")"
+
+-----------------------------------------------------
+-- Terms (S-expression style)
+-----------------------------------------------------
+piece Term
+  term ::= var | lam | app | pair | pfst | psnd | refl | jelim
+  var ::= "(" "var" name ")"
+  lam ::= "(" "lam" name term term ")"
+  app ::= "(" "app" term term ")"
+  pair ::= "(" "pair" term term ")"
+  pfst ::= "(" "fst" term ")"
+  psnd ::= "(" "snd" term ")"
+  refl ::= "(" "refl" term ")"
+  jelim ::= "(" "J" term term term term term ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule beta:
+  (app (lam $x $A $body) $arg) ~> $body
+
+rule fst_pair:
+  (fst (pair $a $b)) ~> $a
+
+rule snd_pair:
+  (snd (pair $a $b)) ~> $b
+
+rule if_true:
+  (if true $t $f) ~> $t
+
+rule if_false:
+  (if false $t $f) ~> $f
+
+rule natrec_zero:
+  (natrec $P $z $s zero) ~> $z
+
+rule natrec_succ:
+  (natrec $P $z $s (succ $n)) ~> (app (app $s $n) (natrec $P $z $s $n))
+
+rule J_refl:
+  (J $A $P $d $a (refl $a)) ~> $d
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "universe": (U 0)
+test "nat_type": Nat
+test "bool_type": Bool
+test "pi_type": (Pi A (U 0) (Pi x (var A) (var A)))
+test "sigma_type": (Sigma A (U 0) (var A))
+test "id_type": (Id Nat zero zero)
+test "zero": zero
+test "one": (succ zero)
+test "pair": (pair zero true)
+test "fst_test": (fst (pair zero true)) ~~> zero
+test "snd_test": (snd (pair zero true)) ~~> true
+test "if_true_test": (if true yes no) ~~> yes
+test "if_false_test": (if false yes no) ~~> no
+test "natrec_zero_test": (natrec P z s zero) ~~> z
+test "natrec_succ_test": (natrec P z s (succ zero)) ~~> (app (app s zero) z)
+test "J_refl_test": (J Nat P d a (refl a)) ~~> d
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for MLTT
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: dependent type rules
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

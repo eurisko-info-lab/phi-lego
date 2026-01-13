@@ -1,0 +1,47 @@
+-- Subtype.lego: Base for subtyping
+-- Shared by Subtyping, Refinement
+
+import Base
+
+lang Subtype (Base) :=
+
+-----------------------------------------------------
+-- Subtype relation
+-----------------------------------------------------
+piece SubRel
+  subrel ::= type "<:" type         -- subtype relation
+           | type ":>" type         -- supertype
+           | type "≤" type          -- alternative notation
+
+-----------------------------------------------------
+-- Coercion
+-----------------------------------------------------
+piece Coerce
+  coerce ::= "coerce" term ":" type "→" type
+           | "upcast" term
+           | "downcast" term
+
+-----------------------------------------------------
+-- Variance
+-----------------------------------------------------
+piece Variance
+  variance ::= "+" type             -- covariant
+             | "-" type             -- contravariant
+             | "=" type             -- invariant
+             | "~" type             -- bivariant
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "subtype": (Int <: Number)
+test "coercion": (coerce x : Int → Number)
+test "covariant": (+ a)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Subtype
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,46 @@
+-- Proof.lego: Base for proof assistants
+-- Shared by Tactics, Auto
+
+import Base
+
+lang Proof (Base) :=
+
+-----------------------------------------------------
+-- Goals and holes
+-----------------------------------------------------
+piece Goal
+  goal ::= "?" name             -- named hole
+         | "?" "_"              -- anonymous hole
+         | "Goal" term          -- explicit goal type
+         | term "⊢" term        -- goal with context
+
+-----------------------------------------------------
+-- Proof state
+-----------------------------------------------------
+piece ProofState
+  pstate ::= "goals" "[" goallist "]"
+  goallist ::= goal | goal "," goallist
+
+-----------------------------------------------------
+-- Basic proof terms
+-----------------------------------------------------
+piece ProofTerm
+  proof ::= "exact" term        -- provide exact term
+          | "assume" name       -- assume hypothesis
+          | "QED"               -- proof complete
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "hole": ? mygoal
+test "goal": (Goal Bool)
+test "judgment": ((x : Bool) ⊢ Bool)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Proof
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

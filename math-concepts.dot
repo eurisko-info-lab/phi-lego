@@ -1,0 +1,171 @@
+// Mathematical Concepts in Lego
+//
+// This graph shows the algebraic structures underlying the
+// Lego language composition system.
+//
+// Render: dot -Tpng math-concepts.dot -o math-concepts.png
+//         dot -Tsvg math-concepts.dot -o math-concepts.svg
+
+digraph LegoMath {
+  rankdir=TB;
+  node [fontname="Helvetica", fontsize=11];
+  edge [fontname="Helvetica", fontsize=9];
+  splines=true;
+  nodesep=0.5;
+  ranksep=0.7;
+  compound=true;
+
+  // ===================================================================
+  // CATEGORY THEORY (Foundation)
+  // ===================================================================
+
+  subgraph cluster_category {
+    label="Category Theory";
+    style=rounded;
+    color="#1565c0";
+    bgcolor="#e3f2fd";
+    fontcolor="#1565c0";
+    
+    node [shape=ellipse, style="filled", fillcolor="#bbdefb", color="#1565c0"];
+    
+    Category [label="Category\nOb, Hom, ∘, id"];
+    Functor [label="Functor\nF: C → D"];
+    Pushout [label="Pushout\nA ←C→ B"];
+    InitialAlg [label="Initial Algebra\nμF = Fix ExprF"];
+    
+    Category -> Functor [label="preserves"];
+    Category -> Pushout [label="has"];
+    Functor -> InitialAlg [label="fixed point"];
+  }
+
+  // ===================================================================
+  // THE 5 PIECES (Lego Components)
+  // ===================================================================
+
+  subgraph cluster_pieces {
+    label="5 Pieces (Lego Components)";
+    style=rounded;
+    color="#388e3c";
+    bgcolor="#e8f5e9";
+    fontcolor="#388e3c";
+    
+    node [shape=box, style="rounded,filled", fillcolor="#c8e6c9", color="#388e3c"];
+    
+    Vocab [label="Vocab\nFree Monoid\n⟨Σ, ·, ε⟩"];
+    Grammar [label="Grammar\nBNF Algebra\nGrammarExpr"];
+    Rules [label="Rules\nRewrite System\npattern → template"];
+    Types [label="Types\n(optional)\ntype annotations"];
+    Tests [label="Tests\ninput ~~> expected"];
+    
+    Vocab -> Grammar [label="literals"];
+    Grammar -> Rules [label="parsed by"];
+    Rules -> Tests [label="verified by"];
+    Types -> Rules [label="constrains", style=dashed];
+  }
+
+  // ===================================================================
+  // THE 3 OPERATIONS (Composition)
+  // ===================================================================
+
+  subgraph cluster_ops {
+    label="3 Operations (Composition)";
+    style=rounded;
+    color="#f57c00";
+    bgcolor="#fff3e0";
+    fontcolor="#f57c00";
+    
+    node [shape=diamond, style="filled", fillcolor="#ffe0b2", color="#f57c00"];
+    
+    PushoutOp [label="⊕\nPushout\ndisjoint union\n+ identification"];
+    SeqOp [label="·\nSequential\nimport order"];
+    ParOp [label="‖\nParallel\nindependent"];
+  }
+
+  // ===================================================================
+  // TERM ALGEBRA (Syntax)
+  // ===================================================================
+
+  subgraph cluster_term {
+    label="Term Algebra";
+    style=rounded;
+    color="#7b1fa2";
+    bgcolor="#f3e5f5";
+    fontcolor="#7b1fa2";
+    
+    node [shape=box, style="rounded,filled", fillcolor="#e1bee7", color="#7b1fa2"];
+    
+    ExprF [label="ExprF a\nFunctor\nVarF | ConF | LitF"];
+    Fix [label="Fix f\nFixed Point\nnewtype Fix f = In (f (Fix f))"];
+    Term [label="Term\n= Fix ExprF\nInitial Algebra"];
+    
+    Cata [label="cata :: (f a → a) → Fix f → a\nFold (catamorphism)"];
+    Ana [label="ana :: (a → f a) → a → Fix f\nUnfold (anamorphism)"];
+    
+    ExprF -> Fix [label="applied to"];
+    Fix -> Term [label="= type"];
+    Term -> Cata [label="consumed by"];
+    Ana -> Term [label="produces"];
+  }
+
+  // ===================================================================
+  // GRAMMAR ALGEBRA (Parsing)
+  // ===================================================================
+
+  subgraph cluster_grammar_alg {
+    label="Grammar Algebra";
+    style=rounded;
+    color="#c62828";
+    bgcolor="#ffebee";
+    fontcolor="#c62828";
+    
+    node [shape=box, style="rounded,filled", fillcolor="#ffcdd2", color="#c62828"];
+    
+    GrammarExpr [label="GrammarExpr\nFree Algebra\nGSeq | GAlt | GRep | ..."];
+    BNF [label="BNF\nContext-Free\nproductions"];
+    Bidirectional [label="Bidirectional\nparse ↔ print\nGrammar as Expression"];
+    
+    GrammarExpr -> BNF [label="interpreted as"];
+    BNF -> Bidirectional [label="enables"];
+  }
+
+  // ===================================================================
+  // REWRITING (Semantics)
+  // ===================================================================
+
+  subgraph cluster_rewrite {
+    label="Rewriting";
+    style=rounded;
+    color="#00695c";
+    bgcolor="#e0f2f1";
+    fontcolor="#00695c";
+    
+    node [shape=box, style="rounded,filled", fillcolor="#b2dfdb", color="#00695c"];
+    
+    Pattern [label="Pattern\n$var binding\nstructural match"];
+    Template [label="Template\n$var substitution\nterm construction"];
+    Rule [label="Rule\npattern → template"];
+    Normalize [label="normalize\nfixed-point iteration\nwith fuel"];
+    
+    Pattern -> Rule [label="LHS"];
+    Template -> Rule [label="RHS"];
+    Rule -> Normalize [label="applied by"];
+  }
+
+  // ===================================================================
+  // CROSS-CLUSTER RELATIONSHIPS
+  // ===================================================================
+  
+  // Category → Pieces
+  Pushout -> PushoutOp [label="instantiated as", style=dashed, constraint=false];
+  InitialAlg -> Term [label="= Term", style=dashed, constraint=false];
+  
+  // Pieces → Grammar Algebra
+  Grammar -> GrammarExpr [label="defined by", style=dashed, constraint=false];
+  
+  // Pieces → Rewriting
+  Rules -> Rule [label="consists of", style=dashed, constraint=false];
+  
+  // Term → Rewriting
+  Term -> Pattern [label="matched against", style=dashed, constraint=false];
+  Term -> Template [label="produced by", style=dashed, constraint=false];
+}

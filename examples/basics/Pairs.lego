@@ -1,0 +1,49 @@
+-- Pairs.lego: Pair operations with fst/snd
+-- Exercises: pair matching, projection builtins
+
+lang Pairs :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Pair
+  pair ::= "(" "pair" term term ")"
+  term ::= name | num | pair | fst | snd
+  fst ::= "(" "fst" pair ")"
+  snd ::= "(" "snd" pair ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule fst_pair:
+  (fst (pair $a $b)) ~> $a
+
+rule snd_pair:
+  (snd (pair $a $b)) ~> $b
+
+rule swap:
+  (swap (pair $a $b)) ~> (pair $b $a)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "make_pair": (pair 1 2)
+test "nested_pair": (pair (pair a b) (pair c d))
+
+test "fst_test": (fst (pair x y)) ~~> x
+test "snd_test": (snd (pair x y)) ~~> y
+
+test "fst_nested": (fst (pair (pair a b) c)) ~~> (pair a b)
+test "snd_nested": (snd (pair a (pair b c))) ~~> (pair b c)
+
+test "fst_snd": (fst (snd (pair a (pair b c)))) ~~> b
+test "snd_fst": (snd (fst (pair (pair a b) c))) ~~> b
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Pairs
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: fst, snd, swap
+-- [x] Normalization: projection rules reduce
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

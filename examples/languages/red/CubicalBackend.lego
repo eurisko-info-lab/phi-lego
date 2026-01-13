@@ -1,0 +1,91 @@
+-- CubicalBackend.lego
+-- Universal Cubical VM + Rewrite Compiler
+
+lang CubicalCore :=
+
+piece Interval
+  interval ::= i0val | i1val | ivarval
+  i0val ::= "i0"
+  i1val ::= "i1"
+  ivarval ::= "ivar" name
+
+piece Term
+  term ::= atom | conterm | lamterm | appterm
+  atom ::= name
+  conterm ::= "con" name terms
+  lamterm ::= "lam" name term
+  appterm ::= "app" term term
+  terms ::= "nil" | "cons" term terms
+
+piece Path
+  path ::= reflpath | sympath | comppath | lampathterm | apppathterm
+  reflpath ::= "refl" term
+  sympath ::= "sym" path
+  comppath ::= "comp" path path
+  lampathterm ::= "lamPath" name path
+  apppathterm ::= "appPath" path path
+
+piece Transport
+  coe ::= "transport" path term
+  
+  rule coe_refl:
+    (transport (refl $a) $x) ~> $x
+  
+  rule coe_comp:
+    (transport (comp $p $q) $x) ~> (transport $q (transport $p $x))
+  
+  test "coe_refl": (transport (refl a) x) ~~> x
+
+lang CubicalVM (CubicalCore) :=
+
+piece State
+  state ::= "State" term path intervals
+  intervals ::= "nil" | "cons" interval intervals
+
+piece Instr
+  instr ::= pushterm | pushpath | transportinstr | newiinstr | setiinstr | caseiinstr | seqinstr
+  pushterm ::= "PUSH" term
+  pushpath ::= "PUSH_PATH" path
+  transportinstr ::= "TRANSPORT"
+  newiinstr ::= "NEW_I" name
+  setiinstr ::= "SET_I" name interval
+  caseiinstr ::= "CASE_I" name instr instr
+  seqinstr ::= "seq" instr instr
+  
+  rule exec_transport:
+    (seq (PUSH_PATH $p) (seq (PUSH $t) TRANSPORT)) ~> (PUSH (transport $p $t))
+  
+  test "exec_transport": (seq (PUSH_PATH (refl a)) (seq (PUSH x) TRANSPORT)) ~~> (PUSH x)
+
+lang LambdaCompile (CubicalVM) :=
+
+piece BetaPath
+  rule beta_path:
+    (app (lam $x $b) $a) ~> (transport (lamPath $x (refl $b)) $a)
+  
+  test "beta_path": (app (lam x b) a) ~~> (transport (lamPath x (refl b)) a)
+
+lang Identity (CubicalCore) :=
+
+piece Id
+  idtype ::= "Id" term term term
+  idrefl ::= "refl" term
+  jelim ::= "J" term term term term
+  
+  rule J_reduce:
+    (J $A $C $d (refl $a)) ~> $d
+  
+  rule J_compile:
+    (J $A $C $d $p) ~> (transport (lamPath i (refl $d)) $p)
+  
+  test "J_reduce": (J A C d (refl a)) ~~> d
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for CubicalBackend
+-- =============================================================================
+-- [ ] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

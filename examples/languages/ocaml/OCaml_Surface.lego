@@ -1,0 +1,245 @@
+-- =====================================================
+-- OCaml_Surface.lego
+-- Surface-exact OCaml syntax as composable Lego pieces
+-- No semantics yet (Step 1 only)
+-- =====================================================
+
+--------------------------------------------------------
+-- Base lexical layer
+--------------------------------------------------------
+
+lang OCamlTokens :=
+
+piece Identifiers
+  ident ::= /[a-z_][a-zA-Z0-9_']*/
+  uident ::= /[A-Z][a-zA-Z0-9_']*/
+
+piece Literals
+  int_lit ::= /-?[0-9]+/
+  float_lit ::= /-?[0-9]+\.[0-9]+/
+  char_lit ::= "'" char "'"
+  string_lit ::= "\"" string "\""
+
+piece Keywords
+  kw ::= "let" | "rec" | "in"
+       | "and" | "fun" | "function"
+       | "match" | "with"
+       | "type" | "of"
+       | "module" | "struct" | "sig" | "end"
+       | "functor"
+       | "open" | "include"
+       | "if" | "then" | "else"
+       | "try" | "exception" | "raise"
+       | "mutable"
+       | "class" | "object" | "method"
+       | "inherit" | "virtual"
+       | "val"
+       | "constraint"
+       | "new"
+       | "lazy"
+
+piece Symbols
+  sym ::= "=" | "->" | ":" | "::" | "|"
+        | ";" | ";;" | ","
+        | "(" | ")" | "[" | "]" | "{ " | " }"
+        | "." | "#"
+        | ":=" | "!"
+        | "<" | ">" | "<=" | ">="
+        | "+" | "-" | "*" | "/" | "**"
+        | "&&" | "||" | "not"
+        | "@"
+        | "as"
+        | "_"
+
+--------------------------------------------------------
+-- Core expressions
+--------------------------------------------------------
+
+lang OCamlExpr (OCamlTokens) :=
+
+piece Expressions
+  expr ::=
+      literal
+    | ident
+    | "(" expr ")"
+    | expr expr                    -- application
+    | "fun" pattern "->" expr
+    | "function" match_cases
+    | "let" rec_flag let_bindings "in" expr
+    | "if" expr "then" expr "else" expr
+    | "match" expr "with" match_cases
+    | "try" expr "with" match_cases
+    | "raise" expr
+    | "new" class_expr
+    | "lazy" expr
+    | expr ";" expr
+    | expr ":=" expr
+    | "!" expr
+
+  rec_flag ::= "rec" | ε
+
+  literal ::= int_lit | float_lit | char_lit | string_lit
+
+--------------------------------------------------------
+-- Patterns
+--------------------------------------------------------
+
+lang OCamlPatterns (OCamlTokens) :=
+
+piece Patterns
+  pattern ::=
+      "_"
+    | ident
+    | literal
+    | "(" pattern ")"
+    | pattern "::" pattern
+    | "(" pattern "," pattern_list ")"
+    | "[" pattern_list "]"
+    | uident pattern?
+    | pattern "|" pattern
+    | pattern "as" ident
+
+  pattern_list ::= pattern ("," pattern)* | ε
+
+piece MatchCases
+  match_cases ::= match_case ("|" match_case)*
+  match_case ::= pattern guard? "->" expr
+  guard ::= "when" expr
+
+--------------------------------------------------------
+-- Type expressions
+--------------------------------------------------------
+
+lang OCamlTypes (OCamlTokens) :=
+
+piece TypeExpr
+  type_expr ::=
+      ident
+    | uident
+    | type_expr "->" type_expr
+    | "(" type_expr ")"
+    | "(" type_expr "," type_expr_list ")"
+    | "[" variant_rows "]"
+    | "<" object_rows ">"
+    | type_expr "as" ident
+
+  type_expr_list ::= type_expr ("," type_expr)*
+
+piece VariantTypes
+  variant_rows ::= variant_row ("|" variant_row)*
+  variant_row ::= "`" ident type_expr?
+
+piece ObjectTypes
+  object_rows ::= object_row (";" object_row)*
+  object_row ::= ident ":" type_expr
+
+--------------------------------------------------------
+-- Let bindings
+--------------------------------------------------------
+
+lang OCamlLet (OCamlTokens, OCamlPatterns, OCamlExpr) :=
+
+piece LetBindings
+  let_bindings ::= let_binding ("and" let_binding)*
+  let_binding ::= pattern "=" expr
+
+--------------------------------------------------------
+-- Modules
+--------------------------------------------------------
+
+lang OCamlModules (OCamlTokens, OCamlExpr, OCamlTypes) :=
+
+piece ModuleExpr
+  module_expr ::=
+      uident
+    | "struct" structure "end"
+    | "functor" "(" uident ":" module_type ")" "->" module_expr
+
+piece ModuleType
+  module_type ::=
+      uident
+    | "sig" signature "end"
+    | module_type "with" type_constraints
+
+piece Structure
+  structure ::= structure_item*
+  structure_item ::=
+      expr ";;"
+    | "let" rec_flag let_bindings
+    | "type" type_defs
+    | "module" uident "=" module_expr
+    | "open" module_expr
+    | "include" module_expr
+    | "exception" uident type_expr?
+
+piece Signature
+  signature ::= sig_item*
+  sig_item ::=
+      "val" ident ":" type_expr
+    | "type" type_decl
+    | "module" uident ":" module_type
+
+--------------------------------------------------------
+-- Type declarations
+--------------------------------------------------------
+
+lang OCamlTypeDecl (OCamlTokens, OCamlTypes) :=
+
+piece TypeDecl
+  type_defs ::= type_def ("and" type_def)*
+  type_def ::= ident type_params? "=" type_rhs
+
+  type_params ::= ident+
+
+  type_rhs ::=
+      type_expr
+    | variant_rows
+    | "{" record_rows "}"
+
+  record_rows ::= record_row (";" record_row)*
+  record_row ::= "mutable"? ident ":" type_expr
+
+--------------------------------------------------------
+-- Objects and classes
+--------------------------------------------------------
+
+lang OCamlObjects (OCamlTokens, OCamlExpr, OCamlTypes) :=
+
+piece ClassExpr
+  class_expr ::=
+      class_name
+    | "object" class_body "end"
+
+  class_name ::= ident
+
+  class_body ::= class_item*
+
+  class_item ::=
+      "method" ident ":" type_expr "=" expr
+    | "val" mutable_flag ident ":" type_expr "=" expr
+    | "inherit" class_expr
+
+  mutable_flag ::= "mutable" | ε
+
+--------------------------------------------------------
+-- Top-level composition
+--------------------------------------------------------
+
+lang OCamlSurface :=
+    OCamlTokens
+  + OCamlExpr
+  + OCamlPatterns
+  + OCamlLet
+  + OCamlTypes
+  + OCamlTypeDecl
+  + OCamlModules
+  + OCamlObjects
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for OCaml_Surface
+-- =============================================================================
+-- [ ] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

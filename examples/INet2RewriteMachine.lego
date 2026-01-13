@@ -1,0 +1,113 @@
+-- INet2RewriteMachine.lego
+-- Compiler from Interaction Nets to the generic RewriteMachine
+--
+-- COMPILATION PIPELINE:
+--   Lambda.lego  -> Lambda2INet.lego  --.
+--   Cubical.lego -> Cubical2INet.lego --+-> INet2RewriteMachine.lego -> RewriteMachine bytecode
+--   INet.lego    -----------------------'
+--
+-- The RewriteMachine is a heap-based abstract machine that:
+--   - Allocates handles for nodes (like interaction net cells)
+--   - Maintains scoped environments for pattern matching
+--   - Executes MATCH/EMIT instructions to find and fire redexes
+
+import INet
+import RewriteMachine
+
+lang INet2RewriteMachine (INet, RewriteMachine) :=
+
+piece Compiler
+  -- Compilation entry point
+  compileINet ::= "compile" net
+  
+  -- Compile all rules
+  compileRules ::= "compileRules" rulelist
+  rulelist ::= "nil" | "cons" ruledef rulelist
+  ruledef ::= "ruledef" name pattern template
+  
+  -- Single interaction rule compilation
+  compileRule ::= "compileRule" ruledef
+  
+  -- RHS compilation
+  compileRHS ::= "compileRHS" rhs
+  rhs ::= netexpr | letrhs | union | eraseall | term
+  netexpr ::= "net" netstmts
+  letrhs ::= "let" varlist "fresh" nat body
+  union ::= "netUnion" rhs rhs
+  eraseall ::= "eraseAll" portlist
+  
+  netstmts ::= "nil" | "cons" netstmt netstmts
+  netstmt ::= nodedef | edgedef
+  nodedef ::= "node" name name
+  edgedef ::= "edge" port port
+  port ::= name
+  
+  varlist ::= "nil" | "cons" name varlist
+  portlist ::= "nil" | "cons" port portlist
+  body ::= term
+  
+  -- Compilation rules
+  rule compile_inet:
+    (compile $net) ~> (program (compileRules (rules $net)))
+  
+  rule compile_rules_nil:
+    (compileRules nil) ~> nil
+  
+  rule compile_rules_cons:
+    (compileRules (cons $r $rs)) ~> (append (compileRule $r) (compileRules $rs))
+  
+  rule compile_rule_interact:
+    (compileRule (ruledef $name (interact $n1 $n2) $rhs)) ~>
+      (program (MATCH (interact $n1 $n2)) PUSH_ENV (compileRHS $rhs) POP_ENV)
+  
+  rule compile_rhs_net:
+    (compileRHS (net $stmts)) ~> (compileNetStmts $stmts)
+  
+  rule compile_net_stmts_nil:
+    (compileNetStmts nil) ~> nil
+  
+  rule compile_net_stmts_cons:
+    (compileNetStmts (cons $s $ss)) ~> (append (compileNetStmt $s) (compileNetStmts $ss))
+  
+  rule compile_node:
+    (compileNetStmt (node $type $n)) ~>
+      (program (FRESH 1) (BIND $n handle) (EMIT (node $type handle)))
+  
+  rule compile_edge:
+    (compileNetStmt (edge $p1 $p2)) ~> (program (EMIT (link $p1 $p2)))
+  
+  rule compile_let_fresh:
+    (compileRHS (let $vars (fresh $k) $body)) ~>
+      (program (FRESH $k) (bindFresh $vars) (compileRHS $body))
+  
+  rule bind_fresh_nil:
+    (bindFresh nil) ~> nil
+  
+  rule bind_fresh_cons:
+    (bindFresh (cons $v $vs)) ~> (program (BIND $v handle) (bindFresh $vs))
+  
+  rule compile_net_union:
+    (compileRHS (netUnion $n1 $n2)) ~> (append (compileRHS $n1) (compileRHS $n2))
+  
+  rule compile_erase_nil:
+    (compileRHS (eraseAll nil)) ~> (program (EMIT emptyNet))
+  
+  rule compile_erase_cons:
+    (compileRHS (eraseAll (cons $p $ps))) ~>
+      (program (FRESH 1) (EMIT (node era handle)) (EMIT (link (port handle 0) $p)) (compileRHS (eraseAll $ps)))
+  
+  rule compile_fallback:
+    (compileRHS $x) ~> (program (EMIT $x))
+  
+  test "compile_rules_nil": (compileRules nil) ~~> nil
+  test "compile_node": (compileNetStmt (node App n1)) ~~> (program (FRESH 1) (BIND n1 handle) (EMIT (node App handle)))
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for INet2RewriteMachine
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,187 @@
+-- Phi in Lego: Modal Grammar & Execution Modes
+-- Bidirectional grammar interpretation with tree/graph execution choice
+
+lang Mode :=
+  -- Mode: determines how grammar is interpreted
+  -- Parse: consume tokens, produce term
+  -- Print: consume term, produce tokens  
+  -- Check: verify term matches grammar
+  
+  grammar:
+    Mode ::= 'Parse' | 'Print' | 'Check'
+    
+  -- Execution mode: tree vs graph reduction
+  grammar:
+    ExecMode ::= 'Tree' | 'Graph'
+
+lang BiGrammar :=
+  import Grammar
+  import Mode
+  
+  -- Bidirectional state: tokens, bindings, term, mode
+  grammar:
+    BiState ::= 'state' '{' 
+                  'tokens' ':' tokenlist
+                  'binds' ':' bindmap
+                  'term' ':' term?
+                  'mode' ':' Mode
+                  'exec' ':' ExecMode
+                '}'
+  
+  -- Modal grammar interpretation
+  -- Same grammar, different behavior based on mode
+  
+  rules:
+    -- runBi: run grammar in given mode
+    (runBi $g $state) ~>
+      (case (mode $state)
+        Parse (runParse $g $state)
+        Print (runPrint $g $state)
+        Check (runCheck $g $state))
+    
+    -- Parse mode: consume tokens, build term
+    (runParse (sym $s) $st) ~>
+      (case (tokens $st)
+        (cons (tok $s) $rest) 
+          (just (setState $st tokens $rest term (just (lit $s))))
+        _ nothing)
+    
+    (runParse (seq nil) $st) ~>
+      (just (setState $st term (just (con tuple nil))))
+    
+    (runParse (seq (cons $g $gs)) $st) ~>
+      (bind (runParse $g $st) (fn $st1
+        (bind (runParse (seq $gs) $st1) (fn $st2
+          (just (mergeTerm $st2))))))
+    
+    (runParse (alt (cons $g $gs)) $st) ~>
+      (case (runParse $g $st)
+        (just $st') (just $st')
+        nothing (runParse (alt $gs) $st))
+    
+    -- Print mode: consume term, emit tokens
+    (runPrint (sym $s) $st) ~>
+      (case (term $st)
+        (just (lit $s))
+          (just (setState $st tokens (snoc (tokens $st) (tok $s)) term nothing))
+        _ nothing)
+    
+    (runPrint (seq nil) $st) ~>
+      (case (term $st)
+        (just (con tuple nil)) (just $st)
+        _ nothing)
+    
+    (runPrint (seq (cons $g $gs)) $st) ~>
+      (case (term $st)
+        (just (con tuple (cons $v $vs)))
+          (bind (runPrint $g (setState $st term (just $v))) (fn $st1
+            (runPrint (seq $gs) (setState $st1 term (just (con tuple $vs))))))
+        _ nothing)
+    
+    -- Check mode: verify structure without transformation
+    (runCheck (sym $s) $st) ~>
+      (case (tokens $st)
+        (cons (tok $s) $rest) (just (setState $st tokens $rest))
+        _ nothing)
+    
+    (runCheck (seq nil) $st) ~> (just $st)
+    
+    (runCheck (seq (cons $g $gs)) $st) ~>
+      (bind (runCheck $g $st) (fn $st1
+        (runCheck (seq $gs) $st1)))
+    
+    (runCheck (alt (cons $g $gs)) $st) ~>
+      (case (runCheck $g $st)
+        (just $st') (just $st')
+        nothing (runCheck (alt $gs) $st))
+
+lang ExecStrategy :=
+  import Mode
+  import Graph
+  import Reduce
+  
+  -- Choose execution strategy based on mode
+  
+  rules:
+    -- runWithMode: dispatch to tree or graph execution
+    (runWithMode Tree $term $rules) ~>
+      (normalize $term $rules)
+    
+    (runWithMode Graph $term $rules) ~>
+      (inetNormalize (toINet $term))
+    
+    -- Tree execution: standard term rewriting
+    (normalize $term nil) ~> $term
+    (normalize $term $rules) ~>
+      (case (step $term $rules)
+        nothing $term
+        (just $term') (normalize $term' $rules))
+    
+    -- Graph execution: interaction net reduction
+    -- Uses INet from Graph.lego
+    (inetNormalize $net) ~>
+      (case (inetReduce $net)
+        nothing (fromINet $net)
+        (just $net') (inetNormalize $net'))
+    
+    (inetReduce $net) ~>
+      (case (findActivePair $net)
+        nothing nothing
+        (just ($n1 $n2)) (just (interact $n1 $n2 $net)))
+
+-- Parametric Languages (Functor Category)
+lang ParamLang :=
+  import Core
+  
+  -- ParamLang a t: parametric language - a functor from types to languages
+  -- This models languages that depend on a type parameter
+  
+  grammar:
+    ParamLang ::= 'plang' identifier 'of' identifier '.' lang
+  
+  rules:
+    -- instantiate: apply type parameter
+    (instantiate (plang $a $t . $body) $type) ~>
+      (subst $a $type $body)
+    
+    -- poParamLang: pushout of parametric languages (pointwise)
+    (poParamLang $pl1 $pl2) ~>
+      (plang a of t . (poLang (instantiate $pl1 t) (instantiate $pl2 t)))
+    
+    -- mapParam: functorial action
+    (mapParam $f (plang $a $t . $body)) ~>
+      (plang a of t . ($f $body))
+    
+    -- constParamLang: constant functor (ignores parameter)
+    (constParamLang $lang) ~>
+      (plang _ of t . $lang)
+    
+    -- diagParamLang: diagonal functor (uses parameter as both type and lang)
+    (diagParamLang) ~>
+      (plang a of t . (langFromType t))
+
+-- Natural Transformations
+lang ParamNat :=
+  import ParamLang
+  
+  -- Natural transformation: polymorphic mapping between parametric languages
+  -- ParamNat F G = ∀a. F a → G a
+  
+  grammar:
+    ParamNat ::= 'nat' identifier ':' identifier '->' identifier
+  
+  rules:
+    -- applyNat: apply natural transformation
+    (applyNat (nat $n : $f -> $g) $pl $type) ~>
+      (transform $n (instantiate $pl $type))
+    
+    -- idNat: identity natural transformation
+    (idNat $f) ~>
+      (nat id : $f -> $f)
+    
+    -- composeNat: vertical composition
+    (composeNat (nat $n1 : $g -> $h) (nat $n2 : $f -> $g)) ~>
+      (nat (compose $n1 $n2) : $f -> $h)
+
+-- Composition
+lang ModalLang := Mode + BiGrammar + ExecStrategy + ParamLang + ParamNat

@@ -1,0 +1,52 @@
+-- Base.lego: Shared foundations for all extensions
+-- Provides common type theory primitives
+
+lang Base :=
+
+-----------------------------------------------------
+-- Universe hierarchy
+-----------------------------------------------------
+piece Universe
+  type ::= "Type" level
+  level ::= nat | "ω"
+
+-----------------------------------------------------
+-- Basic terms
+-----------------------------------------------------
+piece BaseTerm
+  term ::= var | lam | app | pi | let
+  var ::= "$" name
+  lam ::= "λ" "(" name ":" term ")" "." term
+  app ::= "(" term term ")"
+  pi ::= "Π" "(" name ":" term ")" "." term
+  let ::= "let" name ":" term "=" term "in" term
+
+-----------------------------------------------------
+-- Equality (shared by HoTT, Cubical, Observational)
+-----------------------------------------------------
+piece Equality
+  eq ::= "Id" term term term   -- Id A a b
+       | "refl" term           -- refl a
+
+-----------------------------------------------------
+-- Sigma types (dependent pairs)
+-----------------------------------------------------
+piece Sigma
+  sigma ::= "Σ" "(" name ":" term ")" "." term
+  pair ::= "(" term "," term ")"
+  proj ::= "π₁" term | "π₂" term
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "id_type": (Π (A : Type 0) . (Π (x : A) . A))
+test "sigma_type": (Σ (A : Type 0) . A)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Base
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,85 @@
+-- IO.lego: IO Effects for Lego
+--
+-- Algebraic effects pattern:
+--   Lego declares WHAT (effect signature)
+--   Haskell provides HOW (effect handler)
+--
+-- Effect = Free monad over operation signature
+--
+-- String builtins (executed directly by Lego):
+--   concat, lines, unlines, words, unwords
+--   take, drop, length, startsWith, endsWith, contains
+--   replace, split, join, strip, toUpper, toLower
+--   charAt, substring
+--
+-- IO effects (require Haskell handler):
+--   readFile, writeFile, listDir, print, etc.
+
+lang IO :=
+
+-----------------------------------------------------
+-- IO Effect Signature
+-----------------------------------------------------
+piece IOEffect
+  io ::= read_file | write_file | append_file | print_io | read_line | get_args | list_dir | file_exists | exec_cmd | shell_cmd
+  read_file ::= "readFile" path
+  write_file ::= "writeFile" path content
+  append_file ::= "appendFile" path content
+  print_io ::= "print" expr
+  read_line ::= "readLine"
+  get_args ::= "getArgs"
+  list_dir ::= "listDir" path
+  file_exists ::= "fileExists" path
+  exec_cmd ::= "exec" cmd args
+  shell_cmd ::= "shell" cmd
+
+  test "read": (read_file "foo.txt")
+  test "write": (write_file "foo.txt" "hello")
+
+-----------------------------------------------------
+-- Effect Monad (Free monad structure)
+-----------------------------------------------------
+piece EffectMonad
+  eff ::= eff_pure | eff_do | eff_bind
+  eff_pure ::= "pure" value         -- pure value (no effects)
+  eff_do ::= "do" "{" stmts "}"     -- do-block
+  eff_bind ::= "bind" eff var eff   -- bind (prefix notation)
+
+  stmt ::= stmt_bind | stmt_exec | stmt_let
+  stmt_bind ::= var "<-" eff        -- bind result
+  stmt_exec ::= eff                 -- execute, ignore result
+  stmt_let ::= "let" var "=" expr   -- local binding
+
+  stmts ::= stmt | stmts_cons
+  stmts_cons ::= stmt ";" stmts
+
+  -- Monad laws
+  rule io_left_id:
+    (eff_bind (eff_pure $a) $x $body) ~> $body
+    
+  rule io_right_id:
+    (eff_bind $m $x (eff_pure $x)) ~> $m
+
+  test "pure": (eff_pure 42)
+  test "bind": (eff_bind (eff_pure 1) x (eff_pure x))
+
+-----------------------------------------------------
+-- Effect Requirements (for Haskell handler)
+-----------------------------------------------------
+piece EffectReq
+  requires ::= "requires" name "{" sigs "}"
+  sigs ::= sig_single | sigs_cons
+  sig_single ::= sig
+  sigs_cons ::= sig "," sigs
+  sig ::= name ":" term
+
+  test "requires": (requires IO (sigs_cons (sig readFile (arrow Path String)) (sig_single (sig print (arrow String Unit)))))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for IO
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: IO monad bind
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

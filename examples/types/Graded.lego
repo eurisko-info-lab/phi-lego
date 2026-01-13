@@ -1,0 +1,82 @@
+-- Graded.lego: Graded Type Theory
+-- Coeffects and resource sensitivity
+-- Composes: Quantitative
+
+import Quantitative
+
+lang Graded (Quantitative) :=
+
+-----------------------------------------------------
+-- Grade semiring (generalized)
+-----------------------------------------------------
+piece Grade
+  grade ::= grade_ann | grade_join | grade_meet | grade_bot | grade_top
+  grade_ann ::= "<" term ">"        -- grade annotation
+  grade_join ::= grade "lub" grade  -- join (upper bound)
+  grade_meet ::= grade "glb" grade  -- meet (lower bound)
+  grade_bot ::= "bot"               -- bottom
+  grade_top ::= "top"               -- top
+
+  rule grade_join_idem:
+    (grade_join $g $g) ~> $g
+
+  rule grade_meet_idem:
+    (grade_meet $g $g) ~> $g
+
+  test "grade": (grade_ann 3)
+  test "join": (grade_join (grade_ann 1) (grade_ann 2))
+
+-----------------------------------------------------
+-- Graded modality
+-----------------------------------------------------
+piece GradedBox
+  gbox ::= graded_box | graded_intro | graded_elim | graded_promote
+  graded_box ::= "Box" grade term       -- graded necessity Box_r A
+  graded_intro ::= "box" grade term     -- introduction
+  graded_elim ::= "unbox" term          -- elimination
+  graded_promote ::= "promote" grade term -- grade promotion
+
+  rule box_unbox:
+    (graded_elim (graded_intro $r $a)) ~> $a
+
+  test "box": (graded_intro (grade_ann 3) x)
+
+-----------------------------------------------------
+-- Coeffects (contextual effects)
+-----------------------------------------------------
+piece Coeffect
+  coeff ::= coeff_ann | coeff_scoped
+  coeff_ann ::= "coeff" grade term      -- coeffect annotation
+  coeff_scoped ::= "with_coeff" grade term term  -- scoped coeffect
+
+  test "coeff": (coeff_ann (grade_ann 2) Int)
+
+-----------------------------------------------------
+-- Sensitivity (for differential privacy)
+-----------------------------------------------------
+piece Sensitivity
+  sens ::= sens_type | sens_get | sens_scale
+  sens_type ::= nat "sensitive" term    -- n-sensitive type
+  sens_get ::= "sens" term              -- get sensitivity
+  sens_scale ::= "scale_sens" nat term  -- scale sensitivity
+
+  test "sens": (sens_type 2 Int)
+
+-----------------------------------------------------
+-- Indexed grading
+-----------------------------------------------------
+piece IndexedGrade
+  igrade ::= igrade_at | igrade_forall
+  igrade_at ::= grade "@" term          -- grade indexed by value
+  igrade_forall ::= "forall_grade" name "." grade -- universally graded
+
+  test "igrade": (igrade_at (grade_ann 1) Int)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Graded
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

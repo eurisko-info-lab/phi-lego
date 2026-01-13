@@ -1,0 +1,79 @@
+-- Bool.lego: Boolean operations with if-then-else
+-- Exercises: if builtin, boolean rules
+
+lang Bool :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Bool
+  bool ::= "true" | "false"
+  term ::= bool | if | not | and | or
+  if ::= "(" "if" term term term ")"
+  not ::= "(" "not" term ")"
+  and ::= "(" "and" term term ")"
+  or ::= "(" "or" term term ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule if_true:
+  (if true $then $else) ~> $then
+
+rule if_false:
+  (if false $then $else) ~> $else
+
+rule not_true:
+  (not true) ~> false
+
+rule not_false:
+  (not false) ~> true
+
+rule and_true_true:
+  (and true true) ~> true
+
+rule and_true_false:
+  (and true false) ~> false
+
+rule and_false_x:
+  (and false $x) ~> false
+
+rule or_true_x:
+  (or true $x) ~> true
+
+rule or_false_x:
+  (or false $x) ~> $x
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "true_val": true
+test "false_val": false
+
+test "if_true_test": (if true a b) ~~> a
+test "if_false_test": (if false a b) ~~> b
+
+test "not_true_test": (not true) ~~> false
+test "not_false_test": (not false) ~~> true
+
+test "and_tt": (and true true) ~~> true
+test "and_tf": (and true false) ~~> false
+test "and_ft": (and false true) ~~> false
+test "and_ff": (and false false) ~~> false
+
+test "or_tt": (or true true) ~~> true
+test "or_tf": (or true false) ~~> true
+test "or_ft": (or false true) ~~> true
+test "or_ff": (or false false) ~~> false
+
+test "nested_if": (if (and true true) yes no) ~~> yes
+test "nested_not": (not (not true)) ~~> true
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Bool
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: boolean operations (if, and, or, not)
+-- [x] Normalization: all boolean ops reduce to true/false
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,150 @@
+-- Lambda2INet.lego: Compile Lambda Calculus to Interaction Nets
+-- Based on Lamping's optimal reduction algorithm
+--
+-- The key insight: λ-terms map to interaction net graphs where
+--   - Variables become wires
+--   - Lambdas become @λ nodes (binder port + body port)
+--   - Applications become @@ nodes (func port + arg port)
+--   - Sharing is explicit via δ (duplicator) nodes
+--   - Erasure is explicit via ε (eraser) nodes
+
+import Lambda
+import INet
+
+lang Lambda2INet (Lambda, INet) :=
+
+-----------------------------------------------------
+-- Compilation State
+-----------------------------------------------------
+piece CompileState
+  -- Compilation context: maps vars to ports
+  cctx ::= "(" "ctx" binding* ")"
+  binding ::= "(" name port ")"
+  
+  -- Compilation result: net + root port  
+  compiled ::= "(" "compiled" net port ")"
+
+-----------------------------------------------------
+-- Core Compilation
+-----------------------------------------------------
+-- Variables: lookup in context, return the port
+rule compile_var:
+  (compile (var $x) (ctx $bindings)) ~>
+    (compiled (net) (lookup $x $bindings))
+
+-- Lambda: create @λ node, extend context with binder
+rule compile_lam:
+  (compile (lam $x $body) $ctx) ~>
+    (let node (fresh 1)
+      (let bodyResult (compile $body (extend $ctx $x (port node 1)))
+        (compiled
+          (netUnion
+            (net (node lam node))
+            (bodyNet bodyResult)
+            (net (wire (bodyRoot bodyResult) (port node 2))))
+          (principal node))))
+
+-- Application: create @@ node, connect func and arg
+rule compile_app:
+  (compile (app $f $a) $ctx) ~>
+    (let node (fresh 1)
+      (let fResult (compile $f $ctx)
+        (let aResult (compile $a $ctx)
+          (compiled
+            (netUnion
+              (net (node app node))
+              (bodyNet fResult)
+              (bodyNet aResult)
+              (net
+                (wire (bodyRoot fResult) (port node 1))
+                (wire (bodyRoot aResult) (port node 2))))
+            (principal node)))))
+
+-----------------------------------------------------
+-- Context Operations
+-----------------------------------------------------
+rule lookup_found:
+  (lookup $x (cons (binding $x $p) $rest)) ~> $p
+  
+rule lookup_continue:
+  (lookup $x (cons (binding $y $p) $rest)) ~>
+    (lookup $x $rest)
+    
+rule extend:
+  (extend (ctx $bindings) $x $p) ~>
+    (ctx (cons (binding $x $p) $bindings))
+
+-----------------------------------------------------
+-- Sharing Analysis
+-----------------------------------------------------
+-- For optimal reduction, we need to track which variables
+-- are used multiple times and insert δ nodes
+
+piece SharingAnalysis
+  usage ::= "(" "usage" name nat ")"  -- var used n times
+    
+-- Count variable occurrences
+rule count_var:
+  (countUsage $x (var $y)) ~>
+    (if (eq $x $y) 1 0)
+    
+rule count_lam:
+  (countUsage $x (lam $y $body)) ~>
+    (if (eq $x $y) 0 (countUsage $x $body))
+    
+rule count_app:
+  (countUsage $x (app $f $a)) ~>
+    (+ (countUsage $x $f) (countUsage $x $a))
+
+-----------------------------------------------------
+-- Insert Sharing Nodes
+-----------------------------------------------------
+-- When a variable is used n times:
+--   n = 0: insert ε (eraser)
+--   n = 1: direct wire
+--   n > 1: insert tree of δ (duplicator) nodes
+
+rule share_zero:
+  (share $port 0) ~>
+    (net (node era e) (wire $port (principal e)))
+    
+rule share_one:
+  (share $port 1) ~> 
+    (compiled (net) $port)
+    
+rule share_many:
+  (share $port $n) ~>
+    (let d (fresh 1)
+      (let left (share (port d 1) (div $n 2))
+        (let right (share (port d 2) (- $n (div $n 2)))
+          (netUnion
+            (net (node dup d) (wire $port (principal d)))
+            (bodyNet left)
+            (bodyNet right)))))
+
+-----------------------------------------------------
+-- Full Compilation Pipeline
+-----------------------------------------------------
+-- Entry point: compile with sharing
+rule compileWithSharing:
+  (compileOpt $term) ~>
+    (let analyzed (analyzeSharing $term)
+      (compile $term (ctx nil)))
+
+-----------------------------------------------------
+-- Tests (TODO: compile rules not yet executable)
+-----------------------------------------------------
+-- Parse-only test for compilation call syntax
+test "compile_ctx":
+  (compile (lam x (var x)) (ctx nil))
+
+test "compile_var":
+  (compile (var x) (ctx (cons (binding x p) nil)))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Lambda2INet
+-- =============================================================================
+-- [ ] Normalize: reduction rules
+-- [ ] Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
+-- TODO: Lambda2INet needs reduction rules

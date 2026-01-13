@@ -1,0 +1,80 @@
+-- Subtyping.lego: Structural and nominal subtyping
+-- Width/depth subtyping, bounded polymorphism
+-- Composes: Subtype
+
+import Subtype
+
+lang Subtyping (Subtype) :=
+
+-----------------------------------------------------
+-- Record subtyping (width)
+-----------------------------------------------------
+piece RecordSub
+  recsub ::= "{" fields "}" "<:" "{" fields "}"
+  fields ::= fields_single | fields_cons
+  fields_single ::= field
+  fields_cons ::= field "," fields
+  field ::= name ":" type
+
+  test "recsub": (recsub (fields_cons (field x Nat) (fields_single (field y Nat))) (fields_single (field x Nat)))
+
+-----------------------------------------------------
+-- Bounded quantification
+-----------------------------------------------------
+piece Bounded
+  bounded ::= bounded_forall | bounded_exists | bounded_check
+  bounded_forall ::= "forall" name "<:" type "." type   -- bounded universal
+  bounded_exists ::= "exists" name "<:" type "." type   -- bounded existential
+  bounded_check ::= "extends" type type                 -- bound check
+
+  test "bounded": (bounded_forall a Printable (arrow a String))
+
+-----------------------------------------------------
+-- Nominal subtyping
+-----------------------------------------------------
+piece Nominal
+  nominal ::= class_ext | interface_ext | instanceof_check
+  class_ext ::= "class" name "extends" name
+  interface_ext ::= "interface" name "extends" name
+  instanceof_check ::= "instanceof" term type
+
+  test "class": (class_ext Dog Animal)
+
+-----------------------------------------------------
+-- Intersection and union
+-----------------------------------------------------
+piece SetTypes
+  settype ::= inter_type | union_type | top_type | bot_type
+  inter_type ::= type "inter" type      -- intersection type
+  union_type ::= type "union" type      -- union type
+  top_type ::= "Top"                    -- top type
+  bot_type ::= "Bot"                    -- bottom type
+
+  test "inter": (inter_type Readable Writable)
+  test "union": (union_type Int String)
+
+-----------------------------------------------------
+-- Subtyping rules
+-----------------------------------------------------
+piece SubRules
+  sub_judgment ::= type "<:" type
+
+  rule sub_refl:
+    (sub_judgment $T $T) ~> (Refl $T)
+
+  rule sub_top:
+    (sub_judgment $T top_type) ~> true
+
+  rule sub_bot:
+    (sub_judgment bot_type $T) ~> true
+
+  test "sub": (sub_judgment Nat Nat)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Subtyping
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

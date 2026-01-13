@@ -1,0 +1,61 @@
+-- Quantitative.lego: Base for quantitative/linear type systems
+-- Shared by QTT, Graded
+
+import Base
+
+lang Quantitative (Base) :=
+
+-----------------------------------------------------
+-- Semiring of quantities
+-----------------------------------------------------
+piece Semiring
+  quantity ::= q_zero | q_one | q_omega | q_plus | q_mult
+  q_zero ::= "0"              -- unused
+  q_one ::= "1"               -- linear (exactly once)
+  q_omega ::= "omega"         -- unrestricted (ASCII)
+  q_plus ::= quantity "+" quantity
+  q_mult ::= quantity "*" quantity
+
+  rule q_zero_mult:
+    (q_mult q_zero $q) ~> q_zero
+
+  rule q_one_mult:
+    (q_mult q_one $q) ~> $q
+
+  rule q_omega_plus:
+    (q_plus q_omega $q) ~> q_omega
+
+  test "zero": q_zero
+  test "one": q_one
+  test "mult": (q_mult q_one q_omega)
+
+-----------------------------------------------------
+-- Quantified binders
+-----------------------------------------------------
+piece QBinder
+  qbind ::= qpi | qlam | qlet
+  qpi ::= "Pi" quantity "(" name ":" term ")" "." term
+  qlam ::= "lam" quantity "(" name ":" term ")" "." term
+  qlet ::= "let" quantity name ":" term "=" term "in" term
+
+  test "qpi": (qpi q_one (x Bool) Bool)
+
+-----------------------------------------------------
+-- Resource operations
+-----------------------------------------------------
+piece Resource
+  res ::= share | dup | drop_res
+  share ::= "&" term              -- sharing/borrowing
+  dup ::= "!" term                -- duplication (requires omega)
+  drop_res ::= "drop" term        -- explicit drop (requires 0)
+
+  test "share": (share x)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Quantitative
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
