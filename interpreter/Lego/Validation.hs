@@ -3,7 +3,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Module: Lego.Validation
--- Purpose: Semantic validation for .lego files
+-- Purpose: Semantic validation and optimization for .lego files
 --
 -- Detects errors that pass parsing but are semantically invalid:
 --   - Undefined production references
@@ -12,6 +12,12 @@
 --   - Conflicting rules (same pattern, different result)
 --   - Left recursion (direct and indirect)
 --   - Unused productions
+--
+-- Optimization warnings:
+--   - Missing cut points (suggests where to add cuts)
+--   - Unreachable alternatives in grammar
+--   - Redundant alternatives
+--   - Non-terminating rule cycles
 --
 -- Architecture: Pure validation functions, no IO.
 -- Called after parsing, before evaluation.
@@ -33,6 +39,10 @@ module Lego.Validation
   , checkConflictingRules
   , checkLeftRecursion
   , checkUnusedProds
+    -- * Optimization checks
+  , checkMissingCuts
+  , checkRuleCycles
+  , checkUnreachableAlts
     -- * Utilities
   , formatError
   , formatWarning
@@ -41,10 +51,10 @@ module Lego.Validation
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import Data.List (intercalate)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 
-import Lego (Term, GrammarExpr)
-import Lego (pattern GRef, pattern GSeq, pattern GAlt, pattern GStar, pattern GBind, pattern GCut, pattern GLit)
+import Lego (Term, GrammarExpr, Rule(..))
+import Lego (pattern GRef, pattern GSeq, pattern GAlt, pattern GStar, pattern GBind, pattern GCut, pattern GLit, pattern GKeyword)
 import Lego (pattern TmVar, pattern TmLit, pattern TmCon)
 import Lego.Internal (Fix(..))
 
@@ -69,6 +79,11 @@ data ValidationWarning
   | UnusedProduction String                -- ^ production name
   | ShadowedProduction String String       -- ^ production, shadowed by
   | AmbiguousGrammar String String         -- ^ production, reason
+  -- Optimization warnings
+  | MissingCut String String               -- ^ production, keyword that should have cut
+  | RuleCycle [String]                     -- ^ cycle of rule names
+  | UnreachableAlt String Int              -- ^ production, alternative index
+  | RedundantAlt String Int Int            -- ^ production, alt1, alt2 (alt2 shadows alt1)
   deriving (Show, Eq)
 
 -- | Result of validation
@@ -97,15 +112,17 @@ validateGrammar grammar =
   checkUndefinedRefs grammar <>
   checkDuplicateProds grammar <>
   checkLeftRecursion grammar <>
-  checkUnusedProds grammar (S.empty)  -- No root hints
+  checkMissingCuts grammar <>
+  checkUnreachableAlts grammar
 
 -- | Validate rewrite rules
 validateRules :: M.Map String (GrammarExpr ())
               -> [(String, Term, Term)]
               -> ValidationResult
-validateRules grammar rules =
+validateRules _grammar rules =
   checkUnboundVars rules <>
-  checkConflictingRules rules
+  checkConflictingRules rules <>
+  checkRuleCycles rules
 
 ---------------------------------------------------------------
 -- Grammar Checks
@@ -222,13 +239,16 @@ checkLeftRecursion grammar =
                  then Nothing
                  else go path' (next S.\\ S.fromList path)
     
+    -- Extract direct left-recursive names
+    directNames = [n | DirectLeftRecursion n <- directWarnings]
+    
     -- Indirect cycles (that aren't direct)
     indirectWarnings =
-      [ IndirectLeftRecursion cycle
+      [ IndirectLeftRecursion cyc
       | (name, _) <- M.toList grammar
-      , name `notElem` map (\(DirectLeftRecursion n) -> n) directWarnings
-      , Just cycle <- [findCycle name]
-      , length cycle > 1
+      , name `notElem` directNames
+      , Just cyc <- [findCycle name]
+      , length cyc > 1
       ]
 
 -- | Check for unused productions (not reachable from roots)
@@ -338,6 +358,157 @@ checkConflictingRules rules =
     warnings = concatMap checkGroup (M.elems grouped)
 
 ---------------------------------------------------------------
+-- Optimization Checks
+---------------------------------------------------------------
+
+-- | Check for missing cut points in grammar
+--
+-- A cut should follow keywords that uniquely identify a production.
+-- This helps with error recovery - once we see "rule", commit to parsing a rule.
+checkMissingCuts :: M.Map String (GrammarExpr ()) -> ValidationResult
+checkMissingCuts grammar = 
+  ValidationResult [] warnings
+  where
+    warnings = concatMap (uncurry checkProd) (M.toList grammar)
+    
+    checkProd :: String -> GrammarExpr () -> [ValidationWarning]
+    checkProd prodName g = 
+      let keywords = findLeadingKeywords g
+          -- Only warn for keywords that aren't already followed by cut
+          missingCuts = filter (not . hasFollowingCut g) keywords
+      in [MissingCut prodName kw | kw <- missingCuts]
+    
+    -- Find keywords at the start of a production (or alternatives)
+    findLeadingKeywords :: GrammarExpr () -> [String]
+    findLeadingKeywords g = case g of
+      GKeyword kw    -> [kw]
+      GLit kw | isKeywordLike kw -> [kw]
+      GAlt g1 g2     -> findLeadingKeywords g1 ++ findLeadingKeywords g2
+      GSeq g1 _      -> findLeadingKeywords g1
+      GBind _ g1     -> findLeadingKeywords g1
+      _              -> []
+    
+    -- Check if a keyword is already followed by a cut
+    hasFollowingCut :: GrammarExpr () -> String -> Bool
+    hasFollowingCut g kw = case g of
+      GSeq (GLit kw') (GCut _) | kw == kw' -> True
+      GSeq (GKeyword kw') (GCut _) | kw == kw' -> True
+      GAlt g1 g2 -> hasFollowingCut g1 kw || hasFollowingCut g2 kw
+      GSeq g1 g2 -> hasFollowingCut g1 kw || hasFollowingCut g2 kw
+      GBind _ g1 -> hasFollowingCut g1 kw
+      GCut _ -> True  -- Already has cut
+      _ -> False
+    
+    isKeywordLike s = not (null s) && all isAlphaLike s
+    isAlphaLike c = c `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'])
+
+-- | Check for rule cycles (potential non-termination)
+--
+-- If rule A produces pattern that matches rule B, and B produces A,
+-- we have a potential infinite loop.
+checkRuleCycles :: [(String, Term, Term)] -> ValidationResult
+checkRuleCycles rules =
+  ValidationResult [] warnings
+  where
+    -- Build a graph: rule name -> set of rule names it might trigger
+    -- A rule "triggers" another if its template matches the other's pattern head
+    getHead :: Term -> Maybe String
+    getHead t = case t of
+      TmCon name _ -> Just name
+      TmLit name   -> Just name
+      _            -> Nothing
+    
+    -- Check if template could trigger rule with given head
+    couldTrigger :: Term -> String -> Bool
+    couldTrigger tpl head' = case tpl of
+      TmCon name _ -> name == head'
+      TmLit name   -> name == head'
+      _            -> False
+    
+    -- Build adjacency: rule -> rules it might trigger
+    edges = M.fromListWith S.union
+      [ (name1, S.singleton name2)
+      | (name1, _, tpl) <- rules
+      , (name2, pat, _) <- rules
+      , Just head' <- [getHead pat]
+      , couldTrigger tpl head'
+      ]
+    
+    -- Find cycles using DFS
+    findCycles :: S.Set String -> [String] -> String -> [[String]]
+    findCycles visited path node
+      | node `S.member` visited = 
+          if node `elem` path 
+          then [reverse (node : takeWhile (/= node) path) ++ [node]]
+          else []
+      | otherwise =
+          let neighbors = maybe [] S.toList (M.lookup node edges)
+              visited' = S.insert node visited
+              path' = node : path
+          in concatMap (findCycles visited' path') neighbors
+    
+    allCycles = concatMap (findCycles S.empty []) (M.keys edges)
+    -- Deduplicate cycles (same cycle can be found from different starting points)
+    uniqueCycles = S.toList $ S.fromList (map (take 1) allCycles)
+    
+    warnings = [RuleCycle cyc | cyc <- uniqueCycles, length cyc > 1]
+
+-- | Check for unreachable alternatives in grammar
+--
+-- If alternative A is a prefix of alternative B and comes first,
+-- B will never be reached. Example: expr ::= "if" expr | "if" expr "else" expr
+checkUnreachableAlts :: M.Map String (GrammarExpr ()) -> ValidationResult
+checkUnreachableAlts grammar =
+  ValidationResult [] warnings
+  where
+    warnings = concatMap (uncurry checkProd) (M.toList grammar)
+    
+    checkProd :: String -> GrammarExpr () -> [ValidationWarning]
+    checkProd prodName g = 
+      let alts = enumerateAlts g
+          -- Check each pair of alternatives
+          pairs = [(i, j, a1, a2) | (i, a1) <- alts, (j, a2) <- alts, i < j]
+      in mapMaybe (checkPair prodName) pairs
+    
+    checkPair :: String -> (Int, Int, GrammarExpr (), GrammarExpr ()) -> Maybe ValidationWarning
+    checkPair prodName (i, j, alt1, alt2)
+      | alt1 `isPrefix` alt2 = Just (UnreachableAlt prodName j)
+      | alt1 `structurallyEqual` alt2 = Just (RedundantAlt prodName i j)
+      | otherwise = Nothing
+    
+    -- Enumerate alternatives with indices
+    enumerateAlts :: GrammarExpr () -> [(Int, GrammarExpr ())]
+    enumerateAlts g = zip [0..] (flattenAlts g)
+    
+    flattenAlts :: GrammarExpr () -> [GrammarExpr ()]
+    flattenAlts g = case g of
+      GAlt g1 g2 -> flattenAlts g1 ++ flattenAlts g2
+      _ -> [g]
+    
+    -- Check if g1 is a prefix of g2 (g2 starts with g1)
+    isPrefix :: GrammarExpr () -> GrammarExpr () -> Bool
+    isPrefix g1 g2 = case (g1, g2) of
+      (GLit s1, GLit s2) -> s1 == s2
+      (GKeyword s1, GKeyword s2) -> s1 == s2
+      (GRef r1, GRef r2) -> r1 == r2
+      (GSeq a1 b1, GSeq a2 b2) -> a1 `structurallyEqual` a2 && b1 `isPrefix` b2
+      (_, GSeq a2 _) -> g1 `structurallyEqual` a2
+      _ -> False
+    
+    -- Structural equality (ignoring annotations)
+    structurallyEqual :: GrammarExpr () -> GrammarExpr () -> Bool
+    structurallyEqual g1 g2 = case (g1, g2) of
+      (GLit s1, GLit s2) -> s1 == s2
+      (GKeyword s1, GKeyword s2) -> s1 == s2
+      (GRef r1, GRef r2) -> r1 == r2
+      (GSeq a1 b1, GSeq a2 b2) -> a1 `structurallyEqual` a2 && b1 `structurallyEqual` b2
+      (GAlt a1 b1, GAlt a2 b2) -> a1 `structurallyEqual` a2 && b1 `structurallyEqual` b2
+      (GStar g1', GStar g2') -> g1' `structurallyEqual` g2'
+      (GBind n1 g1', GBind n2 g2') -> n1 == n2 && g1' `structurallyEqual` g2'
+      (GCut g1', GCut g2') -> g1' `structurallyEqual` g2'
+      _ -> False
+
+---------------------------------------------------------------
 -- Formatting
 ---------------------------------------------------------------
 
@@ -370,3 +541,12 @@ formatWarning = \case
     "WARNING: Production '" ++ name ++ "' shadowed by '" ++ by ++ "'"
   AmbiguousGrammar name reason ->
     "WARNING: Ambiguous grammar for '" ++ name ++ "': " ++ reason
+  -- Optimization warnings
+  MissingCut prod kw ->
+    "OPTIMIZE: Production '" ++ prod ++ "' could add cut after '" ++ kw ++ "' for better errors"
+  RuleCycle cyc ->
+    "WARNING: Potential non-terminating rule cycle: " ++ intercalate " -> " cyc
+  UnreachableAlt prod idx ->
+    "WARNING: Alternative " ++ show idx ++ " in '" ++ prod ++ "' is unreachable"
+  RedundantAlt prod i j ->
+    "WARNING: Alternatives " ++ show i ++ " and " ++ show j ++ " in '" ++ prod ++ "' are redundant"
