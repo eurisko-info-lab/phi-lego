@@ -8,60 +8,61 @@
 -- This file tests these laws at multiple levels:
 --   - Grammar composition (production maps)
 --   - Rule composition (rewrite rules)
+--
+-- NEW: Pieces now contain their own rules and tests (indented)
+-- This makes pieces self-contained and modular.
 
 lang PushoutLaws :=
 
 -----------------------------------------------------
--- PIECE A: Arithmetic rules
+-- PIECE A: Arithmetic - grammar, rules, and tests together
 -----------------------------------------------------
 
 piece A
+  -- Grammar
   arith ::= add | zero
   add ::= "(" "add" arith arith ")"
   zero ::= "zero"
-
-rule add_zero_left:
-  (add zero $x) ~> $x
-
-rule add_zero_right:
-  (add $x zero) ~> $x
+  
+  -- Rules (within the piece)
+  rule add_zero_left:
+    (add zero $x) ~> $x
+  
+  rule add_zero_right:
+    (add $x zero) ~> $x
+  
+  -- Tests (within the piece, have access to piece's grammar)
+  test "A_add_zero_left": (add zero x) ~~> x
+  test "A_add_zero_right": (add y zero) ~~> y
 
 -----------------------------------------------------
--- PIECE B: Boolean rules  
+-- PIECE B: Boolean - self-contained piece
 -----------------------------------------------------
 
 piece B
+  -- Grammar
   bool ::= true | false | not
   true ::= "true"
   false ::= "false"
   not ::= "(" "not" bool ")"
-
-rule not_true:
-  (not true) ~> false
-
-rule not_false:
-  (not false) ~> true
-
------------------------------------------------------
--- Composition: C = A ⊔ B
--- Both pieces combined into one language
------------------------------------------------------
-
--- Test A rules
-test "add_zero_left": (add zero x) ~~> x
-test "add_zero_right": (add y zero) ~~> y
-
--- Test B rules
-test "not_true": (not true) ~~> false
-test "not_false": (not false) ~~> true
+  
+  -- Rules
+  rule not_true:
+    (not true) ~> false
+  
+  rule not_false:
+    (not false) ~> true
+  
+  -- Tests
+  test "B_not_true": (not true) ~~> false
+  test "B_not_false": (not false) ~~> true
 
 -----------------------------------------------------
--- Commutativity: Order of import doesn't matter
--- import A then B vs import B then A
--- Both should yield same final language
+-- Composition Tests: C = A ⊔ B
+-- After pushout, both rule sets are available
 -----------------------------------------------------
 
--- These tests verify both rule sets are available
+-- Top-level tests verify composition works
 test "both_add": (add zero (add zero z)) ~~> z
 test "both_not": (not (not true)) ~~> true
 

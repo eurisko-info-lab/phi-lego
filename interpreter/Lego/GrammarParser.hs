@@ -124,16 +124,34 @@ extractBodyItem (TmCon "item" (d:_)) = mapMaybe termToDecl [d]
 extractBodyItem t = mapMaybe termToDecl [t]
 
 extractProds :: String -> [Term] -> [LegoDecl]
-extractProds pn = concatMap (extractProd pn)
+extractProds pn = concatMap (extractPieceDecl pn)
 
-extractProd :: String -> Term -> [LegoDecl]
-extractProd pn (TmCon "seq" ts) = concatMap (extractProd pn) ts
-extractProd pn (TmCon "prodWrap" (d:_)) = extractProd pn d
-extractProd pn (TmCon "DGrammar" [TmVar name, gramTerm]) = 
+-- | Extract a declaration from within a piece body
+-- Handles grammar productions (qualified with piece name), rules, and tests
+extractPieceDecl :: String -> Term -> [LegoDecl]
+extractPieceDecl pn (TmCon "seq" ts) = concatMap (extractPieceDecl pn) ts
+extractPieceDecl pn (TmCon "prodWrap" (d:_)) = extractPieceDecl pn d
+-- Grammar productions get qualified: piece.prodName
+extractPieceDecl pn (TmCon "DGrammar" [TmVar name, gramTerm]) = 
   [DGrammar (pn ++ "." ++ name) (termToGrammar gramTerm)]
-extractProd pn (TmCon "DGrammar" [TmLit name, gramTerm]) = 
+extractPieceDecl pn (TmCon "DGrammar" [TmLit name, gramTerm]) = 
   [DGrammar (pn ++ "." ++ name) (termToGrammar gramTerm)]
-extractProd _ _ = []
+-- Rules within pieces (not qualified - rules are global)
+extractPieceDecl _ (TmCon "DRule" [TmVar name, pat, tmpl]) = 
+  [DRule $ Rule name pat tmpl Nothing Forward]
+extractPieceDecl _ (TmCon "DRule" [TmLit name, pat, tmpl]) = 
+  [DRule $ Rule name pat tmpl Nothing Forward]
+-- Tests within pieces
+extractPieceDecl _ (TmCon "DTest" [TmLit name, input]) = 
+  [DTest $ Test name input input]
+extractPieceDecl _ (TmCon "DTest" [TmLit name, input, expected]) = 
+  [DTest $ Test name input expected]
+-- Defs within pieces
+extractPieceDecl _ (TmCon "DDef" [TmVar name, value]) = 
+  [DDef name value]
+extractPieceDecl _ (TmCon "DDef" [TmLit name, value]) = 
+  [DDef name value]
+extractPieceDecl _ _ = []
 
 --------------------------------------------------------------------------------
 -- Term → GrammarExpr conversion
