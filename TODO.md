@@ -37,6 +37,7 @@ Multi-level pushout composition with algebraic law verification:
 - [ ] `poLangFull`: pushout with conflict reporting
 - [ ] Conflict types: `GrammarConflict`, `RuleConflict`, `VocabConflict`
 - ✅ Law test syntax: `law "name": lhs ≅ rhs`
+- [ ] **Wire up `Lang`/`LangF`/`poLang`**: Currently defined but runtime uses `GrammarDefs` directly
 
 #### Phase 2: Automatic Vocab Inference
 - [ ] `inferVocab`: scan grammar → keywords/symbols/literals
@@ -52,6 +53,23 @@ Multi-level pushout composition with algebraic law verification:
 - ✅ `@autocut` annotation on productions
 - ✅ `inherit Base.Term` syntax for grammar composition
 - [ ] Conflict resolution: local shadows inherited
+
+### Deferred Features (Implement When Needed)
+
+#### Parametric Languages (Functor Category)
+Removed in cleanup (was unused). Recover and implement when needed:
+- [ ] `ParamLang a t`: type-indexed language families (List[A], State[S])
+- [ ] `poParamLang`: pointwise pushout (Day convolution)
+- [ ] `ParamNat`: natural transformations between parametric languages
+- [ ] `ParamLang2`: two-parameter languages (Map[K,V], Either[A,B])
+- Use case: Generic programming over type-parametric DSLs
+
+#### Grammar Compilation (LL(k) Optimization)
+Removed in cleanup (was unused). Recover and implement when needed:
+- [ ] `CompiledGrammar`: precomputed FIRST sets, nullable analysis
+- [ ] `compileGrammar`: compile `GrammarDefs` for faster parsing
+- [ ] Predictive parsing: use FIRST sets to avoid backtracking
+- Use case: Performance optimization for large grammars
 
 ### Test Coverage (195/234 = 83%)
 - 39 failing tests in `.lego` files
