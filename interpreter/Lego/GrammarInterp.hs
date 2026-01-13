@@ -61,7 +61,7 @@ module Lego.GrammarInterp
 
 import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GRegex, pattern GSyntax, pattern GKeyword, pattern GChar, pattern GNode,
              pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef,
-             pattern GBind, pattern GVar, pattern GAny,
+             pattern GBind, pattern GCut, pattern GVar, pattern GAny,
              Term, pattern TmVar, pattern TmCon, pattern TmLit, pattern TmSyntax, pattern TmRegex, pattern TmChar,
              Rule(..), LegoDecl(..), Mode(..), BiState(..),
              lookupBind, insertBind, pushScope, popScope, flattenBinds)
@@ -143,6 +143,7 @@ extractKeywords (GStar g) = extractKeywords g
 extractKeywords (GRec _ g) = extractKeywords g
 extractKeywords (GRef _) = S.empty
 extractKeywords (GBind _ g) = extractKeywords g
+extractKeywords (GCut g) = extractKeywords g  -- cut passes through
 extractKeywords (GVar _) = S.empty
 extractKeywords GAny = S.empty
 
@@ -161,6 +162,7 @@ extractReservedKeywords (GStar g) = extractReservedKeywords g
 extractReservedKeywords (GRec _ g) = extractReservedKeywords g
 extractReservedKeywords (GRef _) = S.empty
 extractReservedKeywords (GBind _ g) = extractReservedKeywords g
+extractReservedKeywords (GCut g) = extractReservedKeywords g  -- cut passes through
 extractReservedKeywords (GVar _) = S.empty
 extractReservedKeywords GAny = S.empty
 
@@ -184,6 +186,7 @@ extractSymbols (GStar g) = extractSymbols g
 extractSymbols (GRec _ g) = extractSymbols g
 extractSymbols (GRef _) = S.empty
 extractSymbols (GBind _ g) = extractSymbols g
+extractSymbols (GCut g) = extractSymbols g  -- cut passes through
 extractSymbols (GVar _) = S.empty
 extractSymbols GAny = S.empty
 
@@ -437,6 +440,15 @@ runGrammar = go
             in [st { bsTokens = bsTokens st ++ toks }]
           Nothing -> go g st
       Check -> go g st
+    
+    -- Cut: commit point - if g succeeds, no backtracking past this point
+    -- In Parse mode: acts as a commit - returns only the first success
+    -- This is the PEG "cut" operator for better error recovery
+    go (GCut g) st = case bsMode st of
+      Parse -> case go g st of
+        []      -> []         -- cut failed: normal failure
+        (r:_)   -> [r]        -- cut succeeded: commit to first result only
+      _ -> go g st            -- no-op for print/check
     
     -- Variable: use captured value (lexical lookup)
     go (GVar x) st = case bsMode st of
@@ -799,6 +811,7 @@ runGrammar = go
             Nothing -> S.empty
             Just g -> firstWordLits st (S.insert name seen) g
     firstWordLits st seen (GBind _ g) = firstWordLits st seen g
+    firstWordLits st seen (GCut g) = firstWordLits st seen g  -- cut passes through
     firstWordLits _ _ (GVar _) = S.empty
     firstWordLits _ _ (GNode _ _) = S.empty
     firstWordLits _ _ GAny = S.empty
@@ -821,6 +834,7 @@ runGrammar = go
             Nothing -> False
             Just g -> nullable st (S.insert name seen) g
     nullable st seen (GBind _ g) = nullable st seen g
+    nullable st seen (GCut g) = nullable st seen g  -- cut passes through
     nullable _ _ (GVar _) = True
     nullable st seen (GNode _ args) = all (nullable st seen) args
     nullable _ _ GAny = False
@@ -1103,6 +1117,7 @@ compileGrammar gd = M.mapWithKey compile (gdProductions gd)
       Just g -> computeFirst g
       Nothing -> S.empty
     computeFirst (GBind _ g) = computeFirst g
+    computeFirst (GCut g) = computeFirst g  -- cut passes through
     computeFirst (GVar _) = S.empty
     computeFirst (GNode _ _) = S.empty
     computeFirst GAny = S.empty  -- special: matches anything
@@ -1122,6 +1137,7 @@ compileGrammar gd = M.mapWithKey compile (gdProductions gd)
       Just g -> computeNullable g
       Nothing -> False
     computeNullable (GBind _ g) = computeNullable g
+    computeNullable (GCut g) = computeNullable g  -- cut passes through
     computeNullable (GVar _) = True
     computeNullable (GNode _ args) = all computeNullable args
     computeNullable GAny = False

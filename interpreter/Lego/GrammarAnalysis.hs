@@ -44,7 +44,7 @@ import Lego
   ( GrammarExpr
   , pattern GEmpty, pattern GLit, pattern GSyntax, pattern GNode
   , pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef
-  , pattern GBind, pattern GAny
+  , pattern GBind, pattern GCut, pattern GAny
   )
 
 import Lego.Vocabulary
@@ -80,6 +80,7 @@ collectLiterals g = case g of
   GStar g' -> collectLiterals g'
   GRec _ g' -> collectLiterals g'
   GBind _ g' -> collectLiterals g'
+  GCut g' -> collectLiterals g'  -- cut passes through
   GNode _ gs -> concatMap collectLiterals gs
   GEmpty -> []
   GRef _ -> []

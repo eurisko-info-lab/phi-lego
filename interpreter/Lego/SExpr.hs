@@ -44,7 +44,7 @@ module Lego.SExpr
 
 import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GSyntax, pattern GKeyword,
              pattern GRegex, pattern GChar, pattern GNode, pattern GSeq, pattern GAlt,
-             pattern GStar, pattern GRec, pattern GRef, pattern GBind, pattern GAny)
+             pattern GStar, pattern GRec, pattern GRef, pattern GBind, pattern GCut, pattern GAny)
 import qualified Data.Map as M
 import Data.Char (isSpace, isAlphaNum)
 
@@ -173,6 +173,7 @@ grammarToSExpr (GAlt g1 g2) =
 grammarToSExpr (GStar g) = List [Atom "star", grammarToSExpr g]
 grammarToSExpr (GRec x g) = List [Atom "rec", Atom x, grammarToSExpr g]
 grammarToSExpr (GBind x g) = List [Atom "bind", Atom x, grammarToSExpr g]
+grammarToSExpr (GCut g) = List [Atom "cut", grammarToSExpr g]
 grammarToSExpr (GNode name gs) = 
   List (Atom "node" : Atom name : map grammarToSExpr gs)
 grammarToSExpr GAny = List [Atom "any"]
@@ -230,6 +231,9 @@ sexprToGrammar (List [Atom "rec", Atom x, g]) = do
 sexprToGrammar (List [Atom "bind", Atom x, g]) = do
   g' <- sexprToGrammar g
   Right (GBind x g')
+sexprToGrammar (List [Atom "cut", g]) = do
+  g' <- sexprToGrammar g
+  Right (GCut g')
 sexprToGrammar (List (Atom "node" : Atom name : gs)) = do
   gs' <- mapM sexprToGrammar gs
   Right (GNode name gs')

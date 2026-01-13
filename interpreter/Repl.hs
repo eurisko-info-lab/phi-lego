@@ -218,6 +218,7 @@ showGrammar (GAlt g1 g2) = "(" ++ showGrammar g1 ++ " | " ++ showGrammar g2 ++ "
 showGrammar (GStar g) = "(" ++ showGrammar g ++ ")*"  -- Fixed: wrap in parens like Show instance
 showGrammar (GRef r) = r
 showGrammar (GBind x g) = x ++ ":" ++ showGrammar g
+showGrammar (GCut g) = "!" ++ showGrammar g  -- cut: commit point
 showGrammar (GVar x) = "$" ++ x
 showGrammar GAny = "_"
 showGrammar (GRec x g) = "μ" ++ x ++ "." ++ showGrammar g

@@ -45,6 +45,25 @@ examples/              -- 65 example .lego files
 | Sequential | `·` | Import order |
 | Parallel | `‖` | Independent |
 
+## Grammar Constructs
+
+| Construct | Symbol | Purpose |
+|-----------|--------|---------|
+| Literal | `"..."` | Match exact text |
+| Syntax | `'...'` | Syntax marker (parens, etc.) |
+| Keyword | `` `...` `` | Reserved keyword |
+| Sequence | `g1 g2` | Sequential match |
+| Alternative | `g1 \| g2` | Choice |
+| Star | `g*` | Zero or more |
+| Reference | `name` | Grammar production reference |
+| Bind | `x ← g` | Capture binding |
+| **Cut** | `!g` | Commit point (no backtracking) |
+
+The **GCut** construct (`!g`) is for error recovery. Once a cut succeeds, the parser commits and won't backtrack. Use after keywords for better error messages:
+```
+fileDecl ::= !("rule" ruleName ":" pattern "~>" template)
+```
+
 ## CRITICAL RULES
 
 ### 1. NEVER Hand-Code Parsers or Printers

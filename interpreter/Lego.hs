@@ -19,8 +19,8 @@ module Lego
   , Graph(..), GId, Port, emptyGraph, addNode, addEdge, (<>)
   , GrammarExpr, pattern GEmpty, pattern GLit, pattern GSyntax, pattern GKeyword, pattern GRegex, pattern GChar, pattern GNode
   , pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef
-  , pattern GBind, pattern GVar, pattern GAny
-  , glit, gsyntax, gseq, galt, gstar, grec, gbind, gnode, gempty
+  , pattern GBind, pattern GCut, pattern GVar, pattern GAny
+  , glit, gsyntax, gseq, galt, gstar, grec, gbind, gcut, gnode, gempty
   , Rule(..), RuleDir(..)
   , mkRule, flipRule, canForward, canBackward
   , patternName, isPatVar, patVarName
@@ -208,6 +208,9 @@ grec = GRec
 
 gbind :: String -> GrammarExpr a -> GrammarExpr a
 gbind = GBind
+
+gcut :: GrammarExpr a -> GrammarExpr a
+gcut = GCut
 
 -- | Monoid: sequence (uses pattern synonyms)
 instance Semigroup (GrammarExpr a) where
@@ -507,6 +510,7 @@ data TraceStep = TraceStep
   , tsBefore   :: Term             -- Term before reduction
   , tsAfter    :: Term             -- Term after reduction
   , tsBindings :: Map String Term  -- Pattern bindings
+  , tsLocation :: Maybe SrcSpan    -- Source location of the redex (if tracked)
   } deriving (Eq, Show)
 
 -- | Smart constructor for forward rule (default)
@@ -769,10 +773,12 @@ data KleeneF a
 
 -- | BindF: Binding/recursion extension for GrammarExpr
 --   GRec x g ≈ μx.g,  GRef x ≈ use of bound name,  GBind x g ≈ x ← g
+--   BCut g ≈ commit point (no backtracking past this)
 data BindF a
   = BRec String a       -- μX. g (recursive grammar)
   | BRef String         -- X (reference to bound grammar)
   | BBind String a      -- x ← g (capture binding)
+  | BCut a              -- cut: commit point, no backtracking past here
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 -- | AnyF: Wildcard extension
@@ -852,10 +858,14 @@ pattern GBind :: String -> GrammarExpr a -> GrammarExpr a
 pattern GBind x g <- GrammarExpr (Fix (InR (InR (InL (BBind x (GrammarExpr -> g))))))
   where GBind x g = GrammarExpr (Fix (InR (InR (InL (BBind x (unGrammarExpr g))))))
 
+pattern GCut :: GrammarExpr a -> GrammarExpr a
+pattern GCut g <- GrammarExpr (Fix (InR (InR (InL (BCut (GrammarExpr -> g))))))
+  where GCut g = GrammarExpr (Fix (InR (InR (InL (BCut (unGrammarExpr g))))))
+
 pattern GAny :: GrammarExpr a
 pattern GAny = GrammarExpr (Fix (InR (InR (InR EAny))))
 
-{-# COMPLETE GVar, GNode, GLit, GSyntax, GKeyword, GRegex, GChar, GEmpty, GSeq, GAlt, GStar, GRec, GRef, GBind, GAny #-}
+{-# COMPLETE GVar, GNode, GLit, GSyntax, GKeyword, GRegex, GChar, GEmpty, GSeq, GAlt, GStar, GRec, GRef, GBind, GCut, GAny #-}
 
 instance Show (GrammarExpr a) where
   show GEmpty = "ε"
@@ -873,6 +883,7 @@ instance Show (GrammarExpr a) where
   show (GRec x g) = "μ" ++ x ++ "." ++ show g
   show (GRef x) = x
   show (GBind x g) = x ++ " ← " ++ show g
+  show (GCut g) = "!" ++ show g  -- cut: commit point
   show GAny = "_"
 
 --------------------------------------------------------------------------------
@@ -1041,7 +1052,7 @@ normalizeTraceDir dir rules term = go (1000 :: Int) term []
     builtinStepTrace :: Term -> Maybe (Term, TraceStep)
     builtinStepTrace t = do
       result <- builtinStep t
-      return (result, TraceStep { tsRule = "<builtin>", tsBefore = t, tsAfter = result, tsBindings = M.empty })
+      return (result, TraceStep { tsRule = "<builtin>", tsBefore = t, tsAfter = result, tsBindings = M.empty, tsLocation = Nothing })
     
     -- Try rule with trace
     tryRuleTrace :: Term -> Rule -> Maybe (Term, TraceStep)
@@ -1055,7 +1066,7 @@ normalizeTraceDir dir rules term = go (1000 :: Int) term []
           in if isTruthy guardResult
              then return $ applyTemplate binds (ruleTemplate rule)
              else Nothing
-      return (result, TraceStep { tsRule = ruleName rule, tsBefore = t, tsAfter = result, tsBindings = binds })
+      return (result, TraceStep { tsRule = ruleName rule, tsBefore = t, tsAfter = result, tsBindings = binds, tsLocation = Nothing })
     
     isTruthy :: Term -> Bool
     isTruthy (TmCon "true" []) = True
@@ -1072,7 +1083,11 @@ formatTrace steps = unlines $ zipWith formatStep [1..] steps
   where
     formatStep :: Int -> TraceStep -> String
     formatStep i step = concat
-      [ show i, ". [", tsRule step, "]\n"
+      [ show i, ". [", tsRule step, "]"
+      , case tsLocation step of
+          Nothing -> ""
+          Just loc -> " at " ++ show loc
+      , "\n"
       , "   ", show (tsBefore step), "\n"
       , "   → ", show (tsAfter step)
       , if M.null (tsBindings step) then "" else "\n   bindings: " ++ showBindings (tsBindings step)

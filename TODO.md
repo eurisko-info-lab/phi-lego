@@ -16,6 +16,11 @@
 - ✅ **Structured Errors**: `LegoError` with `SrcSpan` locations
 - ✅ **Enhanced Tests**: Boolean combinators, wildcards
 
+### Priority 1 Core Improvements (January 2026)
+- ✅ **Grammar-driven parsing**: File parsing uses `File.legoFile` grammar via GrammarParser
+- ✅ **Keyword cuts (GCut)**: Added `GCut` constructor for commit points in grammar
+- ✅ **Location tracking**: `TraceStep.tsLocation` field for source spans through normalization
+
 ## In Progress 🔶
 
 ### Test Coverage (195/234 = 83%)
@@ -25,14 +30,9 @@
 
 ### Grammar Completeness
 - Parser support for extended test syntax (`via`, `steps`)
-- File-level grammar productions (replace hand-coded dispatch)
+- GCut usage in grammar productions for better error localization
 
 ## Future Work 📋
-
-### Priority 1: Core Improvements
-- [ ] Pure grammar-driven parsing (no hand-coded dispatch)
-- [ ] Better error recovery with keyword cuts
-- [ ] Location tracking through normalization
 
 ### Priority 2: Language Features
 - [ ] Add reduction rules to grammar-only files
