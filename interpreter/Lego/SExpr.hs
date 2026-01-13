@@ -117,7 +117,7 @@ parseAtom s =
   where
     -- Extended character set for atoms - excludes () and whitespace
     -- but includes most operator characters
-    isAtomChar c = isAlphaNum c || c `elem` "_.-:/<>*+?$@λΠΣ∀ᵢ=\\|~^!#%&',`[]{};"
+    isAtomChar c = isAlphaNum c || c `elem` "_.-:/<>*+?$@λΠΣ∀ᵢ=\\|~^!#%&',`[]{};→≅"
 
 --------------------------------------------------------------------------------
 -- Printing S-Expressions
