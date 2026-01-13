@@ -188,7 +188,7 @@ glit :: String -> GrammarExpr a
 glit = GLit
 
 gsyntax :: String -> GrammarExpr a
-gsyntax = GSyntax
+gsyntax = GLit  -- unified with glit
 
 gnode :: String -> [GrammarExpr a] -> GrammarExpr a
 gnode = GNode
@@ -302,21 +302,10 @@ runBiGrammar = go M.empty
     -- Empty: always succeeds, no-op
     go _env GEmpty st = [st]
     
-    -- Content literal: must match term in Print mode
-    go _env (GLit s) st = case bsMode st of
-      Parse -> case bsTokens st of
-        (t:ts) | t == s -> [st { bsTokens = ts }]
-        _ -> []  -- no match
-      Print -> [st { bsTokens = bsTokens st ++ [s] }]
-      Check -> [st]  -- literals always check
-    
-    -- Syntax literal: same as GLit for parsing, always emits for printing
-    go _env (GSyntax s) st = case bsMode st of
-      Parse -> case bsTokens st of
-        (t:ts) | t == s -> [st { bsTokens = ts }]
-        _ -> []  -- no match
-      Print -> [st { bsTokens = bsTokens st ++ [s] }]
-      Check -> [st]
+    -- Literal: match token in Parse mode, emit in Print mode
+    -- GLit/GSyntax/GKeyword unified - all behave identically
+    go _env (GLit s) st = goLit s st
+    go _env (GSyntax s) st = goLit s st  -- legacy: same as GLit
     
     -- Node: semantic marker for AST construction
     -- GNode introduces a new scope for its children
@@ -395,13 +384,8 @@ runBiGrammar = go M.empty
       Print -> [st]  -- no-op in print mode
       Check -> [st]
     
-    -- Keyword (reserved): same as GLit
-    go _env (GKeyword s) st = case bsMode st of
-      Parse -> case bsTokens st of
-        (t:ts) | t == s -> [st { bsTokens = ts }]
-        _ -> []
-      Print -> [st { bsTokens = bsTokens st ++ [s] }]
-      Check -> [st]
+    -- Keyword (reserved): legacy, same as GLit
+    go _env (GKeyword s) st = goLit s st
     
     -- Regex: match regex pattern
     go _env (GRegex _pat) st = case bsMode st of
@@ -417,6 +401,15 @@ runBiGrammar = go M.empty
         (t:ts) -> [st { bsTokens = ts, bsTerm = Just (TmLit t) }]  -- TODO: char class match
         _ -> []
       Print -> [st]  -- TODO: char print
+      Check -> [st]
+    
+    -- Literal helper: unified handling for GLit/GSyntax/GKeyword
+    goLit :: String -> BiState String String -> [BiState String String]
+    goLit s st = case bsMode st of
+      Parse -> case bsTokens st of
+        (t:ts) | t == s -> [st { bsTokens = ts }]
+        _ -> []  -- no match
+      Print -> [st { bsTokens = bsTokens st ++ [s] }]
       Check -> [st]
     
     -- Helper for Kleene star
