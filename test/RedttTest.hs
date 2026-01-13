@@ -40,7 +40,7 @@ main = do
       runGoldenDecls gramDefs
       
       -- Find all .red files
-      redFiles <- findRedFiles "redtt/library"
+      redFiles <- findRedFiles "lego/vendor/redtt/library"
       let sortedFiles = sortBy (comparing takeFileName) redFiles
       
       putStrLn $ "Found " ++ show (length sortedFiles) ++ " files\n"

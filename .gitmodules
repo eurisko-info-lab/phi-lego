@@ -1,0 +1,6 @@
+[submodule "vendor/redtt"]
+	path = vendor/redtt
+	url = https://github.com/RedPRL/redtt.git
+[submodule "vendor/cooltt"]
+	path = vendor/cooltt
+	url = https://github.com/RedPRL/cooltt.git
