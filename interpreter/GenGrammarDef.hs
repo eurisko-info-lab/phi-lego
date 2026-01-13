@@ -14,7 +14,7 @@
 --
 module Main where
 
-import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GSyntax, pattern GKeyword,
+import Lego (GrammarExpr, pattern GEmpty, pattern GLit,
              pattern GRegex, pattern GChar, pattern GNode, pattern GSeq, pattern GAlt,
              pattern GStar, pattern GRec, pattern GRef, pattern GBind, pattern GCut, pattern GAny)
 import Lego.GrammarParser (parseLegoFile, LegoDecl(..))
@@ -98,9 +98,7 @@ transform prodName = go
     
     go :: GrammarExpr () -> GrammarExpr ()
     go GEmpty = GEmpty
-    go (GLit s) = GLit s         -- All literals are just lit
-    go (GSyntax s) = GLit s      -- syntax → lit (unified)
-    go (GKeyword s) = GLit s     -- keyword → lit (unified)
+    go (GLit s) = GLit s
     go (GRegex s) = GRegex s
     go (GChar s) = GChar s
     go (GRef s) = GRef (qualifyRef piecePrefix s)

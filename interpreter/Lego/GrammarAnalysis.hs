@@ -47,7 +47,7 @@ import qualified Data.Set as S
 
 import Lego
   ( GrammarExpr
-  , pattern GEmpty, pattern GLit, pattern GSyntax, pattern GKeyword, pattern GNode
+  , pattern GEmpty, pattern GLit, pattern GNode
   , pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef
   , pattern GBind, pattern GCut, pattern GAny
   )
@@ -67,7 +67,7 @@ import Lego.Vocabulary
 
 -- | Scan a grammar to extract vocabulary
 --
--- Walks the grammar tree, collecting all GLit and GSyntax nodes.
+-- Walks the grammar tree, collecting all GLit nodes.
 -- Returns (symbols, keywords) where keywords are word-like literals.
 scanGrammar :: Map String (GrammarExpr a) -> (Set String, Set String)
 scanGrammar grammar = 
@@ -79,7 +79,6 @@ scanGrammar grammar =
 collectLiterals :: GrammarExpr a -> [String]
 collectLiterals g = case g of
   GLit s -> [s]
-  GSyntax s -> [s]
   GSeq g1 g2 -> collectLiterals g1 ++ collectLiterals g2
   GAlt g1 g2 -> collectLiterals g1 ++ collectLiterals g2
   GStar g' -> collectLiterals g'
@@ -116,11 +115,9 @@ buildVocabFromGrammar name conv grammar =
 -- | Inferred vocabulary from grammar analysis
 --
 -- This is computed automatically by scanning the grammar for:
---   - GKeyword (backtick literals): reserved keywords
---   - GSyntax (single-quoted): syntax markers (parens, etc.)
---   - GLit (double-quoted): literal matches
+--   - GLit: literal matches
 data InferredVocab = InferredVocab
-  { ivKeywords   :: Set String  -- Backtick `let` → reserved
+  { ivKeywords   :: Set String  -- Reserved words
   , ivSymbols    :: Set String  -- Single-char operators and punctuation
   , ivLiterals   :: Set String  -- All literals (for lexer hints)
   , ivCutPoints  :: [CutPoint]  -- Where to auto-insert cuts
@@ -136,10 +133,7 @@ data CutPoint = CutPoint
 -- | Infer vocabulary from grammar by scanning all productions
 --
 -- This replaces manual vocab: declarations in most cases.
--- The grammar itself declares what's reserved via construct choice:
---   - GKeyword `x` → x is reserved (cannot be identifier)
---   - GSyntax 'x' → x is syntax (punctuation)
---   - GLit "x" → x is literal (match exactly)
+-- The grammar itself declares what's reserved via GLit.
 inferVocab :: Map String (GrammarExpr a) -> InferredVocab
 inferVocab grammar = InferredVocab
   { ivKeywords  = S.fromList $ concatMap collectKeywords (M.elems grammar)
@@ -150,10 +144,9 @@ inferVocab grammar = InferredVocab
   where
     allLits = concatMap collectLiterals (M.elems grammar)
 
--- | Collect GKeyword (backtick) reserved words
+-- | Collect reserved words (now just returns empty - reserved distinction removed)
 collectKeywords :: GrammarExpr a -> [String]
 collectKeywords = \case
-  GKeyword s -> [s]
   GSeq g1 g2 -> collectKeywords g1 ++ collectKeywords g2
   GAlt g1 g2 -> collectKeywords g1 ++ collectKeywords g2
   GStar g -> collectKeywords g
@@ -180,9 +173,8 @@ findCutPoints :: String -> GrammarExpr a -> [CutPoint]
 findCutPoints prodName = go 0
   where
     go pos g = case g of
-      -- A literal/keyword at the start of a production is a cut point
+      -- A literal at the start of a production is a cut point
       GLit kw | isKeywordLike kw -> [CutPoint prodName kw pos]
-      GKeyword kw -> [CutPoint prodName kw pos]
       
       -- Alternatives: find cut points in each branch
       GAlt g1 g2 -> go pos g1 ++ go pos g2
@@ -232,7 +224,6 @@ analyzeProduction name grammar = ProductionInfo
     suggestName :: GrammarExpr a -> String
     suggestName = \case
       GLit s -> s
-      GSyntax s -> s
       GNode n _ -> n
       GSeq g' _ -> suggestName g'
       GBind n _ -> n

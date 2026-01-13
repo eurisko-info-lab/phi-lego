@@ -211,8 +211,6 @@ printGrammar st = case rsLang st of
 showGrammar :: GrammarExpr a -> String
 showGrammar GEmpty = "ε"
 showGrammar (GLit s) = "\"" ++ s ++ "\""
-showGrammar (GSyntax s) = "'" ++ s ++ "'"  -- Syntax uses single quotes
-showGrammar (GKeyword s) = "`" ++ s ++ "`"  -- Reserved keywords use backticks
 showGrammar (GRegex s) = "/" ++ s ++ "/"  -- Regex patterns
 showGrammar (GChar s) = "'" ++ s ++ "'"  -- Char classes
 showGrammar (GNode c gs) = "⟨" ++ c ++ concatMap ((' ':) . showGrammar) gs ++ "⟩"

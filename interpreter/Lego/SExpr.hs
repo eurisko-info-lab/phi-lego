@@ -42,7 +42,7 @@ module Lego.SExpr
   , writeSExprFile
   ) where
 
-import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GSyntax, pattern GKeyword,
+import Lego (GrammarExpr, pattern GEmpty, pattern GLit,
              pattern GRegex, pattern GChar, pattern GNode, pattern GSeq, pattern GAlt,
              pattern GStar, pattern GRec, pattern GRef, pattern GBind, pattern GCut, pattern GAny)
 import qualified Data.Map as M
@@ -157,8 +157,6 @@ escapeString = concatMap escape
 grammarToSExpr :: GrammarExpr a -> SExpr
 grammarToSExpr GEmpty = List [Atom "empty"]
 grammarToSExpr (GLit s) = List [Atom "lit", Atom s]
-grammarToSExpr (GSyntax s) = List [Atom "lit", Atom s]  -- syntax → lit (unified)
-grammarToSExpr (GKeyword s) = List [Atom "lit", Atom s]  -- keyword → lit (unified)
 grammarToSExpr (GRegex s) = List [Atom "regex", Atom s]
 grammarToSExpr (GChar s) = List [Atom "char", Atom s]
 grammarToSExpr (GRef s) = List [Atom "ref", Atom s]

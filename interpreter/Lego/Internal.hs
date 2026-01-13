@@ -20,8 +20,6 @@ module Lego.Internal
   , pattern TmVar
   , pattern TmCon
   , pattern TmLit
-  , pattern TmSyntax
-  , pattern TmReserved
   , pattern TmRegex
   , pattern TmChar
     -- * Cubical patterns
@@ -72,8 +70,7 @@ ana coalg = go where go a = Fix (fmap go (coalg a))
 -- Base cases:
 --   EVar: Variables (references to bindings)
 --   ECon: Constructors (tagged products)
---   ELit: Content literals (semantic content, preserved)
---   ESyn: Syntax literals (structural markers, droppable)
+--   ELit: Literals
 --
 -- Cubical cases (for Path types / HITs):
 --   EInterval: The interval type I
@@ -85,9 +82,7 @@ ana coalg = go where go a = Fix (fmap go (coalg a))
 data ExprF a
   = EVar String        -- Variable reference
   | ECon String [a]    -- Constructor with children
-  | ELit String        -- '...' Soft keyword (context-dependent)
-  | ESyn String        -- "..." Syntax literal (operators, structure)
-  | EReserved String   -- `...` Reserved keyword (rejected by <ident>)
+  | ELit String        -- Literal (content or syntax)
   | ERegex String      -- /.../ Regex literal
   | EChar String       -- '...' Character literal (single quotes)
   -- Cubical primitives
@@ -121,12 +116,6 @@ pattern TmCon c ts <- Term (Fix (ECon c (map Term -> ts)))
 
 pattern TmLit :: String -> Term
 pattern TmLit s = Term (Fix (ELit s))
-
-pattern TmSyntax :: String -> Term
-pattern TmSyntax s = Term (Fix (ESyn s))
-
-pattern TmReserved :: String -> Term
-pattern TmReserved s = Term (Fix (EReserved s))
 
 pattern TmRegex :: String -> Term
 pattern TmRegex s = Term (Fix (ERegex s))
@@ -169,13 +158,11 @@ pattern TmTransp :: Term -> Term -> Term -> Term
 pattern TmTransp a phi a0 <- Term (Fix (ETransp (Term -> a) (Term -> phi) (Term -> a0)))
   where TmTransp a phi a0 = Term (Fix (ETransp (unTerm a) (unTerm phi) (unTerm a0)))
 
-{-# COMPLETE TmVar, TmCon, TmLit, TmSyntax, TmReserved, TmRegex, TmChar, TmInterval, TmI0, TmI1, TmPathType, TmPathAbs, TmPathApp, TmComp, TmHComp, TmTransp #-}
+{-# COMPLETE TmVar, TmCon, TmLit, TmRegex, TmChar, TmInterval, TmI0, TmI1, TmPathType, TmPathAbs, TmPathApp, TmComp, TmHComp, TmTransp #-}
 
 instance Show Term where
   show (TmVar x) = x
   show (TmLit s) = show s
-  show (TmSyntax _) = ""  -- Syntax is invisible in output
-  show (TmReserved s) = s -- Reserved words shown as-is
   show (TmRegex s) = "/" ++ s ++ "/"  -- Regex shown with delimiters
   show (TmChar s) = "'" ++ s ++ "'"  -- Char literals with single quotes
   show TmInterval = "I"

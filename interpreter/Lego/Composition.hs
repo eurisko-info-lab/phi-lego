@@ -42,8 +42,8 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.List (intercalate)
 
-import Lego (GrammarExpr, Rule(..), pattern GEmpty, pattern GLit, pattern GSyntax,
-             pattern GKeyword, pattern GNode, pattern GSeq, pattern GAlt, pattern GStar,
+import Lego (GrammarExpr, Rule(..), pattern GEmpty, pattern GLit,
+             pattern GNode, pattern GSeq, pattern GAlt, pattern GStar,
              pattern GRec, pattern GRef, pattern GBind, pattern GCut, pattern GAny)
 
 --------------------------------------------------------------------------------
@@ -282,8 +282,6 @@ formatConflicts cs = intercalate "\n\n" (map formatConflict cs)
 grammarEquiv :: GrammarExpr () -> GrammarExpr () -> Bool
 grammarEquiv GEmpty GEmpty = True
 grammarEquiv (GLit s1) (GLit s2) = s1 == s2
-grammarEquiv (GSyntax s1) (GSyntax s2) = s1 == s2
-grammarEquiv (GKeyword s1) (GKeyword s2) = s1 == s2
 grammarEquiv (GRef s1) (GRef s2) = s1 == s2
 grammarEquiv (GSeq a1 b1) (GSeq a2 b2) = grammarEquiv a1 a2 && grammarEquiv b1 b2
 grammarEquiv (GAlt a1 b1) (GAlt a2 b2) = grammarEquiv a1 a2 && grammarEquiv b1 b2

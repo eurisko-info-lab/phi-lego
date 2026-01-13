@@ -496,8 +496,6 @@ runPrintWithEnv env = go
       TmLit s' | s == s' -> Just s
       TmCon c [] | c == s -> Just s  -- constructor as literal
       _ -> Nothing  -- strict: content must match
-    -- Syntax literal: always emit (for parens, operators, etc.)
-    go (GSyntax s) _ = Just s
     go (GSeq g1 g2) t = do
       s1 <- go g1 t
       s2 <- go g2 t
@@ -541,7 +539,6 @@ runPrintWithEnv env = go
     goSeqArgs GEmpty [] = Just ""
     goSeqArgs (GLit s) [] = Just s
     goSeqArgs (GLit s) _ts = Just s  -- content literal doesn't consume args
-    goSeqArgs (GSyntax s) ts = Just s <* Just ts  -- syntax literal always emits, preserves args
     goSeqArgs (GSeq g1 g2) ts = do
       -- Try to print first part, collect remaining args
       let (s1, rest) = printPart g1 ts
@@ -554,8 +551,7 @@ runPrintWithEnv env = go
     
     -- Print one grammar part, return (result, remaining args)
     printPart :: GrammarExpr () -> [Term] -> (Maybe String, [Term])
-    printPart (GLit s) ts = (Just s, ts)  -- content literal doesn't consume
-    printPart (GSyntax s) ts = (Just s, ts)  -- syntax literal doesn't consume
+    printPart (GLit s) ts = (Just s, ts)  -- literal doesn't consume
     printPart (GBind _ _) (t:ts) = (goBind t, ts)
     printPart (GRef name) (t:ts) = (go (GRef name) t, ts)
     printPart (GStar g) (t:ts) = (go (GStar g) t, ts)  -- star consumes one arg (the list)
@@ -576,10 +572,8 @@ runGrammarWithEnv env = goFuel 1000 S.empty  -- fuel to prevent infinite loops, 
     goFuel :: Int -> S.Set String -> GrammarExpr () -> [Token] -> Maybe (Term, [Token])
     goFuel 0 _ _ _ = Nothing  -- out of fuel
     goFuel _ _ GEmpty toks = Just (TmCon "unit" [], toks)
-    -- Content literal: matches identifier/keyword
+    -- Literal: matches identifier/keyword/symbol
     goFuel _ _ (GLit s) toks = matchLit s toks
-    -- Syntax literal: matches symbol/keyword
-    goFuel _ _ (GSyntax s) toks = matchSyntax s toks
     goFuel n _ (GNode con gs) toks = do
       (args, rest) <- goManyFuel n S.empty gs toks
       Just (TmCon con args, rest)
@@ -625,14 +619,6 @@ runGrammarWithEnv env = goFuel 1000 S.empty  -- fuel to prevent infinite loops, 
       (ts, rest') <- goManyFuel (n-1) seen gs rest
       Just (t:ts, rest')
     
-    -- Match syntax literal (symbols, keywords, identifiers) - produces TmSyntax
-    -- GSyntax can match any token type - the distinction is that it's not preserved
-    matchSyntax :: String -> [Token] -> Maybe (Term, [Token])
-    matchSyntax s (TSym x : rest) | x == s = Just (TmSyntax s, rest)
-    matchSyntax s (TKeyword x : rest) | x == s = Just (TmSyntax s, rest)
-    matchSyntax s (TIdent x : rest) | x == s = Just (TmSyntax s, rest)
-    matchSyntax _ _ = Nothing
-
     -- Get short name: "PhiGrammar.pkg" → "pkg"
     shortName :: String -> String
     shortName s = case break (== '.') s of
@@ -643,17 +629,12 @@ runGrammarWithEnv env = goFuel 1000 S.empty  -- fuel to prevent infinite loops, 
     combineSeq :: Term -> Term -> Term
     combineSeq (TmCon "unit" []) t = t
     combineSeq t (TmCon "unit" []) = t
-    combineSeq (TmSyntax _) t = t  -- Syntax doesn't contribute to structure
-    combineSeq t (TmSyntax _) = t
     combineSeq t1 t2 = TmCon "seq" [t1, t2]
     
     -- Flatten a seq into a list of terms
-    -- TmSyntax (from GSyntax) is dropped - pure syntax
-    -- TmLit (from GLit) is kept - content literals
     flattenSeq :: Term -> [Term]
     flattenSeq (TmCon "seq" [t1, t2]) = flattenSeq t1 ++ flattenSeq t2
     flattenSeq (TmCon "unit" []) = []
-    flattenSeq (TmSyntax _) = []  -- Skip syntax (from GSyntax)
     flattenSeq t = [t]  -- Keep TmLit, TmCon, TmVar
     
     -- Skip whitespace tokens (newlines, indents)
@@ -739,8 +720,6 @@ unparse cl term =
 unparseTerm :: Term -> String
 unparseTerm (TmVar x) = x
 unparseTerm (TmLit s) = s
-unparseTerm (TmSyntax _) = ""  -- Syntax is invisible
-unparseTerm (TmReserved s) = s
 unparseTerm (TmRegex s) = "/" ++ s ++ "/"
 unparseTerm (TmChar s) = "'" ++ s ++ "'"
 unparseTerm (TmCon c []) = c

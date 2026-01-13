@@ -54,7 +54,7 @@ import Data.List (intercalate)
 import Data.Maybe (fromMaybe, mapMaybe)
 
 import Lego (Term, GrammarExpr, Rule(..))
-import Lego (pattern GRef, pattern GSeq, pattern GAlt, pattern GStar, pattern GBind, pattern GCut, pattern GLit, pattern GKeyword)
+import Lego (pattern GRef, pattern GSeq, pattern GAlt, pattern GStar, pattern GBind, pattern GCut, pattern GLit)
 import Lego (pattern TmVar, pattern TmLit, pattern TmCon)
 import Lego.Internal (Fix(..))
 
@@ -381,7 +381,6 @@ checkMissingCuts grammar =
     -- Find keywords at the start of a production (or alternatives)
     findLeadingKeywords :: GrammarExpr () -> [String]
     findLeadingKeywords g = case g of
-      GKeyword kw    -> [kw]
       GLit kw | isKeywordLike kw -> [kw]
       GAlt g1 g2     -> findLeadingKeywords g1 ++ findLeadingKeywords g2
       GSeq g1 _      -> findLeadingKeywords g1
@@ -392,7 +391,6 @@ checkMissingCuts grammar =
     hasFollowingCut :: GrammarExpr () -> String -> Bool
     hasFollowingCut g kw = case g of
       GSeq (GLit kw') (GCut _) | kw == kw' -> True
-      GSeq (GKeyword kw') (GCut _) | kw == kw' -> True
       GAlt g1 g2 -> hasFollowingCut g1 kw || hasFollowingCut g2 kw
       GSeq g1 g2 -> hasFollowingCut g1 kw || hasFollowingCut g2 kw
       GBind _ g1 -> hasFollowingCut g1 kw
@@ -489,7 +487,6 @@ checkUnreachableAlts grammar =
     isPrefix :: GrammarExpr () -> GrammarExpr () -> Bool
     isPrefix g1 g2 = case (g1, g2) of
       (GLit s1, GLit s2) -> s1 == s2
-      (GKeyword s1, GKeyword s2) -> s1 == s2
       (GRef r1, GRef r2) -> r1 == r2
       (GSeq a1 b1, GSeq a2 b2) -> a1 `structurallyEqual` a2 && b1 `isPrefix` b2
       (_, GSeq a2 _) -> g1 `structurallyEqual` a2
@@ -499,7 +496,6 @@ checkUnreachableAlts grammar =
     structurallyEqual :: GrammarExpr () -> GrammarExpr () -> Bool
     structurallyEqual g1 g2 = case (g1, g2) of
       (GLit s1, GLit s2) -> s1 == s2
-      (GKeyword s1, GKeyword s2) -> s1 == s2
       (GRef r1, GRef r2) -> r1 == r2
       (GSeq a1 b1, GSeq a2 b2) -> a1 `structurallyEqual` a2 && b1 `structurallyEqual` b2
       (GAlt a1 b1, GAlt a2 b2) -> a1 `structurallyEqual` a2 && b1 `structurallyEqual` b2

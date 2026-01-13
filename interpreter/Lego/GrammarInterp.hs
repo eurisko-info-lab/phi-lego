@@ -59,10 +59,10 @@ module Lego.GrammarInterp
   , termGrammarDefs
   ) where
 
-import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GRegex, pattern GSyntax, pattern GKeyword, pattern GChar, pattern GNode,
+import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GRegex, pattern GChar, pattern GNode,
              pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef,
              pattern GBind, pattern GCut, pattern GVar, pattern GAny,
-             Term, pattern TmVar, pattern TmCon, pattern TmLit, pattern TmSyntax, pattern TmRegex, pattern TmChar,
+             Term, pattern TmVar, pattern TmCon, pattern TmLit, pattern TmRegex, pattern TmChar,
              Rule(..), LegoDecl(..), Mode(..), BiState(..),
              lookupBind, insertBind, pushScope, popScope, flattenBinds)
 import Lego.Token (Token(..), tokenize)
@@ -128,12 +128,9 @@ emptyGrammarDefs :: GrammarDefs
 emptyGrammarDefs = GrammarDefs S.empty S.empty M.empty []
 
 -- | Extract all keyword literals from a grammar expression
--- Returns set of all GLit and GSyntax strings (potential keywords)
 extractKeywords :: GrammarExpr () -> S.Set String
 extractKeywords GEmpty = S.empty
 extractKeywords (GLit s) = S.singleton s
-extractKeywords (GSyntax s) = S.singleton s
-extractKeywords (GKeyword s) = S.singleton s  -- reserved keywords
 extractKeywords (GRegex _) = S.empty  -- regex patterns are not keywords
 extractKeywords (GChar _) = S.empty  -- char classes are not keywords
 extractKeywords (GNode _ gs) = S.unions (map extractKeywords gs)
@@ -147,12 +144,10 @@ extractKeywords (GCut g) = extractKeywords g  -- cut passes through
 extractKeywords (GVar _) = S.empty
 extractKeywords GAny = S.empty
 
--- | Extract only reserved keywords (backtick literals)
+-- | Extract reserved keywords (for identifier rejection)
 extractReservedKeywords :: GrammarExpr () -> S.Set String
 extractReservedKeywords GEmpty = S.empty
-extractReservedKeywords (GLit _) = S.empty
-extractReservedKeywords (GSyntax _) = S.empty
-extractReservedKeywords (GKeyword s) = S.singleton s  -- only backticks
+extractReservedKeywords (GLit _) = S.empty  -- GLit not reserved by default
 extractReservedKeywords (GRegex _) = S.empty
 extractReservedKeywords (GChar _) = S.empty
 extractReservedKeywords (GNode _ gs) = S.unions (map extractReservedKeywords gs)
@@ -167,16 +162,9 @@ extractReservedKeywords (GVar _) = S.empty
 extractReservedKeywords GAny = S.empty
 
 -- | Extract symbol literals from a grammar expression.
---
--- These are strings that should be treated as symbols by the lexer (operators,
--- punctuation, Unicode tokens). This is intentionally separate from
--- 'extractKeywords' because most word-like literals are NOT safe to globally
--- classify as reserved.
 extractSymbols :: GrammarExpr () -> S.Set String
 extractSymbols GEmpty = S.empty
 extractSymbols (GLit s) = if isSymbol s then S.singleton s else S.empty
-extractSymbols (GSyntax s) = if isSymbol s then S.singleton s else S.empty
-extractSymbols (GKeyword _) = S.empty
 extractSymbols (GRegex _) = S.empty
 extractSymbols (GChar _) = S.empty
 extractSymbols (GNode _ gs) = S.unions (map extractSymbols gs)
@@ -334,30 +322,6 @@ runGrammar = go
       Print -> [st { bsTokens = bsTokens st ++ [TIdent s] }]
       Check -> [st]
     
-    -- Syntax literal: same parsing, always emits for printing (parens, operators)
-    go (GSyntax s) st = case bsMode st of
-      Parse -> case bsTokens st of
-        (TIdent t : ts) | t == s -> [st { bsTokens = ts }]
-        (TKeyword t : ts) | t == s -> [st { bsTokens = ts }]
-        (TReserved t : ts) | t == s -> [st { bsTokens = ts }]
-        (TSym t : ts) | t == s -> [st { bsTokens = ts }]
-        (TString t : ts) | t == s -> [st { bsTokens = ts }]
-        (TRegex t : ts) | t == s -> [st { bsTokens = ts }]
-        _ -> []  -- no match
-      Print -> [st { bsTokens = bsTokens st ++ [TSym s] }]
-      Check -> [st]
-    
-    -- Reserved keyword: matches as keyword (for future use in <ident> rejection)
-    go (GKeyword s) st = case bsMode st of
-      Parse -> case bsTokens st of
-        (TIdent t : ts) | t == s -> [st { bsTokens = ts }]
-        (TKeyword t : ts) | t == s -> [st { bsTokens = ts }]
-        (TReserved t : ts) | t == s -> [st { bsTokens = ts }]
-        (TSym t : ts) | t == s -> [st { bsTokens = ts }]
-        _ -> []  -- no match
-      Print -> [st { bsTokens = bsTokens st ++ [TKeyword s] }]
-      Check -> [st]
-    
     -- Char class literal: match char token
     go (GChar s) st = case bsMode st of
       Parse -> case bsTokens st of
@@ -466,11 +430,7 @@ runGrammar = go
     go (GNode con []) st = case bsMode st of
       Parse -> case con of
         -- Match identifier token
-        -- Phase 2/3: <ident> rejects ONLY reserved words.
-        --
-        -- Reserved words are carried as TReserved (derived from backtick-marked
-        -- GKeyword literals), which prevents greedy <ident> matching from
-        -- swallowing boundaries like `in`.
+        -- <ident> rejects reserved words (TReserved).
         --
         -- Soft keywords (TKeyword) are allowed as identifiers to avoid breaking
         -- contexts where a word-like token can be both a keyword and an ident.
@@ -794,8 +754,6 @@ runGrammar = go
     firstWordLits :: BiState Token Term -> S.Set String -> GrammarExpr () -> S.Set String
     firstWordLits _ _ GEmpty = S.empty
     firstWordLits _ _ (GLit s) = if isSymbol s then S.empty else S.singleton s
-    firstWordLits _ _ (GSyntax s) = if isSymbol s then S.empty else S.singleton s
-    firstWordLits _ _ (GKeyword s) = if isSymbol s then S.empty else S.singleton s
     firstWordLits _ _ (GRegex _) = S.empty  -- regex patterns don't contribute
     firstWordLits _ _ (GChar _) = S.empty  -- char classes don't contribute
     firstWordLits st seen (GSeq g1 g2)
@@ -819,8 +777,6 @@ runGrammar = go
     nullable :: BiState Token Term -> S.Set String -> GrammarExpr () -> Bool
     nullable _ _ GEmpty = True
     nullable _ _ (GLit _) = False
-    nullable _ _ (GSyntax _) = False
-    nullable _ _ (GKeyword _) = False
     nullable _ _ (GRegex _) = False
     nullable _ _ (GChar _) = False
     nullable st seen (GSeq g1 g2) = nullable st seen g1 && nullable st seen g2
@@ -944,10 +900,10 @@ tokenToTerm :: Token -> Term
 tokenToTerm (TIdent s) = TmVar s
 tokenToTerm (TKeyword s) = TmVar s
 tokenToTerm (TReserved s) = TmVar s
-tokenToTerm (TString s) = TmSyntax s  -- Quoted strings become TmSyntax (syntax markers)
+tokenToTerm (TString s) = TmLit s      -- Quoted strings become TmLit
 tokenToTerm (TRegex s) = TmRegex s     -- Regex literals become TmRegex
 tokenToTerm (TChar s) = TmChar s       -- Single-quoted strings become TmChar
-tokenToTerm (TSym s) = TmLit s        -- Bare symbols become TmLit (meta-operators like |)
+tokenToTerm (TSym s) = TmLit s         -- Bare symbols become TmLit
 tokenToTerm TNewline = TmCon "newline" []
 tokenToTerm (TIndent n) = TmCon "indent" [TmLit (show n)]
 
@@ -1103,8 +1059,6 @@ compileGrammar gd = M.mapWithKey compile (gdProductions gd)
     computeFirst :: GrammarExpr () -> S.Set String
     computeFirst GEmpty = S.empty
     computeFirst (GLit s) = S.singleton s
-    computeFirst (GSyntax s) = S.singleton s
-    computeFirst (GKeyword s) = S.singleton s
     computeFirst (GRegex s) = S.singleton s
     computeFirst (GChar s) = S.singleton s
     computeFirst (GSeq g1 g2) 
@@ -1125,8 +1079,6 @@ compileGrammar gd = M.mapWithKey compile (gdProductions gd)
     computeNullable :: GrammarExpr () -> Bool
     computeNullable GEmpty = True
     computeNullable (GLit _) = False
-    computeNullable (GSyntax _) = False
-    computeNullable (GKeyword _) = False
     computeNullable (GRegex _) = False
     computeNullable (GChar _) = False
     computeNullable (GSeq g1 g2) = computeNullable g1 && computeNullable g2

@@ -17,10 +17,10 @@ module Lego
   ( -- * The 5 Pieces
     Name(..)
   , Graph(..), GId, Port, emptyGraph, addNode, addEdge, (<>)
-  , GrammarExpr, pattern GEmpty, pattern GLit, pattern GSyntax, pattern GKeyword, pattern GRegex, pattern GChar, pattern GNode
+  , GrammarExpr, pattern GEmpty, pattern GLit, pattern GRegex, pattern GChar, pattern GNode
   , pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef
   , pattern GBind, pattern GCut, pattern GVar, pattern GAny
-  , glit, gsyntax, gseq, galt, gstar, grec, gbind, gcut, gnode, gempty
+  , glit, gseq, galt, gstar, grec, gbind, gcut, gnode, gempty
   , Rule(..), RuleDir(..)
   , mkRule, flipRule, canForward, canBackward
   , patternName, isPatVar, patVarName
@@ -51,7 +51,7 @@ module Lego
   , (:+:)(..)
   , GrammarF
     -- * Evaluation
-  , Term, pattern TmVar, pattern TmCon, pattern TmLit, pattern TmSyntax, pattern TmReserved, pattern TmRegex, pattern TmChar
+  , Term, pattern TmVar, pattern TmCon, pattern TmLit, pattern TmRegex, pattern TmChar
     -- * Cubical primitives
   , pattern TmInterval, pattern TmI0, pattern TmI1
   , pattern TmPathType, pattern TmPathAbs, pattern TmPathApp
@@ -96,7 +96,7 @@ import Lego.Error
 
 -- Re-export from Internal (breaks circular deps)
 import Lego.Internal (Fix(..), cata, ana, ExprF(..),
-                      Term(..), pattern TmVar, pattern TmCon, pattern TmLit, pattern TmSyntax, pattern TmReserved, pattern TmRegex, pattern TmChar,
+                      Term(..), pattern TmVar, pattern TmCon, pattern TmLit, pattern TmRegex, pattern TmChar,
                       pattern TmInterval, pattern TmI0, pattern TmI1,
                       pattern TmPathType, pattern TmPathAbs, pattern TmPathApp,
                       pattern TmComp, pattern TmHComp, pattern TmTransp)
@@ -186,9 +186,6 @@ gempty = GEmpty
 
 glit :: String -> GrammarExpr a
 glit = GLit
-
-gsyntax :: String -> GrammarExpr a
-gsyntax = GLit  -- unified with glit
 
 gnode :: String -> [GrammarExpr a] -> GrammarExpr a
 gnode = GNode
@@ -303,9 +300,7 @@ runBiGrammar = go M.empty
     go _env GEmpty st = [st]
     
     -- Literal: match token in Parse mode, emit in Print mode
-    -- GLit/GSyntax/GKeyword unified - all behave identically
     go _env (GLit s) st = goLit s st
-    go _env (GSyntax s) st = goLit s st  -- legacy: same as GLit
     
     -- Node: semantic marker for AST construction
     -- GNode introduces a new scope for its children
@@ -384,9 +379,6 @@ runBiGrammar = go M.empty
       Print -> [st]  -- no-op in print mode
       Check -> [st]
     
-    -- Keyword (reserved): legacy, same as GLit
-    go _env (GKeyword s) st = goLit s st
-    
     -- Regex: match regex pattern
     go _env (GRegex _pat) st = case bsMode st of
       Parse -> case bsTokens st of
@@ -403,7 +395,7 @@ runBiGrammar = go M.empty
       Print -> [st]  -- TODO: char print
       Check -> [st]
     
-    -- Literal helper: unified handling for GLit/GSyntax/GKeyword
+    -- Literal helper: unified handling for GLit
     goLit :: String -> BiState String String -> [BiState String String]
     goLit s st = case bsMode st of
       Parse -> case bsTokens st of
@@ -458,8 +450,6 @@ patternName :: Term -> String
 patternName (TmCon c _) = c
 patternName (TmLit s) = s
 patternName (TmVar x) = x
-patternName (TmSyntax s) = s  -- syntax markers
-patternName (TmReserved s) = s  -- reserved keyword
 patternName (TmRegex s) = s  -- regex pattern
 patternName (TmChar s) = s  -- char class
 patternName TmInterval = "I"
@@ -814,12 +804,6 @@ pattern GNode c gs <- GrammarExpr (Fix (InL (ECon c (map GrammarExpr -> gs))))
 pattern GLit :: String -> GrammarExpr a
 pattern GLit s = GrammarExpr (Fix (InL (ELit s)))
 
-pattern GSyntax :: String -> GrammarExpr a
-pattern GSyntax s = GrammarExpr (Fix (InL (ESyn s)))
-
-pattern GKeyword :: String -> GrammarExpr a
-pattern GKeyword s = GrammarExpr (Fix (InL (EReserved s)))
-
 pattern GRegex :: String -> GrammarExpr a
 pattern GRegex s = GrammarExpr (Fix (InL (ERegex s)))
 
@@ -859,15 +843,13 @@ pattern GCut g <- GrammarExpr (Fix (InR (InR (InL (BCut (GrammarExpr -> g))))))
 pattern GAny :: GrammarExpr a
 pattern GAny = GrammarExpr (Fix (InR (InR (InR EAny))))
 
-{-# COMPLETE GVar, GNode, GLit, GSyntax, GKeyword, GRegex, GChar, GEmpty, GSeq, GAlt, GStar, GRec, GRef, GBind, GCut, GAny #-}
+{-# COMPLETE GVar, GNode, GLit, GRegex, GChar, GEmpty, GSeq, GAlt, GStar, GRec, GRef, GBind, GCut, GAny #-}
 
 instance Show (GrammarExpr a) where
   show GEmpty = "ε"
-  show (GLit s) = "'" ++ s ++ "'"  -- soft keyword
-  show (GSyntax s) = "\"" ++ s ++ "\""  -- syntax
-  show (GKeyword s) = "`" ++ s ++ "`"  -- reserved
-  show (GRegex s) = "/" ++ s ++ "/"  -- regex
-  show (GChar s) = "'" ++ s ++ "'"  -- char
+  show (GLit s) = "'" ++ s ++ "'"
+  show (GRegex s) = "/" ++ s ++ "/"
+  show (GChar s) = "'" ++ s ++ "'"
   show (GVar x) = "$" ++ x
   show (GNode c []) = "<" ++ c ++ ">"
   show (GNode c gs) = "<" ++ c ++ " " ++ unwords (map show gs) ++ ">"
@@ -932,8 +914,6 @@ applyTemplate binds = \case
     Just t  -> t
     Nothing -> TmVar x  -- Unbound var stays as-is
   TmLit s -> TmLit s
-  TmSyntax s -> TmSyntax s
-  TmReserved s -> TmReserved s
   TmRegex s -> TmRegex s
   TmChar s -> TmChar s
   TmCon "subst" [TmVar x, e, body] ->
