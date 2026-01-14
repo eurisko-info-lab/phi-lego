@@ -41,9 +41,9 @@ rule eta:
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "type_var": 'a
-test "arrow_type": ('a -> 'b)
-test "forall_type": (forall a 'a)
+test "type_var": (tvar a)
+test "arrow_type": (arrow (tvar a) (tvar b))
+test "forall_type": (tforall a (tvar a))
 test "poly_id": (Lam A (lam x 'A (var x)))
 test "beta_test": (app (lam x 'a (var x)) (var y)) ~~> result
 test "type_beta_test": (tapp (Lam A (lam x 'A (var x))) 'Int) ~~> result

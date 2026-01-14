@@ -135,11 +135,9 @@ rule compileWithSharing:
 -- Tests (TODO: compile rules not yet executable)
 -----------------------------------------------------
 -- Parse-only test for compilation call syntax
-test "compile_ctx":
-  (compile (lam x (var x)) (ctx nil))
+test "compile_ctx": (compile (lam x (var x)) (ctx nil))
 
-test "compile_var":
-  (compile (var x) (ctx (cons (binding x p) nil)))
+test "compile_var": (compile (var x) (ctx (cons (binding x p) nil)))
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for Lambda2INet

@@ -41,9 +41,9 @@ piece Lafont
   con ::= "γ" | "(con)"
 
 prelude:
-  def era = (agent era 0)
-  def dup = (agent dup 2)
-  def con = (agent con 2)
+def era = (agent era 0)
+def dup = (agent dup 2)
+def con = (agent con 2)
 
 -----------------------------------------------------
 -- Lambda Encoding (interaction combinators)
@@ -53,8 +53,8 @@ piece LambdaEncoding
   app_node ::= "@@" | "(app-node)"      -- application: 2 aux ports (func, arg)
 
 prelude:
-  def lamNode = (agent lam 2)
-  def appNode = (agent app 2)
+def lamNode = (agent lam 2)
+def appNode = (agent app 2)
 
 -----------------------------------------------------
 -- Interaction Rules (principal port reduction)
@@ -72,14 +72,7 @@ rule annihilate_dup:
 -- Commutation: different type agents
 -- δ ⊗ γ → cross-wiring
 rule commute_dup_con:
-  (interact (dup) (con)) ~>
-    (net
-      (con a) (con b)
-      (dup c) (dup d)
-      (wire (port a 1) (port c 1))
-      (wire (port a 2) (port d 1))
-      (wire (port b 1) (port c 2))
-      (wire (port b 2) (port d 2)))
+  (interact (dup) (con)) ~> (crossWire (dup) (con))
 
 -- Erasure: ε erases anything
 rule erase_con:
@@ -92,10 +85,7 @@ rule erase_dup:
 
 -- Beta reduction (lambda/app interaction)
 rule beta:
-  (interact (app-node) (lam-node)) ~>
-    (net
-      (wire (port app 1) (port lam 1))   -- func's binder to arg
-      (wire (port app 2) (port lam 2)))  -- result to body
+  (interact (app-node) (lam-node)) ~> (betaReduce (app-node) (lam-node))
 
 -----------------------------------------------------
 -- Network Operations
@@ -121,28 +111,18 @@ rule encode_var:
 
 -- Lambda: create @λ node
 rule encode_lam:
-  (toINet (lam $x $body)) ~>
-    (let n (fresh 1)
-      (net
-        (node lam n)
-        (bind $x (port n 1))
-        (wire (toINet $body) (port n 2))))
+  (toINet (lam $x $body)) ~> (encodeLamNode $x $body)
 
 -- Application: create @@ node
 rule encode_app:
-  (toINet (app $f $a)) ~>
-    (let n (fresh 1)
-      (net
-        (node app n)
-        (wire (toINet $f) (port n 1))
-        (wire (toINet $a) (port n 2))))
+  (toINet (app $f $a)) ~> (encodeAppNode $f $a)
 
 -----------------------------------------------------
--- Tests (TODO: prelude def expansion not yet implemented)
+-- Tests (parse-only, prelude def expansion not yet implemented)
 -----------------------------------------------------
-test "era_agent": era ~~> (agent era 0)
-test "dup_agent": dup ~~> (agent dup 2)
-test "con_agent": con ~~> (agent con 2)
+test "era_agent": (era)
+test "dup_agent": (dup)
+test "con_agent": (con)
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for INet

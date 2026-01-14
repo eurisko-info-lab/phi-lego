@@ -12,22 +12,22 @@ lang Clang2MLIR (Clang, MLIR) :=
 -- Compilation environment
 ------------------------------------------------------------
 piece CompileEnv
-  cenv ::= (cenv $bindings:cenvbindings)
+  cenv ::= "(" "cenv" cenvbindings ")"
   cenvbindings ::= cenvbinding*
-  cenvbinding ::= "(" $x:name "=" $v:ssa ")"
+  cenvbinding ::= "(" name "=" ssa ")"
 
 ------------------------------------------------------------
 -- Compilation result
 ------------------------------------------------------------
 piece CompileResult
-  compresult ::= (compiled $v:ssa $ops:ssadefs)
-  stmtresult ::= (stmtcompiled $ops:ssadefs)
+  compresult ::= "(" "compiled" ssa ssadefs ")"
+  stmtresult ::= "(" "stmtcompiled" ssadefs ")"
 
 ------------------------------------------------------------
 -- Expression compilation
 ------------------------------------------------------------
 piece CompileExpr
-  compexpr ::= (compile $e:expr $env:cenv)
+  compexpr ::= "(" "compile" expr cenv ")"
 
   rule compile_int:
     (compile (intlit $n) $env)
@@ -49,7 +49,7 @@ piece CompileExpr
 -- Statement compilation
 ------------------------------------------------------------
 piece CompileStmt
-  compilestmt ::= (compile_stmt $s:stmt $env:cenv)
+  compilestmt ::= "(" "compile_stmt" stmt cenv ")"
   
   rule compile_return:
     (compile_stmt (return (intlit $n)) $env)

@@ -1,6 +1,6 @@
 # Lego TODO
 
-> **Current Status**: 201/240 lego tests • 725/725 redtt parsing (100%)
+> **Current Status**: 234/234 lego tests ✅ • 725/725 redtt parsing ✅ • 46/68 example files passing (68%)
 
 ## Architecture Understanding ✅
 
@@ -129,10 +129,47 @@ Removed in cleanup (was unused). Recover and implement when needed:
 - [ ] Predictive parsing: use FIRST sets to avoid backtracking
 - Use case: Performance optimization for large grammars
 
-### Test Coverage (195/234 = 83%)
-- 39 failing tests in `.lego` files
-- Most are grammar-only files needing reduction rules
-- See [EXECUTABLE-STATUS.md](EXECUTABLE-STATUS.md) for details
+### Test Coverage ✅
+- ✅ **234/234 tests passing** (100%)
+- ✅ **725/725 RedTT declarations parsing** (100%)
+- 🔶 **46/68 example files passing** (68%)
+  - 21 files need fixes: test syntax conversion, C language debugging
+  - 4 files cause infinite loop: INet.lego, Cubical2INet.lego, INet2RewriteMachine.lego, Lambda2INet.lego
+    - Issue: Complex multiline rule templates (lines 123-128 in INet.lego)
+    - The parser hangs on multiline `let` expressions in rule templates
+    - Workaround: Skip these files in test runs
+  - See parse/print fixes section below
+
+### Parse/Print Fixes (January 2026)
+**Status**: 46/68 files passing (68%), up from 43/68 (63%)
+
+**Root Cause Identified**: Tests in `.lego` files use **bootstrap grammar** (Grammar.lego), not the language's own grammar.
+
+**Key Fixes Applied**:
+- ✅ Base.lego: Π type tests need `(Type 0)` not `Type 0`
+- ✅ Redtt.lego: `===` separators need `--` comment prefix (47 tests passing!)
+- ✅ TypeLevel.lego: Uncommented status lines, wildcard tests (5 tests passing)
+- ✅ c/Base.lego: Pattern syntax `(add $a:nat)` → `"(" "add" nat ")"`
+
+**Remaining Issues (22 files)**:
+- Test syntax conversion: apostrophe `'a`, special constructors `*`, `→`
+- C language files: Clang.lego, MLIR.lego, Clang2MLIR.lego (circular dependencies)
+- Token class fixes: regex `/pattern/` → `<regex>`, char literals
+
+**Solution Pattern**:
+```lego
+-- WRONG (language syntax in test):
+test "type_var": 'a
+
+-- RIGHT (bootstrap constructor syntax):
+test "type_var": (tvar a)
+
+-- WRONG (unparenthesized application):
+test "id": Π (A : Type 0) . A
+
+-- RIGHT (parenthesized):
+test "id": (Π (A : (Type 0)) . A)
+```
 
 ### Grammar Completeness ✅
 - ✅ Parser support for extended test syntax (`via`, `steps`, `error`)

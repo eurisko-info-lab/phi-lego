@@ -10,21 +10,21 @@ lang Clang :=
 -- Types
 ------------------------------------------------------------
 piece CType
-  ctype ::= "int" | "bool" | (ptr $t:ctype) | (fun $args:ctypes $ret:ctype)
+  ctype ::= "int" | "bool" | "(" "ptr" ctype ")" | "(" "fun" ctypes ctype ")"
   ctypes ::= "(" ctype* ")"
 
 ------------------------------------------------------------
 -- Expressions
 ------------------------------------------------------------
 piece CExpr
-  expr ::= (var $x:name)
-         | (intlit $n:nat)
-         | (boollit $b:bool)
-         | (binop $op:binop $e1:expr $e2:expr)
-         | (call $f:expr $args:exprs)
-         | (load $e:expr)
-         | (addr $e:expr)
-  
+  expr ::= "(" "var" name ")"
+         | "(" "intlit" nat ")"
+         | "(" "boollit" bool ")"
+         | "(" "binop" binop expr expr ")"
+         | "(" "call" expr exprs ")"
+         | "(" "load" expr ")"
+         | "(" "addr" expr ")"
+
   exprs ::= "(" expr* ")"
   binop ::= Add | Sub | Mul | Eq | Lt
   Add ::= "+"
@@ -37,58 +37,58 @@ piece CExpr
 ------------------------------------------------------------
 piece CStmt
   stmt ::= skip
-         | (assign $lhs:expr $rhs:expr)
-         | (seq $s1:stmt $s2:stmt)
-         | (if $c:expr $t:stmt $f:stmt)
-         | (while $c:expr $body:stmt)
-         | (return $e:expr)
-         | (decl $x:name $ty:ctype $init:expr)
+         | "(" "assign" expr expr ")"
+         | "(" "seq" stmt stmt ")"
+         | "(" "if" expr stmt stmt ")"
+         | "(" "while" expr stmt ")"
+         | "(" "return" expr ")"
+         | "(" "decl" name ctype expr ")"
 
 ------------------------------------------------------------
 -- Functions and programs
 ------------------------------------------------------------
 piece CDecl
-  param ::= "(" $x:name ":" $ty:ctype ")"
+  param ::= "(" name ":" ctype ")"
   params ::= param*
-  fundef ::= (fun $name:name $params:params $ret:ctype $body:stmt)
-  program ::= (program $funs:fundefs)
+  fundef ::= "(" "fun" name params ctype stmt ")"
+  program ::= "(" "program" fundefs ")"
   fundefs ::= fundef*
 
 ------------------------------------------------------------
 -- Runtime values
 ------------------------------------------------------------
 piece CValue
-  value ::= (intv $n:nat)
-          | (boolv $b:bool)
-          | (addrv $l:loc)
+  value ::= "(" "intv" nat ")"
+          | "(" "boolv" bool ")"
+          | "(" "addrv" loc ")"
 
 ------------------------------------------------------------
 -- Memory model
 ------------------------------------------------------------
 piece Memory
-  loc ::= (loc $n:nat)
-  store ::= (store $bindings:storebindings)
+  loc ::= "(" "loc" nat ")"
+  store ::= "(" "store" storebindings ")"
   storebindings ::= storebinding*
-  storebinding ::= "(" $l:loc "↦" $v:value ")"
-  
-  env ::= (env $bindings:envbindings)
+  storebinding ::= "(" loc "↦" value ")"
+
+  env ::= "(" "env" envbindings ")"
   envbindings ::= envbinding*
-  envbinding ::= "(" $x:name "↦" $l:loc ")"
+  envbinding ::= "(" name "↦" loc ")"
 
 ------------------------------------------------------------
 -- Interpreter state
 ------------------------------------------------------------
 piece CState
-  state ::= (state $s:stmt $e:env $st:store)
-  result ::= (done $v:value $st:store)
-           | (step $s:state)
+  state ::= "(" "state" stmt env store ")"
+  result ::= "(" "done" value store ")"
+           | "(" "step" state ")"
 
 ------------------------------------------------------------
 -- Expression evaluation (big-step)
 -- We use (eval E env store) ~> V pattern
 ------------------------------------------------------------
 piece CEval
-  evalexpr ::= (eval $e:expr $env:env $store:store)
+  evalexpr ::= "(" "eval" expr env store ")"
   evalresult ::= value
 
   -- Integer literal
@@ -125,7 +125,7 @@ piece CEval
 -- We use (step State) ~> Result pattern
 ------------------------------------------------------------
 piece CStep
-  stepexpr ::= (stepstmt $s:state)
+  stepexpr ::= "(" "stepstmt" state ")"
 
   -- seq skip: (seq skip s) steps to s
   rule step_seq_skip:

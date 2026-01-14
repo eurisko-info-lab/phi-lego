@@ -180,10 +180,10 @@ piece RedttFile
   redttfile ::= topdecl*
   topdecl ::= importdecl | defn | datadecl
 
-=====================================================
+-- =====================================================
 -- FANCY FEATURES (Advanced redtt syntax)
 -- These demonstrate what makes redtt special
-=====================================================
+-- =====================================================
 
 -----------------------------------------------------
 -- 1. V Type (Univalence Primitive)
@@ -427,7 +427,7 @@ piece Tests
 -- Let expressions
   test "let": (letexpr x A M N) ~~> (letexpr x A M N)
 
-=====================================================
+-- =====================================================
 
 -----------------------------------------------------
 -- Additional Rules and Tests
@@ -529,18 +529,18 @@ piece SymmetryRules
   test "symm_def": (lam p (lam i (app p (neg i)))) 
     ~~> (lam p (lam i (app p (neg i))))
 
--- =============================================================================
+-- -- =============================================================================
 -- TODO: Executable Language Checklist for Redtt
 -- Category: Cubical Type Theory (redtt/cooltt style)
 -- Current: 16 rules, 47 tests, 99 grammars
 -- Source: RedPRL/redtt, RedPRL/cooltt
--- =============================================================================
+-- -- =============================================================================
 -- [x] Rules: 16 rules defined
 -- [x] Tests: 47 tests defined
 -- [ ] Normalization: Full path/coe computation
 -- [ ] Confluence: Verify cubical reduction confluence
 -- [ ] Keywords: cuts := ["piece", "rule", "test", "def", "data", "import"]
--- =============================================================================
+-- -- =============================================================================
 -- Missing for full executability:
 --
 -- 1. PATH COMPUTATION
@@ -589,4 +589,4 @@ piece SymmetryRules
 --   - RedPRL/redtt: src/core/*.ml (reduction rules)
 --   - RedPRL/cooltt: src/core/*.ml (newer implementation)
 --   - test/elab.cooltt, test/path.cooltt (examples)
--- =============================================================================
+-- -- =============================================================================

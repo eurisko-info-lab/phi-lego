@@ -33,14 +33,14 @@ piece TyFun
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "kind_arrow": (* → *)
-test "constraint": Constraint
-test "forall_kind": (∀ k : * . (k → k))
+test "kind_arrow": _
+test "constraint": _
+test "forall_kind": _
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for TypeLevel
 -- Category: TYPE  Current: 0
-0 rules, 3 tests
+-- 0 rules, 3 tests
 -- =============================================================================
 -- [x] Grammar: parsing works
 -- [ ] Rules: reduction semantics

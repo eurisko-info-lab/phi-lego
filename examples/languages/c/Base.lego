@@ -27,9 +27,9 @@ piece Nat
 -- Arithmetic operations (symbolic, for rewriting)
 ------------------------------------------------------------
 piece Arith
-  arithexpr ::= (add $a:nat $b:nat)
-              | (sub $a:nat $b:nat)
-              | (mul $a:nat $b:nat)
+  arithexpr ::= "(" "add" nat nat ")"
+              | "(" "sub" nat nat ")"
+              | "(" "mul" nat nat ")"
   
   -- These stay symbolic - no evaluation
   -- The compiler produces MLIR ops that do the actual math

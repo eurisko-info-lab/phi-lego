@@ -9,59 +9,59 @@ lang MLIR :=
 -- Types
 ------------------------------------------------------------
 piece MLType
-  mtype ::= i32 | i1 | (memref $t:mtype) | (func $args:mtypes $ret:mtype)
+  mtype ::= i32 | i1 | "(" "memref" mtype ")" | "(" "func" mtypes mtype ")"
   mtypes ::= "(" mtype* ")"
 
 ------------------------------------------------------------
 -- SSA values
 ------------------------------------------------------------
 piece SSA
-  ssa ::= (ssa $name:name)
+  ssa ::= "(" "ssa" name ")"
   ssas ::= "(" ssa* ")"
 
 ------------------------------------------------------------
 -- Operations
 ------------------------------------------------------------
 piece MLOp
-  mlop ::= (constant $v:mlvalue)
-         | (add $a:ssa $b:ssa)
-         | (sub $a:ssa $b:ssa)
-         | (mul $a:ssa $b:ssa)
-         | (load $addr:ssa)
-         | (store $val:ssa $addr:ssa)
-         | (call $fn:ssa $args:ssas)
-         | (cmp $op:cmpop $a:ssa $b:ssa)
-         | (br $label:label)
-         | (cond_br $cond:ssa $then:label $else:label)
-         | (ret $v:ssa)
+  mlop ::= "(" "constant" mlvalue ")"
+         | "(" "add" ssa ssa ")"
+         | "(" "sub" ssa ssa ")"
+         | "(" "mul" ssa ssa ")"
+         | "(" "load" ssa ")"
+         | "(" "store" ssa ssa ")"
+         | "(" "call" ssa ssas ")"
+         | "(" "cmp" cmpop ssa ssa ")"
+         | "(" "br" label ")"
+         | "(" "cond_br" ssa label label ")"
+         | "(" "ret" ssa ")"
          | nop
-  
+
   mlops ::= mlop*
   cmpop ::= eq | ne | lt | gt | le | ge
-  mlvalue ::= (intval $n:nat) | (boolval $b:bool)
+  mlvalue ::= "(" "intval" nat ")" | "(" "boolval" bool ")"
 
 ------------------------------------------------------------
 -- Labels and blocks
 ------------------------------------------------------------
 piece MLIRCFG
-  label ::= (label $name:name)
-  
-  blockparam ::= "(" $v:ssa ":" $ty:mtype ")"
+  label ::= "(" "label" name ")"
+
+  blockparam ::= "(" ssa ":" mtype ")"
   blockparams ::= blockparam*
-  
-  block ::= (block $l:label $params:blockparams $ops:mlops)
+
+  block ::= "(" "block" label blockparams mlops ")"
   blocks ::= block*
-  
-  region ::= (region $blocks:blocks)
+
+  region ::= "(" "region" blocks ")"
   regions ::= region*
-  
-  module ::= (module $regions:regions)
+
+  module ::= "(" "module" regions ")"
 
 ------------------------------------------------------------
 -- SSA definition (assignment)
 ------------------------------------------------------------
 piece SSADef
-  ssadef ::= (def $v:ssa $op:mlop)
+  ssadef ::= "(" "def" ssa mlop ")"
   ssadefs ::= ssadef*
 
 ------------------------------------------------------------

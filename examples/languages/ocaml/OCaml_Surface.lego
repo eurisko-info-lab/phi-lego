@@ -11,14 +11,14 @@
 lang OCamlTokens :=
 
 piece Identifiers
-  ident ::= /[a-z_][a-zA-Z0-9_']*/
-  uident ::= /[A-Z][a-zA-Z0-9_']*/
+  ident ::= <regex>
+  uident ::= <regex>
 
 piece Literals
-  int_lit ::= /-?[0-9]+/
-  float_lit ::= /-?[0-9]+\.[0-9]+/
-  char_lit ::= "'" char "'"
-  string_lit ::= "\"" string "\""
+  int_lit ::= <regex>
+  float_lit ::= <regex>
+  char_lit ::= <char>
+  string_lit ::= <string>
 
 piece Keywords
   kw ::= "let" | "rec" | "in"
