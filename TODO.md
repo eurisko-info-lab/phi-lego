@@ -2,62 +2,46 @@
 
 > **Current Status**: 201/240 lego tests • 725/725 redtt parsing (100%)
 
-## 🔴 HIGH PRIORITY: Architecture Simplification
+## Architecture Understanding ✅
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for full design.
+### Two-Layer Processing
 
-### Problem
-Grammar and Schema are conflated. Grammar tries to do both:
-- Parse surface syntax (tokens)
-- Build Terms with correct structure
+**Layer 1: Grammar Representation (Grammar.sexpr)**
+```
+(node lam (seq (lit "(") (lit λ) (ref Atom.ident)) (seq (lit .) (ref Term.term) (lit ")")))
+```
+- Literals (`"("`, `"λ"`, `"."`, `")"`) are **kept** in grammar - needed for bidirectional parse/print
+- `GLit "=>"` is like `expectSymbol("=>")` - syntax, not semantics
 
-This creates complexity and bugs (infinite loops, wrong arities).
+**Layer 2: Grammar Interpretation (GrammarInterp.hs)**
+- When `GNode "lam" [arg1, arg2]` is interpreted:
+  - Literals are matched/consumed but produce no `bsTerm`
+  - Only `GRef` produces `bsTerm` values (the semantic children)
+  - Result: `TmCon "lam" [ident, body]` - exactly 2 children
+- Literals are **syntactic glue** - guide parse/print but don't become AST children
 
-### Solution: Separate Grammar from Schema
+### Uniform Parsing Pipeline
+```
+Grammar.lego ──┐                              ┌─→ termToGrammar → GrammarExpr
+               │  GrammarInterp.runGrammar    │   (special post-processing)
+User.lego    ──┴──────────────────────────────┴─→ Term (AST)
+                      ↓                              (normal usage)
+                 Same engine
+                 Same rules
+```
 
-| Layer | Role | Example |
-|-------|------|---------|
-| **Grammar** | Surface ↔ S-expr (pure syntax) | `"(" "λ" x "." body ")"` ↔ `(lam x body)` |
-| **Schema** | S-expr structure with arities | `lam/2`, `var/1`, `app/2` |
-| **Term** | Mathematical structure | `TmCon "lam" [TmVar "x", ...]` |
+Everything parses to `Term` first, then different post-processing based on file type.
 
-### Action Items
+### Current Status: Working Correctly ✅
+- [x] `(λ x . (λ y . x))` → `(lam x (lam y x))` - each `lam` has exactly 2 children
+- [x] Backslash lambda removed - only Greek `λ` supported
+- [x] Arities are correct at the Term level (interpreter drops literals properly)
 
-#### Phase 1: Add Schema Module ✅
-- [x] Create `interpreter/Lego/Schema.hs`
-- [x] Define `Arity = Arity Int | ArityAtLeast Int | ArityRange Int Int`
-- [x] Define `Schema = Schema { constructors :: Map String Arity, sorts :: Map String [String] }`
-- [x] Implement `validateSExpr :: Schema -> String -> SExpr -> Either String ()`
-- [x] Implement `sexprToTerm :: SExpr -> Term`
-- [x] Implement `termToSExpr :: Term -> SExpr`
-- [x] Define `termSchema` with correct semantic arities
-
-#### Phase 2: Simplify Grammar to Pure Syntax
-- [ ] Remove `node` markers from Grammar.lego - grammar just produces s-expr
-- [ ] Grammar rules become: `"(" "λ" ident "." term ")" ~> (lam $1 $2)`
-- [ ] `~>` shows s-expr template with holes ($1, $2, etc.)
-- [ ] Grammar.sexpr becomes simpler: just token patterns and s-expr templates
-
-#### Phase 3: Extract Arities from Existing Grammar ⚠️
-- [x] Scan current Grammar.sexpr for `(node X ...)` patterns
-- [x] Analysis shows grammar wraps whole seq as 1 child (wrong!)
-  - `lam` shows arity 1-2 instead of always 2
-  - This confirms the grammar/schema conflation problem
-- [ ] Generate initial Schema from existing grammar (done manually in termSchema)
-- [ ] Add schema validation to parser pipeline
-
-#### Phase 4: Clean Up
-- [ ] Remove `node` handling from GrammarInterp.hs
-- [ ] Simplify bidirectional engine (just token ↔ s-expr)
-- [ ] Move arity errors from grammar to schema validation
-- [ ] Update GenGrammarDef.hs for new grammar format
-
-### Benefits
-1. **Grammar is trivial**: Just token shuffling, ~100 lines
-2. **Schema is declarative**: Arity checking, sort membership
-3. **Term is clean**: Pure algebra, rules just work
-4. **Bidirectional for free**: Grammar templates are invertible
-5. **Error messages are clear**: Schema says "lam/2 got 3 args"
+### Schema Module (Optional Enhancement)
+Created `interpreter/Lego/Schema.hs` for explicit arity declarations:
+- `Arity = Arity Int | ArityAtLeast Int | ArityRange Int Int`
+- `termSchema` with `lam/2`, `var/1`, `app/2`, etc.
+- Can add validation layer if needed, but current implementation already produces correct arities
 
 ---
 
