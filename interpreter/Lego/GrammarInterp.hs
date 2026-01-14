@@ -69,8 +69,6 @@ import Data.Char (isAlphaNum, isDigit, isLetter, generalCategory, GeneralCategor
 import Data.List (minimumBy, intercalate)
 import Data.Ord (comparing)
 import Control.Monad (guard)
--- import qualified Debug.Trace as Debug
--- import qualified Debug.Trace as Trace
 
 -- | Check if all characters are digits
 isDigitChar :: Char -> Bool
@@ -683,15 +681,8 @@ runGrammar = go
         -- Push scope, parse all args collecting their terms, pop scope
         let st0 = st { bsBinds = pushScope (bsBinds st), bsTerm = Nothing }
         (st1, argTerms) <- foldMCollect (\s g -> go g s) st0 args
-        let term = TmCon con argTerms
-        -- INCREMENTAL GRAMMAR: When we see DPiece or DLang, immediately
-        -- compile and merge the grammar so subsequent parsing uses it
-        let st2 = case con of
-              "DPiece" -> mergePieceGrammar term st1
-              "DLang"  -> mergeLangGrammar term st1
-              _        -> st1
-        [st2 { bsTerm = Just term
-             , bsBinds = popScope (bsBinds st2) }]
+        [st1 { bsTerm = Just (TmCon con argTerms)
+             , bsBinds = popScope (bsBinds st1) }]
       Print -> case bsTerm st of
         Just (TmCon c subterms) | c == con -> do
           -- Push scope, print each subterm, pop scope
@@ -715,32 +706,14 @@ runGrammar = go
       Check -> [st]
     
     -- Helper: resolve a reference name to its grammar (used by GRef memoization)
-    -- Resolution strategy for unqualified names (no dot):
-    --   1) Suffix match finds any "Piece.name" for "name"
-    --   2) Fall back to builtin
-    -- Resolution for qualified names (with dot):
-    --   1) Direct lookup
-    --   2) Suffix match (in case namespace differs)
-    --   3) Fall back to builtin
     resolveRef :: String -> BiState Token Term -> Maybe (GrammarExpr ())
-    resolveRef x st
-      | '.' `elem` x = 
-          -- Qualified name: try direct first, then suffix, then builtin
-          case M.lookup x (bsGrammar st) of
-            Just g  -> Just g
-            Nothing -> 
-              -- Extract base name: "A.B.term" -> "term"
-              let baseName = case break (== '.') (reverse x) of
-                               (rev, _:_) -> reverse rev
-                               _ -> x
-              in case findSuffixedGrammar baseName (bsGrammar st) of
-                   Just g  -> Just g
-                   Nothing -> builtinGrammar x
-      | otherwise = 
-          -- Unqualified name: prefer suffix match (finds piece-defined), then builtin
-          case findSuffixedGrammar x (bsGrammar st) of
-            Just g  -> Just g
-            Nothing -> builtinGrammar x
+    resolveRef x st = case M.lookup x (bsGrammar st) of
+      Just g  -> Just g
+      Nothing -> 
+        -- Try to find a qualified name that ends with .x
+        case findSuffixedGrammar x (bsGrammar st) of
+          Just g  -> Just g
+          Nothing -> builtinGrammar x
 
     -- Phase 3: production-scoped keyword refinement.
     --
@@ -939,24 +912,15 @@ builtinGrammar "nat" = Just $ GAny   -- Match any number token
 builtinGrammar _ = Nothing
 
 -- | Find a grammar entry where the key ends with ".x"
--- Used to resolve unqualified references like "term" to "Piece.term"
--- Prefers shorter prefixes (e.g., "Term.term" over "BaseTerm.term")
+-- Used to resolve unqualified references like "term" to "Universe.term"
 findSuffixedGrammar :: String -> M.Map String (GrammarExpr ()) -> Maybe (GrammarExpr ())
 findSuffixedGrammar x m = 
   let suffix = "." ++ x
-      matches = [(k, g) | (k, g) <- M.toList m, suffix `isSuffixOf` k]
-      -- Sort by key length so shorter prefixes (more canonical) come first
-      sorted = sortOn (length . fst) matches
-  in case sorted of
-       ((_, g):_) -> Just g
+      matches = [g | (k, g) <- M.toList m, suffix `isSuffixOf` k]
+  in case matches of
+       (g:_) -> Just g
        []    -> Nothing
   where
-    sortOn f = map snd . sortBy (comparing fst) . map (\a -> (f a, a))
-    sortBy cmp = foldr (insertBy cmp) []
-    insertBy cmp a [] = [a]
-    insertBy cmp a (b:bs) = case cmp a b of
-      GT -> b : insertBy cmp a bs
-      _  -> a : b : bs
     isSuffixOf needle haystack = drop (length haystack - length needle) haystack == needle
 
 -- | Convert term to tokens (for printing)
@@ -1066,95 +1030,3 @@ termGrammarDefs = GrammarDefs
 parseTerm :: String -> Either String Term
 parseTerm input = parseWith termGrammarDefs "Term.term" input
 
---------------------------------------------------------------------------------
--- Incremental Grammar: Pushout on piece/lang declaration
---------------------------------------------------------------------------------
-
--- | Merge a DPiece term's grammar productions into the state
--- Called during parsing when we complete a (node DPiece ...) construction
-mergePieceGrammar :: Term -> BiState Token Term -> BiState Token Term
-mergePieceGrammar (TmCon "DPiece" (nameT : prods)) st =
-  let pieceName = case nameT of
-        TmVar n -> n
-        TmLit n -> n
-        _ -> "unknown"
-      -- Extract grammar productions from the piece body
-      newProds = extractGrammarProds pieceName prods
-      -- Merge into existing grammar (pushout: new productions override)
-      grammar' = M.union (M.fromList newProds) (bsGrammar st)
-  in st { bsGrammar = grammar' }
-mergePieceGrammar _ st = st
-
--- | Merge a DLang term's grammar productions into the state
--- Handles both lang inheritance and body productions
-mergeLangGrammar :: Term -> BiState Token Term -> BiState Token Term
-mergeLangGrammar (TmCon "DLang" (nameT : rest)) st =
-  let langName = case nameT of
-        TmVar n -> n
-        TmLit n -> n
-        _ -> "unknown"
-      -- Extract grammar from lang body (skip parents term)
-      bodyProds = case rest of
-        [_, bodyT] -> extractLangBodyGrammar langName bodyT
-        [bodyT]    -> extractLangBodyGrammar langName bodyT
-        _          -> []
-      -- Merge into existing grammar
-      grammar' = M.union (M.fromList bodyProds) (bsGrammar st)
-  in st { bsGrammar = grammar' }
-mergeLangGrammar _ st = st
-
--- | Extract grammar productions from a piece body
-extractGrammarProds :: String -> [Term] -> [(String, GrammarExpr ())]
-extractGrammarProds pieceName = concatMap (extractProdFrom pieceName)
-
-extractProdFrom :: String -> Term -> [(String, GrammarExpr ())]
-extractProdFrom pn (TmCon "seq" ts) = concatMap (extractProdFrom pn) ts
-extractProdFrom pn (TmCon "prodWrap" (d:_)) = extractProdFrom pn d
-extractProdFrom pn (TmCon "DGrammar" [TmVar name, gramT]) =
-  [(pn ++ "." ++ name, termToGrammarExpr gramT)]
-extractProdFrom pn (TmCon "DGrammar" [TmLit name, gramT]) =
-  [(pn ++ "." ++ name, termToGrammarExpr gramT)]
-extractProdFrom _ _ = []
-
--- | Extract grammar from lang body (which contains pieces)
-extractLangBodyGrammar :: String -> Term -> [(String, GrammarExpr ())]
-extractLangBodyGrammar _langName (TmCon "seq" items) = 
-  concatMap extractLangItem items
-extractLangBodyGrammar _langName item = extractLangItem item
-
-extractLangItem :: Term -> [(String, GrammarExpr ())]
-extractLangItem (TmCon "DPiece" (nameT : prods)) =
-  let pieceName = case nameT of
-        TmVar n -> n
-        TmLit n -> n
-        _ -> "unknown"
-  in extractGrammarProds pieceName prods
-extractLangItem (TmCon "seq" ts) = concatMap extractLangItem ts
-extractLangItem _ = []
-
--- | Convert Term representation of grammar to GrammarExpr
-termToGrammarExpr :: Term -> GrammarExpr ()
-termToGrammarExpr (TmVar s) = GRef s
-termToGrammarExpr (TmLit s) = GLit s
-termToGrammarExpr (TmCon "alt" [g1, _, g2]) = GAlt (termToGrammarExpr g1) (termToGrammarExpr g2)
-termToGrammarExpr (TmCon "alt" [g1, g2]) = GAlt (termToGrammarExpr g1) (termToGrammarExpr g2)
-termToGrammarExpr (TmCon "alt" gs) = foldr1 GAlt (map termToGrammarExpr gs)
-termToGrammarExpr (TmCon "seq" gs) = foldr GSeq GEmpty (map termToGrammarExpr gs)
-termToGrammarExpr (TmCon "star" [g]) = GStar (termToGrammarExpr g)
-termToGrammarExpr (TmCon "star" gs) = GStar (foldr GSeq GEmpty (map termToGrammarExpr gs))
-termToGrammarExpr (TmCon "bind" [TmVar x, g]) = GBind x (termToGrammarExpr g)
-termToGrammarExpr (TmCon "bind" [TmLit x, g]) = GBind x (termToGrammarExpr g)
-termToGrammarExpr (TmCon "node" [TmVar n]) = GNode n []
-termToGrammarExpr (TmCon "node" [TmLit n]) = GNode n []
-termToGrammarExpr (TmCon "node" (TmVar n : gs)) = GNode n (map termToGrammarExpr gs)
-termToGrammarExpr (TmCon "node" (TmLit n : gs)) = GNode n (map termToGrammarExpr gs)
-termToGrammarExpr (TmCon "ref" [TmVar r]) = GRef r
-termToGrammarExpr (TmCon "ref" [TmLit r]) = GRef r
-termToGrammarExpr (TmCon "lit" [TmVar l]) = GLit l
-termToGrammarExpr (TmCon "lit" [TmLit l]) = GLit l
-termToGrammarExpr (TmCon "cut" [g]) = GCut (termToGrammarExpr g)
-termToGrammarExpr (TmCon "empty" []) = GEmpty
-termToGrammarExpr (TmCon "any" []) = GAny
--- Fallback: treat as literal
-termToGrammarExpr (TmCon c []) = GLit c
-termToGrammarExpr _ = GEmpty
