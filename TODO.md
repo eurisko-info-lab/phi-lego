@@ -23,13 +23,14 @@ This creates complexity and bugs (infinite loops, wrong arities).
 
 ### Action Items
 
-#### Phase 1: Add Schema Module
-- [ ] Create `interpreter/Lego/Schema.hs`
-- [ ] Define `Arity = Arity Int | ArityAtLeast Int | ArityRange Int Int`
-- [ ] Define `Schema = Schema { constructors :: Map String Arity, sorts :: Map String [String] }`
-- [ ] Implement `validateSExpr :: Schema -> String -> SExpr -> Either String ()`
-- [ ] Implement `sexprToTerm :: Schema -> SExpr -> Either String Term`
-- [ ] Implement `termToSExpr :: Term -> SExpr`
+#### Phase 1: Add Schema Module ✅
+- [x] Create `interpreter/Lego/Schema.hs`
+- [x] Define `Arity = Arity Int | ArityAtLeast Int | ArityRange Int Int`
+- [x] Define `Schema = Schema { constructors :: Map String Arity, sorts :: Map String [String] }`
+- [x] Implement `validateSExpr :: Schema -> String -> SExpr -> Either String ()`
+- [x] Implement `sexprToTerm :: SExpr -> Term`
+- [x] Implement `termToSExpr :: Term -> SExpr`
+- [x] Define `termSchema` with correct semantic arities
 
 #### Phase 2: Simplify Grammar to Pure Syntax
 - [ ] Remove `node` markers from Grammar.lego - grammar just produces s-expr
@@ -37,10 +38,12 @@ This creates complexity and bugs (infinite loops, wrong arities).
 - [ ] `~>` shows s-expr template with holes ($1, $2, etc.)
 - [ ] Grammar.sexpr becomes simpler: just token patterns and s-expr templates
 
-#### Phase 3: Extract Arities from Existing Grammar
-- [ ] Scan current Grammar.sexpr for `(node X ...)` patterns
-- [ ] Count children to infer arities: `lam/2`, `var/1`, `app/2`, `Π/3`, etc.
-- [ ] Generate initial Schema from existing grammar
+#### Phase 3: Extract Arities from Existing Grammar ⚠️
+- [x] Scan current Grammar.sexpr for `(node X ...)` patterns
+- [x] Analysis shows grammar wraps whole seq as 1 child (wrong!)
+  - `lam` shows arity 1-2 instead of always 2
+  - This confirms the grammar/schema conflation problem
+- [ ] Generate initial Schema from existing grammar (done manually in termSchema)
 - [ ] Add schema validation to parser pipeline
 
 #### Phase 4: Clean Up
