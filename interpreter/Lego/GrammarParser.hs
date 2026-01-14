@@ -57,6 +57,13 @@ parseFileG toks =
 -- Term → LegoDecl conversion
 --------------------------------------------------------------------------------
 
+-- | Convert arrow node to RuleDir
+arrowToDir :: Term -> RuleDir
+arrowToDir (TmCon "forward" _)  = Forward
+arrowToDir (TmCon "backward" _) = Backward
+arrowToDir (TmCon "bidi" _)     = Both
+arrowToDir _                    = Forward  -- default fallback
+
 extractDecls :: Term -> [LegoDecl]
 extractDecls (TmCon "seq" ts) = concatMap extractDecls ts
 extractDecls (TmCon "decl" (d:_)) = extractDecls d
@@ -79,10 +86,15 @@ termToDecl (TmCon "DTest" (TmLit name : input : rest)) =
     (expected : opts) -> 
       let baseTest = Test name input expected
       in Just $ DTestSpec $ parseTestOpts baseTest (TmCon "opts" opts)
--- Rule
-termToDecl (TmCon "DRule" [TmVar name, pat, tmpl]) = 
+-- Rule (with direction: forward, backward, bidi)
+termToDecl (TmCon "DRule" [TmVar name, pat, arrow, tmpl]) =
+  Just $ DRule $ Rule name pat tmpl Nothing (arrowToDir arrow)
+termToDecl (TmCon "DRule" [TmLit name, pat, arrow, tmpl]) =
+  Just $ DRule $ Rule name pat tmpl Nothing (arrowToDir arrow)
+-- Rule (legacy 3-arg form, default to Forward)
+termToDecl (TmCon "DRule" [TmVar name, pat, tmpl]) =
   Just $ DRule $ Rule name pat tmpl Nothing Forward
-termToDecl (TmCon "DRule" [TmLit name, pat, tmpl]) = 
+termToDecl (TmCon "DRule" [TmLit name, pat, tmpl]) =
   Just $ DRule $ Rule name pat tmpl Nothing Forward
 -- Rule stub (empty)
 termToDecl (TmCon "DRuleStub" [TmVar name]) = 
@@ -202,9 +214,15 @@ extractPieceDecl pn (TmCon "DGrammar" [TmVar name, gramTerm]) =
 extractPieceDecl pn (TmCon "DGrammar" [TmLit name, gramTerm]) = 
   [DGrammar (pn ++ "." ++ name) (termToGrammar gramTerm)]
 -- Rules within pieces (not qualified - rules are global)
-extractPieceDecl _ (TmCon "DRule" [TmVar name, pat, tmpl]) = 
+-- 4-arg form with direction
+extractPieceDecl _ (TmCon "DRule" [TmVar name, pat, arrow, tmpl]) =
+  [DRule $ Rule name pat tmpl Nothing (arrowToDir arrow)]
+extractPieceDecl _ (TmCon "DRule" [TmLit name, pat, arrow, tmpl]) =
+  [DRule $ Rule name pat tmpl Nothing (arrowToDir arrow)]
+-- Legacy 3-arg form
+extractPieceDecl _ (TmCon "DRule" [TmVar name, pat, tmpl]) =
   [DRule $ Rule name pat tmpl Nothing Forward]
-extractPieceDecl _ (TmCon "DRule" [TmLit name, pat, tmpl]) = 
+extractPieceDecl _ (TmCon "DRule" [TmLit name, pat, tmpl]) =
   [DRule $ Rule name pat tmpl Nothing Forward]
 -- Tests within pieces
 extractPieceDecl _ (TmCon "DTest" [TmLit name, input]) = 

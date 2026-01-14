@@ -1,0 +1,246 @@
+-- MetaGrammar.lego: Grammar as a Functor Coproduct
+--
+-- Core insight: GrammarExpr = Fix (ExprF :+: KleeneF :+: BindF :+: AnyF)
+-- Each functor contributes structure; their coproduct is the full grammar algebra.
+-- Reduction rules materialize the algebra's equations bidirectionally.
+--
+-- GrammarF = ExprF :+: KleeneF :+: BindF :+: AnyF
+-- GrammarExpr a = Fix GrammarF
+
+lang MetaGrammar :=
+
+-- =============================================================================
+-- PIECE 1: ExprF (Base Expressions)
+-- =============================================================================
+-- data ExprF a = EVar String | ECon String [a] | ELit String | ESyn String
+
+piece ExprF
+  exprf ::= evar | econ | elit | esyn
+
+  evar ::= "(" "EVar" <ident> ")"           -- Variable reference
+  econ ::= "(" "ECon" <ident> gexpr* ")"    -- Constructor with children
+  elit ::= "(" "ELit" <string> ")"          -- Literal string
+  esyn ::= "(" "ESyn" <ident> ")"           -- Syntax marker
+
+  test "evar": (EVar x)
+  test "econ": (ECon app (EVar f) (EVar x))
+  test "elit": (ELit "hello")
+  test "esyn": (ESyn lam)
+
+-- =============================================================================
+-- PIECE 2: KleeneF (Kleene Algebra)
+-- =============================================================================
+-- data KleeneF a = KEmpty | KSeq a a | KAlt a a | KStar a
+-- Forms a *-semiring: (KAlt, KEmpty) monoid, (KSeq, KEmpty) monoid, KStar
+
+piece KleeneF
+  kleenef ::= kempty | kseq | kalt | kstar
+
+  kempty ::= "(" "KEmpty" ")"               -- Identity element (ε)
+  kseq   ::= "(" "KSeq" gexpr gexpr ")"     -- Sequence (monoidal product)
+  kalt   ::= "(" "KAlt" gexpr gexpr ")"     -- Alternative (coproduct)
+  kstar  ::= "(" "KStar" gexpr ")"          -- Kleene star (least fixed point)
+
+  test "kempty": (KEmpty)
+  test "kseq": (KSeq (ELit "a") (ELit "b"))
+  test "kalt": (KAlt (ELit "true") (ELit "false"))
+  test "kstar": (KStar (ELit "a"))
+
+-- =============================================================================
+-- PIECE 3: KleeneDerived (Sugar over KleeneF)
+-- =============================================================================
+
+piece KleeneDerived
+  kleenederiv ::= kplus | kopt
+
+  kplus ::= "(" "KPlus" gexpr ")"           -- g+ = g · g*
+  kopt  ::= "(" "KOpt" gexpr ")"            -- g? = g | ε
+
+  test "kplus": (KPlus (ELit "a"))
+  test "kopt": (KOpt (ELit "a"))
+
+-- =============================================================================
+-- PIECE 4: BindF (Binding and Recursion)
+-- =============================================================================
+-- data BindF a = BRec String a | BRef String | BBind String a
+
+piece BindF
+  bindf ::= brec | bref | bbind
+
+  brec  ::= "(" "BRec" <ident> gexpr ")"    -- Recursive binding (μX. g)
+  bref  ::= "(" "BRef" <ident> ")"          -- Reference to bound name
+  bbind ::= "(" "BBind" <ident> gexpr ")"   -- Capture binding (x ← g)
+
+  test "brec": (BRec X (KAlt (KSeq (ELit "a") (BRef X)) (KEmpty)))
+  test "bref": (BRef foo)
+  test "bbind": (BBind x (EVar ident))
+
+-- =============================================================================
+-- PIECE 5: AnyF (Wildcard)
+-- =============================================================================
+-- data AnyF a = EAny
+
+piece AnyF
+  anyf ::= eany
+
+  eany ::= "(" "EAny" ")"                   -- Match any single token
+
+  test "eany": (EAny)
+
+-- =============================================================================
+-- PIECE 6: Fix (Fixed Point Functor)
+-- =============================================================================
+-- GrammarExpr = Fix GrammarF
+-- where GrammarF = ExprF :+: KleeneF :+: BindF :+: AnyF
+
+piece Fix
+  -- The unified grammar expression (fixed point of coproduct)
+  gexpr ::= exprf | kleenef | kleenederiv | bindf | anyf | fixf
+
+  -- Fix structure
+  fixf   ::= gfix | gunfix | inl | inr
+  gfix   ::= "(" "Fix" gexpr ")"            -- Fix constructor
+  gunfix ::= "(" "unFix" gexpr ")"          -- unFix (inverse)
+  inl    ::= "(" "InL" gexpr ")"            -- Coproduct left injection
+  inr    ::= "(" "InR" gexpr ")"            -- Coproduct right injection
+
+  test "gfix": (Fix (EVar x))
+  test "gunfix": (unFix (Fix (EVar x)))
+  test "inl": (InL (EVar x))
+  test "inr": (InR (KStar (ELit "a")))
+
+  -- Composite grammar expressions
+  test "gexpr_var": (EVar x)
+  test "gexpr_seq": (KSeq (ELit "a") (ELit "b"))
+  test "gexpr_star": (KStar (EVar term))
+  test "gexpr_rec": (BRec list (KAlt (KSeq (EVar elem) (BRef list)) (KEmpty)))
+
+-- =============================================================================
+-- KLEENE ALGEBRA LAWS (KleeneF)
+-- =============================================================================
+-- *-semiring: (KAlt, KEmpty) commutative monoid, (KSeq, KEmpty) monoid, distributive
+
+-- Sequence monoid laws
+rule seq_identity_left:
+  (KSeq (KEmpty) $g) <~> $g
+
+rule seq_identity_right:
+  (KSeq $g (KEmpty)) <~> $g
+
+rule seq_assoc:
+  (KSeq (KSeq $a $b) $c) <~> (KSeq $a (KSeq $b $c))
+
+-- Alternative monoid laws
+rule alt_identity_left:
+  (KAlt (KEmpty) $g) <~> $g
+
+rule alt_assoc:
+  (KAlt (KAlt $a $b) $c) <~> (KAlt $a (KAlt $b $c))
+
+rule alt_comm:
+  (KAlt $a $b) <~> (KAlt $b $a)
+
+rule alt_idem:
+  (KAlt $a $a) <~> $a
+
+-- Distributivity
+rule dist_left:
+  (KSeq $a (KAlt $b $c)) <~> (KAlt (KSeq $a $b) (KSeq $a $c))
+
+rule dist_right:
+  (KSeq (KAlt $a $b) $c) <~> (KAlt (KSeq $a $c) (KSeq $b $c))
+
+-- Kleene star laws
+rule star_unfold:
+  (KStar $g) <~> (KAlt (KSeq $g (KStar $g)) (KEmpty))
+
+rule star_empty:
+  (KStar (KEmpty)) <~> (KEmpty)
+
+rule star_idem:
+  (KStar (KStar $g)) <~> (KStar $g)
+
+-- =============================================================================
+-- DERIVED OPERATOR LAWS (KleeneDerived → KleeneF)
+-- =============================================================================
+
+-- KPlus unfolds: g+ = g · g*
+rule plus_unfold:
+  (KPlus $g) <~> (KSeq $g (KStar $g))
+
+-- KOpt unfolds: g? = g | ε
+rule opt_unfold:
+  (KOpt $g) <~> (KAlt $g (KEmpty))
+
+-- =============================================================================
+-- BINDING LAWS (BindF)
+-- =============================================================================
+
+-- μ unfolds: μX.g = g[X := μX.g]
+rule mu_unfold:
+  (BRec $x $body) <~> (subst $x (BRec $x $body) $body)
+
+-- =============================================================================
+-- FIXED POINT LAWS (Fix)
+-- =============================================================================
+
+-- Fix/unFix isomorphism
+rule fix_unfix:
+  (unFix (Fix $g)) <~> $g
+
+-- =============================================================================
+-- EXPRF LAWS (ExprF)
+-- =============================================================================
+
+-- Constructor with empty children is nullary
+rule con_nullary:
+  (ECon $c) <~> (ESyn $c)
+
+-- =============================================================================
+-- LAWS: Algebraic Structure
+-- =============================================================================
+
+-- KleeneF: *-semiring laws
+law "kseq_assoc": (KSeq (KSeq $a $b) $c) == (KSeq $a (KSeq $b $c))
+law "kseq_unit_l": (KSeq (KEmpty) $g) == $g
+law "kseq_unit_r": (KSeq $g (KEmpty)) == $g
+
+law "kalt_assoc": (KAlt (KAlt $a $b) $c) == (KAlt $a (KAlt $b $c))
+law "kalt_comm": (KAlt $a $b) == (KAlt $b $a)
+law "kalt_idem": (KAlt $a $a) == $a
+
+law "dist_l": (KSeq $a (KAlt $b $c)) == (KAlt (KSeq $a $b) (KSeq $a $c))
+law "dist_r": (KSeq (KAlt $a $b) $c) == (KAlt (KSeq $a $c) (KSeq $b $c))
+
+-- KleeneF: star laws
+law "star_unfold": (KStar $g) == (KAlt (KSeq $g (KStar $g)) (KEmpty))
+law "star_idem": (KStar (KStar $g)) == (KStar $g)
+
+-- BindF: fixed point law
+law "mu_unfold": (BRec $x $g) == (subst $x (BRec $x $g) $g)
+
+-- Fix: isomorphism
+law "fix_iso": (unFix (Fix $g)) == $g
+
+-- =============================================================================
+-- MATHEMATICAL FOUNDATION
+-- =============================================================================
+--
+-- GrammarExpr = Fix (ExprF :+: KleeneF :+: BindF :+: AnyF)
+--
+-- Each functor contributes structure:
+--   ExprF   : Base terms (free algebra over tokens)
+--   KleeneF : *-semiring (Kleene algebra)
+--   BindF   : μ-calculus (recursive definitions)
+--   AnyF    : Wildcard (universal matching)
+--
+-- The coproduct (:+:) combines these orthogonally.
+-- The fixed point (Fix) ties the recursive knot.
+--
+-- Bidirectional interpretation:
+--   Parse = cata : Fix GrammarF → Term  (fold)
+--   Print = ana  : Term → Fix GrammarF  (unfold)
+--
+-- The <~> rules express isomorphisms that hold in both directions.
+--
+-- =============================================================================
