@@ -896,7 +896,13 @@ applyTemplate binds = \case
   TmLit s -> TmLit s
   TmRegex s -> TmRegex s
   TmChar s -> TmChar s
+  -- subst with TmVar as variable name
   TmCon "subst" [TmVar x, e, body] ->
+    let v = applyTemplate binds e
+        binds' = M.insert x v binds
+    in applyTemplate binds' body
+  -- subst with TmLit as variable name (from captured pattern)
+  TmCon "subst" [TmLit x, e, body] ->
     let v = applyTemplate binds e
         binds' = M.insert x v binds
     in applyTemplate binds' body

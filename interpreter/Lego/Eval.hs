@@ -458,7 +458,8 @@ runTestsWithGrammar grammar rules = map runOne
       | otherwise =
           let actual = normalizeWithGrammar grammar rules (testInput test)
               expected = testExpected test
-          in case matchTerms expected actual of
+          in
+             case matchTerms expected actual of
                Just _ -> Pass (testName test)
                Nothing -> Fail (testName test) expected actual
 

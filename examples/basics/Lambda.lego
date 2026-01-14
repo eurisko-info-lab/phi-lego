@@ -19,7 +19,7 @@ piece Term
 -- Rules
 -----------------------------------------------------
 rule beta:
-  (app (lam $x $t $body) $arg) ~> $body
+  (app (lam $x $t $body) $arg) ~> (subst $x $arg $body)
 
 -----------------------------------------------------
 -- Tests: identity function

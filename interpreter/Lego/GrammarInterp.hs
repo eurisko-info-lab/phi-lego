@@ -69,8 +69,6 @@ import Data.Char (isAlphaNum, isDigit, isLetter, generalCategory, GeneralCategor
 import Data.List (minimumBy, intercalate)
 import Data.Ord (comparing)
 import Control.Monad (guard)
--- import qualified Debug.Trace as Debug
--- import qualified Debug.Trace as Trace
 
 -- | Check if all characters are digits
 isDigitChar :: Char -> Bool
@@ -694,10 +692,11 @@ runGrammar = go
              , bsBinds = popScope (bsBinds st2) }]
       Print -> case bsTerm st of
         Just (TmCon c subterms) | c == con -> do
-          -- Push scope, print each subterm, pop scope
+          -- Push scope, print each grammar part
+          -- Only GRef consumes from subterms, others just print
           let st0 = st { bsBinds = pushScope (bsBinds st) }
-          st1 <- foldMPrint (\s (g, t) -> go g (s { bsTerm = Just t })) 
-                            st0 (zip args (subterms ++ repeat (TmCon "unit" [])))
+          (st1, _) <- foldMPrintWithTerms (\s (g, t) -> go g (s { bsTerm = t })) 
+                            st0 args subterms
           [st1 { bsTerm = Nothing, bsBinds = popScope (bsBinds st1) }]
         _ -> []
       Check -> do
@@ -888,21 +887,37 @@ runGrammar = go
       let (more, rest') = collectQualParts rest
       in (part : more, rest')
     collectQualParts ts = ([], ts)
-    -- Fold that collects bsTerm from each step
+    -- Fold that collects bsTerm from each step (only Just terms, skip Nothing)
     foldMCollect :: (BiState Token Term -> GrammarExpr () -> [BiState Token Term]) 
                  -> BiState Token Term -> [GrammarExpr ()] -> [(BiState Token Term, [Term])]
     foldMCollect _ s [] = [(s, [])]
     foldMCollect f s (x:xs) = do
       s' <- f s x
-      let term = fromMaybeT (TmCon "unit" []) (bsTerm s')
       (s'', terms) <- foldMCollect f (s' { bsTerm = Nothing }) xs
-      [(s'', term : terms)]
+      -- Only collect if there's a term (skip literals which produce Nothing)
+      let terms' = case bsTerm s' of
+            Just t  -> t : terms
+            Nothing -> terms
+      [(s'', terms')]
     
     -- Fold for printing (doesn't collect)
     foldMPrint :: (BiState Token Term -> a -> [BiState Token Term]) 
                -> BiState Token Term -> [a] -> [BiState Token Term]
     foldMPrint _ s [] = [s]
     foldMPrint f s (x:xs) = f s x >>= \s' -> foldMPrint f s' xs
+    
+    -- Fold for printing with terms: only refs consume from term list
+    foldMPrintWithTerms :: (BiState Token Term -> (GrammarExpr (), Maybe Term) -> [BiState Token Term]) 
+                        -> BiState Token Term -> [GrammarExpr ()] -> [Term] -> [(BiState Token Term, [Term])]
+    foldMPrintWithTerms _ s [] ts = [(s, ts)]
+    foldMPrintWithTerms f s (g:gs) ts = do
+      let (mterm, ts') = case g of
+            GRef _ -> case ts of
+              (t:rest) -> (Just t, rest)
+              []       -> (Nothing, [])
+            _ -> (Nothing, ts)  -- Literals don't consume terms
+      s' <- f s (g, mterm)
+      foldMPrintWithTerms f s' gs ts'
     
     fromMaybeT :: Term -> Maybe Term -> Term
     fromMaybeT d Nothing = d
@@ -934,8 +949,8 @@ tokenToTerm (TIndent n) = TmCon "indent" [TmLit (show n)]
 -- | Built-in grammars for primitives (name, nat, etc.)
 -- These are fallbacks when a grammar reference isn't found in the grammar map
 builtinGrammar :: String -> Maybe (GrammarExpr ())
-builtinGrammar "name" = Just $ GAny  -- Match any identifier token
-builtinGrammar "nat" = Just $ GAny   -- Match any number token
+builtinGrammar "name" = Just $ GNode "ident" []   -- Match identifier token
+builtinGrammar "nat"  = Just $ GNode "digits" []  -- Match number/digit token
 builtinGrammar _ = Nothing
 
 -- | Find a grammar entry where the key ends with ".x"
@@ -1072,6 +1087,10 @@ parseTerm input = parseWith termGrammarDefs "Term.term" input
 
 -- | Merge a DPiece term's grammar productions into the state
 -- Called during parsing when we complete a (node DPiece ...) construction
+-- For production names that exist in both, we EXTEND with alternatives:
+--   existing "term ::= a" + new "term ::= b" = "term ::= b | a"
+-- This allows piece grammars to add new syntactic forms while keeping
+-- the bootstrap grammar's ability to parse metavars, identifiers, etc.
 mergePieceGrammar :: Term -> BiState Token Term -> BiState Token Term
 mergePieceGrammar (TmCon "DPiece" (nameT : prods)) st =
   let pieceName = case nameT of
@@ -1080,9 +1099,14 @@ mergePieceGrammar (TmCon "DPiece" (nameT : prods)) st =
         _ -> "unknown"
       -- Extract grammar productions from the piece body
       newProds = extractGrammarProds pieceName prods
-      -- Merge into existing grammar (pushout: new productions override)
-      grammar' = M.union (M.fromList newProds) (bsGrammar st)
+      -- Merge with extension: new productions extend existing ones with GAlt
+      grammar' = foldr extendGrammar (bsGrammar st) newProds
   in st { bsGrammar = grammar' }
+  where
+    -- Extend grammar: if key exists, combine with GAlt (new | existing)
+    extendGrammar (k, newG) m = case M.lookup k m of
+      Just existingG -> M.insert k (GAlt newG existingG) m
+      Nothing        -> M.insert k newG m
 mergePieceGrammar _ st = st
 
 -- | Merge a DLang term's grammar productions into the state
@@ -1111,10 +1135,60 @@ extractProdFrom :: String -> Term -> [(String, GrammarExpr ())]
 extractProdFrom pn (TmCon "seq" ts) = concatMap (extractProdFrom pn) ts
 extractProdFrom pn (TmCon "prodWrap" (d:_)) = extractProdFrom pn d
 extractProdFrom pn (TmCon "DGrammar" [TmVar name, gramT]) =
-  [(pn ++ "." ++ name, termToGrammarExpr gramT)]
+  let gexpr = termToGrammarExpr gramT
+      -- Wrap in GNode with production name to create AST nodes
+      -- This makes `add ::= "(" "add" term term ")"` parse to TmCon "add" [...]
+      wrapped = wrapInNode name gexpr
+  in [(pn ++ "." ++ name, wrapped)]
 extractProdFrom pn (TmCon "DGrammar" [TmLit name, gramT]) =
-  [(pn ++ "." ++ name, termToGrammarExpr gramT)]
+  let gexpr = termToGrammarExpr gramT
+      wrapped = wrapInNode name gexpr
+  in [(pn ++ "." ++ name, wrapped)]
 extractProdFrom _ _ = []
+
+-- | Wrap a grammar expression in a GNode if it's not already a node or simple reference
+-- For `add ::= "(" "add" term term ")"`:
+--   GNode "add" [GLit "(", GLit "add", GRef term, GRef term, GLit ")"]
+--   Literals match but produce no term; refs produce terms
+--   Result: TmCon "add" ["2", "3"]
+--
+-- For `type ::= "Type" | name`:
+--   Both alternatives should produce a term when matched
+--   Wrap in GNode so alternatives produce terms
+wrapInNode :: String -> GrammarExpr () -> GrammarExpr ()
+wrapInNode name gexpr = case gexpr of
+  GRef _ -> gexpr          -- Pure reference: forward
+  GNode _ _ -> gexpr       -- Already a node
+  GAlt _ _ -> 
+    -- For alternatives containing literals, wrap in node so literal matches produce terms
+    if hasLitInAlt gexpr
+    then GNode name [wrapLitsInAlt gexpr]
+    else gexpr
+  _ -> let parts = flattenSeq gexpr
+       in if any isRef parts
+          then GNode name parts  -- Has refs: wrap in node
+          else gexpr             -- No refs: just literals, no node
+  where
+    isRef (GRef _) = True
+    isRef _ = False
+
+-- | Check if alternative contains any GLit
+hasLitInAlt :: GrammarExpr () -> Bool
+hasLitInAlt (GAlt g1 g2) = hasLitInAlt g1 || hasLitInAlt g2
+hasLitInAlt (GLit _) = True
+hasLitInAlt _ = False
+
+-- | Wrap literals in alternatives with GNode so they produce terms
+wrapLitsInAlt :: GrammarExpr () -> GrammarExpr ()
+wrapLitsInAlt (GAlt g1 g2) = GAlt (wrapLitsInAlt g1) (wrapLitsInAlt g2)
+wrapLitsInAlt (GLit s) = GNode s []  -- Nullary node produces TmCon s []
+wrapLitsInAlt g = g  -- Refs already produce terms
+
+-- | Flatten GSeq to list
+flattenSeq :: GrammarExpr () -> [GrammarExpr ()]
+flattenSeq (GSeq g1 g2) = flattenSeq g1 ++ flattenSeq g2
+flattenSeq GEmpty = []
+flattenSeq g = [g]
 
 -- | Extract grammar from lang body (which contains pieces)
 extractLangBodyGrammar :: String -> Term -> [(String, GrammarExpr ())]
