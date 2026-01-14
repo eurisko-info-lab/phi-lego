@@ -98,9 +98,10 @@ piece GrammarExpr
   grammarSeq ::= seqHead | grammarSuffix
   seqHead ::= grammarSuffix grammarSeq
   
-  grammarSuffix ::= grammarAtom "*" $ starSuffix
-                  | grammarAtom "+" $ plusSuffix
-                  | grammarAtom "?" $ optSuffix
+  grammarSuffix ::= "!" grammarAtom         $ cutSuffix   -- cut (commit point)
+                  | grammarAtom "*"         $ starSuffix
+                  | grammarAtom "+"         $ plusSuffix
+                  | grammarAtom "?"         $ optSuffix
                   | grammarAtom
   
   grammarAtom ::= string                    $ litAtom
@@ -132,14 +133,21 @@ piece Rule
 
 -----------------------------------------------------
 -- PIECE 7: Test
--- Test declarations
+-- Test declarations with extended syntax
 -----------------------------------------------------
 
 piece Test
   test ::= fullTest | parseTest
   
-  fullTest ::= "test" string ":" term "~~>" term
-  parseTest ::= "test" string ":" term
+  fullTest ::= "test" string ":" term "~~>" term testOptions?
+  parseTest ::= "test" string ":" term testOptions?
+  
+  -- Extended test options
+  testOptions ::= testOption+
+  testOption ::= viaOption | stepsOption | errorOption
+  viaOption ::= "via" ident                       $ via      -- must use this rule
+  stepsOption ::= "steps" number                  $ steps    -- exact step count
+  errorOption ::= "error" string                  $ error    -- expect error
 
 -----------------------------------------------------
 -- PIECE 8: Law
@@ -174,8 +182,8 @@ piece File
              | autocutDecl
              | defDecl
 
-  -- Language declaration with direct body
-  langDecl ::= "lang" ident langParentsOpt ":=" langDirectBody
+  -- Language declaration with direct body (with cut after "lang")
+  langDecl ::= !"lang" ident langParentsOpt ":=" langDirectBody
   
   langParentsOpt ::= langParents
   emptyParents ::= ε
@@ -202,40 +210,43 @@ piece File
   sectionMarker ::= sectionName ":"
   sectionName ::= "prelude" | "code"
   
-  -- Grammar declarations
-  grammarDecl ::= "grammar" ":" grammarProd*
+  -- Grammar declarations (with cut after "grammar")
+  grammarDecl ::= !"grammar" ":" grammarProd*
   grammarProd ::= whitespace? ident "::=" grammarExpr whitespace?
   
-  -- Import declaration
-  importDecl ::= "import" ident
+  -- Import declaration (with cut after "import")
+  importDecl ::= !"import" ident
   
-  -- Piece declaration
-  pieceDecl ::= "piece" ident whitespace? pieceItem*
+  -- Piece declaration (with cut after "piece")
+  pieceDecl ::= !"piece" ident whitespace? pieceItem*
   pieceItem ::= productionWithWs
   productionWithWs ::= production whitespace?
   
-  -- Rule declaration
-  ruleDecl ::= "rule" ident ":" whitespace? pattern "~>" whitespace? template
+  -- Rule declaration (with cut after "rule")
+  ruleDecl ::= !"rule" ident ":" whitespace? pattern "~>" whitespace? template
   
   -- Rule stub (empty rule declaration)
-  ruleStub ::= "rule" ident ":"
+  ruleStub ::= !"rule" ident ":"
   
-  -- Test declaration
-  testDecl ::= "test" string ":" term testExpected?
+  -- Test declaration with extended options (with cut after "test")
+  testDecl ::= !"test" string ":" term testExpected? testOpts?
   testExpected ::= testExpectedArrow | testExpectedDouble
   testExpectedArrow ::= whitespace? "~~>" whitespace? term
   testExpectedDouble ::= whitespace? "==>" whitespace? term
+  -- Extended test options
+  testOpts ::= testOpt+
+  testOpt ::= "via" ident | "steps" number | "error" string
   
-  -- Law declaration (algebraic laws)
-  lawDecl ::= "law" string ":" term lawOp term
+  -- Law declaration (with cut after "law")
+  lawDecl ::= !"law" string ":" term lawOp term
   lawOp ::= "≅" | "=="  -- isomorphism or equality
   
-  -- Inherit declaration (grammar composition)
-  inheritDecl ::= "inherit" qualIdent
+  -- Inherit declaration (with cut after "inherit")
+  inheritDecl ::= !"inherit" qualIdent
   qualIdent ::= ident ("." ident)*
   
-  -- Autocut annotation
-  autocutDecl ::= "@autocut" ident
+  -- Autocut annotation (with cut after "@autocut")
+  autocutDecl ::= !"@autocut" ident
   
-  -- Def declaration
-  defDecl ::= "def" ident "=" term
+  -- Def declaration (with cut after "def")
+  defDecl ::= !"def" ident "=" term

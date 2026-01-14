@@ -12,7 +12,9 @@ module Lego.GrammarParser
 import Lego (Term, pattern TmVar, pattern TmCon, pattern TmLit,
              pattern GRef, pattern GLit, pattern GAlt, pattern GSeq, 
              pattern GStar, pattern GBind, pattern GAny, pattern GNode, pattern GEmpty,
+             pattern GCut,
              GrammarExpr, LegoDecl(..), Rule(..), RuleDir(..), Test(..), Law(..),
+             TestSpec(..), TestExpect(..), defaultOpts,
              Mode(..), BiState(..))
 import Lego.Token (Token(..), TokenInfo(..), tokenizeWithInfo)
 import Lego.GrammarDef (legoGrammar)
@@ -66,11 +68,24 @@ termToDecl (TmCon "DImport" [TmLit name]) = Just $ DImport name
 -- Def
 termToDecl (TmCon "DDef" [TmVar name, value]) = Just $ DDef name value
 termToDecl (TmCon "DDef" [TmLit name, value]) = Just $ DDef name value
--- Test
+-- Test (basic)
 termToDecl (TmCon "DTest" [TmLit name, input]) = 
   Just $ DTest $ Test name input input
 termToDecl (TmCon "DTest" [TmLit name, input, expected]) = 
   Just $ DTest $ Test name input expected
+-- Test with options (extended syntax: via, steps, error)
+termToDecl (TmCon "DTest" [TmLit name, input, expected, opts]) = 
+  -- Extended test with options - convert to TestSpec
+  let baseTest = Test name input expected
+  in Just $ DTestSpec $ parseTestOpts baseTest opts
+termToDecl (TmCon "DTest" (TmLit name : input : rest)) = 
+  -- Handle various argument patterns
+  case rest of
+    [] -> Just $ DTest $ Test name input input
+    [expected] -> Just $ DTest $ Test name input expected
+    (expected : opts) -> 
+      let baseTest = Test name input expected
+      in Just $ DTestSpec $ parseTestOpts baseTest (TmCon "opts" opts)
 -- Rule
 termToDecl (TmCon "DRule" [TmVar name, pat, tmpl]) = 
   Just $ DRule $ Rule name pat tmpl Nothing Forward
@@ -124,6 +139,32 @@ termToDecl (TmCon "DAutocut" [TmLit name]) =
   Just $ DAutocut name
 -- Unknown
 termToDecl _ = Nothing
+
+-- | Parse test options from AST term
+parseTestOpts :: Test -> Term -> TestSpec
+parseTestOpts (Test name input expected) optsTerm = 
+  let baseSpec = TestSpec name input (ExpectNorm expected) defaultOpts
+  in foldr applyOpt baseSpec (extractOpts optsTerm)
+  where
+    extractOpts (TmCon "opts" opts) = opts
+    extractOpts (TmCon "seq" opts) = opts
+    extractOpts t = [t]
+    
+    applyOpt (TmCon "via" [TmVar rn]) spec = 
+      spec { tsExpect = ExpectAnd (tsExpect spec) (ExpectViaRule rn) }
+    applyOpt (TmCon "via" [TmLit rn]) spec = 
+      spec { tsExpect = ExpectAnd (tsExpect spec) (ExpectViaRule rn) }
+    applyOpt (TmCon "steps" [TmLit n]) spec = 
+      case reads n of
+        [(num, "")] -> spec { tsExpect = ExpectAnd (tsExpect spec) (ExpectSteps num) }
+        _ -> spec
+    applyOpt (TmCon "steps" [TmCon "num" [TmLit n]]) spec = 
+      case reads n of
+        [(num, "")] -> spec { tsExpect = ExpectAnd (tsExpect spec) (ExpectSteps num) }
+        _ -> spec
+    applyOpt (TmCon "error" [TmLit msg]) spec = 
+      spec { tsExpect = ExpectError msg }
+    applyOpt _ spec = spec
 
 -- | Extract qualified name from nested terms
 intercalateQual :: [Term] -> String
@@ -220,6 +261,7 @@ termToGrammar (TmCon "seq" gs) = foldr GSeq GEmpty (map termToGrammar gs)
 termToGrammar (TmCon "star" [g]) = GStar (termToGrammar g)
 termToGrammar (TmCon "plus" [g]) = GSeq (termToGrammar g) (GStar (termToGrammar g))
 termToGrammar (TmCon "opt" [g]) = GAlt (termToGrammar g) GEmpty
+termToGrammar (TmCon "cut" [g]) = GCut (termToGrammar g)  -- !g cut syntax
 termToGrammar (TmCon "bind" [TmVar x]) = GBind x GAny
 termToGrammar (TmCon "special" [TmVar name]) = GNode name []
 termToGrammar (TmCon "empty" []) = GEmpty

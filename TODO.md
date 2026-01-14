@@ -78,9 +78,15 @@ Removed in cleanup (was unused). Recover and implement when needed:
 - Most are grammar-only files needing reduction rules
 - See [EXECUTABLE-STATUS.md](EXECUTABLE-STATUS.md) for details
 
-### Grammar Completeness
-- Parser support for extended test syntax (`via`, `steps`)
-- GCut usage in grammar productions for better error localization
+### Grammar Completeness ✅
+- ✅ Parser support for extended test syntax (`via`, `steps`, `error`)
+  - Grammar.sexpr/Grammar.lego: `testOpts ::= testOpt+`, `testOpt ::= via | steps | error`
+  - GrammarParser.hs: `parseTestOpts` converts to `TestSpec` with `ExpectViaRule`, `ExpectSteps`, `ExpectError`
+- ✅ GCut usage in grammar productions for better error localization
+  - Grammar.lego: `!` prefix syntax for cuts (e.g., `!"lang"`, `!"rule"`, `!"test"`)
+  - Grammar.sexpr: `grammarSuffix` includes `(node cut (seq (lit !) ...))`
+  - GrammarParser.hs: `termToGrammar` handles `(TmCon "cut" ...)` → `GCut`
+  - Key declarations now have cuts: langDecl, ruleDecl, testDecl, lawDecl, importDecl, etc.
 
 ## Future Work 📋
 
