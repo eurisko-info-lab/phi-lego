@@ -42,6 +42,7 @@ library
         Lego.GrammarDef
         Lego.GrammarParser
         Lego.RewriteMachine
+        Lego.Schema
         Lego.SExpr
     build-depends:
         base >= 4.14 && < 5,
