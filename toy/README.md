@@ -1,0 +1,156 @@
+# Lego in Lean 4: Composable Bidirectional Reducers
+
+## Philosophy
+
+**Everything is a BiReducer.**
+
+A `BiReducer A B` is a partial isomorphism between types `A` and `B`:
+- `forward : A → Option B`
+- `backward : B → Option A`
+
+When both succeed: `forward ∘ backward = id` and `backward ∘ forward = id`.
+
+## The Key Insight
+
+Grammar is not special. It's just a `BiReducer TokenStream Term`.
+
+| Component | BiReducer Type | Forward | Backward |
+|-----------|---------------|---------|----------|
+| **Grammar** | `TokenStream ⇌ Term` | parse | print |
+| **Rules** | `Term ⇌ Term` | reduce | expand |
+| **Types** | `Term → Option Type` | infer | - |
+
+A **Piece** = Grammar + Rules = Syntax + Free Interpreter
+
+A **Language** = ⊔ Pieces = Merged Grammar + Merged Interpreter
+
+**The grammar (Meta) is pre-compiled, but structurally identical to any user-defined language.**
+
+## Core Algebra
+
+```
+BiReducer composition:
+
+  id     : A ⇌ A                         -- identity
+  >>>    : (A ⇌ B) → (B ⇌ C) → (A ⇌ C)   -- sequential
+  ***    : (A ⇌ B) → (C ⇌ D) → (A×C ⇌ B×D)  -- parallel (product)
+  |||    : (A ⇌ C) → (B ⇌ C) → (A+B ⇌ C) -- choice (coproduct)
+  orElse : (A ⇌ B) → (A ⇌ B) → (A ⇌ B)   -- alternative
+  ~      : (A ⇌ B) → (B ⇌ A)             -- symmetric (flip)
+```
+
+These form a **dagger compact category** enriched over partial isomorphisms.
+
+## Grammar Algebra
+
+`GrammarExpr` is the free Kleene algebra (*-semiring):
+
+| Constructor | Notation | Algebra |
+|------------|----------|---------|
+| `empty` | ε | identity for alt |
+| `lit s` | "s" | literal match |
+| `ref n` | n | production reference |
+| `seq` | ⬝ | monoid (associative, ε identity) |
+| `alt` | ⊕ | commutative, associative |
+| `star` | * | Kleene closure |
+| `bind` | x ← g | capture binding |
+| `node` | ⟨name⟩ g | AST wrapper |
+
+Laws:
+- `(a ⬝ b) ⬝ c = a ⬝ (b ⬝ c)` (seq associative)
+- `ε ⬝ a = a = a ⬝ ε` (seq identity)
+- `a ⊕ b = b ⊕ a` (alt commutative)
+- `(a ⊕ b) ⊕ c = a ⊕ (b ⊕ c)` (alt associative)
+- `a* = (a ⬝ a*) ⊕ ε` (star unfold)
+- `a ⬝ (b ⊕ c) = (a ⬝ b) ⊕ (a ⬝ c)` (distribution)
+
+## File Structure
+
+```
+toy/
+├── lakefile.lean            -- Lake build config
+├── lean-toolchain           -- Lean version
+├── Main.lean                -- Entry point
+├── README.md                -- This file
+└── src/
+    ├── Lego.lean            -- Re-exports all modules
+    └── Lego/
+        ├── Algebra.lean     -- BiReducer, Term, GrammarExpr, Rule, Piece, Language
+        ├── Interp.lean      -- Grammar interpretation (parse/print)
+        ├── Bootstrap.lean   -- Meta (pre-compiled, like Grammar.sexpr)
+        ├── Laws.lean        -- Algebraic laws and axioms
+        └── Example/
+            └── Lambda.lean  -- Lambda calculus + Interaction nets examples
+```
+
+## Meta: Just Another Language
+
+The Meta is defined in [Bootstrap.lean](src/Lego/Bootstrap.lean) as a regular `Language`:
+
+```lean
+def metaGrammar : Language := {
+  name := "Meta"
+  pieces := [atomPiece, termPiece, patternPiece, templatePiece, grammarExprPiece, filePiece]
+}
+```
+
+It has the same structure as any user-defined language. The only difference is it's pre-compiled in Lean (bootstrapped) rather than parsed from a `.lego` file.
+
+This is exactly like `Grammar.sexpr` in the Haskell implementation - a compiled representation of the grammar for grammars.
+
+## The Roundtrip Theorem
+
+```lean
+theorem roundtrip (lang : Language) (startProd : String) :
+    let interp := lang.toInterp startProd
+    ∀ t : Term, ∀ tokens : TokenStream,
+      interp.parse tokens = some t →
+      interp.print t >>= interp.parse = some t
+```
+
+This is provable from the lawfulness of BiReducers.
+
+## Building
+
+```bash
+cd toy
+lake build
+lake exe lego
+```
+
+## Comparison to Haskell Implementation
+
+| Haskell | Lean 4 | Purpose |
+|---------|--------|---------|
+| `GrammarExpr` | `GrammarExpr` | Grammar algebra (Kleene *-semiring) |
+| `Term` | `Term` | Universal AST |
+| `CompiledLang` | `Language` | Language = ⊔ Pieces |
+| `Grammar.sexpr` | `Bootstrap.metaGrammar` | Pre-compiled grammar for grammars |
+| `parseLegoFile` | `metaInterp.parse` | Parse .lego files |
+| `normalize` | `interp.normalize` | Apply rules (forward) |
+| `printExpr` | `interp.print` | Generate text (backward) |
+| - | `BiReducer` | Explicit bidirectional abstraction |
+
+The key difference: in Lean we can **prove** the algebraic laws hold, and the bidirectional structure is explicit in the types.
+
+## Example Languages
+
+The [Example/Lambda.lean](src/Lego/Example/Lambda.lean) file shows that user-defined languages have the exact same structure as the Meta:
+
+```lean
+-- Lambda Calculus: same structure as Meta
+def lambdaCalc : Language := {
+  name := "LambdaCalculus"
+  pieces := [atomPiece, exprPiece, betaPiece]
+}
+
+-- Interaction Nets: also same structure
+def inetLang : Language := {
+  name := "InteractionNets"
+  pieces := [inetPiece]
+}
+```
+
+Each language gets a free interpreter from its rules:
+- Lambda: β-reduction via `Rule.toBiReducer`
+- Interaction Nets: annihilation/commutation via `Rule.toBiReducer`

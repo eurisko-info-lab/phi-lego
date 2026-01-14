@@ -1,0 +1,48 @@
+-- Meta.lego: Simple expression language with arithmetic
+-- Example for metaprogramming base
+
+lang Meta :=
+
+piece Expr
+  expr ::= zero | one | add | mul
+  zero ::= "(" "zero" ")"
+  one  ::= "(" "one" ")"
+  add  ::= "(" "add" expr expr ")"
+  mul  ::= "(" "mul" expr expr ")"
+
+rule add_zero:
+  (add (zero) $n) ~> $n
+
+rule mul_zero:
+  (mul (zero) $n) ~> (zero)
+
+rule mul_one:
+  (mul (one) $n) ~> $n
+
+test "zero": (zero)
+test "one": (one)
+test "add": (add (one) (one))
+test "mul": (mul (one) (one))
+test "add_zero": (add (zero) (one)) ~~> (one)
+test "mul_zero": (mul (zero) (one)) ~~> (zero)
+test "mul_one": (mul (one) (one)) ~~> (one)
+
+-----------------------------------------------------
+-- Lambda calculus extension
+-----------------------------------------------------
+piece Lambda
+  expr ::= var | lam | app
+  var  ::= "(" "var" name ")"
+  lam  ::= "(" "lam" name expr ")"
+  app  ::= "(" "app" expr expr ")"
+
+rule beta:
+  (app (lam $x $body) $arg) ~> (subst $x $arg $body)
+
+-- Identity: (λx.x) y → y
+test "id": (lam x (var x))
+test "id_app": (app (lam x (var x)) (var y)) ~~> y
+
+-- K combinator: λx.λy.x (first)
+test "k": (lam x (lam y (var x)))
+test "k_app": (app (lam x (lam y (var x))) (var a)) ~~> (lam y (var a))

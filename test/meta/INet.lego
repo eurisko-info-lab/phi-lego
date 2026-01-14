@@ -1,0 +1,200 @@
+-- INet.lego: Interaction Nets as a Language
+--
+-- Structure: Language = ⊔ Pieces (pushout chain)
+-- Each piece extends previous ones with grammar, rules, laws, tests.
+
+lang InteractionNets :=
+
+-- =============================================================================
+-- PIECE 1: Ports (Base)
+-- =============================================================================
+
+piece Port
+  port ::= "(" "Port" <ident> ")"
+
+  law "port_id": (Port $x) == (Port $x)
+
+  test "port_a": (Port a)
+  test "port_b": (Port b)
+
+-- =============================================================================
+-- PIECE 2: Eraser Agent
+-- =============================================================================
+
+piece Era
+  era ::= "(" "Era" ")"
+
+  law "era_idem": (Era) == (Era)
+
+  test "era": (Era)
+
+-- =============================================================================
+-- PIECE 3: Duplicator Agent
+-- =============================================================================
+
+piece Dup
+  dup ::= "(" "Dup" port port ")"
+
+  rule dup_sym:
+    (Dup (Port $a) (Port $b)) <~> (Dup (Port $b) (Port $a))
+
+  law "dup_symmetric": (Dup (Port $a) (Port $b)) == (Dup (Port $b) (Port $a))
+
+  test "dup": (Dup (Port a) (Port b))
+
+-- =============================================================================
+-- PIECE 4: Lambda Agent
+-- =============================================================================
+
+piece Lam
+  lam ::= "(" "Lam" port port ")"
+
+  test "lam": (Lam (Port x) (Port body))
+
+-- =============================================================================
+-- PIECE 5: Application Agent
+-- =============================================================================
+
+piece App
+  app ::= "(" "App" port port ")"
+
+  test "app": (App (Port fun) (Port arg))
+
+-- =============================================================================
+-- PIECE 6: Wire (Connection)
+-- =============================================================================
+
+piece Wire
+  wire ::= "(" port "~" port ")"
+
+  rule wire_sym:
+    ((Port $a) ~ (Port $b)) <~> ((Port $b) ~ (Port $a))
+
+  law "wire_symmetric": ((Port $a) ~ (Port $b)) == ((Port $b) ~ (Port $a))
+
+  test "wire": ((Port a) ~ (Port b))
+
+-- =============================================================================
+-- PIECE 7: Net (Graph)
+-- =============================================================================
+
+piece Net
+  net ::= "(" "Net" wire* ")"
+
+  law "net_empty_id": (Net) == (Net)
+
+  test "net_empty": (Net)
+  test "net_single": (Net ((Port a) ~ (Port b)))
+  test "net_double": (Net ((Port a) ~ (Port b)) ((Port c) ~ (Port d)))
+
+-- =============================================================================
+-- PIECE 8: Nat (Natural Numbers as Agents)
+-- =============================================================================
+
+piece Nat
+  nat     ::= zAgent | sAgent
+  zAgent  ::= "(" "ZA" ")"
+  sAgent  ::= "(" "SA" port ")"
+
+  test "zero_agent": (ZA)
+  test "one_agent": (SA (Port n))
+  test "two_agent": (SA (Port n1))
+
+-- =============================================================================
+-- PIECE 9: Arithmetic Agents
+-- =============================================================================
+
+piece ArithAgent
+  arithAgent ::= addAgent | mulAgent
+
+  addAgent ::= "(" "AddA" port port port ")"
+  mulAgent ::= "(" "MulA" port port port ")"
+
+  test "add_agent": (AddA (Port x) (Port y) (Port r))
+  test "mul_agent": (MulA (Port x) (Port y) (Port r))
+
+-- =============================================================================
+-- PIECE 10: Let Agents
+-- =============================================================================
+
+piece LetAgent
+  letAgent ::= letA | defA
+
+  letA ::= "(" "LetA" <ident> port port ")"
+  defA ::= "(" "DefA" <ident> port ")"
+
+  test "let_agent": (LetA x (Port v) (Port body))
+  test "def_agent": (DefA fact (Port body))
+
+-- =============================================================================
+-- GLOBAL RULES: Cross-Piece Interactions
+-- =============================================================================
+
+rule annihilate_era:
+  (Era) <~> (Net)
+
+rule annihilate_dup:
+  (Dup (Port $a) (Port $b)) <~> (Net ((Port $a) ~ (Port $c)) ((Port $b) ~ (Port $d)))
+
+rule beta:
+  (App (Port $fun) (Port $arg)) <~> (Net ((Port $x) ~ (Port $arg)) ((Port $body) ~ (Port $fun)))
+
+-- Arithmetic: add zero
+rule add_zero:
+  (AddA (Port $x) (Port $y) (Port $r)) <~> (Net ((Port $y) ~ (Port $r)))
+
+-- =============================================================================
+-- GLOBAL LAWS
+-- =============================================================================
+
+law "era_annihilate": (Era) == (Net)
+
+-- =============================================================================
+-- INTERPRETER TESTS: Graph Reduction
+-- =============================================================================
+
+test "compose_dup": (Dup (Port a) (Port b))
+test "compose_net": (Net ((Port a) ~ (Port b)))
+
+-- Identity wire
+test "interp_wire": (Net ((Port a) ~ (Port b)))
+
+-- Era erases
+test "interp_era": (Era) ~~> (Net)
+
+-- Natural numbers
+test "interp_zero": (ZA)
+test "interp_one": (SA (Port n))
+test "interp_two": (SA (Port n1))
+
+-- Addition agent configuration
+test "interp_add": (AddA (Port x) (Port y) (Port result))
+
+-- Multiplication agent configuration  
+test "interp_mul": (MulA (Port x) (Port y) (Port result))
+
+-- Let binding for fibonacci definition
+test "fib_def": (LetA fib (Port fibDef) (Port fibUse))
+
+-- Let binding for factorial definition
+test "fact_def": (DefA fact (Port factBody))
+
+-- Complex net: addition circuit
+test "add_circuit": (Net ((Port a) ~ (AddA (Port x) (Port y) (Port r)))
+                         ((Port x) ~ (ZA)))
+
+-- Complex net: duplication + lambda
+test "dup_lam_circuit": (Net ((Port a) ~ (Dup (Port b) (Port c)))
+                              ((Port b) ~ (Lam (Port x) (Port body))))
+
+-- =============================================================================
+-- MATHEMATICAL FOUNDATION
+-- =============================================================================
+--
+-- InteractionNets = Port ⊕ Era ⊕ Dup ⊕ Lam ⊕ App ⊕ Wire ⊕ Net
+--                 ⊕ Nat ⊕ ArithAgent ⊕ LetAgent
+--
+-- Key insight: Programs ARE net configurations.
+-- Rules reduce them - no separate interpreter needed!
+--
+-- =============================================================================

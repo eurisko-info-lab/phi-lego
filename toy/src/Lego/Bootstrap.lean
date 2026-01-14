@@ -1,0 +1,237 @@
+/-
+  Lego.Bootstrap: The Meta-Grammar (pre-compiled)
+
+  This is exactly like Grammar.sexpr - a pre-compiled grammar that can parse
+  other grammars. But structurally it's just another Language, not special.
+
+  The only difference: it's defined in Lean directly (bootstrapped) rather
+  than parsed from a .lego file.
+-/
+
+import Lego.Algebra
+import Lego.Interp
+
+namespace Lego.Bootstrap
+
+open GrammarExpr
+
+/-! ## Meta: The grammar for grammars -/
+
+/-- Atom piece: basic tokens -/
+def atomPiece : Piece := {
+  name := "Atom"
+  grammar := [
+    ("Atom.ident",  node "ident" (ref "TOKEN.ident")),
+    ("Atom.string", node "string" (ref "TOKEN.string")),
+    ("Atom.number", node "number" (ref "TOKEN.number"))
+  ]
+  rules := []
+}
+
+/-- Term piece: S-expression terms -/
+def termPiece : Piece := {
+  name := "Term"
+  grammar := [
+    ("Term.term",
+      (node "var" (ref "Atom.ident")).alt
+      ((node "lit" (ref "Atom.string")).alt
+      ((node "num" (ref "Atom.number")).alt
+       (node "con" ((lit "(").seq ((ref "Atom.ident").seq ((ref "Term.term").star.seq (lit ")"))))))))
+  ]
+  rules := []
+}
+
+/-- Pattern piece: match patterns -/
+def patternPiece : Piece := {
+  name := "Pattern"
+  grammar := [
+    ("Pattern.pattern",
+      (node "metavar" ((lit "$").seq (ref "Atom.ident"))).alt
+      ((node "pcon" ((lit "(").seq ((ref "Atom.ident").seq ((ref "Pattern.pattern").star.seq (lit ")"))))).alt
+      ((node "plit" (ref "Atom.string")).alt
+       (node "pvar" (ref "Atom.ident")))))
+  ]
+  rules := []
+}
+
+/-- Template piece: substitution templates -/
+def templatePiece : Piece := {
+  name := "Template"
+  grammar := [
+    ("Template.template",
+      (node "metavar" ((lit "$").seq (ref "Atom.ident"))).alt
+      ((node "tcon" ((lit "(").seq ((ref "Atom.ident").seq ((ref "Template.template").star.seq (lit ")"))))).alt
+      ((node "tlit" (ref "Atom.string")).alt
+       (node "tvar" (ref "Atom.ident")))))
+  ]
+  rules := []
+}
+
+/-- GrammarExpr piece: grammar expressions -/
+def grammarExprPiece : Piece := {
+  name := "GrammarExpr"
+  grammar := [
+    ("GrammarExpr.expr", ref "GrammarExpr.alt"),
+    ("GrammarExpr.alt",
+      (node "alt" ((ref "GrammarExpr.seq").seq ((lit "|").seq (ref "GrammarExpr.alt")))).alt
+       (ref "GrammarExpr.seq")),
+    ("GrammarExpr.seq",
+      (node "seq" ((ref "GrammarExpr.suffix").seq (ref "GrammarExpr.suffix").star)).alt
+       (ref "GrammarExpr.suffix")),
+    ("GrammarExpr.suffix",
+      (node "star" ((ref "GrammarExpr.atom").seq (lit "*"))).alt
+      ((node "plus" ((ref "GrammarExpr.atom").seq (lit "+"))).alt
+      ((node "opt"  ((ref "GrammarExpr.atom").seq (lit "?"))).alt
+       (ref "GrammarExpr.atom")))),
+    ("GrammarExpr.atom",
+      (node "lit" (ref "Atom.string")).alt
+      ((node "ref" (ref "Atom.ident")).alt
+      ((node "group" ((lit "(").seq ((ref "GrammarExpr.expr").seq (lit ")")))).alt
+      ((node "special" ((lit "<").seq ((ref "Atom.ident").seq (lit ">")))).alt
+       (node "empty" (lit "ε"))))))
+  ]
+  rules := []
+}
+
+/-- File piece: file structure with NEWLINE tokens -/
+def filePiece : Piece := {
+  name := "File"
+  grammar := [
+    ("File.legoFile", ((ref "File.decl").seq ((lit "NEWLINE").alt empty)).star),
+    ("File.decl",
+      (ref "File.importDecl").alt
+      ((ref "File.langDecl").alt
+      ((ref "File.pieceDecl").alt
+      ((ref "File.ruleDecl").alt
+       (ref "File.testDecl"))))),
+    -- import Atoms
+    ("File.importDecl",
+      node "DImport" ((lit "import").seq (ref "Atom.ident"))),
+    -- lang Lambda (Atoms) :=
+    ("File.langDecl",
+      node "DLang" ((lit "lang").seq ((ref "Atom.ident").seq
+                    (((ref "File.imports").alt empty).seq
+                    ((lit ":=").seq (ref "File.langBody")))))),
+    ("File.langBody", ((ref "File.innerDecl").seq ((lit "NEWLINE").alt empty)).star),
+    ("File.innerDecl",
+      (ref "File.pieceDecl").alt
+      ((ref "File.ruleDecl").alt
+       (ref "File.testDecl"))),
+    -- (Ident, Ident, ...)
+    ("File.imports",
+      node "DImports" ((lit "(").seq ((ref "Atom.ident").seq (((lit ",").seq (ref "Atom.ident")).star.seq (lit ")"))))),
+    ("File.pieceDecl",
+      node "DPiece" ((lit "piece").seq ((ref "Atom.ident").seq (((lit "NEWLINE").alt empty).seq (ref "File.prodDecl").star)))),
+    ("File.prodDecl",
+      node "DGrammar" ((ref "Atom.ident").seq ((lit "::=").seq ((ref "GrammarExpr.expr").seq ((lit "NEWLINE").alt empty))))),
+    ("File.ruleDecl",
+      node "DRule" ((lit "rule").seq ((ref "Atom.ident").seq ((lit ":").seq
+                    (((lit "NEWLINE").alt empty).seq
+                    ((ref "Pattern.pattern").seq ((lit "~>").seq (ref "Template.template")))))))),
+    ("File.testDecl",
+      node "DTest" ((lit "test").seq ((ref "Atom.string").seq ((lit ":").seq
+                    ((ref "Term.term").seq (((lit "~~>").seq (ref "Term.term")).alt empty))))))
+  ]
+  rules := []
+}
+
+/-- The complete Meta language -/
+def metaGrammar : Language := {
+  name := "Meta"
+  pieces := [atomPiece, termPiece, patternPiece, templatePiece, grammarExprPiece, filePiece]
+}
+
+/-- Build the interpreter for parsing .lego files -/
+def metaInterp : LangInterp := metaGrammar.toInterp "File.legoFile"
+
+/-! ## Loading Languages -/
+
+/-- Check if a character is a symbol character -/
+def isSymChar (c : Char) : Bool :=
+  c ∈ ['(', ')', '[', ']', '{', '}', ':', '=', '|', '*', '+', '?', '~', '>', '<', '$', '.', ',', ';']
+
+/-- Check if a character is an operator character that can be multi-char -/
+def isOpChar (c : Char) : Bool :=
+  c ∈ [':', '=', '~', '>', '<', '-']
+
+/-- Remove comments from a line -/
+def removeLineComment (s : String) : String :=
+  match s.splitOn "--" with
+  | [] => ""
+  | h :: _ => h
+
+/-- Tokenize a string into tokens (proper lexer) -/
+partial def tokenize (s : String) : TokenStream :=
+  -- Process line by line, adding NEWLINE tokens between non-empty lines
+  let lines := s.splitOn "\n" |>.map removeLineComment |>.map String.trim |>.filter (· ≠ "")
+  let tokenizedLines := lines.map (fun line => tokenizeLine line.toList [])
+  -- Interleave with newline tokens
+  tokenizedLines.foldl (fun acc toks =>
+    if acc.isEmpty then toks
+    else acc ++ [Token.sym "NEWLINE"] ++ toks
+  ) []
+where
+  tokenizeLine (chars : List Char) (acc : List Token) : TokenStream :=
+    match chars with
+    | [] => acc.reverse
+    | c :: rest =>
+      if c.isWhitespace then
+        tokenizeLine rest acc
+      -- String literal
+      else if c == '"' then
+        let (str, rest') := takeString rest ""
+        tokenizeLine rest' (Token.lit s!"\"{str}\"" :: acc)
+      -- Multi-char operators: ::= ~> ~~> :=
+      else if c == ':' && rest.head? == some ':' && rest.tail.head? == some '=' then
+        tokenizeLine rest.tail.tail (Token.sym "::=" :: acc)
+      else if c == ':' && rest.head? == some '=' then
+        tokenizeLine rest.tail (Token.sym ":=" :: acc)
+      else if c == '~' && rest.head? == some '~' && rest.tail.head? == some '>' then
+        tokenizeLine rest.tail.tail (Token.sym "~~>" :: acc)
+      else if c == '~' && rest.head? == some '>' then
+        tokenizeLine rest.tail (Token.sym "~>" :: acc)
+      -- Single-char symbols
+      else if isSymChar c then
+        tokenizeLine rest (Token.sym (String.singleton c) :: acc)
+      -- Identifier or keyword
+      else if c.isAlpha || c == '_' then
+        let (ident, rest') := takeIdent chars ""
+        tokenizeLine rest' (Token.ident ident :: acc)
+      -- Number
+      else if c.isDigit then
+        let (num, rest') := takeNumber chars ""
+        tokenizeLine rest' (Token.number num :: acc)
+      else
+        -- Skip unknown character
+        tokenizeLine rest acc
+
+  takeString (chars : List Char) (acc : String) : String × List Char :=
+    match chars with
+    | [] => (acc, [])
+    | '"' :: rest => (acc, rest)
+    | '\\' :: c :: rest => takeString rest (acc.push '\\' |>.push c)
+    | c :: rest => takeString rest (acc.push c)
+
+  takeIdent (chars : List Char) (acc : String) : String × List Char :=
+    match chars with
+    | [] => (acc, [])
+    | c :: rest =>
+      if c.isAlpha || c.isDigit || c == '_' then
+        takeIdent rest (acc.push c)
+      else
+        (acc, chars)
+
+  takeNumber (chars : List Char) (acc : String) : String × List Char :=
+    match chars with
+    | [] => (acc, [])
+    | c :: rest =>
+      if c.isDigit then
+        takeNumber rest (acc.push c)
+      else
+        (acc, chars)
+
+/-- Parse a .lego file into declarations -/
+def parseLegoFile (content : String) : Option Term :=
+  metaInterp.parse (tokenize content)
+
+end Lego.Bootstrap

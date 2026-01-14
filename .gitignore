@@ -23,3 +23,4 @@ test/build/
 # OS
 .DS_Store
 Thumbs.db
+toy/.lake/
