@@ -73,9 +73,9 @@ module Lego.Eval
 import Lego
 import Lego.GrammarParser (parseLegoFile)
 import Lego.GrammarInterp (parseTerm)
-import Lego.GrammarAnalysis (collectLiterals)
+import Lego.GrammarAnalysis (collectLiterals, applyAutoCutsToProduction)
 import Lego.Token (Token(..), tokenize)
-import Lego.Validation (validate, ValidationResult(..), ValidationError(..), ValidationWarning(..), formatError, formatWarning)
+import Lego.Validation (validate, ValidationResult(..), ValidationError(..), ValidationWarning(..))
 import qualified Lego.Registry as R
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -279,11 +279,15 @@ processDeclWithMapAndResolved langMap resolvedMap cl (DPushout name1 name2) = do
   l2 <- lookupLang langMap resolvedMap name2
   Right $ poCompiledLang cl (poCompiledLang l1 l2)
 processDeclWithMapAndResolved _ _ cl (DVocab kws syms) =
+  -- Explicit vocab declaration - still supported for override/specialization
   Right $ addVocab (S.fromList (kws ++ syms)) cl
 processDeclWithMapAndResolved _ _ cl (DGrammar name g) =
   -- Auto-extract vocabulary from grammar literals
+  -- Apply auto-cuts if the production name is in clAutocuts
   let vocab = S.fromList (collectLiterals g)
-  in Right $ addVocab vocab (addGrammar name g cl)
+      shouldAutoCut = name `elem` clAutocuts cl
+      g' = if shouldAutoCut then applyAutoCutsToProduction g else g
+  in Right $ addVocab vocab (addGrammar name g' cl)
 processDeclWithMapAndResolved _ _ cl (DRule rule) =
   Right $ addRule rule cl
 processDeclWithMapAndResolved _ _ cl (DDef name term) =

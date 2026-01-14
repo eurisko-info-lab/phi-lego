@@ -24,6 +24,7 @@ module Lego.GrammarAnalysis
   ( -- * Grammar Scanning
     scanGrammar
   , collectLiterals
+  , collectKeywords
     -- * Vocabulary Building
   , buildVocabFromGrammar
     -- * Vocabulary Inference
@@ -31,6 +32,9 @@ module Lego.GrammarAnalysis
   , inferVocab
   , inferCutPoints
   , CutPoint(..)
+    -- * Auto-Cut Application
+  , applyAutoCuts
+  , applyAutoCutsToProduction
     -- * Production Analysis
   , scanProductions
   , checkProductionNaming
@@ -134,19 +138,26 @@ data CutPoint = CutPoint
 --
 -- This replaces manual vocab: declarations in most cases.
 -- The grammar itself declares what's reserved via GLit.
+--
+-- Keywords: alphabetic identifiers (if, while, let, rule, etc.)
+-- Symbols: operators and punctuation (~>, ::=, +, etc.)
 inferVocab :: Map String (GrammarExpr a) -> InferredVocab
 inferVocab grammar = InferredVocab
-  { ivKeywords  = S.fromList $ concatMap collectKeywords (M.elems grammar)
-  , ivSymbols   = S.fromList $ filter isSymbol allLits
+  { ivKeywords  = S.fromList keywords
+  , ivSymbols   = S.fromList symbolsOnly
   , ivLiterals  = S.fromList allLits
   , ivCutPoints = inferCutPoints grammar
   }
   where
     allLits = concatMap collectLiterals (M.elems grammar)
+    keywords = concatMap collectKeywords (M.elems grammar)
+    symbolsOnly = filter isSymbol allLits
 
--- | Collect reserved words (now just returns empty - reserved distinction removed)
+-- | Collect keyword-like literals (alphabetic identifiers, not symbols)
+-- Keywords are strings that look like identifiers (alphabetic chars + underscores)
 collectKeywords :: GrammarExpr a -> [String]
 collectKeywords = \case
+  GLit s | isKeywordLike s -> [s]
   GSeq g1 g2 -> collectKeywords g1 ++ collectKeywords g2
   GAlt g1 g2 -> collectKeywords g1 ++ collectKeywords g2
   GStar g -> collectKeywords g
@@ -155,6 +166,9 @@ collectKeywords = \case
   GCut g -> collectKeywords g
   GNode _ gs -> concatMap collectKeywords gs
   _ -> []
+  where
+    isKeywordLike s = not (null s) && all isAlphaLike s
+    isAlphaLike c = c `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['0'..'9'])
 
 -- | Infer where cuts should be inserted for error recovery
 --
@@ -192,6 +206,53 @@ findCutPoints prodName = go 0
       _ -> []
     
     -- Keywords are alphabetic identifiers (not symbols)
+    isKeywordLike s = not (null s) && all isAlphaLike s
+    isAlphaLike c = c `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'])
+
+--------------------------------------------------------------------------------
+-- Auto-Cut Application
+--------------------------------------------------------------------------------
+
+-- | Apply automatic cuts to all productions in a grammar
+--
+-- For each production-initial keyword, insert a cut after it.
+-- This improves error recovery by committing after seeing the keyword.
+--
+-- Example transformation:
+--   ruleDecl ::= "rule" name ":" pattern "~>" template
+--   becomes:
+--   ruleDecl ::= !"rule" name ":" pattern "~>" template
+applyAutoCuts :: Map String (GrammarExpr a) -> Map String (GrammarExpr a)
+applyAutoCuts grammar = M.map applyAutoCutsToProduction grammar
+
+-- | Apply auto-cuts to a single production
+--
+-- Insert cuts after production-initial keywords (alphabetic literals).
+applyAutoCutsToProduction :: GrammarExpr a -> GrammarExpr a
+applyAutoCutsToProduction = go True
+  where
+    -- 'atStart' tracks whether we're at the start of a production/alternative
+    go atStart g = case g of
+      -- Keyword at start of production -> wrap in cut
+      GLit kw | atStart && isKeywordLike kw -> GCut g
+      
+      -- Alternatives: apply to each branch (each alt is a "start")
+      GAlt g1 g2 -> GAlt (go True g1) (go True g2)
+      
+      -- Sequence: first element is start, rest is not
+      GSeq g1 g2 -> GSeq (go atStart g1) (go False g2)
+      
+      -- Recurse through structure, preserving start position
+      GRec n g' -> GRec n (go atStart g')
+      GBind n g' -> GBind n (go atStart g')
+      GStar g' -> GStar (go False g')  -- Star contents not at start
+      
+      -- Already has cut - don't double-wrap
+      GCut _ -> g
+      
+      -- Everything else passes through
+      _ -> g
+    
     isKeywordLike s = not (null s) && all isAlphaLike s
     isAlphaLike c = c `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'])
 

@@ -39,17 +39,19 @@ Multi-level pushout composition with algebraic law verification:
 - ✅ Law test syntax: `law "name": lhs ≅ rhs`
 - ✅ **Wire up `Lang`/`LangF`/`poLang`**: `CompiledLang = Lang ()`, runtime uses unified algebraic structure
 
-#### Phase 2: Automatic Vocab Inference
-- [ ] `inferVocab`: scan grammar → keywords/symbols/literals
-- [ ] `inferCutPoints`: auto-detect where cuts should go (after prod-initial keywords)
-- [ ] Remove manual `vocab:` when derivable from grammar
+#### Phase 2: Automatic Vocab Inference ✅
+- ✅ `inferVocab`: scan grammar → keywords/symbols/literals (`ivKeywords`, `ivSymbols`, `ivLiterals`)
+- ✅ `inferCutPoints`: auto-detect where cuts should go (`CutPoint` with prod-initial keywords)
+- ✅ `applyAutoCuts`/`applyAutoCutsToProduction`: transforms grammar with cuts after initial keywords
+- ✅ Auto-infer vocab: `DGrammar` processing auto-extracts vocab from `collectLiterals`
+- ✅ Manual `vocab:` still supported for override/specialization
 
 #### Phase 3: Local (Scoped) Keywords
 - [ ] Two-phase tokenization: atoms first, then per-production classification
 - [ ] Backtick `` `in` `` reserved only within its production scope
 - [ ] Prevents greedy identifier capture in nested contexts
 
-#### Phase 4: Declarative Cuts & Composition Syntax
+#### Phase 4: Declarative Cuts & Composition Syntax ✅
 - ✅ `@autocut` annotation on productions
 - ✅ `inherit Base.Term` syntax for grammar composition
 - ✅ Conflict resolution: local shadows inherited (`resolveInherit` checks `M.member` before adding)
