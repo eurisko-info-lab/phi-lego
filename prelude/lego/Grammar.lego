@@ -17,13 +17,14 @@ lang LegoGrammar :=
 -----------------------------------------------------
 
 piece Atom
-  ident   ::= <ident>
-  string  ::= <string>
-  regex   ::= <regex>
-  char    ::= <char>
-  number  ::= <digits>
-  metavar ::= "$" ident
-  chars   ::= <char>*
+  ident    ::= <ident>
+  string   ::= <string>
+  regex    ::= <regex>
+  char     ::= <char>
+  reserved ::= <reserved>
+  number   ::= <digits>
+  metavar  ::= "$" ident
+  chars    ::= <char>*
 
 -----------------------------------------------------
 -- PIECE 2: Term
@@ -101,6 +102,7 @@ piece GrammarExpr
                   | grammarAtom
   
   grammarAtom ::= string                    $ litAtom
+                | <reserved>                $ reservedAtom
                 | regex                     $ regexAtom
                 | char                      $ charAtom
                 | "$" (ident | string)      $ captureAtom

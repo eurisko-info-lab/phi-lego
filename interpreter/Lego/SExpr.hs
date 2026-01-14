@@ -42,7 +42,7 @@ module Lego.SExpr
   , writeSExprFile
   ) where
 
-import Lego (GrammarExpr, pattern GEmpty, pattern GLit,
+import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GRes,
              pattern GRegex, pattern GChar, pattern GNode, pattern GSeq, pattern GAlt,
              pattern GStar, pattern GRec, pattern GRef, pattern GBind, pattern GCut, pattern GAny)
 import qualified Data.Map as M
@@ -157,6 +157,7 @@ escapeString = concatMap escape
 grammarToSExpr :: GrammarExpr a -> SExpr
 grammarToSExpr GEmpty = List [Atom "empty"]
 grammarToSExpr (GLit s) = List [Atom "lit", Atom s]
+grammarToSExpr (GRes s) = List [Atom "res", Atom s]  -- reserved literal (scoped keyword)
 grammarToSExpr (GRegex s) = List [Atom "regex", Atom s]
 grammarToSExpr (GChar s) = List [Atom "char", Atom s]
 grammarToSExpr (GRef s) = List [Atom "ref", Atom s]
@@ -203,6 +204,7 @@ sexprToGrammar :: SExpr -> Either String (GrammarExpr ())
 sexprToGrammar (Atom s) = Right (GRef s)  -- Bare atom = reference
 sexprToGrammar (List [Atom "empty"]) = Right GEmpty
 sexprToGrammar (List [Atom "lit", Atom s]) = Right (GLit s)
+sexprToGrammar (List [Atom "res", Atom s]) = Right (GRes s)  -- reserved literal (scoped keyword)
 sexprToGrammar (List [Atom "syntax", Atom s]) = Right (GLit s)  -- syntax is just lit
 sexprToGrammar (List [Atom "keyword", Atom s]) = Right (GLit s)  -- keyword is just lit
 sexprToGrammar (List [Atom "regex", Atom s]) = Right (GRegex s)

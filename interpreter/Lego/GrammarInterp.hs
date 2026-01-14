@@ -54,7 +54,7 @@ module Lego.GrammarInterp
   , termGrammarDefs
   ) where
 
-import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GRegex, pattern GChar, pattern GNode,
+import Lego (GrammarExpr, pattern GEmpty, pattern GLit, pattern GRes, pattern GRegex, pattern GChar, pattern GNode,
              pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef,
              pattern GBind, pattern GCut, pattern GVar, pattern GAny,
              Term, pattern TmVar, pattern TmCon, pattern TmLit, pattern TmRegex, pattern TmChar,
@@ -163,6 +163,7 @@ foldGrammarLits f = go
   where
     go GEmpty = S.empty
     go (GLit s) = f s
+    go (GRes s) = f s  -- reserved literals are also keywords
     go (GRegex _) = S.empty
     go (GChar _) = S.empty
     go (GNode _ gs) = S.unions (map go gs)
@@ -322,6 +323,18 @@ runGrammar = go
         _ -> []  -- no match
       Print -> [st { bsTokens = bsTokens st ++ [TIdent s] }]
       Check -> [st]
+
+    -- Reserved literal (backtick syntax `s`): scoped keyword
+    -- In Parse mode, matches TReserved or TIdent when word is in bsScopedKw
+    -- The key difference from GLit: GRes marks the word as reserved within scope
+    go (GRes s) st = case bsMode st of
+      Parse -> case bsTokens st of
+        (TReserved t : ts) | t == s -> [st { bsTokens = ts }]
+        (TIdent t : ts) | t == s && t `S.member` bsScopedKw st -> [st { bsTokens = ts }]
+        (TKeyword t : ts) | t == s -> [st { bsTokens = ts }]
+        _ -> []  -- no match
+      Print -> [st { bsTokens = bsTokens st ++ [TReserved s] }]
+      Check -> [st]
     
     -- Char class literal: match char token
     go (GChar s) st = case bsMode st of
@@ -474,6 +487,12 @@ runGrammar = go
                                 , bsBinds = insertBind "_char" (TmChar s) (bsBinds st)
                                 , bsTerm = Just (TmChar s) }]
           _ -> []
+        -- Match reserved/backtick literal token (`foo` syntax for scoped keywords)
+        "reserved" -> case bsTokens st of
+          (TReserved s : ts) -> [st { bsTokens = ts
+                                    , bsBinds = insertBind "_reserved" (TmCon "reserved" [TmLit s]) (bsBinds st)
+                                    , bsTerm = Just (TmCon "reserved" [TmLit s]) }]
+          _ -> []
         -- Match any chars (inside string - not used at token level)
         "chars" -> [st]  -- no-op, strings are already tokenized
         -- Metavariable: "$" ident → TmVar "$x"
@@ -545,6 +564,8 @@ runGrammar = go
         "indent" -> printSimple (\case TmCon "indent" [TmLit n] -> Just [TIndent (read n)]; _ -> Nothing) st
         -- Print char literal: TmChar s → 'char'
         "char" -> printSimple (\case TmChar s -> Just [TChar s]; _ -> Nothing) st
+        -- Print reserved literal: TmCon "reserved" [TmLit s] → `reserved`
+        "reserved" -> printSimple (\case TmCon "reserved" [TmLit s] -> Just [TReserved s]; _ -> Nothing) st
         _ -> [st]  -- no-op for other simple nodes
       Check -> [st]
     
@@ -745,22 +766,23 @@ runGrammar = go
     --
     -- We only refine the NEXT token (head) when entering a production reference.
     -- The refined set is derived from FIRST-word literals of that production.
-    -- This avoids global "everything is a keyword" regressions while still
-    -- preventing <ident> from greedily consuming declaration-head keywords.
+    -- Reserved literals (GRes, from backtick syntax) are scoped to their production.
     refineAtRef :: String -> BiState Token Term -> BiState Token Term
     refineAtRef refName st =
       let kws = firstWordLitsForRef refName st
-          hard = S.intersection kws hardReservedWords
-      in st { bsTokens = refineHead hard kws (bsTokens st) }
+          -- Extract GRes literals from the production for scoped keywords
+          resLits = case resolveRef refName st of
+                      Nothing -> S.empty
+                      Just g -> collectResLits st S.empty g
+          -- Scoped keywords = production's GRes literals + inherited bsScopedKw
+          scopedKw = S.union resLits (bsScopedKw st)
+          -- Hard reserved = intersection of first-word literals with scoped keywords
+          hard = S.intersection kws scopedKw
+      in st { bsTokens = refineHead hard kws (bsTokens st)
+            , bsScopedKw = scopedKw }
 
-    -- Only reserve a very small set of structural words by default.
-    -- This avoids the "everything is reserved" regression while still fixing
-    -- the classic greedy-<ident> boundary bugs.
-    hardReservedWords :: S.Set String
-    hardReservedWords = S.fromList
-      [ "in", "of", "then", "else", "where", "with", "is"
-      , "let", "case", "if", "match"
-      ]
+    -- Note: hardReservedWords is no longer used - all reserved words now come from
+    -- GRes literals within productions, providing proper scoping.
 
     refineHead :: S.Set String -> S.Set String -> [Token] -> [Token]
     refineHead hard soft (TIdent s : ts)
@@ -777,6 +799,7 @@ runGrammar = go
     firstWordLits :: BiState Token Term -> S.Set String -> GrammarExpr () -> S.Set String
     firstWordLits _ _ GEmpty = S.empty
     firstWordLits _ _ (GLit s) = if isSymbol s then S.empty else S.singleton s
+    firstWordLits _ _ (GRes s) = S.singleton s  -- reserved literals are always keywords
     firstWordLits _ _ (GRegex _) = S.empty  -- regex patterns don't contribute
     firstWordLits _ _ (GChar _) = S.empty  -- char classes don't contribute
     firstWordLits st seen (GSeq g1 g2)
@@ -800,6 +823,7 @@ runGrammar = go
     nullable :: BiState Token Term -> S.Set String -> GrammarExpr () -> Bool
     nullable _ _ GEmpty = True
     nullable _ _ (GLit _) = False
+    nullable _ _ (GRes _) = False  -- reserved literal is not nullable
     nullable _ _ (GRegex _) = False
     nullable _ _ (GChar _) = False
     nullable st seen (GSeq g1 g2) = nullable st seen g1 && nullable st seen g2
@@ -817,6 +841,30 @@ runGrammar = go
     nullable _ _ (GVar _) = True
     nullable st seen (GNode _ args) = all (nullable st seen) args
     nullable _ _ GAny = False
+
+    -- Extract all GRes (reserved/backtick) literals from a grammar expression
+    -- These become scoped keywords within that production
+    collectResLits :: BiState Token Term -> S.Set String -> GrammarExpr () -> S.Set String
+    collectResLits _ _ GEmpty = S.empty
+    collectResLits _ _ (GLit _) = S.empty  -- regular literals don't contribute
+    collectResLits _ _ (GRes s) = S.singleton s  -- reserved literals are scoped keywords
+    collectResLits _ _ (GRegex _) = S.empty
+    collectResLits _ _ (GChar _) = S.empty
+    collectResLits st seen (GSeq g1 g2) = S.union (collectResLits st seen g1) (collectResLits st seen g2)
+    collectResLits st seen (GAlt g1 g2) = S.union (collectResLits st seen g1) (collectResLits st seen g2)
+    collectResLits st seen (GStar g) = collectResLits st seen g
+    collectResLits st seen (GRec _ g) = collectResLits st seen g
+    collectResLits st seen (GRef name)
+      | name `S.member` seen = S.empty
+      | otherwise =
+          case resolveRef name st of
+            Nothing -> S.empty
+            Just g -> collectResLits st (S.insert name seen) g
+    collectResLits st seen (GBind _ g) = collectResLits st seen g
+    collectResLits st seen (GCut g) = collectResLits st seen g
+    collectResLits _ _ (GVar _) = S.empty
+    collectResLits st seen (GNode _ args) = S.unions (map (collectResLits st seen) args)
+    collectResLits _ _ GAny = S.empty
     
     -- Greedy star: match as many as possible, return only the longest match (PEG semantics)
     -- Collects bsTerm from each iteration into TmCon "seq" [...]
@@ -998,7 +1046,7 @@ parseWith gd prodName input =
     Nothing -> Left $ "Unknown production: " ++ prodName
     Just g -> 
       let toks = tokenize input
-          initState = BiState toks [M.empty] Nothing Parse (gdProductions gd) M.empty
+          initState = BiState toks [M.empty] Nothing Parse (gdProductions gd) M.empty S.empty
       in case runGrammar g initState of
            [] -> Left "Parse failed"
            (st:_) -> Right $ fromMaybe (bindingsToTerm (flattenBinds (bsBinds st))) (bsTerm st)
@@ -1010,7 +1058,7 @@ parseProduction gd prodName toks =
   case M.lookup prodName (gdProductions gd) of
     Nothing -> Left $ "Unknown production: " ++ prodName
     Just g ->
-      let initState = BiState toks [M.empty] Nothing Parse (gdProductions gd) M.empty
+      let initState = BiState toks [M.empty] Nothing Parse (gdProductions gd) M.empty S.empty
       in case runGrammar g initState of
            [] -> Left "Parse failed"
            results -> 
@@ -1033,7 +1081,7 @@ printWith gd prodName term =
   case M.lookup prodName (gdProductions gd) of
     Nothing -> Left $ "Unknown production: " ++ prodName
     Just g ->
-      let initState = BiState [] [M.empty] (Just term) Print (gdProductions gd) M.empty
+      let initState = BiState [] [M.empty] (Just term) Print (gdProductions gd) M.empty S.empty
       in case runGrammar g initState of
            [] -> Left "Print failed"
            (st:_) -> Right $ unwords (map showToken (bsTokens st))
@@ -1044,7 +1092,7 @@ printProduction gd prodName term =
   case M.lookup prodName (gdProductions gd) of
     Nothing -> Left $ "Unknown production: " ++ prodName
     Just g ->
-      let initState = BiState [] [M.empty] (Just term) Print (gdProductions gd) M.empty
+      let initState = BiState [] [M.empty] (Just term) Print (gdProductions gd) M.empty S.empty
       in case runGrammar g initState of
            [] -> Left "Print failed"
            (st:_) -> Right (bsTokens st)
@@ -1226,6 +1274,10 @@ termToGrammarExpr (TmCon "ref" [TmVar r]) = GRef r
 termToGrammarExpr (TmCon "ref" [TmLit r]) = GRef r
 termToGrammarExpr (TmCon "lit" [TmVar l]) = GLit l
 termToGrammarExpr (TmCon "lit" [TmLit l]) = GLit l
+termToGrammarExpr (TmCon "reserved" [TmVar r]) = GRes r  -- reserved/backtick literal
+termToGrammarExpr (TmCon "reserved" [TmLit r]) = GRes r  -- reserved/backtick literal
+termToGrammarExpr (TmCon "res" [TmVar r]) = GRes r       -- shorthand
+termToGrammarExpr (TmCon "res" [TmLit r]) = GRes r       -- shorthand
 termToGrammarExpr (TmCon "cut" [g]) = GCut (termToGrammarExpr g)
 termToGrammarExpr (TmCon "empty" []) = GEmpty
 termToGrammarExpr (TmCon "any" []) = GAny

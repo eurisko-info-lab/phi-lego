@@ -20,6 +20,7 @@ import Lego.Token (Token(..), TokenInfo(..), tokenizeWithInfo)
 import Lego.GrammarDef (legoGrammar)
 import Lego.GrammarInterp (runGrammar)
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Maybe (mapMaybe)
 
 --------------------------------------------------------------------------------
@@ -43,7 +44,7 @@ parseFileG toks =
   case M.lookup "File.legoFile" legoGrammar of
     Nothing -> Nothing
     Just g ->
-      let st0 = BiState toks [M.empty] Nothing Parse legoGrammar M.empty
+      let st0 = BiState toks [M.empty] Nothing Parse legoGrammar M.empty S.empty
       in case runGrammar g st0 of
            [] -> Nothing
            (st:_) -> 
@@ -291,3 +292,4 @@ showTok TNewline = "<newline>"
 showTok (TIndent n) = "<indent " ++ show n ++ ">"
 showTok (TRegex r) = "/" ++ r ++ "/"
 showTok (TChar c) = show c
+showTok (TComment c) = "-- " ++ c

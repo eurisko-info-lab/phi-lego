@@ -19,7 +19,7 @@ module Lego
   , Graph(..), GId, Port, emptyGraph, addNode, addEdge, (<>)
   , GrammarExpr, pattern GEmpty, pattern GLit, pattern GRegex, pattern GChar, pattern GNode
   , pattern GSeq, pattern GAlt, pattern GStar, pattern GRec, pattern GRef
-  , pattern GBind, pattern GCut, pattern GVar, pattern GAny
+  , pattern GBind, pattern GCut, pattern GRes, pattern GVar, pattern GAny
   , glit, gseq, galt, gstar, grec, gbind, gcut, gnode, gempty
   , Rule(..), RuleDir(..)
   , mkRule, flipRule, canForward, canBackward
@@ -248,6 +248,7 @@ data BiState tok bind = BiState
   , bsMode     :: Mode               -- current interpretation mode
   , bsGrammar  :: Map String (GrammarExpr ())  -- grammar environment
   , bsMemo     :: Map (String, Int) [MemoEntry bind]  -- packrat memo table
+  , bsScopedKw :: S.Set String       -- scoped keywords (from backtick literals in current production)
   } deriving (Eq, Show)
 
 -- | Lookup binding in scope stack (lexical: nearest enclosing scope wins)
@@ -283,7 +284,7 @@ data BiResult tok bind
 
 -- | Empty state for a given mode (starts with one empty scope)
 emptyBiState :: Mode -> BiState tok bind
-emptyBiState m = BiState [] [M.empty] Nothing m M.empty M.empty
+emptyBiState m = BiState [] [M.empty] Nothing m M.empty M.empty S.empty
 
 -- | Run grammar in specified mode
 -- This is the profunctor-style modal interpreter:
@@ -391,7 +392,14 @@ runBiGrammar = go M.empty
         _ -> []
       Print -> [st]  -- TODO: char print
       Check -> [st]
-    
+
+    -- Cut: commit point (no backtracking past here)
+    -- In this simple interpreter, cut is treated as passthrough
+    go env (GCut g) st = go env g st
+
+    -- Reserved literal: behaves like GLit in this simple interpreter
+    go _env (GRes s) st = goLit s st
+
     -- Literal helper: unified handling for GLit
     goLit :: String -> BiState String String -> [BiState String String]
     goLit s st = case bsMode st of
@@ -415,7 +423,7 @@ biParse g toks =
   | st <- runBiGrammar g initSt ]
   where
     initSt :: BiState String String
-    initSt = BiState toks [M.empty] Nothing Parse M.empty M.empty
+    initSt = BiState toks [M.empty] Nothing Parse M.empty M.empty S.empty
     fromMaybe d Nothing = d
     fromMaybe _ (Just x) = x
 
@@ -427,7 +435,7 @@ biPrint g term binds =
     []     -> []
   where
     initSt :: BiState String String
-    initSt = BiState [] [binds] (Just term) Print M.empty M.empty
+    initSt = BiState [] [binds] (Just term) Print M.empty M.empty S.empty
 
 -- | Check helper: interpret grammar in Check mode  
 biCheck :: GrammarExpr a -> BiState String String -> Bool
@@ -738,11 +746,13 @@ data KleeneF a
 -- | BindF: Binding/recursion extension for GrammarExpr
 --   GRec x g ≈ μx.g,  GRef x ≈ use of bound name,  GBind x g ≈ x ← g
 --   BCut g ≈ commit point (no backtracking past this)
+--   BRes s ≈ reserved literal (scoped keyword, from backtick syntax `s`)
 data BindF a
   = BRec String a       -- μX. g (recursive grammar)
   | BRef String         -- X (reference to bound grammar)
   | BBind String a      -- x ← g (capture binding)
   | BCut a              -- cut: commit point, no backtracking past here
+  | BRes String         -- reserved literal: `s` (scoped keyword)
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 -- | AnyF: Wildcard extension
@@ -820,14 +830,21 @@ pattern GCut :: GrammarExpr a -> GrammarExpr a
 pattern GCut g <- GrammarExpr (Fix (InR (InR (InL (BCut (GrammarExpr -> g))))))
   where GCut g = GrammarExpr (Fix (InR (InR (InL (BCut (unGrammarExpr g))))))
 
+-- | Reserved literal (scoped keyword from backtick syntax `s`)
+-- GRes behaves like GLit for parsing/printing, but marks the word as reserved
+-- within the production that uses it (not globally)
+pattern GRes :: String -> GrammarExpr a
+pattern GRes s = GrammarExpr (Fix (InR (InR (InL (BRes s)))))
+
 pattern GAny :: GrammarExpr a
 pattern GAny = GrammarExpr (Fix (InR (InR (InR EAny))))
 
-{-# COMPLETE GVar, GNode, GLit, GRegex, GChar, GEmpty, GSeq, GAlt, GStar, GRec, GRef, GBind, GCut, GAny #-}
+{-# COMPLETE GVar, GNode, GLit, GRegex, GChar, GEmpty, GSeq, GAlt, GStar, GRec, GRef, GBind, GCut, GRes, GAny #-}
 
 instance Show (GrammarExpr a) where
   show GEmpty = "ε"
   show (GLit s) = "'" ++ s ++ "'"
+  show (GRes s) = "`" ++ s ++ "`"  -- reserved literal (scoped keyword)
   show (GRegex s) = "/" ++ s ++ "/"
   show (GChar s) = "'" ++ s ++ "'"
   show (GVar x) = "$" ++ x
