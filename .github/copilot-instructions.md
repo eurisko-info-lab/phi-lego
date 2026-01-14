@@ -128,7 +128,7 @@ NEVER hard-code grammar definitions in Haskell. If Grammar.sexpr is missing, ERR
 
 ```bash
 cabal build
-cabal run lego-test         # .lego file tests (195/234)
+cabal run lego-test         # .lego file tests (234/234)
 cabal test redtt-test       # redtt parsing (725/725)
 cabal run lego-repl         # Interactive REPL
 ```

@@ -13,7 +13,7 @@ The same grammar expression drives parsing AND printing bidirectionally.
 ```bash
 # Build & test
 cabal build
-cabal run lego-test         # .lego file tests (195/234)
+cabal run lego-test         # .lego file tests (234/234)
 cabal test redtt-test       # redtt parsing (725/725)
 cabal run lego-repl         # Interactive REPL
 
@@ -155,7 +155,7 @@ language Combined := Arith + Bool
 
 | Suite | Passing | Total | Notes |
 |-------|---------|-------|-------|
-| lego-test | 195 | 234 | .lego file tests |
+| lego-test | 234 | 234 | .lego file tests (100%) |
 | redtt-test | 725 | 725 | 100% redtt parsing |
 
 ## Development Rules

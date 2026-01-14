@@ -1,6 +1,6 @@
 # Lego: A Minimal Language for Building Languages
 
-[![Tests](https://img.shields.io/badge/tests-195%2F234-yellow)](test/)
+[![Tests](https://img.shields.io/badge/tests-234%2F234-green)](test/)
 [![RedTT](https://img.shields.io/badge/redtt-725%2F725-brightgreen)](test/RedttTest.hs)
 
 **Lego** is a declarative language workbench where syntax is an expression, not a procedure.
@@ -197,7 +197,7 @@ See [math-concepts.svg](math-concepts.svg) for the concept map.
 | Language composition | ✅ | Pushout-based imports |
 | Test framework | ✅ | Wildcards, traces |
 | RedTT parsing | ✅ | 725/725 (100%) |
-| Lego file tests | 🔶 | 195/234 (83%) |
+| Lego file tests | ✅ | 234/234 (100%) |
 
 ## License
 
