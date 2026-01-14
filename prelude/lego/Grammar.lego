@@ -107,7 +107,7 @@ piece GrammarExpr
   grammarAtom ::= string                    $ litAtom
                 | regex                     $ regexAtom
                 | char                      $ charAtom
-                | "$" ident                 $ captureAtom
+                | "$" (ident | string)      $ captureAtom
                 | ident ":" ident "*"       $ namedStarAtom
                 | ident ":" ident           $ namedRefAtom
                 | "(" grammarExpr ")"       $ groupAtom

@@ -57,8 +57,9 @@ extractFromDecl _ = []
 -- 1. Qualify references with piece names (ident → Atom.ident)
 -- 2. Wrap File.*Decl productions in node D* constructors
 -- 3. Distinguish syntax keywords from literals
+-- 4. Convert "$ nodeName" suffix annotations to (node nodeName ...) wrappers
 transformGrammar :: String -> GrammarExpr () -> GrammarExpr ()
-transformGrammar prodName g = wrapIfDecl prodName (transform prodName g)
+transformGrammar prodName g = wrapIfDecl prodName (transform prodName (convertNodeAnnotations g))
 
 -- | Wrap file declarations in node constructors
 -- File.importDecl → (node DImport ...)
@@ -87,6 +88,61 @@ isPrefixOf (p:ps) (s:ss) = p == s && isPrefixOf ps ss
 -- | Check if a string is a suffix of another
 isSuffixOf :: String -> String -> Bool
 isSuffixOf suf str = reverse suf `isPrefixOf` reverse str
+
+-- | Convert "$ nodeName" suffix annotations to (node nodeName ...) wrappers
+-- 
+-- Grammar.lego uses:   "(" "λ" ident "." term ")" $ lam
+-- Which parses as:     (seq (lit "(") (lit λ) ... (bind lam (any)))
+-- Should become:       (node lam (seq (lit "(") (lit λ) ...))
+--
+-- This detects GSeq ending with GBind name GAny and wraps in GNode
+convertNodeAnnotations :: GrammarExpr () -> GrammarExpr ()
+convertNodeAnnotations = goTop
+  where
+    -- Top-level handler - process alternatives and sequences
+    goTop :: GrammarExpr () -> GrammarExpr ()
+    goTop (GAlt g1 g2) = GAlt (goTop g1) (goTop g2)
+    goTop g = case extractNodeAnnotation g of
+      Just (nodeName, body) -> GNode nodeName [convertNodeAnnotations body]
+      Nothing -> goOther g
+    
+    -- For non-node-annotated expressions, recurse into structure
+    goOther :: GrammarExpr () -> GrammarExpr ()
+    goOther GEmpty = GEmpty
+    goOther (GLit s) = GLit s
+    goOther (GRegex s) = GRegex s
+    goOther (GChar s) = GChar s
+    goOther (GRef s) = GRef s
+    goOther (GSeq g1 g2) = GSeq (goOther g1) (goOther g2)
+    goOther (GAlt g1 g2) = GAlt (goTop g1) (goTop g2)  -- re-enter top for alts
+    goOther (GStar g) = GStar (goOther g)
+    goOther (GRec x g) = GRec x (goOther g)
+    goOther (GBind x g) = GBind x (goOther g)
+    goOther (GCut g) = GCut (goOther g)
+    goOther (GNode name gs) = GNode name (map goOther gs)
+    goOther GAny = GAny
+    goOther _ = GEmpty
+    
+    -- Extract node annotation from a sequence ending with (bind name (any))
+    -- Returns (nodeName, bodyGrammar) if found
+    extractNodeAnnotation :: GrammarExpr () -> Maybe (String, GrammarExpr ())
+    extractNodeAnnotation g = 
+      let (parts, mAnnot) = collectSeqParts g []
+      in case mAnnot of
+           Just name | not (null parts) -> Just (name, rebuildSeq parts)
+           _ -> Nothing
+    
+    -- Collect all parts of a right-associative sequence, looking for trailing (bind name (any))
+    collectSeqParts :: GrammarExpr () -> [GrammarExpr ()] -> ([GrammarExpr ()], Maybe String)
+    collectSeqParts (GSeq g1 (GBind name GAny)) acc = (reverse (g1 : acc), Just name)
+    collectSeqParts (GSeq g1 g2) acc = collectSeqParts g2 (g1 : acc)
+    collectSeqParts g acc = (reverse (g : acc), Nothing)
+    
+    -- Rebuild a flat list of grammars into nested GSeq
+    rebuildSeq :: [GrammarExpr ()] -> GrammarExpr ()
+    rebuildSeq [] = GEmpty
+    rebuildSeq [g] = g
+    rebuildSeq (g:gs) = GSeq g (rebuildSeq gs)
 
 transform :: String -> GrammarExpr () -> GrammarExpr ()
 transform prodName = go

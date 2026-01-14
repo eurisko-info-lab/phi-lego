@@ -263,6 +263,7 @@ termToGrammar (TmCon "plus" [g]) = GSeq (termToGrammar g) (GStar (termToGrammar 
 termToGrammar (TmCon "opt" [g]) = GAlt (termToGrammar g) GEmpty
 termToGrammar (TmCon "cut" [g]) = GCut (termToGrammar g)  -- !g cut syntax
 termToGrammar (TmCon "bind" [TmVar x]) = GBind x GAny
+termToGrammar (TmCon "bind" [TmLit x]) = GBind x GAny  -- $ "string" node annotation
 termToGrammar (TmCon "special" [TmVar name]) = GNode name []
 termToGrammar (TmCon "empty" []) = GEmpty
 termToGrammar (TmCon "unit" []) = GEmpty
