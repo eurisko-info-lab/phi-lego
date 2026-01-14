@@ -44,10 +44,10 @@ rule eta:
 test "type_var": (tvar a)
 test "arrow_type": (arrow (tvar a) (tvar b))
 test "forall_type": (tforall a (tvar a))
-test "poly_id": (Lam A (lam x 'A (var x)))
-test "beta_test": (app (lam x 'a (var x)) (var y)) ~~> result
-test "type_beta_test": (tapp (Lam A (lam x 'A (var x))) 'Int) ~~> result
-test "church_nat": (forall X (('X -> 'X) -> ('X -> 'X)))
+test "poly_id": (Lam A (lam x (tvar A) (var x)))
+test "beta_test": (app (lam x (tvar a) (var x)) (var y)) ~~> result
+test "type_beta_test": (tapp (Lam A (lam x (tvar A) (var x))) (tvar Int)) ~~> result
+test "church_nat": (tforall X (arrow (arrow (tvar X) (tvar X)) (arrow (tvar X) (tvar X))))
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for SystemF

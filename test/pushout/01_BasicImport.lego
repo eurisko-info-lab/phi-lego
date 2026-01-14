@@ -1,0 +1,45 @@
+-- 01_BasicImport.lego: Tests import-based pushout
+--
+-- Imports 01_BasicPushout and extends it
+
+import 01_BasicPushout
+
+lang ExtendedExpr (BaseExpr) :=
+
+-----------------------------------------------------
+-- Extend with binary operations
+-----------------------------------------------------
+piece BinOp
+  binop ::= "(" op expr expr ")"
+  op ::= "+" | "-" | "*" | "/"
+
+-- Note: expr here references BaseExpr.Expr.expr via pushout
+
+-----------------------------------------------------
+-- Rules for arithmetic
+-----------------------------------------------------
+rule add:
+  (+ $x $y) ~> (plus $x $y)
+
+rule sub:
+  (- $x $y) ~> (minus $x $y)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "import_works": x
+test "binop": (+ a b)
+test "nested": (+ (- a b) c)
+
+-- =============================================================================
+-- Pushout semantics:
+--   ExtendedExpr = BaseExpr ⊔ BinOp
+--   
+-- Grammar composition:
+--   ExtendedExpr.expr = BaseExpr.Expr.expr  (inherited)
+--   ExtendedExpr.binop = BinOp.binop        (new)
+--   
+-- Vocabulary:
+--   keywords = {} (no keywords in either)
+--   symbols = {"(", ")", "+", "-", "*", "/"}
+-- =============================================================================

@@ -1,0 +1,104 @@
+-- 05_EdgeSelfRef.lego: Edge case - self-referential grammars
+
+lang SelfRef :=
+
+-----------------------------------------------------
+-- Direct self-reference (valid)
+-----------------------------------------------------
+piece Direct
+  expr ::= atom | paren
+  atom ::= <ident>
+  paren ::= "(" expr ")"   -- expr refers to itself
+
+test "direct_paren": ((x))
+
+-----------------------------------------------------
+-- Mutual recursion (valid)
+-----------------------------------------------------
+piece Mutual
+  a ::= "A" b | "a"
+  b ::= "B" a | "b"
+
+-- a and b refer to each other
+-- Must ensure grammar engine handles this
+
+test "mutual_ab": _
+
+-----------------------------------------------------
+-- Left recursion (problematic for PEG)
+-----------------------------------------------------
+piece LeftRec
+  -- This is left-recursive:
+  -- expr ::= expr "+" term | term
+  
+  -- Rewritten to avoid left recursion:
+  expr ::= term addtail*
+  addtail ::= "+" term
+  term ::= <ident> | <digits>
+
+test "leftrec": _
+
+-----------------------------------------------------
+-- Hidden left recursion via reference
+-----------------------------------------------------
+piece HiddenLeftRec
+  -- start ::= middle
+  -- middle ::= start "x" | "y"
+  --
+  -- This is also left-recursive (start → middle → start)
+  -- Rewritten:
+  start ::= "y" xtail*
+  xtail ::= "x"
+
+test "hidden": _
+
+-- =============================================================================
+-- Left recursion detection:
+--
+-- Should emit warning:
+--   WARNING: production 'expr' is left-recursive
+--   HINT: rewrite as: expr ::= term ("+" term)*
+--
+-- Or error in strict mode:
+--   ERROR: left recursion not supported in PEG grammars
+-- =============================================================================
+
+-----------------------------------------------------
+-- Reference to undefined production
+-----------------------------------------------------
+piece Undefined
+  expr ::= atom | mystery   -- mystery is undefined!
+  atom ::= <ident>
+
+-- =============================================================================
+-- Expected error:
+--   ERROR: undefined production 'mystery' in Undefined.expr
+--
+-- Or warning if we allow forward references:
+--   WARNING: production 'mystery' used but not defined
+--            (will fail at parse time)
+-- =============================================================================
+
+test "undefined": _
+
+-----------------------------------------------------
+-- Reference to production in different piece
+-----------------------------------------------------
+piece Other
+  other ::= "other"
+
+piece CrossRef
+  combined ::= term | Other.other   -- explicit cross-ref
+  term ::= <ident>
+
+test "crossref": _
+
+-- =============================================================================
+-- Cross-piece references:
+--
+-- Other.other - valid (explicit namespace)
+-- other - ambiguous if there's an 'other' in current piece
+-- 
+-- Resolution: qualified names always work,
+--             unqualified uses pushout shadowing rules
+-- =============================================================================

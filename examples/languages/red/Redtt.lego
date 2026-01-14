@@ -29,16 +29,21 @@ piece Interval
 
 -- Basic expressions
 piece Expr
+  -- Base term production (recursive, many forms)
+  term ::= type | typeN | var | app | proj1 | proj2 | lam | lamstar 
+         | letexpr | underscore | pi | arr | sigma | prod | pair
+         | pathsugar | pathdsugar | pathtype | coeexpr | compexpr | hcomexpr
+         | "(" term ")"
+  
   type ::= "type"                       -- Universe (type^0)
   typeN ::= "type" "^" <number>         -- Universe level (type^1, type^2, ...)
   var ::= <ident>                       -- Variable reference
-  app ::= term term                     -- Application f x
+  app ::= "(" term term ")"             -- Application f x
   proj1 ::= term ".fst"                 -- First projection
   proj2 ::= term ".snd"                 -- Second projection
-  lam ::= "λ" binders "→" term          -- Lambda abstraction
-  lamstar ::= "λ" "*" "→" term          -- Lambda with wildcard
-  letexpr ::= "let" <ident> [":" term] "=" term "in" term
-  letdim ::= "let" <ident> "(" dimvars ":" "𝕀" ")" [":" term] "=" term "in" term
+  lam ::= "(" "λ" binders "→" term ")"  -- Lambda abstraction
+  lamstar ::= "(" "λ" "*" "→" term ")"  -- Lambda with wildcard
+  letexpr ::= "(" "let" <ident> ":" term "=" term "in" term ")"
   underscore ::= "_"                    -- Implicit argument
   
 -- Binders

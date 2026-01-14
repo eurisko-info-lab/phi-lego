@@ -67,11 +67,11 @@ rule proj2_with:
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "lolli_type": ('A -o 'B)
-test "tensor_type": (tens-ty 'A 'B)
-test "bang_type": (! 'A)
-test "with_type": (with-ty 'A 'B)
-test "plus_type": (plus-ty 'A 'B)
+test "lolli_type": (lolli (lvar A) (lvar B))
+test "tensor_type": (tens-ty (lvar A) (lvar B))
+test "bang_type": (! (lvar A))
+test "with_type": (with-ty (lvar A) (lvar B))
+test "plus_type": (plus-ty (lvar A) (lvar B))
 test "linear_id": (lin x (var x))
 test "tensor_pair": (tens a b)
 test "with_pair": (with a b)

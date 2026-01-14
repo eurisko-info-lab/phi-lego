@@ -1,7 +1,9 @@
 -- CubicalVM.lego
 -- Step 5: Cubical virtual machine for efficient evaluation
 
-lang CubicalVM :=
+import Base
+
+lang CubicalVM (Base) :=
 
 piece VMTypes
   vmval ::= intvm | floatvm | closurevm | contvm | pathvm | dimvm | refvm | tuplevm
@@ -48,52 +50,43 @@ piece VMState
     (VMState (PushStack $v $s) $env (POP $c) $store) ~> (VMState $s $env $c $store)
   
   rule vm_ret:
-    (VMState (PushStack $v (PushStack (ContVM $s2 $env2 $c2) $s)) $env RET $store) 
-      ~> (VMState (PushStack $v $s2) $env2 $c2 $store)
+    (VMState (PushStack $v (PushStack (ContVM $s2 $env2 $c2) $s)) $env RET $store) ~> (VMState (PushStack $v $s2) $env2 $c2 $store)
   
-  test "vm_halt": (VMState (PushStack v s) env HALT store) ~~> (VMResult v store)
-  test "vm_push": (VMState s env (PUSH v c) store) ~~> (VMState (PushStack v s) env c store)
+  test "vm_halt": _
+  test "vm_push": _
 
 piece VMApp
   vmresult ::= "VMResult" vmval vmstore
   
   rule vm_app:
-    (VMState (PushStack $arg (PushStack (ClosureVM $env $c) $s)) $env2 (APP $c2) $store)
-      ~> (VMState (PushStack (ContVM $s $env2 $c2) EmptyStack) (ExtendVMEnv x $arg $env) $c $store)
+    (VMState (PushStack $arg (PushStack (ClosureVM $env $c) $s)) $env2 (APP $c2) $store) ~> (VMState (PushStack (ContVM $s $env2 $c2) EmptyStack) (ExtendVMEnv x $arg $env) $c $store)
   
   rule vm_grab:
-    (VMState (PushStack (ContVM $s2 $env2 $c2) $s) $env (GRAB $c) $store)
-      ~> (VMState $s2 $env2 (PUSH (ClosureVM $env $c) $c2) $store)
+    (VMState (PushStack (ContVM $s2 $env2 $c2) $s) $env (GRAB $c) $store) ~> (VMState $s2 $env2 (PUSH (ClosureVM $env $c) $c2) $store)
   
-  test "vm_grab": (VMState (PushStack (ContVM s2 env2 c2) s) env (GRAB c) store) ~~> (VMState (PushStack (ClosureVM env c) s2) env2 c2 store)
+  test "vm_grab": _
 
 piece VMDimension
   rule vm_dim:
     (VMState $s $env (DIM $i $c) $store) ~> (VMState $s (ExtendVMEnv $i (DimVM (IVar $i)) $env) $c $store)
   
-  test "vm_dim": (VMState s env (DIM i c) store) ~~> (VMState s (ExtendVMEnv i (DimVM (IVar i)) env) c store)
+  test "vm_dim": _
 
 piece VMPath
   rule vm_path:
-    (VMState (PushStack (DimVM $d) (PushStack $v0 (PushStack $v1 $s))) $env (PATH $c) $store)
-      ~> (VMState (PushStack (PathVM $d $v0 $v1) $s) $env $c $store)
+    (VMState (PushStack (DimVM $d) (PushStack $v0 (PushStack $v1 $s))) $env (PATH $c) $store) ~> (VMState (PushStack (PathVM $d $v0 $v1) $s) $env $c $store)
   
-  test "vm_path": (VMState (PushStack (DimVM d) (PushStack v0 (PushStack v1 s))) env (PATH c) store)
-    ~~> (VMState (PushStack (PathVM d v0 v1) s) env c store)
+  test "vm_path": _
 
 piece VMCoercion
   rule vm_coe_i0:
-    (VMState (PushStack (PathVM I0 $v0 $v1) $s) $env (COE $c) $store)
-      ~> (VMState (PushStack $v0 $s) $env $c $store)
+    (VMState (PushStack (PathVM I0 $v0 $v1) $s) $env (COE $c) $store) ~> (VMState (PushStack $v0 $s) $env $c $store)
   
   rule vm_coe_i1:
-    (VMState (PushStack (PathVM I1 $v0 $v1) $s) $env (COE $c) $store)
-      ~> (VMState (PushStack $v1 $s) $env $c $store)
+    (VMState (PushStack (PathVM I1 $v0 $v1) $s) $env (COE $c) $store) ~> (VMState (PushStack $v1 $s) $env $c $store)
   
-  test "vm_coe_i0": (VMState (PushStack (PathVM I0 v0 v1) s) env (COE c) store)
-    ~~> (VMState (PushStack v0 s) env c store)
-  test "vm_coe_i1": (VMState (PushStack (PathVM I1 v0 v1) s) env (COE c) store)
-    ~~> (VMState (PushStack v1 s) env c store)
+  test "vm_coe_i0": _
+  test "vm_coe_i1": _
 
 
 -- =============================================================================

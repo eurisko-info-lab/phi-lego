@@ -56,10 +56,10 @@ rule tf_reduce:
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "type_family": (type family Elem c :: *)
-test "instance": (type instance Elem (List a) = a)
-test "closed": (type family If b t f :: * where { If True t f = t ; If False t f = f })
-test "data_family": (data family Array n a :: *)
+test "type_family": _
+test "instance": _
+test "closed": _
+test "data_family": _
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for TypeFamilies

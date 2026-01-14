@@ -73,6 +73,8 @@ module Lego
   , TestResultE(..)
   , defaultOpts, testToSpec, runTestSpec
   , (.&&.), (.||.), expectNot   -- Boolean combinators
+    -- * Raw tests (for future EOF-based parsing)
+  , RawTest(..)
   
     -- * Located terms
   , LocTerm, mkLocTerm, unLocTerm, termLoc
@@ -80,7 +82,6 @@ module Lego
     -- * Error handling
   , module Lego.Error
   ) where
-
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
@@ -617,6 +618,10 @@ addTest t (Lang l) = Lang $ l { lfTests = lfTests l ++ [t] }
 
 addTests :: [Test] -> CompiledLang -> CompiledLang
 addTests ts (Lang l) = Lang $ l { lfTests = lfTests l ++ ts }
+
+-- | Replace all tests in a language (for re-parsing)
+setTests :: [Test] -> CompiledLang -> CompiledLang
+setTests ts (Lang l) = Lang $ l { lfTests = ts }
 
 addLaw :: Law -> CompiledLang -> CompiledLang
 addLaw lw (Lang l) = Lang $ l { lfLaws = lfLaws l ++ [lw] }
@@ -1174,11 +1179,20 @@ data LegoDecl
   | DType TypeRule                   -- typing rule
   | DTest Test                       -- test (legacy)
   | DTestSpec TestSpec               -- test (enhanced)
+  | DTestRaw RawTest                 -- test with unparsed input (for language-specific parsing)
   | DDef String Term                 -- def name = term (desugars to rule)
   | DLaw Law                         -- law "name": expr ≅ expr
   | DInherit String                  -- inherit Module.Production
   | DAutocut String                  -- @autocut production
   deriving (Eq, Show)
+
+-- | Raw test with unparsed input/expected strings
+-- These get resolved to Test after grammar is compiled
+data RawTest = RawTest
+  { rtName     :: String       -- test name
+  , rtInputRaw :: String       -- unparsed input string
+  , rtExpectedRaw :: Maybe String  -- unparsed expected string (Nothing = parse-only)
+  } deriving (Eq, Show)
 
 -- | Law declaration for algebraic laws
 data Law = Law

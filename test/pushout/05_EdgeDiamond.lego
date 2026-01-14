@@ -1,0 +1,98 @@
+-- 05_EdgeDiamond.lego: Edge case - diamond inheritance
+
+-- Diamond problem:
+--       Base
+--      /    \
+--    Left   Right
+--      \    /
+--      Bottom
+--
+-- If Left and Right both extend Base, and Bottom imports both,
+-- what happens to Base's productions?
+
+lang Base :=
+  piece Core
+    term ::= var | app
+    var ::= <ident>
+    app ::= "(" term term ")"
+  
+  test "base": (f x)
+
+
+lang Left (Base) :=
+  -- Extends Base with let
+  piece LetExt
+    term ::= var | app | letbind   -- SHADOWS Base.Core.term
+    letbind ::= "let" <ident> "=" term "in" term
+  
+  test "left_let": _
+
+
+lang Right (Base) :=
+  -- Extends Base with lambda  
+  piece LamExt
+    term ::= var | app | lam       -- SHADOWS Base.Core.term
+    lam ::= "λ" <ident> "." term
+  
+  test "right_lam": _
+
+
+lang Bottom (Left, Right) :=
+  -- Diamond: imports both Left and Right
+  -- Both shadow Base.Core.term differently!
+  
+  -- =============================================================================
+  -- Expected behavior options:
+  --
+  -- Option 1: Error
+  --   ERROR: conflicting shadows of 'term' from Left and Right
+  --
+  -- Option 2: Last wins
+  --   Right.LamExt.term is used (last in parent list)
+  --   WARNING: Left.LetExt.term is hidden
+  --
+  -- Option 3: Merge
+  --   term = Left.LetExt.term ⊔ Right.LamExt.term
+  --   term = var | app | letbind | lam  (union of alternatives)
+  --
+  -- Option 4: Explicit resolution required
+  --   WARNING: diamond conflict for 'term'
+  --   User must add: term ::= Left.term | Right.term
+  -- =============================================================================
+  
+  -- Try to use both:
+  piece Combined
+    expr ::= term | letbind | lam
+    letbind ::= "let" <ident> "=" expr "in" expr
+    lam ::= "λ" <ident> "." expr
+  
+  test "diamond": _
+
+
+-- =============================================================================
+-- Diamond inheritance analysis:
+--
+--           Base.Core.term
+--              /      \
+--             /        \
+--   Left.LetExt.term  Right.LamExt.term
+--              \      /
+--               \    /
+--           Bottom.???
+--
+-- The pushout of Left and Right should identify Base:
+--   Left ⊔ Right = Base ⊔ LetExt ⊔ LamExt
+--                       Base
+--
+-- But the grammar-level shadowing creates a problem:
+-- - Left says term = var | app | let
+-- - Right says term = var | app | lam
+-- - Neither has both let AND lam
+--
+-- Clean solution: don't shadow, extend:
+--   Left.term ::= Base.Core.term | letbind  (additive)
+--   Right.term ::= Base.Core.term | lam     (additive)
+--
+-- Then: Bottom.term = Left.term ⊔ Right.term
+--                   = Base.Core.term | letbind | lam
+-- =============================================================================

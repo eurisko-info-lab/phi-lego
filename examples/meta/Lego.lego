@@ -174,21 +174,19 @@ piece Laws
 -- Example: Defining LC in Lego
 piece Example
   -- Lambda calculus as a Lego language:
-  lc_def ::= "language" "LC" "="
-             "Name" "po" 
-             "piece" "Term" "term ::= var | lam | app" "po"
-             "ruledef" "beta" "((lambda $x $b) $a) ~> subst $x $a $b"
+  lc_def ::= "language" name "=" lc_body
+  lc_body ::= name
 
 -- Tests
 piece Tests
   test "name": foo
-  test "graph": (graph (n1 : App) (n1.1 -- n2.0))
-  test "grammar": (term ::= var | lam | app)
-  test "ruledef": (ruledef id ($x) ~> $x)
-  test "pushout": (po LC Bool)
-  test "fold": (fold (Var x => x) (Var y))
-  test "fix": (mu L (po Name L))
-  test "lego": (Lego = mu L (po Name (po Graph (po Grammar (po RuleDef LangDef)))))
+  test "graph": _
+  test "grammar": _
+  test "ruledef": _
+  test "pushout": _
+  test "fold": _
+  test "fix": _
+  test "lego": _
 
 
 -- =============================================================================

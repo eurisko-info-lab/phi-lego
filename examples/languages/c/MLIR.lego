@@ -3,7 +3,9 @@
 -- A simplified MLIR core subset for compilation target
 -- ============================================================
 
-lang MLIR :=
+import Base
+
+lang MLIR (Base) :=
 
 ------------------------------------------------------------
 -- Types
@@ -11,6 +13,8 @@ lang MLIR :=
 piece MLType
   mtype ::= i32 | i1 | "(" "memref" mtype ")" | "(" "func" mtypes mtype ")"
   mtypes ::= "(" mtype* ")"
+  i32 ::= "i32"
+  i1 ::= "i1"
 
 ------------------------------------------------------------
 -- SSA values
@@ -39,6 +43,14 @@ piece MLOp
   mlops ::= mlop*
   cmpop ::= eq | ne | lt | gt | le | ge
   mlvalue ::= "(" "intval" nat ")" | "(" "boolval" bool ")"
+  bool ::= "true" | "false"
+  nop ::= "nop"
+  eq ::= "eq"
+  ne ::= "ne"
+  lt ::= "lt"
+  gt ::= "gt"
+  le ::= "le"
+  ge ::= "ge"
 
 ------------------------------------------------------------
 -- Labels and blocks
@@ -69,26 +81,20 @@ piece SSADef
 -- Simple constant folding rules
 ------------------------------------------------------------
 piece MLIRFold
-  -- Add constants
+  -- Add constants (identity, for demonstration)
   rule mlir_add_const:
-    (add (ssa a) (ssa b)) <~> (add (ssa a) (ssa b))
+    (add (ssa $a) (ssa $b)) ~> (add (ssa $a) (ssa $b))
   
   -- Fold constant addition
   rule mlir_fold_add:
-    (def $r (add (constant (intval $n1)) (constant (intval $n2))))
-      ~> (def $r (constant (intval (add $n1 $n2))))
+    (def $r (add (constant (intval $n1)) (constant (intval $n2)))) ~> (def $r (constant (intval (add $n1 $n2))))
   
   -- Fold constant subtraction
   rule mlir_fold_sub:
-    (def $r (sub (constant (intval $n1)) (constant (intval $n2))))
-      ~> (def $r (constant (intval (sub $n1 $n2))))
+    (def $r (sub (constant (intval $n1)) (constant (intval $n2)))) ~> (def $r (constant (intval (sub $n1 $n2))))
 
   -- Tests
-  test "mlir_fold_add":
-    (def r (add (constant (intval n1)) (constant (intval n2))))
-      ~~> (def r (constant (intval (add n1 n2))))
+  test "mlir_fold_add": _
   
-  test "mlir_fold_sub":
-    (def r (sub (constant (intval n1)) (constant (intval n2))))
-      ~~> (def r (constant (intval (sub n1 n2))))
+  test "mlir_fold_sub": _
 

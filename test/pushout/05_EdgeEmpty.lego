@@ -1,0 +1,69 @@
+-- 05_EdgeEmpty.lego: Edge case - empty pushout components
+
+lang EmptyEdge :=
+
+-----------------------------------------------------
+-- Empty piece (no productions)
+-----------------------------------------------------
+piece Empty
+  -- nothing here
+
+-- L = Empty = ∅
+-- Valid but useless
+
+-----------------------------------------------------
+-- Piece with only comments
+-----------------------------------------------------
+piece Comments
+  -- this is a comment
+  -- another comment
+
+-- L = Empty ⊔ Comments = ∅
+
+-----------------------------------------------------
+-- Now a real piece
+-----------------------------------------------------
+piece Real
+  term ::= <ident>
+
+-- L = ∅ ⊔ Real = Real
+
+test "real": x
+
+-- =============================================================================
+-- Empty pushout identities:
+--   L ⊔ ∅ = L
+--   ∅ ⊔ L = L
+--   ∅ ⊔ ∅ = ∅
+--
+-- These should not cause errors, just no-ops
+-- =============================================================================
+
+-----------------------------------------------------
+-- Piece that only defines vocab (no grammar)
+-----------------------------------------------------
+piece VocabOnly
+  -- Using explicit vocab (deprecated but should work)
+  -- vocab: keywords = {"if", "then", "else"}
+  -- 
+  -- With new system: no productions = empty grammar
+
+-- =============================================================================
+-- Questions:
+--   1. Should a piece with no grammar be allowed?
+--   2. Should it emit a warning?
+--   3. What about pieces that only define rules?
+-- =============================================================================
+
+-----------------------------------------------------
+-- Piece with only rules (no grammar)
+-----------------------------------------------------
+piece RulesOnly
+
+rule identity:
+  $x ~> $x
+
+-- This is unusual but should be valid
+-- The rule uses the bootstrap pattern/template grammar
+
+test "rules_only": _

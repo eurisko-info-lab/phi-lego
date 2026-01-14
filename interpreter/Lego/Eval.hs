@@ -306,6 +306,12 @@ processDeclWithMapAndResolved _ _ cl (DTestSpec spec) =
         ExpectNoChange -> Test (tsName spec) (tsInput spec) (tsInput spec)
         _ -> Test (tsName spec) (tsInput spec) (TmVar "_")
   in Right $ addTest legacyTest cl
+processDeclWithMapAndResolved _ _ cl (DTestRaw raw) =
+  -- Raw tests store unparsed strings for later re-parsing with language grammar
+  -- For now, fall back to treating the input as a literal (will be re-parsed later)
+  let test = Test (rtName raw) (TmLit $ rtInputRaw raw) 
+                 (TmLit $ maybe (rtInputRaw raw) id (rtExpectedRaw raw))
+  in Right $ addTest test cl
 processDeclWithMapAndResolved langMap resolvedMap cl (DPiece name parents body) = do
   -- piece Name is Parents with: body
   -- First load all parents and compose them

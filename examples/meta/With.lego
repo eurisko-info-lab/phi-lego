@@ -21,8 +21,7 @@ piece WithAbs
   withbranch ::= patlist "=>" term
 
   rule with_eval:
-    (with_block $scrutinee (withbranch_single (withbranch $pat $body))) 
-      ~> (match $scrutinee (withbranch $pat $body))
+    (with_block $x (withbranch_single (withbranch $p $b))) ~> (match $x (withbranch $p $b))
 
   test "with_block": (with_block (compare x y) (withbranch_single (withbranch LT less)))
 

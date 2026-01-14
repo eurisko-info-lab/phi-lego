@@ -22,49 +22,57 @@
 
 lang RewriteMachine :=
 
+-----------------------------------------------------
+-- Names and identifiers
+-----------------------------------------------------
+piece Names
+  name ::= <identifier>
+  nat ::= <number>
+  term ::= <identifier>
+
 -- Core machine values
 piece Core
-  value ::= term | handle | env | state | dim
+  value ::= term | "handle" | env | state | dim
 
 -- Environment and scoping (Γ: term context)
 piece Env
-  env ::= empty
-        | bind name handle env
+  env ::= "empty"
+        | "(" "bind" name "handle" env ")"
 
 -- Dimension environment (Δ: dimension context)
 piece DimEnv
-  dimenv ::= dimempty
-           | dimbind name dim dimenv
+  dimenv ::= "dimempty"
+           | "(" "dimbind" name dim dimenv ")"
 
 -- Machine state with separated contexts
 piece State
-  state    ::= "State" heap envstack dimenv counter
+  state    ::= "(" "State" heap envstack dimenv counter ")"
   heap     ::= term
   envstack ::= "[" env* "]"
   counter  ::= nat
 
 -- Dimension expressions (De Morgan algebra on I)
 piece Dimension
-  dim ::= D0              -- i0 : I
-        | D1              -- i1 : I
-        | DVar name       -- dimension variable
-        | DNot dim        -- reversal (~)
-        | DAnd dim dim    -- meet (∧)
-        | DOr dim dim     -- join (∨)
+  dim ::= "D0"              -- i0 : I
+        | "D1"              -- i1 : I
+        | "(" "DVar" name ")"       -- dimension variable
+        | "(" "DNot" dim ")"        -- reversal (~)
+        | "(" "DAnd" dim dim ")"    -- meet (∧)
+        | "(" "DOr" dim dim ")"     -- join (∨)
 
 -- Micro-instructions (extended for cubical)
 piece Instr
-  instr ::= MATCH term
-          | PUSH_ENV
-          | POP_ENV
-          | BIND name handle
-          | DIM_PUSH
-          | DIM_POP
-          | DIM_BIND name dim
-          | NORM_DIM name
-          | FRESH nat
-          | EMIT term
-          | FAIL
+  instr ::= "(" "MATCH" term ")"
+          | "PUSH_ENV"
+          | "POP_ENV"
+          | "(" "BIND" name "handle" ")"
+          | "DIM_PUSH"
+          | "DIM_POP"
+          | "(" "DIM_BIND" name dim ")"
+          | "(" "NORM_DIM" name ")"
+          | "(" "FRESH" nat ")"
+          | "(" "EMIT" term ")"
+          | "FAIL"
 
 -- Programs
 piece Program

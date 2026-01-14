@@ -84,24 +84,16 @@ test "equivalence": (Bool ≃ Bool)
 -----------------------------------------------------
 
 -- J computation rule
-test "J_refl_eval":
-  (J Bool (λ x . Bool) true (refl true))
-  ~~> true
+test "J_refl_eval": (J Bool (lam x . Bool) true (refl true)) ~~> true
 
--- Path composition with refl (left)
-test "path_comp_refl_l_eval":
-  ((refl true) · loop)
-  ~~> loop
+-- Path composition with refl - use constructor syntax
+test "path_comp_refl_l_eval": (· (refl true) loop) ~~> loop
 
 -- Path composition with refl (right)
-test "path_comp_refl_r_eval":
-  (loop · (refl true))
-  ~~> loop
+test "path_comp_refl_r_eval": (· loop (refl true)) ~~> loop
 
--- Path inverse (refl case only - general case requires typed evaluation)
-test "path_inverse_refl_eval":
-  ((refl true) · ((refl true) ⁻¹))
-  ~~> (refl true)
+-- Path inverse (refl case only)
+test "path_inverse_refl_eval": (· (refl true) (⁻¹ (refl true))) ~~> (refl true)
 -- =============================================================================
 -- TODO: Executable Language Checklist for HoTT
 -- =============================================================================

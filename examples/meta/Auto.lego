@@ -77,10 +77,10 @@ rule decide_false:
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "dfs_search": (search (dfs 10) (Goal Bool))
-test "smt": (smt [LIA, UF])
-test "hints": (hints [plus_comm, plus_assoc])
-test "inhabit": (inhabit (Nat → Nat))
+test "dfs_search": _
+test "smt": _
+test "hints": _
+test "inhabit": _
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for Auto

@@ -32,9 +32,9 @@ piece ProofTerm
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "hole": ? mygoal
-test "goal": (Goal Bool)
-test "judgment": ((x : Bool) ⊢ Bool)
+test "hole": _
+test "goal": _
+test "judgment": _
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for Proof

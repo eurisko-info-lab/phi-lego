@@ -1,0 +1,17 @@
+-- Simple.lego: A simple test file for bootstrap testing
+--
+-- This file uses only syntax that the current grammar supports.
+
+lang SimpleTest :=
+
+piece Expr
+  expr ::= "(" ident expr* ")" | ident
+  ident ::= <ident>
+
+rule identity:
+  $x ~> $x
+
+test "var": x
+test "app": (f x)
+test "nested": (f (g x))
+test "multi": (f x y z)

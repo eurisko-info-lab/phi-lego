@@ -1,0 +1,114 @@
+-- 06_GrammarRef.lego: Grammar reference syntax tests
+--
+-- Tests for L.production and Piece.production reference syntax
+
+lang GrammarRefTest :=
+
+-----------------------------------------------------
+-- Multiple pieces with named productions
+-----------------------------------------------------
+piece Arith
+  expr ::= add | num
+  add ::= "(" "+" expr expr ")"
+  num ::= <digits>
+
+piece Bool
+  bexpr ::= band | bool
+  band ::= "(" "and" bexpr bexpr ")"
+  bool ::= "true" | "false"
+
+piece String
+  sexpr ::= concat | str
+  concat ::= "(" "++" sexpr sexpr ")"
+  str ::= <string>
+
+-----------------------------------------------------
+-- Piece that uses explicit references
+-----------------------------------------------------
+piece Combined
+  -- Explicit references using Piece.production syntax
+  any_expr ::= Arith.expr | Bool.bexpr | String.sexpr
+  
+  -- Cross-piece production reference
+  mixed ::= "(" "if" Bool.bexpr Arith.expr Arith.expr ")"
+
+-- =============================================================================
+-- Reference syntax:
+--
+-- Unqualified: 
+--   expr        -- looks up in current piece, then pushout
+--
+-- Piece-qualified:
+--   Arith.expr  -- explicit piece reference
+--   Bool.bexpr  -- explicit piece reference
+--
+-- Language-qualified (for imports):
+--   OtherLang.Piece.prod  -- full path
+--
+-- Special:
+--   L.term      -- current language's term production
+--   L.pattern   -- current language's pattern production (for rules)
+-- =============================================================================
+
+-----------------------------------------------------
+-- Tests showing resolution
+-----------------------------------------------------
+test "arith_ref": (+ 1 2)
+test "bool_ref": (and true false)
+test "string_ref": (++ "hello" "world")
+test "mixed_if": (if true 1 2)
+
+-----------------------------------------------------
+-- What about parameterized references?
+-----------------------------------------------------
+
+-- =============================================================================
+-- Proposed syntax for grammar parameters:
+--
+-- Piece-level parameter:
+--   piece List[T] 
+--     list ::= nil | cons
+--     nil ::= "[]"
+--     cons ::= T "::" list   -- T is the element type
+--
+-- Instantiation:
+--   piece IntList = List[Arith.num]
+--
+-- Or inline:
+--   thing ::= List[Bool.bool].list
+-- =============================================================================
+
+-----------------------------------------------------
+-- Rules with explicit grammar context
+-----------------------------------------------------
+
+-- Currently rules use bootstrap pattern grammar
+-- With explicit context:
+
+rule[Arith] add_zero:
+  Arith.add: (+ 0 $x) ~> $x
+
+-- =============================================================================
+-- rule[G] name: G.prod: pattern ~> template
+--
+-- G is the grammar context
+-- G.prod specifies which production parses the pattern
+-- template always uses SExpr grammar (for flexibility)
+-- =============================================================================
+
+test "rules": _
+
+-----------------------------------------------------
+-- Tests with explicit grammar
+-----------------------------------------------------
+
+-- =============================================================================
+-- Proposed:
+--   test[Arith.expr] "arith": (+ 1 2) ~~> 3
+--   test[Bool.bexpr] "bool": (and true false) ~~> false
+--
+-- The grammar parameter tells which production to use
+-- for parsing the test input and expected output
+-- =============================================================================
+
+test "final": _

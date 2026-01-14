@@ -33,15 +33,6 @@ piece Variance
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "subtype": (Int <: Number)
-test "coercion": (coerce x : Int → Number)
-test "covariant": (+ a)
-
--- =============================================================================
--- TODO: Executable Language Checklist for Subtype
--- =============================================================================
--- [x] Grammar: parsing works
--- [ ] Rules: reduction semantics
--- [ ] Normalization: terms reduce to normal forms
--- Keywords: cuts := ["piece", "rule", "test", "def"]
--- =============================================================================
+test "subtype": (subrel Int Number)
+test "coercion": (coerce x Int Number)
+test "covariant": (variance a)

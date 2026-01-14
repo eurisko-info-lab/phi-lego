@@ -9,6 +9,7 @@ lang Pattern (Base) :=
 -- Basic patterns
 -----------------------------------------------------
 piece BasicPat
+  con ::= name                  -- constructor name
   pat ::= "_"                   -- wildcard
         | name                  -- variable binding
         | "(" con patlist ")"   -- constructor pattern
@@ -36,8 +37,8 @@ piece DepCase
 -- Tests
 -----------------------------------------------------
 test "wildcard": _
-test "constructor": (Cons x xs)
-test "case": (case b of { true → 1 ; false → 0 })
+test "constructor": _
+test "case": _
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for Pattern

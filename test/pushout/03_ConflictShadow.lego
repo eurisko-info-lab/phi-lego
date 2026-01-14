@@ -1,0 +1,78 @@
+-- 03_ConflictShadow.lego: Production shadowing tests
+--
+-- Tests warning generation when productions shadow each other
+
+lang ShadowTest :=
+
+-----------------------------------------------------
+-- Base piece with common names
+-----------------------------------------------------
+piece Base
+  term ::= var | app
+  var ::= <ident>
+  app ::= "(" term term ")"
+  expr ::= term   -- alias
+
+-----------------------------------------------------
+-- Extension that shadows 'term'
+-----------------------------------------------------
+piece Extended
+  term ::= var | app | lam   -- SHADOWS Base.term!
+  lam ::= "(" "λ" <ident> "." term ")"
+
+-- =============================================================================
+-- Expected warning:
+--   SHADOW: Extended.term shadows Base.term
+--   
+-- Behavior:
+--   - Extended.term is used for 'term' references
+--   - Base.term is still accessible as 'Base.term'
+--   - Rules using 'term' get Extended.term
+-- =============================================================================
+
+-----------------------------------------------------
+-- Another piece that extends differently
+-----------------------------------------------------
+piece Typed
+  term ::= var | app | ann   -- ALSO SHADOWS!
+  ann ::= "(" term ":" type ")"
+  type ::= "Int" | "Bool" | "(" type "->" type ")"
+
+-- =============================================================================
+-- Expected warning:
+--   SHADOW: Typed.term shadows Extended.term (which shadows Base.term)
+--   
+-- Chain: Typed.term > Extended.term > Base.term
+-- =============================================================================
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "base_app": (f x)
+test "ext_lam": (λ x . x)
+test "typed_ann": (x : Int)
+
+-----------------------------------------------------
+-- Intentional shadow for override
+-----------------------------------------------------
+piece Override
+  -- Sometimes shadowing is intentional:
+  -- "I want MY term, not the imported one"
+  
+  -- This should still warn, but user can suppress with:
+  -- @shadow term  -- explicit acknowledgment
+  
+  term ::= custom
+  custom ::= "[" <ident> "]"
+
+test "override": _
+
+-- =============================================================================
+-- Shadow suppression syntax (proposed):
+--
+--   @shadow term    -- suppress warning for this production
+--   @shadow *       -- suppress all shadow warnings in this piece
+--   
+-- Or explicit replacement:
+--   term ::= ... @replaces Base.term
+-- =============================================================================

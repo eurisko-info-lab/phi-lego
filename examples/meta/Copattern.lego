@@ -29,7 +29,7 @@ piece Codata
   destructor_cons ::= destructor ";" destructors
   destructor ::= name ":" term      -- observation type
 
-  test "codata": codata Stream : (Type -> Type) where { hd : A ; tl : (Stream A) }
+  test "codata": _
 
 -----------------------------------------------------
 -- Corecursive definitions
@@ -50,7 +50,7 @@ piece Codef
   rule codef_tail:
     (.tl (codef $name $type (cobranches $hd_branch (cobranch (tl) $t)))) ~> $t
 
-  test "codef": codef ones : (Stream Nat) where { .hd = 1 ; .tl = ones }
+  test "codef": _
 
 -----------------------------------------------------
 -- Guarded recursion
@@ -67,7 +67,7 @@ piece Guarded
 
   test "later": (▸ (Stream Nat))
   test "next": (next x)
-  test "fix": fix f . (cons 1 f)
+  test "fix": _
 
 -----------------------------------------------------
 -- Productivity

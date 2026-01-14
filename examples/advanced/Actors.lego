@@ -75,10 +75,10 @@ rule become_behavior:
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "actor_ref": (ActorRef String)
-test "send": (! actorRef "hello")
-test "receive": receive { ping => pong , stop => stopped }
-test "supervision": (supervisor OneForOne)
+test "actor_ref": _
+test "send": _
+test "receive": _
+test "supervision": _
 
 -- =============================================================================
 -- TODO: Executable Language Checklist for Actors

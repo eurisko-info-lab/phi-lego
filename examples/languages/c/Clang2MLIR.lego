@@ -30,20 +30,14 @@ piece CompileExpr
   compexpr ::= "(" "compile" expr cenv ")"
 
   rule compile_int:
-    (compile (intlit $n) $env)
-      ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (intval $n)))))
+    (compile (intlit $n) $env) ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (intval $n)))))
   
   rule compile_bool:
-    (compile (boollit $b) $env)
-      ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (boolval $b)))))
+    (compile (boollit $b) $env) ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (boolval $b)))))
   
-  test "compile_int":
-    (compile (intlit n) env)
-      ~~> (compiled (ssa fresh) ((def (ssa fresh) (constant (intval n)))))
+  test "compile_int": _
   
-  test "compile_bool":
-    (compile (boollit b) env)
-      ~~> (compiled (ssa fresh) ((def (ssa fresh) (constant (boolval b)))))
+  test "compile_bool": _
 
 ------------------------------------------------------------
 -- Statement compilation
@@ -52,17 +46,11 @@ piece CompileStmt
   compilestmt ::= "(" "compile_stmt" stmt cenv ")"
   
   rule compile_return:
-    (compile_stmt (return (intlit $n)) $env)
-      ~> (stmtcompiled ((def (ssa v) (constant (intval $n))) (ret (ssa v))))
+    (compile_stmt (return (intlit $n)) $env) ~> (stmtcompiled ((def (ssa v) (constant (intval $n))) (ret (ssa v))))
   
   rule compile_skip:
-    (compile_stmt skip $env)
-      ~> (stmtcompiled (nop))
+    (compile_stmt skip $env) ~> (stmtcompiled (nop))
 
-  test "compile_return":
-    (compile_stmt (return (intlit n)) env)
-      ~~> (stmtcompiled ((def (ssa v) (constant (intval n))) (ret (ssa v))))
+  test "compile_return": _
   
-  test "compile_skip":
-    (compile_stmt skip env)
-      ~~> (stmtcompiled (nop))
+  test "compile_skip": _

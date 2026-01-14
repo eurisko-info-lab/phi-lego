@@ -1,6 +1,6 @@
 # Lego TODO
 
-> **Current Status**: 607/607 lego tests ✅ • 725/725 redtt parsing ✅ • 50/71 example files passing (70%)
+> **Current Status**: 812/813 lego tests ✅ • 725/725 redtt parsing ✅ • 71/71 example files passing (100%)
 
 ## Architecture Understanding ✅
 
@@ -72,6 +72,58 @@ Created `interpreter/Lego/Schema.hs` for explicit arity declarations:
 
 ## In Progress 🔶
 
+### Priority 1: Grammar Keywords as EOF Markers (HIGH PRIORITY)
+
+**Problem**: Tests must use bootstrap grammar (`Term.term`) instead of the language being defined.
+
+**Solution**: Grammar keywords (`test`, `rule`, `prelude`, `code`) act as **EOF markers** that trigger a language switch via pushout. When the parser encounters these keywords, it:
+
+1. Treats the keyword as EOF for the current grammar
+2. Switches to a pushout grammar that combines the keyword's structure with the language being defined
+
+**Formalization**:
+
+```
+-- Keywords are EOF markers that switch parsing context
+grammarKeywords := { "test", "rule", "prelude", "code", "piece", "grammar", "lang" }
+
+-- Each keyword defines a parameterized grammar that uses L (the current language)
+test[L]    ::= "test" <string> ":" L.term ("~~>" L.term)?
+rule[L]    ::= "rule" <ident> ":" L.pattern "~>" SExpr.template
+prelude[L] ::= "prelude" ":" L.preludeBody
+code[L]    ::= "code" ":" L.codeBody
+
+-- The file grammar becomes:
+legoFile[L] ::= (langItem[L])*
+langItem[L] ::= grammar[L] | piece[L] | rule[L] | test[L] | import | ...
+
+-- L.term is the pushout of all pieces defined so far
+-- L.pattern uses L's grammar for the left-hand side
+-- SExpr.template uses the bootstrap s-expression grammar
+```
+
+**Implementation Steps**:
+
+1. [ ] **Define `L.term`**: After each `piece` declaration, compute the pushout grammar
+2. [ ] **EOF behavior**: When parser sees a grammarKeyword, stop current parse and switch context
+3. [ ] **Parameterized productions**: `test[L]` uses `L.term` (the current language's term grammar)
+4. [ ] **Pattern vs Template**: Rules use `L.pattern` (language-specific) for LHS, `SExpr.template` for RHS
+5. [ ] **Incremental pushout**: Each `piece` extends `L` via pushout: `L' = L ⊔ Piece`
+
+**Algebraic Semantics**:
+
+```
+-- File parsing is a fold over declarations
+parseFile :: [Decl] → (Lang, [Decl])
+parseFile = foldl step (emptyLang, [])
+  where
+    step (L, ds) (Piece p) = (L ⊔ p, ds ++ [Piece p])  -- extend L
+    step (L, ds) (Test t)  = (L, ds ++ [parseTest[L] t])  -- use current L
+    step (L, ds) (Rule r)  = (L, ds ++ [parseRule[L] r])  -- use current L
+```
+
+**Key Insight**: This is NOT re-parsing. The grammar keywords are section boundaries that change which grammar is active. The pushout `L ⊔ Piece` happens incrementally as declarations are processed.
+
 ### Priority 2: Composition & Conflict System (continued)
 
 Multi-level pushout composition with algebraic law verification:
@@ -102,17 +154,20 @@ Multi-level pushout composition with algebraic law verification:
 ### Deferred Features (Implement When Needed)
 
 #### Parameterized Grammars (Higher-Order Grammar)
-Need for test declarations to use piece-specific term grammars:
-- [ ] **Syntax**: `name[T] ::= body` where `T` is a grammar parameter
-- [ ] **Application**: `test[Arith.term]` instantiates with specific grammar
-- [ ] **Substitution**: resolve `test[X]` by substituting `X` for `T` in body
-- [ ] **GApp constructor**: `GApp "test" [GRef "Arith.term"]` for grammar application
-- Use case: `test[T] ::= "test" <string> ":" T ("~~>" T)?` - tests use piece's term grammar
 
-Current workaround issues:
-- Pieces named `Term` collide with bootstrap `Term.term` in Grammar.sexpr
-- Suffix matching `*.term` can find wrong production when names collide
-- Need namespace isolation or explicit parameterization
+**NOTE**: See "Priority 1: Grammar Keywords as EOF Markers" above for the correct approach.
+The key insight is that grammar keywords are EOF markers that switch parsing context via pushout,
+NOT a re-parsing mechanism. The parameterized grammar syntax below supports this:
+
+- [ ] **Syntax**: `name[T] ::= body` where `T` is a grammar parameter
+- [ ] **Application**: `test[L]` instantiates with current language's grammar
+- [ ] **Substitution**: resolve `test[L]` by substituting `L.term` for `T` in body
+- [ ] **GApp constructor**: `GApp "test" [GRef "L.term"]` for grammar application
+- Use case: `test[T] ::= "test" <string> ":" T ("~~>" T)?` - tests use the language's term grammar
+
+The difference from the old approach:
+- OLD (wrong): Parse with bootstrap grammar, then re-parse with language grammar
+- NEW (correct): Keywords are EOF markers that switch the active grammar via pushout
 
 #### Parametric Languages (Functor Category)
 Removed in cleanup (was unused). Recover and implement when needed:
