@@ -68,21 +68,13 @@ termToDecl (TmCon "DImport" [TmLit name]) = Just $ DImport name
 -- Def
 termToDecl (TmCon "DDef" [TmVar name, value]) = Just $ DDef name value
 termToDecl (TmCon "DDef" [TmLit name, value]) = Just $ DDef name value
--- Test (basic)
-termToDecl (TmCon "DTest" [TmLit name, input]) = 
-  Just $ DTest $ Test name input input
-termToDecl (TmCon "DTest" [TmLit name, input, expected]) = 
-  Just $ DTest $ Test name input expected
--- Test with options (extended syntax: via, steps, error)
-termToDecl (TmCon "DTest" [TmLit name, input, expected, opts]) = 
-  -- Extended test with options - convert to TestSpec
-  let baseTest = Test name input expected
-  in Just $ DTestSpec $ parseTestOpts baseTest opts
+-- Test (basic) - filter out unit placeholders from empty grammar alternatives
 termToDecl (TmCon "DTest" (TmLit name : input : rest)) = 
-  -- Handle various argument patterns
-  case rest of
-    [] -> Just $ DTest $ Test name input input
-    [expected] -> Just $ DTest $ Test name input expected
+  -- Filter out unit placeholders produced by (alt ... (empty))
+  let nonUnit = filter (/= TmCon "unit" []) rest
+  in case nonUnit of
+    [] -> Just $ DTest $ Test name input input  -- parse-only test
+    [expected] -> Just $ DTest $ Test name input expected  -- eval test
     (expected : opts) -> 
       let baseTest = Test name input expected
       in Just $ DTestSpec $ parseTestOpts baseTest (TmCon "opts" opts)

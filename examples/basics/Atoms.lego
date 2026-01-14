@@ -31,6 +31,9 @@ piece Strings
 -----------------------------------------------------
 piece Variables
   var ::= <ident>         -- Variable identifier
+  value ::= <ident>       -- Value identifier
+  cmd ::= <string>        -- Command string
+  args ::= term*          -- Command arguments
 
 -----------------------------------------------------
 -- Expressions (placeholder)
