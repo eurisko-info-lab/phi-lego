@@ -1,7 +1,9 @@
 -- Lambda.lego: Lambda calculus with beta reduction
 -- Exercises: app/lam matching, substitution, normalize
 
-lang Lambda :=
+import Atoms
+
+lang Lambda (Atoms) :=
 
 -----------------------------------------------------
 -- Terms

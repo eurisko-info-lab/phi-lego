@@ -1,7 +1,9 @@
 -- Pairs.lego: Pair operations with fst/snd
 -- Exercises: pair matching, projection builtins
 
-lang Pairs :=
+import Atoms
+
+lang Pairs (Atoms) :=
 
 -----------------------------------------------------
 -- Terms

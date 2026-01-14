@@ -1,7 +1,9 @@
 -- Maybe.lego: Maybe/Option type with nothing/just
 -- Exercises: sum type patterns, bind/map operations
 
-lang Maybe :=
+import Atoms
+
+lang Maybe (Atoms) :=
 
 -----------------------------------------------------
 -- Terms

@@ -1,7 +1,9 @@
 -- Lists.lego: List operations with executable tests
 -- Exercises: cons/nil matching, head/tail/append builtins
 
-lang Lists :=
+import Atoms
+
+lang Lists (Atoms) :=
 
 -----------------------------------------------------
 -- Terms

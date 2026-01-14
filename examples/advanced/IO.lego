@@ -15,7 +15,9 @@
 -- IO effects (require Haskell handler):
 --   readFile, writeFile, listDir, print, etc.
 
-lang IO :=
+import Atoms
+
+lang IO (Atoms) :=
 
 -----------------------------------------------------
 -- IO Effect Signature
