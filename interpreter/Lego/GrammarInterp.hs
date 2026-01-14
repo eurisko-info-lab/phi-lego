@@ -890,11 +890,15 @@ runGrammar = go
     
     -- Check if a grammar element produces a term (refs to term-producing grammars, nodes)
     producesTerm :: BiState Token Term -> GrammarExpr () -> Bool
-    producesTerm st (GRef x) = case resolveRef x st of
-      Just g -> producesTerm st g
-      Nothing -> False  -- builtins don't count
-    producesTerm _ (GNode _ _) = True
-    producesTerm _ _ = False
+    producesTerm st g = producesTermGo S.empty g
+      where
+        producesTermGo visited (GRef x)
+          | x `S.member` visited = False  -- cycle detected
+          | otherwise = case resolveRef x st of
+              Just g' -> producesTermGo (S.insert x visited) g'
+              Nothing -> False  -- builtins don't count
+        producesTermGo _ (GNode _ _) = True
+        producesTermGo _ _ = False
     
     -- Collect all terms produced by elements in a sequence
     collectSeqTerms :: [GrammarExpr ()] -> BiState Token Term 
