@@ -2,6 +2,62 @@
 
 > **Current Status**: 201/240 lego tests • 725/725 redtt parsing (100%)
 
+## 🔴 HIGH PRIORITY: Architecture Simplification
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for full design.
+
+### Problem
+Grammar and Schema are conflated. Grammar tries to do both:
+- Parse surface syntax (tokens)
+- Build Terms with correct structure
+
+This creates complexity and bugs (infinite loops, wrong arities).
+
+### Solution: Separate Grammar from Schema
+
+| Layer | Role | Example |
+|-------|------|---------|
+| **Grammar** | Surface ↔ S-expr (pure syntax) | `"(" "λ" x "." body ")"` ↔ `(lam x body)` |
+| **Schema** | S-expr structure with arities | `lam/2`, `var/1`, `app/2` |
+| **Term** | Mathematical structure | `TmCon "lam" [TmVar "x", ...]` |
+
+### Action Items
+
+#### Phase 1: Add Schema Module
+- [ ] Create `interpreter/Lego/Schema.hs`
+- [ ] Define `Arity = Arity Int | ArityAtLeast Int | ArityRange Int Int`
+- [ ] Define `Schema = Schema { constructors :: Map String Arity, sorts :: Map String [String] }`
+- [ ] Implement `validateSExpr :: Schema -> String -> SExpr -> Either String ()`
+- [ ] Implement `sexprToTerm :: Schema -> SExpr -> Either String Term`
+- [ ] Implement `termToSExpr :: Term -> SExpr`
+
+#### Phase 2: Simplify Grammar to Pure Syntax
+- [ ] Remove `node` markers from Grammar.lego - grammar just produces s-expr
+- [ ] Grammar rules become: `"(" "λ" ident "." term ")" ~> (lam $1 $2)`
+- [ ] `~>` shows s-expr template with holes ($1, $2, etc.)
+- [ ] Grammar.sexpr becomes simpler: just token patterns and s-expr templates
+
+#### Phase 3: Extract Arities from Existing Grammar
+- [ ] Scan current Grammar.sexpr for `(node X ...)` patterns
+- [ ] Count children to infer arities: `lam/2`, `var/1`, `app/2`, `Π/3`, etc.
+- [ ] Generate initial Schema from existing grammar
+- [ ] Add schema validation to parser pipeline
+
+#### Phase 4: Clean Up
+- [ ] Remove `node` handling from GrammarInterp.hs
+- [ ] Simplify bidirectional engine (just token ↔ s-expr)
+- [ ] Move arity errors from grammar to schema validation
+- [ ] Update GenGrammarDef.hs for new grammar format
+
+### Benefits
+1. **Grammar is trivial**: Just token shuffling, ~100 lines
+2. **Schema is declarative**: Arity checking, sort membership
+3. **Term is clean**: Pure algebra, rules just work
+4. **Bidirectional for free**: Grammar templates are invertible
+5. **Error messages are clear**: Schema says "lam/2 got 3 args"
+
+---
+
 ## Completed ✅
 
 ### Infrastructure
