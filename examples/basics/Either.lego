@@ -1,7 +1,9 @@
 -- Either.lego: Either/Result type with left/right
 -- Exercises: sum type patterns, bimap
 
-lang Either :=
+import Atoms
+
+lang Either (Atoms) :=
 
 -----------------------------------------------------
 -- Terms
