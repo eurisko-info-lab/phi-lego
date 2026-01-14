@@ -52,7 +52,7 @@ Multi-level pushout composition with algebraic law verification:
 #### Phase 4: Declarative Cuts & Composition Syntax
 - ✅ `@autocut` annotation on productions
 - ✅ `inherit Base.Term` syntax for grammar composition
-- [ ] Conflict resolution: local shadows inherited
+- ✅ Conflict resolution: local shadows inherited (`resolveInherit` checks `M.member` before adding)
 
 ### Deferred Features (Implement When Needed)
 

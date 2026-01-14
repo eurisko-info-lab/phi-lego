@@ -315,12 +315,44 @@ processDeclWithMapAndResolved langMap resolvedMap cl (DPiece name parents body) 
 processDeclWithMapAndResolved _ _ cl (DLaw law) =
   -- law "name": lhs ≅ rhs - algebraic law declaration
   Right $ addLaw law cl
-processDeclWithMapAndResolved _ _ cl (DInherit qual) =
+processDeclWithMapAndResolved langMap resolvedMap cl (DInherit qual) =
   -- inherit Module.Production - grammar composition
-  Right $ addInherit qual cl
+  -- Local definitions shadow inherited ones
+  case resolveInherit langMap resolvedMap qual of
+    Left _err -> Right $ addInherit qual cl  -- Store for later resolution if not found now
+    Right (prodName, grammar) ->
+      -- Only add if not already defined locally (local shadows inherited)
+      if M.member prodName (clGrammar cl)
+        then Right $ addInherit qual cl  -- Already defined locally, just record
+        else Right $ addInherit qual (addGrammar prodName grammar cl)
 processDeclWithMapAndResolved _ _ cl (DAutocut name) =
   -- @autocut production - mark production for automatic cut insertion
   Right $ addAutocut name cl
+
+-- | Resolve an inherit declaration to a grammar production
+-- Input: "Module.Production" or just "Production"
+-- Returns: (productionName, grammarExpr)
+resolveInherit :: M.Map String [LegoDecl] -> M.Map String CompiledLang -> String -> Either String (String, GrammarExpr ())
+resolveInherit langMap resolvedMap qual =
+  case break (== '.') qual of
+    (modName, '.':prodName) ->
+      -- Qualified: Module.Production
+      case lookupLang langMap resolvedMap modName of
+        Left err -> Left err
+        Right srcLang ->
+          case M.lookup prodName (clGrammar srcLang) of
+            Just g -> Right (prodName, g)
+            Nothing -> Left $ "Production '" ++ prodName ++ "' not found in " ++ modName
+    _ ->
+      -- Unqualified: search all resolved modules
+      let found = [ (prod, g) 
+                  | cl <- M.elems resolvedMap
+                  , (prod, g) <- M.toList (clGrammar cl)
+                  , prod == qual ]
+      in case found of
+           [(prod, g)] -> Right (prod, g)
+           [] -> Left $ "Production '" ++ qual ++ "' not found in any imported module"
+           _ -> Left $ "Ambiguous: '" ++ qual ++ "' found in multiple modules"
 
 -- | Look up a language by name in langMap or resolvedMap
 lookupLang :: M.Map String [LegoDecl] -> M.Map String CompiledLang -> String -> Either String CompiledLang
