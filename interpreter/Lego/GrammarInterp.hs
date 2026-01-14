@@ -108,6 +108,40 @@ isInfixOp :: String -> Bool
 isInfixOp s = isSymbol s && s `notElem` ["(", ")", "[", "]", "{", "}", ",", ";", ":", "~>", "<~", "<~>", "~~>"]
 
 --------------------------------------------------------------------------------
+-- Token/Term Extraction Helpers
+--------------------------------------------------------------------------------
+
+-- | Extract token name from various token types
+getTokenName :: Token -> Maybe String
+getTokenName (TIdent s) = Just s
+getTokenName (TKeyword s) = Just s
+getTokenName (TReserved s) = Just s
+getTokenName _ = Nothing
+
+-- | Extract token name but exclude reserved words
+-- Used for <identifier> which rejects TReserved
+getIdentName :: Token -> Maybe String
+getIdentName (TIdent s) = Just s
+getIdentName (TKeyword s) = Just s
+getIdentName _ = Nothing
+
+-- | Extract constructor name from token (TIdent, TKeyword, or TSym with constraints)
+-- Excludes structural symbols that aren't valid constructor names
+getConstrName :: Token -> Maybe String
+getConstrName (TIdent s) = Just s
+getConstrName (TKeyword s) = Just s
+getConstrName (TSym s) | s `notElem` ["(", ")", "$"] = Just s
+getConstrName _ = Nothing
+
+-- | Helper for Print mode: pattern match on bsTerm and emit tokens
+-- Takes a function that extracts tokens from the term, returns updated state or empty list
+printSimple :: (Term -> Maybe [Token]) -> BiState Token Term -> [BiState Token Term]
+printSimple f st = case bsTerm st of
+  Just term | Just toks <- f term ->
+    [st { bsTokens = bsTokens st ++ toks, bsTerm = Nothing }]
+  _ -> []
+
+--------------------------------------------------------------------------------
 -- Grammar Definitions
 --------------------------------------------------------------------------------
 
@@ -392,7 +426,7 @@ runGrammar = go
       Check -> [st]
     
     -- Node: semantic marker for AST construction, OR special token type
-    -- Special token types: "identifier"/"ident", "digits", "string", "chars", "constructor", "patvar", "anglevar"
+    -- Special token types: "ident", "digits", "string", "chars", "constructor", "patvar", "anglevar"
     -- These set both bsBinds (for backward compatibility) and bsTerm (for GNode arg collection)
     go (GNode con []) st = case bsMode st of
       Parse -> case con of
@@ -401,7 +435,7 @@ runGrammar = go
         --
         -- Soft keywords (TKeyword) are allowed as identifiers to avoid breaking
         -- contexts where a word-like token can be both a keyword and an ident.
-        _ | con `elem` ["identifier", "ident"] -> case bsTokens st of
+        "ident" -> case bsTokens st of
           (TIdent s : ts) -> [st { bsTokens = ts
                                  , bsBinds = insertBind "_ident" (TmVar s) (bsBinds st)
                                  , bsTerm = Just (TmVar s) }]
@@ -485,36 +519,32 @@ runGrammar = go
         -- Other node types: semantic marker only
         _ -> [st { bsTerm = Just (TmCon con []) }]
       Print -> case con of
+        -- Print ident: TmVar s → ident token
+        "ident" -> case bsTerm st of
+          Just (TmVar s) -> [st { bsTokens = bsTokens st ++ [TIdent s], bsTerm = Nothing }]
+          _ -> []
+        -- Print number/digits: TmLit s → digit token
+        _ | con `elem` ["number", "digits"] -> case bsTerm st of
+          Just (TmLit s) -> [st { bsTokens = bsTokens st ++ [TIdent s], bsTerm = Nothing }]
+          _ -> []
+        -- Print string: TmLit s → string token
+        "string" -> case bsTerm st of
+          Just (TmLit s) -> [st { bsTokens = bsTokens st ++ [TString s], bsTerm = Nothing }]
+          _ -> []
+        -- Print regex: TmLit s → regex token
+        "regex" -> case bsTerm st of
+          Just (TmLit s) -> [st { bsTokens = bsTokens st ++ [TRegex s], bsTerm = Nothing }]
+          _ -> []
         -- Print metavariable: TmVar "$x" → "$" "x"
-        "metavar" -> case bsTerm st of
-          Just (TmVar ('$':s)) ->
-            [st { bsTokens = bsTokens st ++ [TSym "$", TIdent s]
-                , bsTerm = Nothing }]
-          _ -> []
+        "metavar" -> printSimple (\case TmVar ('$':s) -> Just [TSym "$", TIdent s]; _ -> Nothing) st
         -- Print literal identifier: TmLit s → ident
-        "litident" -> case bsTerm st of
-          Just (TmLit s) ->
-            [st { bsTokens = bsTokens st ++ [TIdent s]
-                , bsTerm = Nothing }]
-          _ -> []
+        "litident" -> printSimple (\case TmLit s -> Just [TIdent s]; _ -> Nothing) st
         -- Print newline: TmCon "newline" [] → newline
-        "newline" -> case bsTerm st of
-          Just (TmCon "newline" []) ->
-            [st { bsTokens = bsTokens st ++ [TNewline]
-                , bsTerm = Nothing }]
-          _ -> []
+        "newline" -> printSimple (\case TmCon "newline" [] -> Just [TNewline]; _ -> Nothing) st
         -- Print indent: TmCon "indent" [TmLit n] → indent
-        "indent" -> case bsTerm st of
-          Just (TmCon "indent" [TmLit n]) ->
-            [st { bsTokens = bsTokens st ++ [TIndent (read n)]
-                , bsTerm = Nothing }]
-          _ -> []
+        "indent" -> printSimple (\case TmCon "indent" [TmLit n] -> Just [TIndent (read n)]; _ -> Nothing) st
         -- Print char literal: TmChar s → 'char'
-        "char" -> case bsTerm st of
-          Just (TmChar s) ->
-            [st { bsTokens = bsTokens st ++ [TChar s]
-                , bsTerm = Nothing }]
-          _ -> []
+        "char" -> printSimple (\case TmChar s -> Just [TChar s]; _ -> Nothing) st
         _ -> [st]  -- no-op for other simple nodes
       Check -> [st]
     
@@ -979,6 +1009,7 @@ showToken (TChar s) = "'" ++ s ++ "'"
 showToken (TSym s) = s
 showToken TNewline = "\n"
 showToken (TIndent n) = replicate n ' '
+showToken (TComment s) = s
 
 --------------------------------------------------------------------------------
 -- Convenience: Pre-built Grammar Definitions

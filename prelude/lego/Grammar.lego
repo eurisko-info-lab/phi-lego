@@ -17,7 +17,7 @@ lang LegoGrammar :=
 -----------------------------------------------------
 
 piece Atom
-  ident   ::= <identifier>
+  ident   ::= <ident>
   string  ::= <string>
   regex   ::= <regex>
   char    ::= <char>

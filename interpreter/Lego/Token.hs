@@ -35,6 +35,7 @@ module Lego.Token
   , tokenizeWithInfo
   , tokenizeWithKeywords
   , tokenizeWithSymbols
+  , tokenizePreservingComments
   , classifyKeywords
   , classifyReserved
     -- * Vocabulary (for external use - DEPRECATED for composed languages)
@@ -82,6 +83,7 @@ data Token
   | TKeyword String  -- ^ Refined: keyword (grammar-scoped, not lexer-classified)
   | TNewline         -- ^ Structure: significant newline
   | TIndent Int      -- ^ Structure: indentation level (spaces after newline)
+  | TComment String  -- ^ Comment: -- line comment or /- block comment -/
   deriving (Eq, Show)
 
 -- | Extended token info for error reporting
@@ -306,19 +308,34 @@ tokenizeWithKeywords doClassify = tokenizeWithSymbolList doClassify symbols
 tokenizeWithSymbols :: [String] -> String -> [Token]
 tokenizeWithSymbols = tokenizeWithSymbolList False
 
+-- | Tokenize preserving comments (for round-trip preservation).
+--
+-- Comments are emitted as TComment tokens instead of being dropped.
+-- Uses the default symbol list and no keyword classification.
+tokenizePreservingComments :: [String] -> String -> [Token]
+tokenizePreservingComments syms = tokenizeWithSymbolListCore False True syms
+
 -- | Internal: tokenize with an explicit symbol list and optional .lego keyword classification.
+-- When preserveComments=True, comments are emitted as TComment tokens instead of being dropped.
 tokenizeWithSymbolList :: Bool -> [String] -> String -> [Token]
 tokenizeWithSymbolList doClassify symbolList input =
+  tokenizeWithSymbolListCore doClassify False symbolList input
+
+-- | Internal core: tokenize with explicit options for keyword classification and comment preservation.
+tokenizeWithSymbolListCore :: Bool -> Bool -> [String] -> String -> [Token]
+tokenizeWithSymbolListCore doClassify preserveComments symbolList input =
   go 0 0 input
   where
     go _ _ [] = []
     go _col _ind ('\n':cs) = TNewline : goIndent 0 cs
     go col ind (c:cs) | isSpace c = go (col+1) ind cs
     -- RedTT/OCaml-style block comments: /- ... -/
-    -- We treat them as whitespace and skip entirely.
+    -- When preserveComments is True, emit TComment; otherwise skip entirely.
     go col ind ('/':'-':cs) =
-      let rest = dropBlockComment cs
-      in go (col + 2) ind rest
+      let (commentText, rest) = spanBlockComment cs
+      in if preserveComments
+         then TComment ("/- " ++ commentText ++ " -/") : go (col + length commentText + 4) ind rest
+         else go (col + length commentText + 4) ind rest
     -- Backticks have two distinct meanings:
     --   - In `.lego` files (doClassify=True), they delimit reserved literals: `foo`.
     --   - In RedTT surface syntax, backtick is a standalone token used for quotation.
@@ -339,7 +356,13 @@ tokenizeWithSymbolList doClassify symbolList input =
       | otherwise = TSym "'" : go (col + 1) ind cs
     -- Slash: never tokenize as regex delimiter. / is used in qualified names (RedTT)
     -- and as operators in .lego files. Regex support can be added via grammar if needed.
-    go col ind ('-':'-':cs) = go col ind (dropWhile (/= '\n') cs)  -- comment
+    -- Line comments: -- ... (to end of line)
+    -- When preserveComments is True, emit TComment; otherwise skip.
+    go col ind ('-':'-':cs) =
+      let (commentText, rest) = span (/= '\n') cs
+      in if preserveComments
+         then TComment ("--" ++ commentText) : go col ind rest
+         else go col ind rest
     go col ind ('$':cs) = let (ident, rest) = span isIdChar cs
                           in TSym "$" : (if null ident then id else (TIdent ident :)) (go (col + length ident + 1) ind rest)
     -- @-prefixed keywords (like @autocut) - must come BEFORE matchSym!
@@ -366,9 +389,13 @@ tokenizeWithSymbolList doClassify symbolList input =
     -- This avoids silently dropping unseen Unicode operators.
     go col ind (c:cs) = TSym [c] : go (col+1) ind cs
 
-    dropBlockComment [] = []
-    dropBlockComment ('-':'/':rest) = rest
-    dropBlockComment (_:rest) = dropBlockComment rest
+    -- Extract block comment text, returning (comment, rest after -/)
+    spanBlockComment :: String -> (String, String)
+    spanBlockComment = go' []
+      where
+        go' acc [] = (reverse acc, [])
+        go' acc ('-':'/':rest) = (reverse acc, rest)
+        go' acc (c:rest) = go' (c:acc) rest
     
     goIndent n (' ':cs) = goIndent (n+1) cs
     goIndent n cs = TIndent n : go n n cs  -- Update indent context

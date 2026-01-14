@@ -1,7 +1,7 @@
 (grammar
   (prod "Atom.char" (node char))
   (prod "Atom.chars" (star (node char)))
-  (prod "Atom.ident" (node identifier))
+  (prod "Atom.ident" (node ident))
   (prod "Atom.metavar" (seq (lit $) (ref Atom.ident)))
   (prod "Atom.number" (node digits))
   (prod "Atom.regex" (node regex))
