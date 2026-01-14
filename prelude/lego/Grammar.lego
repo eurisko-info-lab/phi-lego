@@ -117,6 +117,9 @@ piece GrammarExpr
                 | "μ" ident "." grammarExpr $ recAtom
                 | "ε"                       $ emptyAtom
   
+  -- Whitespace in grammar expressions (for multi-line grammars)
+  grammarWhitespace ::= (<newline> | <indent>)*
+  
 -----------------------------------------------------
 -- PIECE 6: Rule
 -- Rewrite rules
@@ -181,6 +184,11 @@ piece File
              | inheritDecl
              | autocutDecl
              | defDecl
+             | commentDecl
+  
+  -- Comment declaration
+  commentDecl ::= "--" commentText          $ comment
+  commentText ::= <char>*
 
   -- Language declaration with direct body (with cut after "lang")
   langDecl ::= !"lang" ident langParentsOpt ":=" langDirectBody
