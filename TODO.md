@@ -101,6 +101,19 @@ Multi-level pushout composition with algebraic law verification:
 
 ### Deferred Features (Implement When Needed)
 
+#### Parameterized Grammars (Higher-Order Grammar)
+Need for test declarations to use piece-specific term grammars:
+- [ ] **Syntax**: `name[T] ::= body` where `T` is a grammar parameter
+- [ ] **Application**: `test[Arith.term]` instantiates with specific grammar
+- [ ] **Substitution**: resolve `test[X]` by substituting `X` for `T` in body
+- [ ] **GApp constructor**: `GApp "test" [GRef "Arith.term"]` for grammar application
+- Use case: `test[T] ::= "test" <string> ":" T ("~~>" T)?` - tests use piece's term grammar
+
+Current workaround issues:
+- Pieces named `Term` collide with bootstrap `Term.term` in Grammar.sexpr
+- Suffix matching `*.term` can find wrong production when names collide
+- Need namespace isolation or explicit parameterization
+
 #### Parametric Languages (Functor Category)
 Removed in cleanup (was unused). Recover and implement when needed:
 - [ ] `ParamLang a t`: type-indexed language families (List[A], State[S])
