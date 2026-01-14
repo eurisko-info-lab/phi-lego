@@ -108,7 +108,7 @@ grammarSExprPath :: FilePath
 grammarSExprPath = "prelude/lego/Grammar.sexpr"
 
 testDirs :: [FilePath]
-testDirs = ["test/pushout"]
+testDirs = ["test/meta", "test/pushout"]
 
 -- Directories with intentionally malformed files (expected to fail parsing)
 errorTestDirs :: [FilePath]
