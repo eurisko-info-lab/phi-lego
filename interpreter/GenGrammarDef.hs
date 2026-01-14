@@ -103,8 +103,28 @@ convertNodeAnnotations = goTop
     goTop :: GrammarExpr () -> GrammarExpr ()
     goTop (GAlt g1 g2) = GAlt (goTop g1) (goTop g2)
     goTop g = case extractNodeAnnotation g of
-      Just (nodeName, body) -> GNode nodeName [convertNodeAnnotations body]
+      Just (nodeName, body) 
+        -- Special case: "constr" needs old-style (node constructor argGram) format
+        -- for the special handler in GrammarInterp
+        | nodeName == "constr" -> 
+            case extractConstrArg body of
+              Just argGram -> GNode "constructor" [convertNodeAnnotations argGram]
+              Nothing -> GNode nodeName [convertNodeAnnotations body]
+        | otherwise -> GNode nodeName [convertNodeAnnotations body]
       Nothing -> goOther g
+    
+    -- Extract the argument grammar from a constr pattern: "(" ident arg* ")" -> arg
+    extractConstrArg :: GrammarExpr () -> Maybe (GrammarExpr ())
+    extractConstrArg g = 
+      let parts = flattenSeq g
+      in case parts of
+           [GLit "(", GRef _, GStar argGram, GLit ")"] -> Just argGram
+           _ -> Nothing
+    
+    -- Flatten a sequence into a list of parts
+    flattenSeq :: GrammarExpr () -> [GrammarExpr ()]
+    flattenSeq (GSeq g1 g2) = flattenSeq g1 ++ flattenSeq g2
+    flattenSeq g = [g]
     
     -- For non-node-annotated expressions, recurse into structure
     goOther :: GrammarExpr () -> GrammarExpr ()

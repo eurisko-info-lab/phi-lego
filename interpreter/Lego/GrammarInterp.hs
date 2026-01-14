@@ -107,6 +107,15 @@ isIdentLikeSym s@(c:_) = isNodeNameChar c && s `notElem` structuralSymbols
 isInfixOp :: String -> Bool
 isInfixOp s = isSymbol s && s `notElem` ["(", ")", "[", "]", "{", "}", ",", ";", ":", "~>", "<~", "<~>", "~~>"]
 
+-- | Node names that have dedicated grammar patterns and shouldn't be caught by generic `constr`
+-- These are AST node types that have specific printing rules via (node X ...) in the grammar
+specialNodeNames :: [String]
+specialNodeNames = 
+  [ "var", "str", "num", "lam", "hole", "proj", "metavar"
+  , "λᵢ", "Π", "Σ", "∀", ":"
+  , "litIdent", "pstr", "tstr", "subst"
+  ]
+
 --------------------------------------------------------------------------------
 -- Grammar Definitions
 --------------------------------------------------------------------------------
@@ -485,6 +494,12 @@ runGrammar = go
         -- Other node types: semantic marker only
         _ -> [st { bsTerm = Just (TmCon con []) }]
       Print -> case con of
+        -- Print identifier: TmVar s → ident token
+        _ | con `elem` ["identifier", "ident"] -> case bsTerm st of
+          Just (TmVar s) ->
+            [st { bsTokens = bsTokens st ++ [TIdent s]
+                , bsTerm = Nothing }]
+          _ -> []
         -- Print metavariable: TmVar "$x" → "$" "x"
         "metavar" -> case bsTerm st of
           Just (TmVar ('$':s)) ->
@@ -513,6 +528,18 @@ runGrammar = go
         "char" -> case bsTerm st of
           Just (TmChar s) ->
             [st { bsTokens = bsTokens st ++ [TChar s]
+                , bsTerm = Nothing }]
+          _ -> []
+        -- Print string literal: TmLit s → "s"
+        "string" -> case bsTerm st of
+          Just (TmLit s) ->
+            [st { bsTokens = bsTokens st ++ [TString s]
+                , bsTerm = Nothing }]
+          _ -> []
+        -- Print number: TmLit s → digits
+        _ | con `elem` ["number", "digits"] -> case bsTerm st of
+          Just (TmLit s) ->
+            [st { bsTokens = bsTokens st ++ [TIdent s]
                 , bsTerm = Nothing }]
           _ -> []
         _ -> [st]  -- no-op for other simple nodes
@@ -634,7 +661,10 @@ runGrammar = go
                 _ -> []
         _ -> []
       Print -> case bsTerm st of
-        Just (TmCon conName subterms) -> do
+        Just (TmCon conName subterms) 
+          -- Skip if this is a specially-handled node type
+          -- These have their own `(node X ...)` patterns that should match instead
+          | conName `notElem` specialNodeNames -> do
           -- Print "(" conName args* ")"
           -- Use TSym for symbol constructors, TIdent for identifiers
           let conTok = if isSymbol conName then TSym conName else TIdent conName
@@ -646,6 +676,27 @@ runGrammar = go
                , bsBinds = popScope (bsBinds st1) }]
         _ -> []
       Check -> [st]
+    -- GNode with single seq arg: extract all term-producing elements as children
+    -- This handles patterns like (node lam (seq (lit "(") (lit λ) (ref ident) (lit .) (ref term) (lit ")")))
+    -- where we want (lam identTerm termTerm), not (lam lastTermOnly)
+    go (GNode con [GSeq g1 g2]) st = case bsMode st of
+      Parse -> do
+        let st0 = st { bsBinds = pushScope (bsBinds st), bsTerm = Nothing }
+        -- Collect all terms produced while running the sequence
+        (st1, allTerms) <- collectSeqTerms (flattenSeq' (GSeq g1 g2)) st0
+        [st1 { bsTerm = Just (TmCon con allTerms)
+             , bsBinds = popScope (bsBinds st1) }]
+      Print -> case bsTerm st of
+        Just (TmCon c subterms) | c == con -> do
+          let st0 = st { bsBinds = pushScope (bsBinds st) }
+          -- Distribute subterms across term-producing elements in seq
+          st1 <- printSeqWithTerms (flattenSeq' (GSeq g1 g2)) subterms st0
+          [st1 { bsTerm = Nothing, bsBinds = popScope (bsBinds st1) }]
+        _ -> []
+      Check -> do
+        let st0 = st { bsBinds = pushScope (bsBinds st) }
+        st1 <- foldM (\s g -> go g s) st0 [GSeq g1 g2]
+        [st1 { bsBinds = popScope (bsBinds st1) }]
     go (GNode con args) st = case bsMode st of
       Parse -> do
         -- Push scope, parse all args collecting their terms, pop scope
@@ -831,6 +882,50 @@ runGrammar = go
       let (more, rest') = collectQualParts rest
       in (part : more, rest')
     collectQualParts ts = ([], ts)
+    
+    -- Flatten a GSeq into a list of parts
+    flattenSeq' :: GrammarExpr () -> [GrammarExpr ()]
+    flattenSeq' (GSeq g1 g2) = flattenSeq' g1 ++ flattenSeq' g2
+    flattenSeq' g = [g]
+    
+    -- Check if a grammar element produces a term (refs to term-producing grammars, nodes)
+    producesTerm :: BiState Token Term -> GrammarExpr () -> Bool
+    producesTerm st (GRef x) = case resolveRef x st of
+      Just g -> producesTerm st g
+      Nothing -> False  -- builtins don't count
+    producesTerm _ (GNode _ _) = True
+    producesTerm _ _ = False
+    
+    -- Collect all terms produced by elements in a sequence
+    collectSeqTerms :: [GrammarExpr ()] -> BiState Token Term 
+                    -> [(BiState Token Term, [Term])]
+    collectSeqTerms [] s = [(s, [])]
+    collectSeqTerms (g:gs) s = do
+      s' <- go g s
+      case bsTerm s' of
+        Just t -> do
+          (s'', ts) <- collectSeqTerms gs (s' { bsTerm = Nothing })
+          [(s'', t : ts)]
+        Nothing -> do
+          (s'', ts) <- collectSeqTerms gs s'
+          [(s'', ts)]
+    
+    -- Print a sequence distributing terms across term-producing elements
+    printSeqWithTerms :: [GrammarExpr ()] -> [Term] -> BiState Token Term 
+                      -> [BiState Token Term]
+    printSeqWithTerms [] _ s = [s]
+    printSeqWithTerms (g:gs) terms s 
+      | producesTerm s g = case terms of
+          (t:ts) -> do
+            s' <- go g (s { bsTerm = Just t })
+            printSeqWithTerms gs ts s'
+          [] -> do  -- no more terms, use unit placeholder
+            s' <- go g (s { bsTerm = Just (TmCon "unit" []) })
+            printSeqWithTerms gs [] s'
+      | otherwise = do
+          s' <- go g s
+          printSeqWithTerms gs terms s'
+    
     -- Fold that collects bsTerm from each step
     foldMCollect :: (BiState Token Term -> GrammarExpr () -> [BiState Token Term]) 
                  -> BiState Token Term -> [GrammarExpr ()] -> [(BiState Token Term, [Term])]

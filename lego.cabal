@@ -119,3 +119,17 @@ test-suite redtt-test
     default-extensions:
         BangPatterns
         LambdaCase
+
+-- Round-trip test: parse . print = id, print . parse = id
+test-suite roundtrip-test
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    main-is:          RoundTripTest.hs
+    build-depends:
+        base >= 4.14 && < 5,
+        lego,
+        containers >= 0.6
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    default-extensions:
+        BangPatterns

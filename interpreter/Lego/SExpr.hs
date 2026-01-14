@@ -137,7 +137,7 @@ printSExprs = unlines . map printSExpr
 -- | Check if string needs quoting (contains spaces or special chars)
 needsQuotes :: String -> Bool
 needsQuotes [] = True
-needsQuotes s = any (\c -> isSpace c || c `elem` "()\"") s
+needsQuotes s = any (\c -> isSpace c || c `elem` "()\"\\") s
 
 -- | Escape special characters in string
 escapeString :: String -> String

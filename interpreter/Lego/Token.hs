@@ -268,6 +268,17 @@ isKeywordAt indent word
 isTopLevelKeyword :: String -> Bool
 isTopLevelKeyword = (`S.member` topLevelKeywordSet)
 
+-- | Parse string literal with escape sequences
+-- Handles: \" \\ \n \t
+parseStringLit :: String -> String -> (String, String)
+parseStringLit [] acc = (reverse acc, [])  -- unterminated (shouldn't happen)
+parseStringLit ('"':rest) acc = (reverse acc, rest)
+parseStringLit ('\\':'"':rest) acc = parseStringLit rest ('"':acc)
+parseStringLit ('\\':'\\':rest) acc = parseStringLit rest ('\\':acc)
+parseStringLit ('\\':'n':rest) acc = parseStringLit rest ('\n':acc)
+parseStringLit ('\\':'t':rest) acc = parseStringLit rest ('\t':acc)
+parseStringLit (c:rest) acc = parseStringLit rest (c:acc)
+
 --------------------------------------------------------------------------------
 -- Tokenization
 --------------------------------------------------------------------------------
@@ -317,8 +328,8 @@ tokenizeWithSymbolList doClassify symbolList input =
           let (s, rest) = span (/= '`') cs
           in TReserved s : go (col + length s + 2) ind (drop 1 rest)
       | otherwise = TSym "`" : go (col + 1) ind cs
-    go col ind ('"':cs) = let (s, rest) = span (/= '"') cs
-                          in TString s : go (col + length s + 2) ind (drop 1 rest)
+    go col ind ('"':cs) = let (s, rest) = parseStringLit cs ""
+                          in TString s : go (col + length s + 2) ind rest
     -- Single quotes only interpreted as char delimiters in .lego files (doClassify=True)
     -- In RedTT and other surface languages, ' is often part of identifiers (primes)
     go col ind ('\'':cs)

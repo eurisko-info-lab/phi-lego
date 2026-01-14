@@ -36,14 +36,12 @@ piece Term
          | "." ident                       $ proj     -- projection
          | "(" "λᵢ" ident "." term ")"     $ λᵢ       -- path abstraction (paren)
          | "(" "λ" ident "." term ")"      $ lam      -- lambda (paren)
-         | "(" "\\" ident "." term ")"     $ lam      -- lambda (paren, ASCII)
          | "(" "Π" typedBinder "." term ")" $ Π       -- dependent Pi
          | "(" "Σ" typedBinder "." term ")" $ Σ       -- dependent Sigma
          | "(" "∀" typedBinder "." term ")" $ ∀       -- universal quantification
          | "(" ident term* ")"             $ constr   -- constructor
          | "λᵢ" ident "." term             $ λᵢ       -- path abstraction (bare)
          | "λ" ident "." term              $ lam      -- lambda (bare)
-         | "\\" ident "." term             $ lam      -- lambda (bare, ASCII)
          | string                          $ str      -- string literal
          | number                          $ num      -- number literal
          | ident                           $ var      -- variable
@@ -74,11 +72,9 @@ piece Template
              | "[" ident ":=" template "]" template $ subst
              | "(" "λᵢ" template "." template ")" $ λᵢ
              | "(" "λ" ident "." template ")"     $ lam
-             | "(" "\\" ident "." template ")"    $ lam
              | "(" ident template* ")"            $ constr
              | "λᵢ" template "." template         $ λᵢ
              | "λ" ident "." template             $ lam
-             | "\\" ident "." template            $ lam
              | string                             $ tstr
              | ident                              $ litIdent
 
