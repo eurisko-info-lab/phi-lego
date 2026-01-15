@@ -42,11 +42,11 @@ token Token
   number  ::= digit digit* ;
   string  ::= '"' strchar* '"' ;
   strchar ::= '\\' escape | printable ;
-  escape  ::= '"' | '\\' | 'n' | 't' | 'r' ;
+  escape  ::= '"' | '\\' | 'n' | 't' | 'r' | '\'' ;
   printable ::= alpha | digit | symch | ' ' ;
-  -- Character literals: 'x' or '\x'
+  -- Character literals: 'x' or '\x' (including '\'' for escaped quote)
   char    ::= '\'' charinner '\'' ;
-  charinner ::= '\\' escape | alpha | digit | symch | ' ' ;
+  charinner ::= '\\' escape | alpha | digit | symch | ' ' | '"' ;
 
   -- Whitespace and comments (to skip)
   ws      ::= ' ' | '\t' | '\n' | '\r' ;

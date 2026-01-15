@@ -65,12 +65,24 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
               else s
     some (GrammarExpr.lit s')
 
-  -- Character literal: (char (char "'x'"))
-  | .con "char" [.con "char" [.lit s]] =>
-    -- Strip quotes from char literal 'x' → x
-    let s' := if s.startsWith "'" && s.endsWith "'" then
-                s.drop 1 |>.dropRight 1
-              else s
+  -- Character literal: (chr (char "'x'")) or (chr (char "'\x'"))
+  | .con "chr" [.con "char" [.lit s]] =>
+    -- Strip quotes from char literal 'x' → x, '\n' → newline, etc.
+    let inner := if s.startsWith "'" && s.endsWith "'" then
+                   s.drop 1 |>.dropRight 1
+                 else s
+    -- Handle escape sequences
+    let s' := if inner.startsWith "\\" && inner.length == 2 then
+                let escaped := inner.get ⟨1⟩
+                match escaped with
+                | 'n' => "\n"
+                | 't' => "\t"
+                | 'r' => "\r"
+                | '\\' => "\\"
+                | '\'' => "'"
+                | '"' => "\""
+                | c => s!"{c}"  -- Unknown escape, keep as-is
+              else inner
     some (GrammarExpr.lit s')
 
   -- Reference: (ref (ident name))

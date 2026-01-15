@@ -196,7 +196,11 @@ partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseStat
       let tokType := name.drop 6  -- Remove "TOKEN." prefix
       match tokType, st.tokens with
       | "ident",   .ident s :: rest  => some (.var s, { st with tokens := rest })
-      | "string",  .lit s :: rest    => some (.lit s, { st with tokens := rest })
+      | "string",  .lit s :: rest    =>
+        -- Match "..." string literals (not '...' char literals)
+        if s.startsWith "\"" then
+          some (.lit s, { st with tokens := rest })
+        else none
       | "char",    .lit s :: rest    =>
         -- Match 'x' character literals
         if s.startsWith "'" && s.endsWith "'" then
@@ -307,7 +311,11 @@ partial def parseGrammarT [AST α] (prods : Productions) (g : GrammarExpr)
       let tokType := name.drop 6
       match tokType, st.tokens with
       | "ident",   .ident s :: rest  => some (AST.var s, { st with tokens := rest })
-      | "string",  .lit s :: rest    => some (AST.lit s, { st with tokens := rest })
+      | "string",  .lit s :: rest    =>
+        -- Match "..." string literals (not '...' char literals)
+        if s.startsWith "\"" then
+          some (AST.lit s, { st with tokens := rest })
+        else none
       | "char",    .lit s :: rest    =>
         if s.startsWith "'" && s.endsWith "'" then
           some (AST.lit s, { st with tokens := rest })
