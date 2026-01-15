@@ -15,6 +15,27 @@ namespace Lego.Loader
 
 open Lego
 
+/-! ## Helper Functions -/
+
+/-- Split a list of Terms by .lit "|" tokens (the alternation separator).
+    Returns groups of terms that form each alternative.
+    Each group is combined into a seq if multiple elements. -/
+def splitByPipe (ts : List Term) : List Term :=
+  let rec go (acc : List Term) (current : List Term) : List Term :=
+    match current with
+    | [] =>
+      if acc.isEmpty then [] else [mkSeq acc.reverse]
+    | .lit "|" :: rest =>
+      mkSeq acc.reverse :: go [] rest
+    | t :: rest =>
+      go (t :: acc) rest
+  go [] ts
+where
+  mkSeq : List Term → Term
+  | [] => .con "empty" []
+  | [t] => t
+  | ts => .con "seq" ts
+
 /-! ## AST → GrammarExpr -/
 
 /-- Convert a parsed grammar expression AST back to GrammarExpr.
@@ -64,11 +85,18 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
       let g' ← astToGrammarExpr pieceName g
       pure (GrammarExpr.seq acc g')) GrammarExpr.empty
 
-  -- Alternative: (alt g1 "|" g2)
-  | .con "alt" (g1 :: _ :: g2 :: _) => do
-    let g1' ← astToGrammarExpr pieceName g1
-    let g2' ← astToGrammarExpr pieceName g2
-    pure (GrammarExpr.alt g1' g2')
+  -- Alternative: (alt g1 "|" g2 "|" g3 ...)
+  -- Split by .lit "|" tokens, then fold into nested alts
+  | .con "alt" args =>
+    let parts := splitByPipe args
+    match parts with
+    | [] => none
+    | [single] => astToGrammarExpr pieceName single
+    | first :: rest => do
+      let first' ← astToGrammarExpr pieceName first
+      rest.foldlM (fun acc part => do
+        let g' ← astToGrammarExpr pieceName part
+        pure (GrammarExpr.alt acc g')) first'
 
   -- Star: (star g "*")
   | .con "star" [g, _] => do
@@ -227,6 +255,23 @@ def parseFileWithGrammar (grammar : LoadedGrammar) (path : String) : IO (Option 
     pure (parseWithGrammar grammar content)
   catch _ =>
     pure none
+
+/-! ## Parameterized Parsing (AST typeclass) -/
+
+/-- Parse input using a loaded grammar, building into any AST type -/
+def parseWithGrammarAs (α : Type) [AST α] (grammar : LoadedGrammar) (input : String) : Option α :=
+  let tokens := Bootstrap.tokenize input
+  let st : ParseStateT α := { tokens := tokens, binds := [] }
+  match grammar.productions.find? (·.1 == grammar.startProd) with
+  | some (_, g) =>
+    match parseGrammarT grammar.productions g st with
+    | some (t, st') => if st'.tokens.isEmpty then some t else none
+    | none => none
+  | none => none
+
+/-- Parse and build GrammarExpr directly from grammar source -/
+def parseAsGrammarExpr (grammar : LoadedGrammar) (input : String) : Option GrammarExpr :=
+  parseWithGrammarAs GrammarExpr grammar input
 
 /-! ## Convenience: Load and Parse -/
 

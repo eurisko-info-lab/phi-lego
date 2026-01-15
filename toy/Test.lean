@@ -7,8 +7,10 @@
 
 import Lego
 import Lego.Bootstrap
+import Lego.Loader
 
 open Lego
+open Lego.Loader
 
 /-! ## Test Framework -/
 
@@ -601,6 +603,87 @@ def runLegoFileTests : IO (List TestResult) := do
     results := results ++ fileResults
   pure results
 
+/-! ## AST GrammarExpr Tests -/
+
+/-- Test parsing grammar expression directly into GrammarExpr type.
+    This demonstrates the AST typeclass abstraction:
+    - Same grammar can parse into Term OR GrammarExpr
+    - Meta-circular: grammar parsing builds grammar algebra -/
+def runGrammarExprTests : IO (List TestResult) := do
+  -- Use the pre-compiled Bootstrap to test parsing into GrammarExpr
+  let prods := Bootstrap.metaGrammar.allGrammar
+
+  -- Test 1: parse a simple identifier reference as GrammarExpr
+  let testProd := "Atom.ident"
+  let testInput := "foo"
+  let tokens := Bootstrap.tokenize testInput
+
+  let test1 := match prods.find? (·.1 == testProd) with
+  | some (_, g) =>
+    let st : ParseStateT GrammarExpr := { tokens := tokens, binds := [] }
+    match parseGrammarT prods g st with
+    | some (_, st') =>
+      let passed := st'.tokens.isEmpty
+      { name := "parse_ident_as_GrammarExpr"
+        passed := passed
+        message := if passed then "✓" else "✗ tokens remaining" }
+    | none =>
+      { name := "parse_ident_as_GrammarExpr", passed := false, message := "✗ parse failed" }
+  | none =>
+    { name := "parse_ident_as_GrammarExpr", passed := false, message := s!"✗ prod not found" }
+
+  -- Test 2: Load RedttParser.lego and extract productions
+  let test2 ← do
+    try
+      let content ← IO.FS.readFile "./test/RedttParser.lego"
+      match Bootstrap.parseLegoFile content with
+      | some ast =>
+        let redttProds := extractAllProductions ast
+        pure { name := "load_RedttParser.lego"
+               passed := true
+               message := s!"✓ ({redttProds.length} productions)" : TestResult }
+      | none =>
+        pure { name := "load_RedttParser.lego", passed := false, message := "✗ parse failed" }
+    catch _ =>
+      pure { name := "load_RedttParser.lego", passed := false, message := "✗ file not found" }
+
+  -- Test 3: Parse "import path" using RedttParser grammar
+  let test3 ← do
+    try
+      let content ← IO.FS.readFile "./test/RedttParser.lego"
+      match Bootstrap.parseLegoFile content with
+      | some ast =>
+        let redttProds := extractAllProductions ast
+        let importProd := "ImportDecl.importdecl"
+        let importInput := "import mypath"
+        let importTokens := Bootstrap.tokenize importInput
+        match redttProds.find? (·.1 == importProd) with
+        | some (_, g) =>
+          let st : ParseState := { tokens := importTokens, binds := [] }
+          match parseGrammar redttProds g st with
+          | some (_, st') =>
+            let passed := st'.tokens.isEmpty
+            pure { name := "parse_import_with_RedttParser"
+                   passed := passed
+                   message := if passed then s!"✓" else "✗ tokens remaining" : TestResult }
+          | none =>
+            pure { name := "parse_import_with_RedttParser", passed := false, message := "✗ parse failed" }
+        | none =>
+          pure { name := "parse_import_with_RedttParser", passed := false, message := s!"✗ prod not found" }
+      | none =>
+        pure { name := "parse_import_with_RedttParser", passed := false, message := "✗ grammar parse failed" }
+    catch _ =>
+      pure { name := "parse_import_with_RedttParser", passed := false, message := "✗ file not found" }
+
+  pure [
+    { name := "bootstrap_grammar_loaded"
+      passed := true
+      message := s!"✓ ({prods.length} productions)" },
+    test1,
+    test2,
+    test3
+  ]
+
 /-! ## Run All Tests -/
 
 def allTests : List TestResult :=
@@ -651,6 +734,11 @@ def main : IO Unit := do
   -- Run .lego file parsing tests (IO-based)
   let legoFileTests ← runLegoFileTests
   let (p, f) ← printTestGroup ".lego File Parsing Tests" legoFileTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  -- Run AST GrammarExpr tests (uses AST typeclass)
+  let grammarExprTests ← runGrammarExprTests
+  let (p, f) ← printTestGroup "AST GrammarExpr Tests" grammarExprTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   IO.println ""

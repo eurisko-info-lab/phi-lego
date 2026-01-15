@@ -81,6 +81,41 @@ prefix:max "~" => sym
 
 end Iso
 
+/-! ## The AST Algebra: Typeclass for building typed ASTs -/
+
+/-- AST typeclass: abstraction over AST construction.
+    Allows grammar parsing to build into any target type.
+
+    The default instance builds `Term` (generic S-expressions).
+    Custom instances can build typed GADTs with compile-time validation.
+
+    Algebraic structure: Free algebra over {var, lit, con}
+    - var: String → α     (variables/identifiers)
+    - lit: String → α     (literals)
+    - con: String → List α → α  (constructors/nodes)
+-/
+class AST (α : Type) where
+  /-- Build a variable/identifier node -/
+  var : String → α
+  /-- Build a literal node -/
+  lit : String → α
+  /-- Build a constructor/application node -/
+  con : String → List α → α
+  /-- Build an empty/unit node (default: con "unit" []) -/
+  unit : α := con "unit" []
+  /-- Build a sequence from two nodes (default: combine into seq) -/
+  seq : α → α → α := fun a b => con "seq" [a, b]
+
+namespace AST
+
+/-- Convenience: constructor with no arguments -/
+def atom [AST α] (s : String) : α := AST.con s []
+
+/-- Convenience: wrap a node with a constructor name -/
+def wrap [AST α] (name : String) (inner : α) : α := AST.con name [inner]
+
+end AST
+
 /-! ## Terms: The Universal Structure -/
 
 /-- Term: the universal AST representation.
@@ -90,6 +125,12 @@ inductive Term where
   | con : String → List Term → Term
   | lit : String → Term
   deriving Repr, BEq, Inhabited
+
+/-- Default AST instance: build Term (generic S-expressions) -/
+instance : AST Term where
+  var := Term.var
+  lit := Term.lit
+  con := Term.con
 
 namespace Term
 
@@ -192,6 +233,37 @@ infixr:65 " ⬝ " => seq   -- sequence
 infixr:60 " ⊕ " => alt   -- alternative
 
 end GrammarExpr
+
+/-- AST instance for GrammarExpr: parsing can build grammar expressions directly.
+
+    This demonstrates the power of the AST abstraction:
+    - The same grammar can parse into Term (data) or GrammarExpr (syntax).
+    - Meta-circular: a grammar can parse itself into another grammar.
+
+    Mapping:
+    - var s     → ref s        (variable = production reference)
+    - lit s     → lit s        (literal = literal match)
+    - con "seq" [a,b] → seq a b
+    - con "alt" [a,b] → alt a b
+    - con "star" [g]  → star g
+    - con "bind" [GrammarExpr.ref x, g] → bind x g
+    - con name args   → node name (seqAll args)  (general case)
+-/
+instance : AST GrammarExpr where
+  var := GrammarExpr.ref
+  lit := GrammarExpr.lit
+  con name args := match name, args with
+    | "seq", [a, b] => GrammarExpr.seq a b
+    | "alt", [a, b] => GrammarExpr.alt a b
+    | "star", [g] => GrammarExpr.star g
+    | "bind", [GrammarExpr.mk (.ref x), g] => GrammarExpr.bind x g
+    | "node", [GrammarExpr.mk (.lit n), g] => GrammarExpr.node n g
+    | "node", [GrammarExpr.mk (.ref n), g] => GrammarExpr.node n g
+    | _, [] => GrammarExpr.lit name  -- nullary constructor as literal
+    | _, [g] => GrammarExpr.node name g  -- wrap single arg
+    | _, gs => GrammarExpr.node name (gs.foldl GrammarExpr.seq GrammarExpr.empty)
+  unit := GrammarExpr.empty
+  seq := GrammarExpr.seq
 
 /-! ## Rule Algebra -/
 

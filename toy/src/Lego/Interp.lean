@@ -254,6 +254,100 @@ partial def printGrammar (prods : Productions) (g : GrammarExpr) (t : Term) (acc
     let t' := unwrapNode name t
     printGrammar prods g' t' acc
 
+/-! ## Parameterized Grammar Interpretation (AST typeclass) -/
+
+/-- ParseState parameterized over AST type -/
+structure ParseStateT (α : Type) where
+  tokens : TokenStream
+  binds : List (String × α) := []
+
+/-- Result of parameterized grammar interpretation -/
+abbrev ParseResultT (α : Type) := Option (α × ParseStateT α)
+
+/-- Combine two AST nodes into a sequence (parameterized) -/
+def combineSeqT [AST α] (t1 t2 : α) : α := AST.seq t1 t2
+
+/-- Wrap with node name (parameterized) -/
+def wrapNodeT [AST α] (name : String) (inner : α) : α := AST.con name [inner]
+
+/-- Parameterized grammar parser: builds into any AST type.
+
+    This is the key abstraction that allows building typed ASTs
+    from grammars. The default instance builds Term, but custom
+    instances can build GADTs with compile-time validation.
+
+    Example: RedttExpr instance could pattern-match on constructor
+    names to build the appropriate typed constructors.
+-/
+partial def parseGrammarT [AST α] (prods : Productions) (g : GrammarExpr)
+    (st : ParseStateT α) : ParseResultT α :=
+  match g with
+  | .mk .empty => some (AST.unit, st)
+
+  | .mk (.lit s) =>
+    match st.tokens with
+    | .lit l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
+    | .sym l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
+    | .ident l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
+    | _ => none
+
+  | .mk (.ref name) =>
+    -- Handle built-in token types (TOKEN.*)
+    if name.startsWith "TOKEN." then
+      let tokType := name.drop 6
+      match tokType, st.tokens with
+      | "ident",   .ident s :: rest  => some (AST.var s, { st with tokens := rest })
+      | "string",  .lit s :: rest    => some (AST.lit s, { st with tokens := rest })
+      | "char",    .lit s :: rest    =>
+        if s.startsWith "'" && s.endsWith "'" then
+          some (AST.lit s, { st with tokens := rest })
+        else none
+      | "number",  .number s :: rest => some (AST.lit s, { st with tokens := rest })
+      | "special", .sym s :: rest    =>
+        if s.startsWith "<" && s.endsWith ">" then
+          some (AST.var s, { st with tokens := rest })
+        else none
+      | _, _ => none
+    else
+      match prods.find? (·.1 == name) with
+      | some (_, g') => parseGrammarT prods g' st
+      | none => none
+
+  | .mk (.seq g1 g2) =>
+    match parseGrammarT prods g1 st with
+    | some (t1, st1) =>
+      match parseGrammarT prods g2 st1 with
+      | some (t2, st2) => some (combineSeqT t1 t2, st2)
+      | none => none
+    | none => none
+
+  | .mk (.alt g1 g2) =>
+    parseGrammarT prods g1 st <|> parseGrammarT prods g2 st
+
+  | .mk (.star g') =>
+    let rec go (acc : List α) (st : ParseStateT α) : ParseResultT α :=
+      match parseGrammarT prods g' st with
+      | some (t, st') => go (acc ++ [t]) st'
+      | none => some (AST.con "seq" acc, st)
+    go [] st
+
+  | .mk (.bind x g') =>
+    match parseGrammarT prods g' st with
+    | some (t, st') => some (t, { st' with binds := (x, t) :: st'.binds })
+    | none => none
+
+  | .mk (.node name g') =>
+    match parseGrammarT prods g' st with
+    | some (t, st') => some (wrapNodeT name t, st')
+    | none => none
+
+/-- Convenience: parse with default Term target -/
+def parseGrammarAs (α : Type) [AST α] (prods : Productions) (g : GrammarExpr)
+    (tokens : TokenStream) : Option α :=
+  match parseGrammarT prods g ⟨tokens, []⟩ with
+  | some (result, _) => some result
+  | none => none
+
 /-! ## Language Interpretation -/
 
 /-- A Language gives us two Isos:
