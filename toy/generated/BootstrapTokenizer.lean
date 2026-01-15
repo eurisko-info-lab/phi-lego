@@ -10,9 +10,11 @@
 -/
 
 import Lego.Algebra
-import Lego.Interp
+import TokenEngine
 
 namespace Lego.Generated.Bootstrap
+
+open Lego.Generated
 
 open GrammarExpr
 open Lego
@@ -50,6 +52,6 @@ def mainTokenProds : List String := ["Token.ident", "Token.number", "Token.strin
 
 /-- Tokenize using grammar-driven lexing -/
 def tokenize (s : String) : TokenStream :=
-  Lego.tokenizeWithGrammar tokenProductions mainTokenProds s
+  tokenizeWithGrammar tokenProductions mainTokenProds s
 
 end Lego.Generated.Bootstrap

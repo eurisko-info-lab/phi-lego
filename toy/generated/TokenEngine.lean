@@ -1,19 +1,22 @@
 /-
-  Lego.Token: Grammar-driven Tokenizer
+  TokenEngine: Grammar-driven Tokenizer Engine
 
-  Interprets the Token grammar (character-level) to produce TokenStream.
-  Uses the same lexGrammar engine as the parser uses parseGrammar,
-  but with additional handling for:
+  Helpers for the generated tokenizer. Interprets the Token grammar
+  (character-level) to produce TokenStream.
+
+  Uses lexGrammar to interpret character patterns, plus special handling for:
   - Comments (-- to end of line)
   - Multi-char operators (::=, ~>, etc.)
   - String/char literals ("...", '.')
   - Special syntax (<ident>)
   - Symbol fallback for unrecognized chars
+
+  DO NOT EDIT - this is infrastructure for generated/BootstrapTokenizer.lean
 -/
 
 import Lego.Algebra
 
-namespace Lego
+namespace Lego.Generated
 
 /-! ## Character Stream Types -/
 
@@ -221,4 +224,4 @@ where
               go prods mainProds rest acc
           | [] => acc.reverse
 
-end Lego
+end Lego.Generated

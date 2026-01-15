@@ -12,10 +12,14 @@
 -/
 
 import Lego.Algebra
-import Lego.Token
+import TokenEngine
 import BootstrapRules
 
 namespace Lego
+
+-- Re-export from TokenEngine
+open Lego.Generated (Productions)
+export Lego.Generated (Productions tokenizeWithGrammar lexGrammar)
 
 -- Import helper functions from generated rules module
 open Lego.Generated.Bootstrap (combineSeq splitSeq wrapNode unwrapNode)
