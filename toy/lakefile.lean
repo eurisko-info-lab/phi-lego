@@ -7,6 +7,11 @@ package «lego» where
 lean_lib «Lego» where
   srcDir := "src"
 
+-- Generated code (from ToLean)
+lean_lib «LegoGenerated» where
+  srcDir := "generated"
+  roots := #[`BootstrapGrammar]
+
 @[default_target]
 lean_exe «lego» where
   root := `Main

@@ -2,11 +2,20 @@
   ToLean: Generate Lean code from Lego grammar
 
   Usage:
-    lake exe tolean test/Bootstrap.lego > generated/Bootstrap.lean
+    lake exe tolean test/Bootstrap.lego                    # Full module
+    lake exe tolean --grammar test/Bootstrap.lego          # Grammar only
+    lake exe tolean --tokenizer test/Bootstrap.lego        # Tokenizer only
+    lake exe tolean --rules test/Bootstrap.lego            # Rules only
 
   This achieves meta-circularity: Bootstrap.lego can generate code
   equivalent to src/Lego/Bootstrap.lean, allowing the system to
   bootstrap itself.
+
+  Output modes:
+    --grammar    Generate only grammar pieces (for import by hand-written code)
+    --tokenizer  Generate only tokenizer function
+    --rules      Generate only rewrite rules and interpreter
+    (default)    Generate complete standalone module
 
   Translation:
     .lego                         Lean
@@ -108,6 +117,22 @@ partial def exprToLean (pieceName : String) (g : GrammarExpr) : String :=
 def prodToLean (pieceName : String) (name : String) (expr : GrammarExpr) : String :=
   s!"    (\"{name}\", {exprToLean pieceName expr})"
 
+/-- Extract token piece names from AST (pieces defined with 'token' keyword) -/
+partial def extractTokenPieceNames (ast : Term) : List String :=
+  go ast
+where
+  go (t : Term) : List String :=
+    match t with
+    | .con "DToken" (.lit _ :: .con "ident" [.var pieceName] :: _) =>
+      [pieceName]
+    | .con "DLang" ts =>
+      ts.flatMap go
+    | .con "seq" ts =>
+      ts.flatMap go
+    | .con _ ts =>
+      ts.flatMap go
+    | _ => []
+
 /-- Group productions by piece name -/
 def groupByPiece (prods : Productions) : List (String × Productions) :=
   let pieceNames := prods.map (fun (n, _) =>
@@ -126,14 +151,15 @@ def pieceToLeanIdent (name : String) : String :=
   let first := name.toList.head? |>.map Char.toLower |>.getD 'x'
   s!"{first}{name.drop 1}Piece"
 
-/-- Generate a Piece definition -/
-def generatePiece (pieceName : String) (prods : Productions) : String :=
+/-- Generate a Piece definition with appropriate level -/
+def generatePiece (pieceName : String) (prods : Productions) (isToken : Bool := false) : String :=
   let leanIdent := pieceToLeanIdent pieceName
   let prodStrs := prods.map (fun (n, e) => prodToLean pieceName n e)
   let grammar := ",\n".intercalate prodStrs
+  let levelLine := if isToken then "\n  level := .token" else ""
   s!"/-- {pieceName} piece -/
 def {leanIdent} : Piece := \{
-  name := \"{pieceName}\"
+  name := \"{pieceName}\"{levelLine}
   grammar := [
 {grammar}
   ]
@@ -307,10 +333,58 @@ def findStartProd (prods : Productions) : String :=
       | (n, _) :: _ => n
       | _ => "File.legoFile"
 
-/-- Generate the complete Lean module -/
-def generateLeanModule (langName : String) (prods : Productions) (tokenProds : Productions) (rules : List Rule) : String :=
+/-! ## Grammar-Only Generation -/
+
+/-- Generate grammar-only module (for import by hand-written code) -/
+def generateGrammarModule (langName : String) (prods : Productions) (tokenPieceNames : List String := []) : String :=
   let grouped := groupByPiece prods
-  let pieces := grouped.map (fun (n, ps) => generatePiece n ps)
+  let pieces := grouped.map (fun (n, ps) => generatePiece n ps (tokenPieceNames.contains n))
+  let pieceCode := "\n\n".intercalate pieces
+
+  let pieceNames := grouped.map (·.1)
+  let pieceIdents := pieceNames.map pieceToLeanIdent
+  let pieceList := ", ".intercalate pieceIdents
+
+  s!"/-
+  Generated Grammar from {langName}.lego
+
+  This module contains ONLY the grammar piece definitions.
+  Import this from your hand-written Bootstrap.lean to use
+  the generated grammar while keeping hand-written tokenizer
+  and other infrastructure.
+
+  DO NOT EDIT - regenerate with:
+    lake exe tolean --grammar test/{langName}.lego > generated/{langName}Grammar.lean
+-/
+
+import Lego.Algebra
+import Lego.Interp
+
+namespace Lego.Generated.{langName}
+
+open GrammarExpr
+open Lego
+
+/-! ## Grammar Pieces -/
+
+{pieceCode}
+
+/-! ## Combined Grammar -/
+
+/-- All piece definitions -/
+def allPieces : List Piece := [{pieceList}]
+
+/-- Get all productions from all pieces -/
+def allProductions : Productions :=
+  allPieces.foldl (fun acc p => acc ++ p.grammar) []
+
+end Lego.Generated.{langName}
+"
+
+/-- Generate the complete Lean module -/
+def generateLeanModule (langName : String) (prods : Productions) (tokenProds : Productions) (rules : List Rule) (tokenPieceNames : List String := []) : String :=
+  let grouped := groupByPiece prods
+  let pieces := grouped.map (fun (n, ps) => generatePiece n ps (tokenPieceNames.contains n))
   let pieceCode := "\n\n".intercalate pieces
 
   let pieceNames := grouped.map (·.1)
@@ -377,16 +451,33 @@ def extractGrammarName (path : String) : String :=
   | name :: _ => name
   | _ => "Grammar"
 
+/-- Output mode for code generation -/
+inductive OutputMode
+  | full      -- Complete standalone module
+  | grammar   -- Grammar pieces only (for import)
+  | tokenizer -- Tokenizer only
+  | rules     -- Rules only
+
 /-- Load a .lego file and convert to Lean -/
-def legoFileToLean (path : String) : IO String := do
+def legoFileToLean (path : String) (mode : OutputMode := .full) : IO String := do
   let content ← IO.FS.readFile path
   let langName := extractGrammarName path
   match Bootstrap.parseLegoFile content with
   | some ast =>
     let prods := Loader.extractProductionsOnly ast
     let tokenProds := Loader.extractTokenProductions ast
+    let tokenPieceNames := extractTokenPieceNames ast
     let rules := Loader.extractRules ast
-    pure (generateLeanModule langName prods tokenProds rules)
+    match mode with
+    | .full => pure (generateLeanModule langName prods tokenProds rules tokenPieceNames)
+    | .grammar => pure (generateGrammarModule langName prods tokenPieceNames)
+    | .tokenizer =>
+      let charSets := extractTokenCharSets tokenProds
+      if tokenProds.isEmpty then
+        pure defaultTokenizer
+      else
+        pure (generateTokenizer charSets)
+    | .rules => pure (generateRules rules)
   | none =>
     throw (IO.userError s!"Failed to parse {path}")
 
@@ -394,17 +485,25 @@ end Lego.ToLean
 
 /-- Main entry point -/
 def main (args : List String) : IO Unit := do
-  match args with
-  | [path] =>
-    let lean ← Lego.ToLean.legoFileToLean path
-    IO.println lean
-  | _ =>
-    IO.eprintln "Usage: tolean <file.lego>"
-    IO.eprintln ""
-    IO.eprintln "Converts a Lego grammar to Lean source code."
-    IO.eprintln "The output matches the structure of Bootstrap.lean,"
-    IO.eprintln "enabling meta-circular bootstrapping."
-    IO.eprintln ""
-    IO.eprintln "Example:"
-    IO.eprintln "  lake exe tolean test/Bootstrap.lego > generated/Bootstrap.lean"
-    IO.Process.exit 1
+  let (mode, path) ← match args with
+    | ["--grammar", p] => pure (Lego.ToLean.OutputMode.grammar, p)
+    | ["--tokenizer", p] => pure (Lego.ToLean.OutputMode.tokenizer, p)
+    | ["--rules", p] => pure (Lego.ToLean.OutputMode.rules, p)
+    | [p] => pure (Lego.ToLean.OutputMode.full, p)
+    | _ =>
+      IO.eprintln "Usage: tolean [--grammar|--tokenizer|--rules] <file.lego>"
+      IO.eprintln ""
+      IO.eprintln "Converts a Lego grammar to Lean source code."
+      IO.eprintln ""
+      IO.eprintln "Options:"
+      IO.eprintln "  --grammar    Generate only grammar pieces (for import)"
+      IO.eprintln "  --tokenizer  Generate only tokenizer function"
+      IO.eprintln "  --rules      Generate only rewrite rules"
+      IO.eprintln "  (default)    Generate complete standalone module"
+      IO.eprintln ""
+      IO.eprintln "Examples:"
+      IO.eprintln "  lake exe tolean test/Bootstrap.lego"
+      IO.eprintln "  lake exe tolean --grammar test/Bootstrap.lego > generated/BootstrapGrammar.lean"
+      IO.Process.exit 1
+  let lean ← Lego.ToLean.legoFileToLean path mode
+  IO.println lean
