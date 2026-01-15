@@ -131,6 +131,36 @@ piece File
   testDecl   ::= "test" string ":" term ("~~>" term)? ";" → DTest ;
 
 -----------------------------------------------------
+-- Interpreter Rules: Combining sequences
+-- These define how the parser combines parsed terms
+-----------------------------------------------------
+
+-- combineSeq: Combine two terms into a sequence
+-- seq + seq → merge lists
+rule combine-seq-seq: (combineSeq (seq $ts1) (seq $ts2)) ~> (seq (append $ts1 $ts2)) ;
+-- seq + other → append to seq
+rule combine-seq-left: (combineSeq (seq $ts) $t) ~> (seq (append $ts (list $t))) ;
+-- other + seq → prepend to seq  
+rule combine-seq-right: (combineSeq $t (seq $ts)) ~> (seq (cons $t $ts)) ;
+-- unit is identity
+rule combine-seq-unit-l: (combineSeq (unit) $t) ~> $t ;
+rule combine-seq-unit-r: (combineSeq $t (unit)) ~> $t ;
+-- default: make a new seq
+rule combine-seq-default: (combineSeq $t1 $t2) ~> (seq (list $t1 $t2)) ;
+
+-- splitSeq: Split first element from a sequence
+rule split-seq: (splitSeq (seq (cons $h $rest))) ~> (pair $h (seq $rest)) ;
+rule split-single: (splitSeq $t) ~> (pair $t (unit)) ;
+
+-- wrapNode: Wrap a term with a node name
+rule wrap-seq: (wrapNode $name (seq $ts)) ~> (con $name $ts) ;
+rule wrap-other: (wrapNode $name $t) ~> (con $name (list $t)) ;
+
+-- unwrapNode: Unwrap a node if name matches
+rule unwrap-match: (unwrapNode $name (con $name $ts)) ~> (seq $ts) ;
+rule unwrap-nomatch: (unwrapNode $name $t) ~> $t ;
+
+-----------------------------------------------------
 -- Tests (only Term syntax - not Pattern syntax)
 -----------------------------------------------------
 

@@ -10,7 +10,7 @@ lean_lib «Lego» where
 -- Generated code (from ToLean)
 lean_lib «LegoGenerated» where
   srcDir := "generated"
-  roots := #[`BootstrapGrammar, `BootstrapTokenizer]
+  roots := #[`BootstrapGrammar, `BootstrapTokenizer, `BootstrapRules]
 
 @[default_target]
 lean_exe «lego» where

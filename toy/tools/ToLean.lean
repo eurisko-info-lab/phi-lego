@@ -273,6 +273,32 @@ partial def normalize (t : Term) : Term :=
     | .con c args => .con c (args.map normalize)
     | _ => t"
 
+/-- Generate rules-only module (for import by hand-written code) -/
+def generateRulesModule (langName : String) (rules : List Rule) : String :=
+  let rulesCode := generateRules rules
+  let hasRules := !rules.isEmpty
+
+  s!"/-
+  Generated Rules from {langName}.lego
+
+  This module contains ONLY the rewrite rule definitions.
+  Import this from your interpreter to use the generated rules.
+
+  DO NOT EDIT - regenerate with:
+    lake exe tolean --rules test/{langName}.lego -o generated/{langName}Rules.lean
+-/
+
+import Lego.Algebra
+
+namespace Lego.Generated.{langName}
+
+open Lego
+
+{if hasRules then rulesCode else "/-- No rules defined -/\ndef allRules : List Rule := []"}
+
+end Lego.Generated.{langName}
+"
+
 /-- Find the best start production -/
 def findStartProd (prods : Productions) : String :=
   -- Prefer File.legoFile, then first File.* production, then first overall
@@ -453,7 +479,7 @@ def legoFileToLean (path : String) (mode : OutputMode := .full) : IO String := d
         pure defaultTokenizer
       else
         pure (generateTokenizerModule langName tokenProds)
-    | .rules => pure (generateRules rules)
+    | .rules => pure (generateRulesModule langName rules)
   | none =>
     throw (IO.userError s!"Failed to parse {path}")
 
