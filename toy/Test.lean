@@ -691,7 +691,7 @@ def runGrammarExprTests : IO (List TestResult) := do
       match Bootstrap.parseLegoFile content with
       | some ast =>
         let redttProds := extractAllProductions ast
-        let importProd := "ImportDecl.importdecl"
+        let importProd := "Redtt.importdecl"
         let importInput := "import mypath"
         let importTokens := Bootstrap.tokenize importInput
         match redttProds.find? (·.1 == importProd) with

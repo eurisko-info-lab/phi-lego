@@ -1,31 +1,28 @@
 -----------------------------------------------------
--- RedttParser: A parser for redtt files
+-- RedttParser: A parser for redtt (.red) files
 --
--- This is a simplified grammar focused on actually parsing
+-- A simplified grammar focused on actually parsing
 -- .red files from the redtt library.
--- 
--- NOTE: Original file used non-standard BNF syntax.
--- Simplified to standard Lego format.
 -----------------------------------------------------
 
 lang RedttParser :=
 
 -----------------------------------------------------
--- File Structure (simplified)
+-- All productions in one piece (to avoid cross-reference issues)
 -----------------------------------------------------
 
-piece FileStructure
-  file ::= decl ;
-  decl ::= importdecl ;
-
------------------------------------------------------
--- Imports (simplified)
------------------------------------------------------
-
-piece ImportDecl
-  importdecl ::= "import" name ;
+piece Redtt
+  -- File structure
+  file       ::= topdecl* ;
+  topdecl    ::= importdecl ;
+  
+  -- Imports
+  importdecl ::= "public"? "import" modulepath ;
+  modulepath ::= ident dotpath* ;
+  dotpath    ::= "." ident ;
 
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "import": (import path) ;
+
+test "import simple": (import prelude) ;
