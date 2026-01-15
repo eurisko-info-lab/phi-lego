@@ -183,6 +183,7 @@ def ref (s : String) : GrammarExpr := mk (.ref s)
 def seq (a b : GrammarExpr) : GrammarExpr := mk (.seq a b)
 def alt (a b : GrammarExpr) : GrammarExpr := mk (.alt a b)
 def star (g : GrammarExpr) : GrammarExpr := mk (.star g)
+def plus (g : GrammarExpr) : GrammarExpr := g.seq g.star  -- one or more = g g*
 def bind (x : String) (g : GrammarExpr) : GrammarExpr := mk (.bind x g)
 def node (n : String) (g : GrammarExpr) : GrammarExpr := mk (.node n g)
 
@@ -253,10 +254,17 @@ def Rule.unapply (r : Rule) (t : Term) : Option Term :=
 
 /-! ## Language: Composition of Pieces -/
 
+/-- Piece level: what kind of stream does this piece operate on? -/
+inductive PieceLevel where
+  | token  : PieceLevel  -- CharStream → Token (lexer)
+  | syntax : PieceLevel  -- TokenStream → Term (parser)
+  deriving Repr, BEq
+
 /-- A Piece: grammar fragment + rules.
     Each piece is a self-contained language fragment with its own interpreter. -/
 structure Piece where
   name       : String
+  level      : PieceLevel := .syntax  -- default to syntax-level
   grammar    : List (String × GrammarExpr)
   rules      : List Rule
   deriving Repr
@@ -270,9 +278,13 @@ structure Language where
 
 namespace Language
 
-/-- Get all grammar productions -/
+/-- Get all grammar productions from syntax-level pieces -/
 def allGrammar (lang : Language) : List (String × GrammarExpr) :=
-  lang.pieces.flatMap (·.grammar)
+  lang.pieces.filter (·.level == .syntax) |>.flatMap (·.grammar)
+
+/-- Get all token productions from token-level pieces -/
+def tokenGrammar (lang : Language) : List (String × GrammarExpr) :=
+  lang.pieces.filter (·.level == .token) |>.flatMap (·.grammar)
 
 /-- Get all rules -/
 def allRules (lang : Language) : List Rule :=

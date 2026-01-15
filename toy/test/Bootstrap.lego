@@ -3,70 +3,94 @@
 --
 -- This is the grammar that parses grammars.
 -- Self-describing: it defines the syntax used to write itself.
+--
+-- Two levels of grammar:
+--   token: CharStream → Token (lexer level)
+--   piece: TokenStream → Term (parser level)
 -----------------------------------------------------
 
 lang Bootstrap :=
 
 -----------------------------------------------------
--- Atoms: Basic tokens
+-- Token: Character-level grammar (lexer)
+-- Uses 'x' single-char literals, same algebra as piece
+-----------------------------------------------------
+
+token Token
+  -- Character classes (alternatives of single chars)
+  digit  ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+  lower  ::= 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
+           | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't'
+           | 'u' | 'v' | 'w' | 'x' | 'y' | 'z' ;
+  upper  ::= 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J'
+           | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T'
+           | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z' ;
+  alpha  ::= lower | upper | '_' ;
+
+  -- Token patterns (composed from character classes)
+  ident  ::= alpha (alpha | digit)* ;
+  number ::= digit+ ;
+
+-----------------------------------------------------
+-- Atoms: Basic tokens (references Token piece outputs)
 -----------------------------------------------------
 
 piece Atom
-  ident  ::= <ident>
-  string ::= <string>
-  number ::= <number>
+  ident  ::= <ident> ;
+  string ::= <string> ;
+  char   ::= <char> ;
+  number ::= <number> ;
 
 -----------------------------------------------------
 -- Term: S-expression terms
 -----------------------------------------------------
 
 piece Term
-  term ::= var | lit | con
-  var  ::= <ident>
-  lit  ::= <string>
-  con  ::= "(" <ident> term* ")"
+  term ::= var | lit | num | con ;
+  var  ::= ident ;
+  lit  ::= string ;
+  num  ::= number ;
+  con  ::= "(" ident term* ")" ;
 
 -----------------------------------------------------
 -- Pattern: Match patterns for rules
 -----------------------------------------------------
 
 piece Pattern
-  pattern ::= metavar | pcon | plit | pvar
-  metavar ::= "$" <ident>
-  pcon    ::= "(" <ident> pattern* ")"
-  plit    ::= <string>
-  pvar    ::= <ident>
+  pattern ::= metavar | pcon | plit | pvar ;
+  metavar ::= "$" ident ;
+  pcon    ::= "(" ident pattern* ")" ;
+  plit    ::= string ;
+  pvar    ::= ident ;
 
 -----------------------------------------------------
 -- Template: Substitution templates for rules
 -----------------------------------------------------
 
 piece Template
-  template ::= metavar | tcon | tlit | tvar
-  tcon     ::= "(" <ident> template* ")"
-  tlit     ::= <string>
-  tvar     ::= <ident>
+  template ::= metavar | tcon | tlit | tvar ;
+  tcon     ::= "(" ident template* ")" ;
+  tlit     ::= string ;
+  tvar     ::= ident ;
 
 -----------------------------------------------------
 -- GrammarExpr: Grammar expressions
 -----------------------------------------------------
 
 piece GrammarExpr
-  expr   ::= alt
-  alt    ::= seq "|" alt | seq
-  seq    ::= suffix+ | suffix
-  suffix ::= atom "*" | atom "+" | atom "?" | atom
-  atom   ::= lit | ref | group
-  lit    ::= <string>
-  ref    ::= <ident>
-  group  ::= "(" expr ")"
-
+  expr    ::= alt ;
+  alt     ::= seq "|" alt | seq ;
+  seq     ::= suffix+ | suffix ;
+  suffix  ::= atom "*" | atom "+" | atom "?" | atom ;
+  atom    ::= lit | chr | ref | group | special | empty ;
+  lit     ::= string ;
+  chr     ::= char ;
 -----------------------------------------------------
 -- Tests (only Term syntax - not Pattern syntax)
 -----------------------------------------------------
 
-test "parse ident": x
-test "parse string": "hello"
-test "parse term var": x
-test "parse term con": (f x y)
-test "parse nested con": (app (lam x x) y)
+test "parse ident": x ;
+test "parse string": "hello" ;
+test "parse term var": x ;
+test "parse term con": (f x y) ;
+test "parse nested con": (app (lam x x) y) ;

@@ -1,24 +1,134 @@
 /-
   Lego.Interp: Bidirectional Grammar Interpretation
 
-  The grammar is itself an Iso: TokenStream ⇌ Term
-  This is not special - it's the same structure as any rule-based language.
+  The grammar is itself an Iso - same algebra for both levels:
+  - Token level:  CharStream ⇌ TokenStream (lexer)
+  - Syntax level: TokenStream ⇌ Term (parser)
 -/
 
 import Lego.Algebra
 
 namespace Lego
 
-/-! ## Grammar as Iso -/
+/-! ## Common Types -/
+
+/-- Grammar productions map -/
+abbrev Productions := List (String × GrammarExpr)
+
+/-! ## Character Stream (for lexer) -/
+
+abbrev CharStream := List Char
+
+/-- Lexer state -/
+structure LexState where
+  chars : CharStream
+  acc   : String := ""  -- accumulated characters for current token
+  deriving Repr
+
+/-- Result of lexing one token -/
+abbrev LexResult := Option (String × LexState)
+
+/-! ## Token-level Grammar Interpretation (Lexer) -/
+
+/-- Interpret a GrammarExpr for lexing (CharStream → String)
+    Single quotes in grammar match single characters -/
+partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) : LexResult :=
+  match g with
+  | .mk .empty => some (st.acc, st)
+
+  | .mk (.lit s) =>
+    -- For token grammars, lit matches character(s)
+    if s.length == 1 then
+      -- Single char: match exactly
+      match st.chars with
+      | c :: rest =>
+        if c == s.get ⟨0⟩ then
+          some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
+        else none
+      | [] => none
+    else
+      -- Multi-char: match sequence
+      let rec matchChars (pat : List Char) (chars : CharStream) (acc : String) : Option (String × CharStream) :=
+        match pat with
+        | [] => some (acc, chars)
+        | p :: ps =>
+          match chars with
+          | c :: rest => if c == p then matchChars ps rest (acc.push c) else none
+          | [] => none
+      match matchChars s.toList st.chars st.acc with
+      | some (acc', rest) => some (acc', { st with chars := rest, acc := acc' })
+      | none => none
+
+  | .mk (.ref name) =>
+    match prods.find? (·.1 == name) with
+    | some (_, g') => lexGrammar prods g' st
+    | none => none
+
+  | .mk (.seq g1 g2) => do
+    let (acc1, st1) ← lexGrammar prods g1 st
+    let (acc2, st2) ← lexGrammar prods g2 { st1 with acc := acc1 }
+    pure (acc2, st2)
+
+  | .mk (.alt g1 g2) =>
+    lexGrammar prods g1 st <|> lexGrammar prods g2 st
+
+  | .mk (.star g') =>
+    let rec go (st : LexState) : LexResult :=
+      match lexGrammar prods g' st with
+      | some (acc', st') => go { st' with acc := acc' }
+      | none => some (st.acc, st)
+    go st
+
+  | .mk (.bind _ g') => lexGrammar prods g' st
+
+  | .mk (.node _ g') => lexGrammar prods g' st
+
+/-- Tokenize using token grammar productions -/
+partial def tokenizeWithGrammar (prods : Productions) (mainProds : List String) (input : String) : TokenStream :=
+  let chars := input.toList
+  go prods mainProds chars []
+where
+  skipWhitespace : CharStream → CharStream
+    | [] => []
+    | c :: rest => if c.isWhitespace then skipWhitespace rest else c :: rest
+
+  tryTokenize (prods : Productions) (mainProds : List String) (chars : CharStream) : Option (Token × CharStream) :=
+    -- Try each main production
+    mainProds.findSome? fun prodName =>
+      match prods.find? (·.1 == prodName) with
+      | some (_, g) =>
+        match lexGrammar prods g { chars := chars, acc := "" } with
+        | some (acc, st') =>
+          if acc.isEmpty then none
+          else
+            -- Create appropriate token type based on production name
+            let tok := if prodName.endsWith "ident" then Token.ident acc
+                      else if prodName.endsWith "number" then Token.number acc
+                      else if prodName.endsWith "string" then Token.lit acc
+                      else Token.sym acc
+            some (tok, st'.chars)
+        | none => none
+      | none => none
+
+  go (prods : Productions) (mainProds : List String) (chars : CharStream) (acc : TokenStream) : TokenStream :=
+    match skipWhitespace chars with
+    | [] => acc.reverse
+    | chars' =>
+      match tryTokenize prods mainProds chars' with
+      | some (tok, rest) => go prods mainProds rest (tok :: acc)
+      | none =>
+        -- Skip unknown char
+        match chars' with
+        | _ :: rest => go prods mainProds rest acc
+        | [] => acc.reverse
+
+/-! ## Syntax-level Grammar Interpretation (Parser) -/
 
 /-- Parsing state -/
 structure ParseState where
   tokens : TokenStream
   binds  : List (String × Term)
   deriving Repr, Nonempty
-
-/-- Grammar productions map -/
-abbrev Productions := List (String × GrammarExpr)
 
 /-! ## Helper functions -/
 
@@ -46,7 +156,7 @@ def unwrapNode (name : String) (t : Term) : Term :=
   | .con n ts => if n == name then .con "seq" ts else t
   | _ => t
 
-/-! ## Interpretation -/
+/-! ## Syntax-level Interpretation -/
 
 /-- Result of grammar interpretation -/
 abbrev ParseResult := Option (Term × ParseState)
@@ -64,29 +174,26 @@ partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseStat
     | _ => none
 
   | .mk (.ref name) =>
-    -- Handle built-in token types
-    if name == "TOKEN.ident" then
-      match st.tokens with
-      | .ident s :: rest => some (.var s, { st with tokens := rest })
-      | _ => none
-    else if name == "TOKEN.string" then
-      match st.tokens with
-      | .lit s :: rest => some (.lit s, { st with tokens := rest })
-      | _ => none
-    else if name == "TOKEN.number" then
-      match st.tokens with
-      | .number s :: rest => some (.lit s, { st with tokens := rest })
-      | _ => none
-    else if name == "TOKEN.special" then
-      -- Match any <...> token (sym starting and ending with angle brackets)
-      match st.tokens with
-      | .sym s :: rest =>
+    -- Handle built-in token types (TOKEN.*)
+    if name.startsWith "TOKEN." then
+      let tokType := name.drop 6  -- Remove "TOKEN." prefix
+      match tokType, st.tokens with
+      | "ident",   .ident s :: rest  => some (.var s, { st with tokens := rest })
+      | "string",  .lit s :: rest    => some (.lit s, { st with tokens := rest })
+      | "char",    .lit s :: rest    =>
+        -- Match 'x' character literals
+        if s.startsWith "'" && s.endsWith "'" then
+          some (.lit s, { st with tokens := rest })
+        else none
+      | "number",  .number s :: rest => some (.lit s, { st with tokens := rest })
+      | "special", .sym s :: rest    =>
+        -- Match any <...> token
         if s.startsWith "<" && s.endsWith ">" then
           some (.var s, { st with tokens := rest })
-        else
-          none
-      | _ => none
+        else none
+      | _, _ => none
     else
+      -- Regular production reference
       match prods.find? (·.1 == name) with
       | some (_, g') => parseGrammar prods g' st
       | none => none

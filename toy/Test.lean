@@ -548,10 +548,11 @@ partial def countRules (t : Term) : Nat :=
   | .con _ ts => ts.foldl (fun acc t' => acc + countRules t') 0
   | _ => 0
 
-/-- Count piece declarations in parsed AST -/
+/-- Count piece declarations in parsed AST (both DPiece and DToken) -/
 partial def countPieces (t : Term) : Nat :=
   match t with
   | .con "DPiece" _ => 1
+  | .con "DToken" _ => 1  -- token pieces count too
   | .con "seq" ts => ts.foldl (fun acc t' => acc + countPieces t') 0
   | .con _ ts => ts.foldl (fun acc t' => acc + countPieces t') 0
   | _ => 0

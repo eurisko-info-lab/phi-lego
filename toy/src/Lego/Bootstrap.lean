@@ -23,6 +23,7 @@ def atomPiece : Piece := {
   grammar := [
     ("Atom.ident",  node "ident" (ref "TOKEN.ident")),
     ("Atom.string", node "string" (ref "TOKEN.string")),
+    ("Atom.char",   node "char" (ref "TOKEN.char")),    -- 'x' character literals
     ("Atom.number", node "number" (ref "TOKEN.number"))
   ]
   rules := []
@@ -84,53 +85,62 @@ def grammarExprPiece : Piece := {
       ((node "opt"  ((ref "GrammarExpr.atom").seq (lit "?"))).alt
        (ref "GrammarExpr.atom")))),
     ("GrammarExpr.atom",
-      (node "lit" (ref "Atom.string")).alt
+      (node "lit" (ref "Atom.string")).alt      -- "keyword" string literal
+      ((node "char" (ref "Atom.char")).alt      -- 'x' character literal (for token grammars)
       ((node "ref" (ref "Atom.ident")).alt
       ((node "group" ((lit "(").seq ((ref "GrammarExpr.expr").seq (lit ")")))).alt
       ((node "special" (ref "TOKEN.special")).alt
-       (node "empty" (lit "ε"))))))
+       (node "empty" (lit "ε")))))))
   ]
   rules := []
 }
 
-/-- File piece: file structure with NEWLINE tokens -/
+/-- File piece: file structure (uses ; as separator, no end keyword needed) -/
 def filePiece : Piece := {
   name := "File"
   grammar := [
-    ("File.legoFile", ((ref "File.decl").seq ((lit "NEWLINE").alt empty)).star),
+    ("File.legoFile", (ref "File.decl").star),
     ("File.decl",
       (ref "File.importDecl").alt
       ((ref "File.langDecl").alt
+      ((ref "File.tokenDecl").alt
       ((ref "File.pieceDecl").alt
       ((ref "File.ruleDecl").alt
-       (ref "File.testDecl"))))),
-    -- import Atoms
+       (ref "File.testDecl")))))),
+    -- import Atoms ;
     ("File.importDecl",
-      node "DImport" ((lit "import").seq (ref "Atom.ident"))),
-    -- lang Lambda (Atoms) :=
+      node "DImport" ((lit "import").seq ((ref "Atom.ident").seq (lit ";")))),
+    -- lang Lambda (Atoms) := ... (ends at next top-level decl or EOF)
     ("File.langDecl",
       node "DLang" ((lit "lang").seq ((ref "Atom.ident").seq
                     (((ref "File.imports").alt empty).seq
                     ((lit ":=").seq (ref "File.langBody")))))),
-    ("File.langBody", ((ref "File.innerDecl").seq ((lit "NEWLINE").alt empty)).star),
+    ("File.langBody", (ref "File.innerDecl").star),
     ("File.innerDecl",
-      (ref "File.pieceDecl").alt
+      (ref "File.tokenDecl").alt
+      ((ref "File.pieceDecl").alt
       ((ref "File.ruleDecl").alt
-       (ref "File.testDecl"))),
+       (ref "File.testDecl")))),
     -- (Ident, Ident, ...)
     ("File.imports",
       node "DImports" ((lit "(").seq ((ref "Atom.ident").seq (((lit ",").seq (ref "Atom.ident")).star.seq (lit ")"))))),
+    -- token Name prodDecl+ (CharStream → Token level)
+    ("File.tokenDecl",
+      node "DToken" ((lit "token").seq ((ref "Atom.ident").seq (ref "File.prodDecl").plus))),
+    -- piece Name prodDecl+ (TokenStream → Term level)
     ("File.pieceDecl",
-      node "DPiece" ((lit "piece").seq ((ref "Atom.ident").seq (((lit "NEWLINE").alt empty).seq (ref "File.prodDecl").star)))),
+      node "DPiece" ((lit "piece").seq ((ref "Atom.ident").seq (ref "File.prodDecl").plus))),
+    -- name ::= expr ;
     ("File.prodDecl",
-      node "DGrammar" ((ref "Atom.ident").seq ((lit "::=").seq ((ref "GrammarExpr.expr").seq ((lit "NEWLINE").alt empty))))),
+      node "DGrammar" ((ref "Atom.ident").seq ((lit "::=").seq ((ref "GrammarExpr.expr").seq (lit ";"))))),
+    -- rule name: pattern ~> template ;
     ("File.ruleDecl",
       node "DRule" ((lit "rule").seq ((ref "Atom.ident").seq ((lit ":").seq
-                    (((lit "NEWLINE").alt empty).seq
-                    ((ref "Pattern.pattern").seq ((lit "~>").seq (ref "Template.template")))))))),
+                    ((ref "Pattern.pattern").seq ((lit "~>").seq ((ref "Template.template").seq (lit ";")))))))),
+    -- test "name": term (~~> term)? ;
     ("File.testDecl",
       node "DTest" ((lit "test").seq ((ref "Atom.string").seq ((lit ":").seq
-                    ((ref "Term.term").seq (((lit "~~>").seq (ref "Term.term")).alt empty))))))
+                    ((ref "Term.term").seq ((((lit "~~>").seq (ref "Term.term")).alt empty).seq (lit ";")))))))
   ]
   rules := []
 }
@@ -168,16 +178,12 @@ def removeLineComment (s : String) : String :=
   | [] => ""
   | h :: _ => h
 
-/-- Tokenize a string into tokens (proper lexer) -/
+/-- Tokenize a string into tokens (proper lexer).
+    Skips comments and newlines by default. -/
 partial def tokenize (s : String) : TokenStream :=
-  -- Process line by line, adding NEWLINE tokens between non-empty lines
+  -- Remove comments and tokenize each line, then concatenate
   let lines := s.splitOn "\n" |>.map removeLineComment |>.map String.trim |>.filter (· ≠ "")
-  let tokenizedLines := lines.map (fun line => tokenizeLine line.toList [])
-  -- Interleave with newline tokens
-  tokenizedLines.foldl (fun acc toks =>
-    if acc.isEmpty then toks
-    else acc ++ [Token.sym "NEWLINE"] ++ toks
-  ) []
+  lines.foldl (fun acc line => acc ++ tokenizeLine line.toList []) []
 where
   tokenizeLine (chars : List Char) (acc : List Token) : TokenStream :=
     match chars with
@@ -185,10 +191,14 @@ where
     | c :: rest =>
       if c.isWhitespace then
         tokenizeLine rest acc
-      -- String literal
+      -- String literal (double quotes)
       else if c == '"' then
         let (str, rest') := takeString rest ""
         tokenizeLine rest' (Token.lit s!"\"{str}\"" :: acc)
+      -- Character literal (single quotes) - for token grammars
+      else if c == '\'' then
+        let (chr, rest') := takeChar rest
+        tokenizeLine rest' (Token.lit s!"'{chr}'" :: acc)
       -- Multi-char operators: ::= ~> ~~> :=
       else if c == ':' && rest.head? == some ':' && rest.tail.head? == some '=' then
         tokenizeLine rest.tail.tail (Token.sym "::=" :: acc)
@@ -219,6 +229,13 @@ where
       else
         -- Skip unknown character
         tokenizeLine rest acc
+
+  takeChar (chars : List Char) : String × List Char :=
+    match chars with
+    | [] => ("", [])
+    | '\\' :: c :: '\'' :: rest => (String.mk ['\\', c], rest)  -- escape sequence
+    | c :: '\'' :: rest => (String.singleton c, rest)
+    | _ => ("", chars)  -- malformed
 
   takeString (chars : List Char) (acc : String) : String × List Char :=
     match chars with
