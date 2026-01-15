@@ -273,6 +273,34 @@ def parseWithGrammarAs (α : Type) [AST α] (grammar : LoadedGrammar) (input : S
 def parseAsGrammarExpr (grammar : LoadedGrammar) (input : String) : Option GrammarExpr :=
   parseWithGrammarAs GrammarExpr grammar input
 
+/-! ## Bootstrap Loading -/
+
+/-- Load Bootstrap.lego and extract productions.
+    This allows replacing the hard-coded Bootstrap with the parsed version. -/
+def loadBootstrapProductions (path : String := "./test/Bootstrap.lego") : IO (Option Productions) := do
+  try
+    let content ← IO.FS.readFile path
+    match Bootstrap.parseLegoFile content with
+    | some ast => pure (some (extractAllProductions ast))
+    | none => pure none
+  catch _ =>
+    pure none
+
+/-- Compare two productions lists for equivalence (by name) -/
+def compareProductionNames (p1 p2 : Productions) : Bool × List String × List String :=
+  let names1 := p1.map (·.1) |>.eraseDups
+  let names2 := p2.map (·.1) |>.eraseDups
+  let onlyIn1 := names1.filter (fun n => !names2.contains n)
+  let onlyIn2 := names2.filter (fun n => !names1.contains n)
+  (onlyIn1.isEmpty && onlyIn2.isEmpty, onlyIn1, onlyIn2)
+
+/-- Check if p1 is a subset of p2 (by production name) -/
+def isSubsetOfProductions (p1 p2 : Productions) : Bool × List String :=
+  let names1 := p1.map (·.1) |>.eraseDups
+  let names2 := p2.map (·.1) |>.eraseDups
+  let missing := names1.filter (fun n => !names2.contains n)
+  (missing.isEmpty, missing)
+
 /-! ## Convenience: Load and Parse -/
 
 /-- Load grammar and parse a file in one step -/

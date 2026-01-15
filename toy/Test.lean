@@ -611,17 +611,17 @@ def runLegoFileTests : IO (List TestResult) := do
     - Meta-circular: grammar parsing builds grammar algebra -/
 def runGrammarExprTests : IO (List TestResult) := do
   -- Use the pre-compiled Bootstrap to test parsing into GrammarExpr
-  let prods := Bootstrap.metaGrammar.allGrammar
+  let hardcodedProds := Bootstrap.metaGrammar.allGrammar
 
   -- Test 1: parse a simple identifier reference as GrammarExpr
   let testProd := "Atom.ident"
   let testInput := "foo"
   let tokens := Bootstrap.tokenize testInput
 
-  let test1 := match prods.find? (·.1 == testProd) with
+  let test1 := match hardcodedProds.find? (·.1 == testProd) with
   | some (_, g) =>
     let st : ParseStateT GrammarExpr := { tokens := tokens, binds := [] }
-    match parseGrammarT prods g st with
+    match parseGrammarT hardcodedProds g st with
     | some (_, st') =>
       let passed := st'.tokens.isEmpty
       { name := "parse_ident_as_GrammarExpr"
@@ -632,8 +632,44 @@ def runGrammarExprTests : IO (List TestResult) := do
   | none =>
     { name := "parse_ident_as_GrammarExpr", passed := false, message := s!"✗ prod not found" }
 
-  -- Test 2: Load RedttParser.lego and extract productions
-  let test2 ← do
+  -- Test 2: Load Bootstrap.lego and compare with hard-coded version
+  -- The parsed version should be a superset of the hardcoded (may have Token, builtins, etc.)
+  let (test2, test3) ← do
+    match ← loadBootstrapProductions "./test/Bootstrap.lego" with
+    | some parsedProds =>
+      -- Check that hardcoded is subset of parsed (parsed may have extra)
+      let (isSubset, missing) := isSubsetOfProductions hardcodedProds parsedProds
+      let compTest := if isSubset then
+        { name := "hardcoded_subset_of_parsed"
+          passed := true
+          message := s!"✓ (hardcoded {hardcodedProds.length} ⊆ parsed {parsedProds.length})" : TestResult }
+      else
+        { name := "hardcoded_subset_of_parsed"
+          passed := false
+          message := s!"✗ missing in parsed: {missing.take 5}" }
+      -- Test that parsed grammar can parse a term
+      let termTest := match parsedProds.find? (·.1 == "Term.term") with
+      | some (_, g) =>
+        let termTokens := Bootstrap.tokenize "(app x y)"
+        let st : ParseState := { tokens := termTokens, binds := [] }
+        match parseGrammar parsedProds g st with
+        | some (_, st') =>
+          { name := "parsed_bootstrap_parses_term"
+            passed := st'.tokens.isEmpty
+            message := if st'.tokens.isEmpty then "✓" else "✗ tokens remaining" }
+        | none =>
+          { name := "parsed_bootstrap_parses_term", passed := false, message := "✗ parse failed" }
+      | none =>
+        { name := "parsed_bootstrap_parses_term", passed := false, message := "✗ Term.term not found" }
+      pure (compTest, termTest)
+    | none =>
+      pure (
+        { name := "bootstrap_parsed_vs_hardcoded", passed := false, message := "✗ parse failed" },
+        { name := "parsed_bootstrap_parses_term", passed := false, message := "✗ no grammar" }
+      )
+
+  -- Test 4: Load RedttParser.lego and extract productions
+  let test4 ← do
     try
       let content ← IO.FS.readFile "./test/RedttParser.lego"
       match Bootstrap.parseLegoFile content with
@@ -647,8 +683,8 @@ def runGrammarExprTests : IO (List TestResult) := do
     catch _ =>
       pure { name := "load_RedttParser.lego", passed := false, message := "✗ file not found" }
 
-  -- Test 3: Parse "import path" using RedttParser grammar
-  let test3 ← do
+  -- Test 5: Parse "import path" using RedttParser grammar
+  let test5 ← do
     try
       let content ← IO.FS.readFile "./test/RedttParser.lego"
       match Bootstrap.parseLegoFile content with
@@ -676,12 +712,14 @@ def runGrammarExprTests : IO (List TestResult) := do
       pure { name := "parse_import_with_RedttParser", passed := false, message := "✗ file not found" }
 
   pure [
-    { name := "bootstrap_grammar_loaded"
+    { name := "hardcoded_bootstrap_loaded"
       passed := true
-      message := s!"✓ ({prods.length} productions)" },
+      message := s!"✓ ({hardcodedProds.length} productions)" },
     test1,
     test2,
-    test3
+    test3,
+    test4,
+    test5
   ]
 
 /-! ## Run All Tests -/

@@ -85,6 +85,29 @@ piece GrammarExpr
   atom    ::= lit | chr | ref | group | special | empty ;
   lit     ::= string ;
   chr     ::= char ;
+  ref     ::= ident ;
+  group   ::= "(" expr ")" ;
+  special ::= <special> ;
+  empty   ::= "ε" ;
+
+-----------------------------------------------------
+-- File: Top-level declarations
+-----------------------------------------------------
+
+piece File
+  legoFile   ::= decl* ;
+  decl       ::= importDecl | langDecl | tokenDecl | pieceDecl | ruleDecl | testDecl ;
+  importDecl ::= "import" ident ";" ;
+  langDecl   ::= "lang" ident imports? ":=" langBody ;
+  imports    ::= "(" ident ("," ident)* ")" ;
+  langBody   ::= innerDecl* ;
+  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | testDecl ;
+  tokenDecl  ::= "token" ident prodDecl+ ;
+  pieceDecl  ::= "piece" ident prodDecl+ ;
+  prodDecl   ::= ident "::=" expr ";" ;
+  ruleDecl   ::= "rule" ident ":" pattern "~>" template ";" ;
+  testDecl   ::= "test" string ":" term ("~~>" term)? ";" ;
+
 -----------------------------------------------------
 -- Tests (only Term syntax - not Pattern syntax)
 -----------------------------------------------------
