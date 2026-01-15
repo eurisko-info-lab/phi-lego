@@ -1,9 +1,10 @@
 /-
-  Lego.Interp: Bidirectional Grammar Interpretation
+  Lego.Interp: Bidirectional Grammar Interpretation (Parser)
 
-  The grammar is itself an Iso - same algebra for both levels:
-  - Token level:  CharStream ⇌ TokenStream (lexer)
-  - Syntax level: TokenStream ⇌ Term (parser)
+  The grammar is an Iso: TokenStream ⇌ Term
+
+  This module contains only the syntax-level grammar engine.
+  For the character-level (tokenizer) engine, see Token.lean.
 
   Helper functions (combineSeq, splitSeq, wrapNode, unwrapNode) are
   imported from BootstrapRules where they are defined alongside the
@@ -11,6 +12,7 @@
 -/
 
 import Lego.Algebra
+import Lego.Token
 import BootstrapRules
 
 namespace Lego
@@ -18,213 +20,7 @@ namespace Lego
 -- Import helper functions from generated rules module
 open Lego.Generated.Bootstrap (combineSeq splitSeq wrapNode unwrapNode)
 
-/-! ## Common Types -/
-
-/-- Grammar productions map -/
-abbrev Productions := List (String × GrammarExpr)
-
-/-! ## Character Stream (for lexer) -/
-
-abbrev CharStream := List Char
-
-/-- Lexer state -/
-structure LexState where
-  chars : CharStream
-  acc   : String := ""  -- accumulated characters for current token
-  deriving Repr
-
-/-- Result of lexing one token -/
-abbrev LexResult := Option (String × LexState)
-
-/-! ## Token-level Grammar Interpretation (Lexer) -/
-
-/-- Extract character from 'x' format literal -/
-def extractCharLit (s : String) : Option Char :=
-  if s.startsWith "'" && s.endsWith "'" && s.length == 3 then
-    s.toList[1]?
-  else
-    none
-
-/-- Interpret a GrammarExpr for lexing (CharStream → String)
-    Single quotes in grammar match single characters -/
-partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) : LexResult :=
-  match g with
-  | .mk .empty => some (st.acc, st)
-
-  | .mk (.lit s) =>
-    -- For token grammars, check for 'x' character literals first
-    match extractCharLit s with
-    | some expected =>
-      -- Character literal: match single char
-      match st.chars with
-      | c :: rest =>
-        if c == expected then
-          some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
-        else none
-      | [] => none
-    | none =>
-      -- Regular literal: match sequence
-      if s.length == 1 then
-        match st.chars with
-        | c :: rest =>
-          if c == s.get ⟨0⟩ then
-            some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
-          else none
-        | [] => none
-      else
-        let rec matchChars (pat : List Char) (chars : CharStream) (acc : String) : Option (String × CharStream) :=
-          match pat with
-          | [] => some (acc, chars)
-          | p :: ps =>
-            match chars with
-            | c :: rest => if c == p then matchChars ps rest (acc.push c) else none
-            | [] => none
-        match matchChars s.toList st.chars st.acc with
-        | some (acc', rest) => some (acc', { st with chars := rest, acc := acc' })
-        | none => none
-
-  | .mk (.ref name) =>
-    match prods.find? (·.1 == name) with
-    | some (_, g') => lexGrammar prods g' st
-    | none => none
-
-  | .mk (.seq g1 g2) => do
-    let (acc1, st1) ← lexGrammar prods g1 st
-    let (acc2, st2) ← lexGrammar prods g2 { st1 with acc := acc1 }
-    pure (acc2, st2)
-
-  | .mk (.alt g1 g2) =>
-    lexGrammar prods g1 st <|> lexGrammar prods g2 st
-
-  | .mk (.star g') =>
-    let rec go (st : LexState) : LexResult :=
-      match lexGrammar prods g' st with
-      | some (acc', st') => go { st' with acc := acc' }
-      | none => some (st.acc, st)
-    go st
-
-  | .mk (.bind _ g') => lexGrammar prods g' st
-
-  | .mk (.node _ g') => lexGrammar prods g' st
-
-/-- Tokenize using token grammar productions -/
-partial def tokenizeWithGrammar (prods : Productions) (mainProds : List String) (input : String) : TokenStream :=
-  -- Remove comments from input before tokenizing
-  let lines := input.splitOn "\n" |>.map removeLineComment
-  let cleanInput := "\n".intercalate lines
-  go prods mainProds cleanInput.toList []
-where
-  removeLineComment (s : String) : String :=
-    match s.splitOn "--" with
-    | [] => ""
-    | h :: _ => h
-
-  skipWhitespace : CharStream → CharStream
-    | [] => []
-    | c :: rest => if c.isWhitespace then skipWhitespace rest else c :: rest
-
-  /-- Check if character is a symbol char that should become a Token.sym -/
-  isSymChar (c : Char) : Bool :=
-    c ∈ ['(', ')', '[', ']', '{', '}', ':', '=', '|', '*', '+', '?', '~', '>', '<', '$', '.', ',', ';', '^', '/', '\\', '!', '@', '#', '%', '&', '-']
-
-  /-- Check if character is a Unicode symbol -/
-  isUnicodeSymChar (c : Char) : Bool :=
-    c ∈ ['→', '←', '×', '∂', '∨', '∧', '∀', '∃', '▸', '▹', '⊢', '⦉', '⦊', '↔', '⊕']
-
-  /-- Try to extract a multi-char operator -/
-  tryMultiCharOp : CharStream → Option (String × CharStream)
-    | ':' :: ':' :: '=' :: rest => some ("::=", rest)
-    | ':' :: '=' :: rest => some (":=", rest)
-    | '~' :: '~' :: '>' :: rest => some ("~~>", rest)
-    | '~' :: '>' :: rest => some ("~>", rest)
-    | '-' :: '>' :: rest => some ("->", rest)
-    | '<' :: '-' :: rest => some ("<-", rest)
-    | _ => none
-
-  /-- Try to extract a character literal 'x' or '\x' -/
-  tryCharLit : CharStream → Option (Token × CharStream)
-    | '\'' :: '\\' :: c :: '\'' :: rest => some (Token.lit s!"'\\{c}'", rest)
-    | '\'' :: c :: '\'' :: rest => some (Token.lit s!"'{c}'", rest)
-    | _ => none
-
-  /-- Try to extract a string literal "..." -/
-  tryStringLit : CharStream → Option (Token × CharStream)
-    | '"' :: rest =>
-      let rec takeString (chars : List Char) (acc : String) : Option (String × List Char) :=
-        match chars with
-        | [] => none  -- unterminated string
-        | '"' :: rest' => some (acc, rest')
-        | '\\' :: c :: rest' => takeString rest' (acc.push '\\' |>.push c)
-        | c :: rest' => takeString rest' (acc.push c)
-      match takeString rest "" with
-      | some (str, rest') => some (Token.lit s!"\"{str}\"", rest')
-      | none => none
-    | _ => none
-
-  /-- Try to extract a special <ident> token -/
-  trySpecial : CharStream → Option (Token × CharStream)
-    | '<' :: rest =>
-      let rec takeUntilClose (chars : List Char) (acc : String) : Option (String × List Char) :=
-        match chars with
-        | [] => none  -- unterminated
-        | '>' :: rest' => some (acc, rest')
-        | c :: rest' => takeUntilClose rest' (acc.push c)
-      match takeUntilClose rest "" with
-      | some (name, rest') => some (Token.sym s!"<{name}>", rest')
-      | none => none
-    | _ => none
-
-  tryTokenize (prods : Productions) (mainProds : List String) (chars : CharStream) : Option (Token × CharStream) :=
-    -- First try string and character literals (they have special syntax)
-    match tryStringLit chars with
-    | some result => some result
-    | none =>
-      match tryCharLit chars with
-      | some result => some result
-      | none =>
-        -- Then try special <...> syntax
-        match trySpecial chars with
-        | some result => some result
-        | none =>
-          -- Then try each main production
-          mainProds.findSome? fun prodName =>
-      match prods.find? (·.1 == prodName) with
-      | some (_, g) =>
-        match lexGrammar prods g { chars := chars, acc := "" } with
-        | some (acc, st') =>
-          if acc.isEmpty then none
-          else
-            -- Create appropriate token type based on production name
-            let tok := if prodName.endsWith "ident" then Token.ident acc
-                      else if prodName.endsWith "number" then Token.number acc
-                      else if prodName.endsWith "string" then Token.lit acc
-                      else Token.sym acc
-            some (tok, st'.chars)
-        | none => none
-      | none => none
-
-  go (prods : Productions) (mainProds : List String) (chars : CharStream) (acc : TokenStream) : TokenStream :=
-    match skipWhitespace chars with
-    | [] => acc.reverse
-    | chars' =>
-      match tryTokenize prods mainProds chars' with
-      | some (tok, rest) => go prods mainProds rest (tok :: acc)
-      | none =>
-        -- Try multi-char operators first
-        match tryMultiCharOp chars' with
-        | some (op, rest) => go prods mainProds rest (Token.sym op :: acc)
-        | none =>
-          -- Then single-char symbols
-          match chars' with
-          | c :: rest =>
-            if isSymChar c || isUnicodeSymChar c then
-              go prods mainProds rest (Token.sym (String.singleton c) :: acc)
-            else
-              -- Skip truly unknown char
-              go prods mainProds rest acc
-          | [] => acc.reverse
-
-/-! ## Syntax-level Grammar Interpretation (Parser) -/
+/-! ## Parsing State -/
 
 /-- Parsing state -/
 structure ParseState where
@@ -232,10 +28,10 @@ structure ParseState where
   binds  : List (String × Term)
   deriving Repr, Nonempty
 
-/-! ## Syntax-level Interpretation -/
-
 /-- Result of grammar interpretation -/
 abbrev ParseResult := Option (Term × ParseState)
+
+/-! ## Token-level Grammar Engine (Parser) -/
 
 /-- Interpret a GrammarExpr for parsing (forward direction) -/
 partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseState) : ParseResult :=
@@ -274,6 +70,7 @@ partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseStat
       match prods.find? (·.1 == name) with
       | some (_, g') => parseGrammar prods g' st
       | none => none
+
   | .mk (.seq g1 g2) => do
     let (t1, st1) ← parseGrammar prods g1 st
     let (t2, st2) ← parseGrammar prods g2 st1
@@ -346,15 +143,7 @@ def combineSeqT [AST α] (t1 t2 : α) : α := AST.seq t1 t2
 /-- Wrap with node name (parameterized) -/
 def wrapNodeT [AST α] (name : String) (inner : α) : α := AST.con name [inner]
 
-/-- Parameterized grammar parser: builds into any AST type.
-
-    This is the key abstraction that allows building typed ASTs
-    from grammars. The default instance builds Term, but custom
-    instances can build GADTs with compile-time validation.
-
-    Example: RedttExpr instance could pattern-match on constructor
-    names to build the appropriate typed constructors.
--/
+/-- Parameterized grammar parser: builds into any AST type. -/
 partial def parseGrammarT [AST α] (prods : Productions) (g : GrammarExpr)
     (st : ParseStateT α) : ParseResultT α :=
   match g with
@@ -417,7 +206,7 @@ partial def parseGrammarT [AST α] (prods : Productions) (g : GrammarExpr)
     | some (t, st') => some (wrapNodeT name t, st')
     | none => none
 
-/-- Convenience: parse with default Term target -/
+/-- Convenience: parse with specific AST target -/
 def parseGrammarAs (α : Type) [AST α] (prods : Productions) (g : GrammarExpr)
     (tokens : TokenStream) : Option α :=
   match parseGrammarT prods g ⟨tokens, []⟩ with
