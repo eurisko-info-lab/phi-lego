@@ -38,6 +38,13 @@ abbrev LexResult := Option (String × LexState)
 
 /-! ## Token-level Grammar Interpretation (Lexer) -/
 
+/-- Extract character from 'x' format literal -/
+def extractCharLit (s : String) : Option Char :=
+  if s.startsWith "'" && s.endsWith "'" && s.length == 3 then
+    s.toList[1]?
+  else
+    none
+
 /-- Interpret a GrammarExpr for lexing (CharStream → String)
     Single quotes in grammar match single characters -/
 partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) : LexResult :=
@@ -45,27 +52,36 @@ partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) :
   | .mk .empty => some (st.acc, st)
 
   | .mk (.lit s) =>
-    -- For token grammars, lit matches character(s)
-    if s.length == 1 then
-      -- Single char: match exactly
+    -- For token grammars, check for 'x' character literals first
+    match extractCharLit s with
+    | some expected =>
+      -- Character literal: match single char
       match st.chars with
       | c :: rest =>
-        if c == s.get ⟨0⟩ then
+        if c == expected then
           some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
         else none
       | [] => none
-    else
-      -- Multi-char: match sequence
-      let rec matchChars (pat : List Char) (chars : CharStream) (acc : String) : Option (String × CharStream) :=
-        match pat with
-        | [] => some (acc, chars)
-        | p :: ps =>
-          match chars with
-          | c :: rest => if c == p then matchChars ps rest (acc.push c) else none
-          | [] => none
-      match matchChars s.toList st.chars st.acc with
-      | some (acc', rest) => some (acc', { st with chars := rest, acc := acc' })
-      | none => none
+    | none =>
+      -- Regular literal: match sequence
+      if s.length == 1 then
+        match st.chars with
+        | c :: rest =>
+          if c == s.get ⟨0⟩ then
+            some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
+          else none
+        | [] => none
+      else
+        let rec matchChars (pat : List Char) (chars : CharStream) (acc : String) : Option (String × CharStream) :=
+          match pat with
+          | [] => some (acc, chars)
+          | p :: ps =>
+            match chars with
+            | c :: rest => if c == p then matchChars ps rest (acc.push c) else none
+            | [] => none
+        match matchChars s.toList st.chars st.acc with
+        | some (acc', rest) => some (acc', { st with chars := rest, acc := acc' })
+        | none => none
 
   | .mk (.ref name) =>
     match prods.find? (·.1 == name) with
@@ -93,16 +109,85 @@ partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) :
 
 /-- Tokenize using token grammar productions -/
 partial def tokenizeWithGrammar (prods : Productions) (mainProds : List String) (input : String) : TokenStream :=
-  let chars := input.toList
-  go prods mainProds chars []
+  -- Remove comments from input before tokenizing
+  let lines := input.splitOn "\n" |>.map removeLineComment
+  let cleanInput := "\n".intercalate lines
+  go prods mainProds cleanInput.toList []
 where
+  removeLineComment (s : String) : String :=
+    match s.splitOn "--" with
+    | [] => ""
+    | h :: _ => h
+
   skipWhitespace : CharStream → CharStream
     | [] => []
     | c :: rest => if c.isWhitespace then skipWhitespace rest else c :: rest
 
+  /-- Check if character is a symbol char that should become a Token.sym -/
+  isSymChar (c : Char) : Bool :=
+    c ∈ ['(', ')', '[', ']', '{', '}', ':', '=', '|', '*', '+', '?', '~', '>', '<', '$', '.', ',', ';', '^', '/', '\\', '!', '@', '#', '%', '&', '-']
+
+  /-- Check if character is a Unicode symbol -/
+  isUnicodeSymChar (c : Char) : Bool :=
+    c ∈ ['→', '←', '×', '∂', '∨', '∧', '∀', '∃', '▸', '▹', '⊢', '⦉', '⦊', '↔', '⊕']
+
+  /-- Try to extract a multi-char operator -/
+  tryMultiCharOp : CharStream → Option (String × CharStream)
+    | ':' :: ':' :: '=' :: rest => some ("::=", rest)
+    | ':' :: '=' :: rest => some (":=", rest)
+    | '~' :: '~' :: '>' :: rest => some ("~~>", rest)
+    | '~' :: '>' :: rest => some ("~>", rest)
+    | '-' :: '>' :: rest => some ("->", rest)
+    | '<' :: '-' :: rest => some ("<-", rest)
+    | _ => none
+
+  /-- Try to extract a character literal 'x' or '\x' -/
+  tryCharLit : CharStream → Option (Token × CharStream)
+    | '\'' :: '\\' :: c :: '\'' :: rest => some (Token.lit s!"'\\{c}'", rest)
+    | '\'' :: c :: '\'' :: rest => some (Token.lit s!"'{c}'", rest)
+    | _ => none
+
+  /-- Try to extract a string literal "..." -/
+  tryStringLit : CharStream → Option (Token × CharStream)
+    | '"' :: rest =>
+      let rec takeString (chars : List Char) (acc : String) : Option (String × List Char) :=
+        match chars with
+        | [] => none  -- unterminated string
+        | '"' :: rest' => some (acc, rest')
+        | '\\' :: c :: rest' => takeString rest' (acc.push '\\' |>.push c)
+        | c :: rest' => takeString rest' (acc.push c)
+      match takeString rest "" with
+      | some (str, rest') => some (Token.lit s!"\"{str}\"", rest')
+      | none => none
+    | _ => none
+
+  /-- Try to extract a special <ident> token -/
+  trySpecial : CharStream → Option (Token × CharStream)
+    | '<' :: rest =>
+      let rec takeUntilClose (chars : List Char) (acc : String) : Option (String × List Char) :=
+        match chars with
+        | [] => none  -- unterminated
+        | '>' :: rest' => some (acc, rest')
+        | c :: rest' => takeUntilClose rest' (acc.push c)
+      match takeUntilClose rest "" with
+      | some (name, rest') => some (Token.sym s!"<{name}>", rest')
+      | none => none
+    | _ => none
+
   tryTokenize (prods : Productions) (mainProds : List String) (chars : CharStream) : Option (Token × CharStream) :=
-    -- Try each main production
-    mainProds.findSome? fun prodName =>
+    -- First try string and character literals (they have special syntax)
+    match tryStringLit chars with
+    | some result => some result
+    | none =>
+      match tryCharLit chars with
+      | some result => some result
+      | none =>
+        -- Then try special <...> syntax
+        match trySpecial chars with
+        | some result => some result
+        | none =>
+          -- Then try each main production
+          mainProds.findSome? fun prodName =>
       match prods.find? (·.1 == prodName) with
       | some (_, g) =>
         match lexGrammar prods g { chars := chars, acc := "" } with
@@ -125,10 +210,19 @@ where
       match tryTokenize prods mainProds chars' with
       | some (tok, rest) => go prods mainProds rest (tok :: acc)
       | none =>
-        -- Skip unknown char
-        match chars' with
-        | _ :: rest => go prods mainProds rest acc
-        | [] => acc.reverse
+        -- Try multi-char operators first
+        match tryMultiCharOp chars' with
+        | some (op, rest) => go prods mainProds rest (Token.sym op :: acc)
+        | none =>
+          -- Then single-char symbols
+          match chars' with
+          | c :: rest =>
+            if isSymChar c || isUnicodeSymChar c then
+              go prods mainProds rest (Token.sym (String.singleton c) :: acc)
+            else
+              -- Skip truly unknown char
+              go prods mainProds rest acc
+          | [] => acc.reverse
 
 /-! ## Syntax-level Grammar Interpretation (Parser) -/
 

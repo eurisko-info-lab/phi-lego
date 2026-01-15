@@ -38,7 +38,7 @@ token Token
            | '=' | '~' | '/' | '\\' | '→' | '←' | '↔' | '⊕' ;
 
   -- Token patterns
-  ident  ::= alpha (alpha | digit)* ;
+  ident  ::= alpha (alpha | digit | '-')* ;
   number ::= digit+ ;
   string ::= '"' strchar* '"' ;
   strchar ::= '\\' escape | printable ;
