@@ -4,11 +4,19 @@
   The grammar is itself an Iso - same algebra for both levels:
   - Token level:  CharStream ⇌ TokenStream (lexer)
   - Syntax level: TokenStream ⇌ Term (parser)
+
+  Helper functions (combineSeq, splitSeq, wrapNode, unwrapNode) are
+  imported from BootstrapRules where they are defined alongside the
+  equivalent rewrite rules from Bootstrap.lego.
 -/
 
 import Lego.Algebra
+import BootstrapRules
 
 namespace Lego
+
+-- Import helper functions from generated rules module
+open Lego.Generated.Bootstrap (combineSeq splitSeq wrapNode unwrapNode)
 
 /-! ## Common Types -/
 
@@ -129,32 +137,6 @@ structure ParseState where
   tokens : TokenStream
   binds  : List (String × Term)
   deriving Repr, Nonempty
-
-/-! ## Helper functions -/
-
-def combineSeq (t1 t2 : Term) : Term :=
-  match t1, t2 with
-  | .con "seq" ts, .con "seq" us => .con "seq" (ts ++ us)
-  | .con "seq" ts, t => .con "seq" (ts ++ [t])
-  | t, .con "seq" us => .con "seq" (t :: us)
-  | .con "unit" [], t => t
-  | t, .con "unit" [] => t
-  | t1, t2 => .con "seq" [t1, t2]
-
-def splitSeq (t : Term) : Term × Term :=
-  match t with
-  | .con "seq" (h :: rest) => (h, .con "seq" rest)
-  | t => (t, .con "unit" [])
-
-def wrapNode (name : String) (t : Term) : Term :=
-  match t with
-  | .con "seq" ts => .con name ts
-  | _ => .con name [t]
-
-def unwrapNode (name : String) (t : Term) : Term :=
-  match t with
-  | .con n ts => if n == name then .con "seq" ts else t
-  | _ => t
 
 /-! ## Syntax-level Interpretation -/
 

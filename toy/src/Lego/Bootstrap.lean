@@ -6,16 +6,19 @@
 
   The grammar pieces are generated from Bootstrap.lego.
   The tokenizer is also in generated/ (hand-written initially, eventually generated).
+  The rules are generated from Bootstrap.lego.
 
   To regenerate:
     lake exe tolean --grammar test/Bootstrap.lego -o generated/BootstrapGrammar.lean
     lake exe tolean --tokenizer test/Bootstrap.lego -o generated/BootstrapTokenizer.lean
+    lake exe tolean --rules test/Bootstrap.lego -o generated/BootstrapRules.lean
 -/
 
 import Lego.Algebra
 import Lego.Interp
 import BootstrapGrammar
 import BootstrapTokenizer
+import BootstrapRules
 
 namespace Lego.Bootstrap
 
@@ -37,6 +40,12 @@ def metaInterp : LangInterp := metaGrammar.toInterp "File.legoFile"
 /-! ## Tokenizer (imported from generated) -/
 
 def tokenize := Lego.Generated.Bootstrap.tokenize
+
+/-! ## Rules (imported from generated) -/
+
+def allRules := Lego.Generated.Bootstrap.allRules
+def ruleInterp := Lego.Generated.Bootstrap.ruleInterp
+def normalize := Lego.Generated.Bootstrap.normalize
 
 /-! ## Parsing -/
 

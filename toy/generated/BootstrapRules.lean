@@ -1,11 +1,17 @@
 /-
-  Generated Rules from Bootstrap.lego
+  Bootstrap Rules and Helper Functions
 
-  This module contains ONLY the rewrite rule definitions.
-  Import this from your interpreter to use the generated rules.
+  This module contains:
+  1. Hand-coded helper functions (combineSeq, splitSeq, wrapNode, unwrapNode)
+     used by the interpreter during parsing
+  2. Generated rewrite rules from Bootstrap.lego that express the same logic
 
-  DO NOT EDIT - regenerate with:
+  Eventually the hand-coded functions can be replaced by applying the rules,
+  but for now we keep both for bootstrapping.
+
+  To regenerate the rules section:
     lake exe tolean --rules test/Bootstrap.lego -o generated/BootstrapRules.lean
+  (But currently this file has hand-coded additions, so don't overwrite blindly)
 -/
 
 import Lego.Algebra
@@ -14,7 +20,37 @@ namespace Lego.Generated.Bootstrap
 
 open Lego
 
-/-! ## Rewrite Rules -/
+/-! ## Hand-coded Helper Functions (used by Interp.lean) -/
+
+/-- Combine two terms into a sequence -/
+def combineSeq (t1 t2 : Term) : Term :=
+  match t1, t2 with
+  | .con "seq" ts, .con "seq" us => .con "seq" (ts ++ us)
+  | .con "seq" ts, t => .con "seq" (ts ++ [t])
+  | t, .con "seq" us => .con "seq" (t :: us)
+  | .con "unit" [], t => t
+  | t, .con "unit" [] => t
+  | t1, t2 => .con "seq" [t1, t2]
+
+/-- Split first element from a sequence -/
+def splitSeq (t : Term) : Term × Term :=
+  match t with
+  | .con "seq" (h :: rest) => (h, .con "seq" rest)
+  | t => (t, .con "unit" [])
+
+/-- Wrap a term with a node name -/
+def wrapNode (name : String) (t : Term) : Term :=
+  match t with
+  | .con "seq" ts => .con name ts
+  | _ => .con name [t]
+
+/-- Unwrap a node if name matches -/
+def unwrapNode (name : String) (t : Term) : Term :=
+  match t with
+  | .con n ts => if n == name then .con "seq" ts else t
+  | _ => t
+
+/-! ## Rewrite Rules (generated from Bootstrap.lego) -/
 
 /-- Rule: combine-seq-seq -/
 def rule_combine_seq_seq : Rule := {
