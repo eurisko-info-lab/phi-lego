@@ -186,6 +186,7 @@ partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseStat
           some (.lit s, { st with tokens := rest })
         else none
       | "number",  .number s :: rest => some (.lit s, { st with tokens := rest })
+      | "sym",     .sym s :: rest    => some (.var s, { st with tokens := rest })
       | "special", .sym s :: rest    =>
         -- Match any <...> token
         if s.startsWith "<" && s.endsWith ">" then
@@ -197,7 +198,6 @@ partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseStat
       match prods.find? (·.1 == name) with
       | some (_, g') => parseGrammar prods g' st
       | none => none
-
   | .mk (.seq g1 g2) => do
     let (t1, st1) ← parseGrammar prods g1 st
     let (t2, st2) ← parseGrammar prods g2 st1

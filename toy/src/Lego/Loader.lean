@@ -76,7 +76,8 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
   -- Reference: (ref (ident name))
   | .con "ref" [.con "ident" [.var name]] =>
     -- Built-in production names that should not be prefixed
-    let builtins := ["name", "ident", "string", "number"]
+    -- Note: "name" was removed - pieces should define their own if needed
+    let builtins := ["ident", "string", "number"]
     -- Prefix with piece name for unqualified references (except built-ins)
     let qualName := if pieceName.isEmpty || name.contains '.' || builtins.contains name then name
                     else s!"{pieceName}.{name}"
@@ -125,9 +126,22 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
     let g' ← astToGrammarExpr pieceName g
     pure (GrammarExpr.alt g' GrammarExpr.empty)
 
-  -- Group: (group "(" expr ")")
-  | .con "group" [_, g, _] =>
-    astToGrammarExpr pieceName g
+  -- Group: (group "(" expr... ")")
+  -- The group may contain multiple expressions that need to be sequenced
+  | .con "group" args =>
+    match args with
+    | [] => none
+    | [_] => none  -- just "(" - invalid
+    | [_, _] => none  -- "(" ")" - invalid
+    | [_, g, _] => astToGrammarExpr pieceName g  -- single expr
+    | _ =>
+      -- Multiple expressions: drop parens and convert middle to seq
+      let middle := args.drop 1 |>.dropLast
+      let gexprs := middle.filterMap (astToGrammarExpr pieceName)
+      match gexprs with
+      | [] => none
+      | [g] => some g
+      | g :: gs => some <| gs.foldl GrammarExpr.seq g
 
   -- Annotated: (annotated ... "→" (ident conName))
   -- This wraps a grammar expression with a constructor name
@@ -244,6 +258,26 @@ where
 /-- Extract all productions from a parsed .lego file AST (includes builtins) -/
 def extractAllProductions (ast : Term) : Productions :=
   builtinProductions ++ extractProductionsOnly ast
+
+/-- Extract only token (lexer) productions from a parsed .lego file AST -/
+partial def extractTokenProductions (ast : Term) : Productions :=
+  go ast
+where
+  go (t : Term) : Productions :=
+    match t with
+    | .con "DLang" ts =>
+      ts.flatMap go
+    | .con "DToken" _ =>
+      extractPieceProductions t
+    | .con "seq" ts =>
+      ts.flatMap go
+    | .con _ ts =>
+      ts.flatMap go
+    | _ => []
+
+/-- Get main token production names (top-level productions in token pieces) -/
+def getMainTokenProds (tokenProds : Productions) : List String :=
+  tokenProds.map (·.1)
 
 /-! ## Symbol Extraction for Tokenization -/
 
@@ -365,5 +399,150 @@ def loadAndParse (grammarPath : String) (startProd : String) (inputPath : String
   match ← loadGrammarFromFile grammarPath startProd with
   | some grammar => parseFileWithGrammar grammar inputPath
   | none => pure none
+
+/-! ## Rule Extraction -/
+
+/-- Convert a parsed pattern AST to a Term for pattern matching.
+    Handles various formats from the grammar:
+    - (var (ident name)) for $name metavars
+    - (con (ident name) args...) for (name args...)
+    - (seq ...) wrapper nodes to be stripped
+    - Punctuation ($, parens) to be filtered out
+-/
+partial def patternAstToTerm (t : Term) : Term :=
+  match t with
+  -- seq with $ prefix → metavar
+  | .con "seq" [.lit "$", .con "var" [.con "ident" [.var name]]] =>
+    .var s!"${name}"
+  | .con "seq" (.lit "$" :: rest) =>
+    -- Extract the var from the rest
+    match rest.find? (fun t => match t with | .var _ => true | .con "var" _ => true | _ => false) with
+    | some (.var name) => .var s!"${name}"
+    | some (.con "var" [.con "ident" [.var name]]) => .var s!"${name}"
+    | _ => .con "seq" (rest.map patternAstToTerm)
+  -- seq with parens → unwrap the con inside
+  | .con "seq" (.lit "(" :: rest) =>
+    let inner := rest.filter (· != .lit "(") |>.filter (· != .lit ")")
+    match inner with
+    | [x] => patternAstToTerm x
+    | xs => .con "seq" (xs.map patternAstToTerm)
+  -- New clean format: (var (ident name)) → .var "$name"
+  | .con "var" [.con "ident" [.var name]] =>
+    .var s!"${name}"
+  -- New clean format: (con (ident/sym name) args...) → .con name [args...]
+  | .con "con" (.con "ident" [.var conName] :: args) =>
+    .con conName (args.map patternAstToTerm)
+  | .con "con" (.con "sym" [.lit conName] :: args) =>
+    .con conName (args.map patternAstToTerm)
+  -- New clean format: (lit (string "...")) → .lit ...
+  | .con "lit" [.con "string" [.lit s]] =>
+    .lit (s.drop 1 |>.dropRight 1)  -- strip quotes
+  -- Regular con with ident first child (common case)
+  | .con c (.con "ident" [.var name] :: args) =>
+    -- c is the outer structure, name is the actual constructor name
+    if c == "con" then .con name (args.map patternAstToTerm)
+    else .con c ((.var name) :: args.map patternAstToTerm)
+  -- ident node → variable
+  | .con "ident" [.var name] =>
+    .var name
+  -- Plain constructor application
+  | .con c args =>
+    let cleanArgs := args.filter (· != .lit "(") |>.filter (· != .lit ")")
+                        |>.filter (· != .lit "$") |>.filter (· != .lit ";")
+    .con c (cleanArgs.map patternAstToTerm)
+  | .lit s => .lit s
+  | .var s => .var s
+
+/-- Convert a parsed template AST to a Term for substitution.
+    Same structure handling as patterns.
+-/
+partial def templateAstToTerm (t : Term) : Term :=
+  match t with
+  -- seq with $ prefix → metavar
+  | .con "seq" [.lit "$", .con "var" [.con "ident" [.var name]]] =>
+    .var s!"${name}"
+  | .con "seq" (.lit "$" :: rest) =>
+    match rest.find? (fun t => match t with | .var _ => true | .con "var" _ => true | _ => false) with
+    | some (.var name) => .var s!"${name}"
+    | some (.con "var" [.con "ident" [.var name]]) => .var s!"${name}"
+    | _ => .con "seq" (rest.map templateAstToTerm)
+  -- seq with parens → unwrap the con inside
+  | .con "seq" (.lit "(" :: rest) =>
+    let inner := rest.filter (· != .lit "(") |>.filter (· != .lit ")")
+    match inner with
+    | [x] => templateAstToTerm x
+    | xs => .con "seq" (xs.map templateAstToTerm)
+  -- New clean format: (var (ident name)) → .var "$name"
+  | .con "var" [.con "ident" [.var name]] =>
+    .var s!"${name}"
+  -- New clean format: (con (ident name) args...) → .con name [args...]
+  | .con "con" (.con "ident" [.var conName] :: args) =>
+    .con conName (args.map templateAstToTerm)
+  -- New clean format: (lit (string "...")) → .lit ...
+  | .con "lit" [.con "string" [.lit s]] =>
+    .lit (s.drop 1 |>.dropRight 1)  -- strip quotes
+  -- Regular con with ident first child (common case)
+  | .con c (.con "ident" [.var name] :: args) =>
+    if c == "con" then .con name (args.map templateAstToTerm)
+    else .con c ((.var name) :: args.map templateAstToTerm)
+  -- ident node → variable
+  | .con "ident" [.var name] =>
+    .var name
+  -- Plain constructor application
+  | .con c args =>
+    let cleanArgs := args.filter (· != .lit "(") |>.filter (· != .lit ")")
+                        |>.filter (· != .lit "$") |>.filter (· != .lit ";")
+    .con c (cleanArgs.map templateAstToTerm)
+  | .lit s => .lit s
+  | .var s => .var s
+
+/-- Extract a Rule from a DRule AST node -/
+def extractRule (ruleDecl : Term) : Option Rule :=
+  match ruleDecl with
+  | .con "DRule" args =>
+    -- Structure varies based on whether patterns have outer parens
+    -- Filter out keywords and punctuation
+    let filtered := args.filter (· != .lit "rule") |>.filter (· != .lit ":")
+                       |>.filter (· != .lit "~>") |>.filter (· != .lit ";")
+                       |>.filter (· != .lit "(") |>.filter (· != .lit ")")
+                       |>.filter (· != .lit "$")
+    -- Find the name (first ident) and separate pattern/template parts
+    match filtered with
+    | .con "ident" [.var name] :: rest =>
+      -- Find where pattern ends and template begins
+      -- Pattern is everything until we hit a 'var' or 'con' that's not inside the pattern
+      -- Simple heuristic: first item is pattern, last item is template
+      match rest with
+      | [pat] =>
+        -- Just a pattern, template is same (identity rule)
+        some {
+          name := name
+          pattern := patternAstToTerm pat
+          template := patternAstToTerm pat
+        }
+      | [pat, tmpl] =>
+        some {
+          name := name
+          pattern := patternAstToTerm pat
+          template := templateAstToTerm tmpl
+        }
+      | _ => none
+    | _ => none
+  | _ => none
+
+/-- Extract all rules from a parsed .lego file AST -/
+partial def extractRules (ast : Term) : List Rule :=
+  go ast
+where
+  go (t : Term) : List Rule :=
+    match t with
+    | .con "DRule" _ =>
+      match extractRule t with
+      | some r => [r]
+      | none => []
+    | .con "DLang" ts => ts.flatMap go
+    | .con "seq" ts => ts.flatMap go
+    | .con _ ts => ts.flatMap go
+    | _ => []
 
 end Lego.Loader

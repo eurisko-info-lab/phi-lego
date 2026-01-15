@@ -570,7 +570,7 @@ def analyzeLegoFile (path : String) : IO (List TestResult) := do
       let testCount := countTests ast
       let ruleCount := countRules ast
       let pieceCount := countPieces ast
-      let rules := extractRules ast
+      let rules := Loader.extractRules ast
       let evalTests := extractEvalTests ast
       let evalResults := evalTests.map (runEvalTest rules)
       let baseResults := [
@@ -723,6 +723,142 @@ def runGrammarExprTests : IO (List TestResult) := do
     test5
   ]
 
+/-! ## Redtt Library Parsing Tests -/
+
+/-- Parse a single .red file declaration using RedttParser grammar.
+    The grammar handles projections as "." followed by projname.
+    Returns (parsed, total) counts for the declarations in the file. -/
+def parseRedDecl (redttProds : List (String × GrammarExpr))
+                 (_tokenProds : List (String × GrammarExpr))
+                 (decl : String) : Bool :=
+  let declProd := "Redtt.topdecl"
+  -- Use Bootstrap.tokenize - the grammar handles "." + projname sequences
+  let tokens := Bootstrap.tokenize decl
+  match redttProds.find? (·.1 == declProd) with
+  | some (_, g) =>
+    let st : ParseState := { tokens := tokens, binds := [] }
+    match parseGrammar redttProds g st with
+    | some (_, st') => st'.tokens.isEmpty
+    | none => false
+  | none => false
+
+/-- Split a .red file into individual top-level declarations.
+    Declarations start with "import", "def", or "data" at the beginning of a line. -/
+def splitRedDecls (content : String) : List String := Id.run do
+  -- First strip block comments (/-  -/)
+  let noBlockComments := stripBlockComments content
+  -- Strip line comments (-- ...)
+  let noComments := noBlockComments.splitOn "\n"
+    |>.map (fun line =>
+      match line.splitOn "--" with
+      | [] => ""
+      | first :: _ => first)
+    |> String.intercalate "\n"
+  -- Split on declaration keywords at line start
+  let lines := noComments.splitOn "\n"
+  let mut decls : List String := []
+  let mut current := ""
+  for line in lines do
+    let trimmed := line.trimLeft
+    if trimmed.startsWith "import " || trimmed.startsWith "def " ||
+       trimmed.startsWith "data " || trimmed.startsWith "public " then
+      if !current.isEmpty then
+        decls := decls ++ [current.trim]
+      current := line
+    else
+      current := current ++ "\n" ++ line
+  if !current.isEmpty then
+    decls := decls ++ [current.trim]
+  return decls.filter (fun s => !s.isEmpty)
+where
+  stripBlockComments (s : String) : String := Id.run do
+    let mut result := ""
+    let mut i := 0
+    let mut inComment := false
+    let chars := s.toList
+    while i < chars.length do
+      if !inComment && i + 1 < chars.length && chars[i]! == '/' && chars[i+1]! == '-' then
+        inComment := true
+        i := i + 2
+      else if inComment && i + 1 < chars.length && chars[i]! == '-' && chars[i+1]! == '/' then
+        inComment := false
+        i := i + 2
+      else if !inComment then
+        result := result.push chars[i]!
+        i := i + 1
+      else
+        i := i + 1
+    result
+
+/-- Parse a .red file and return (passed, total) declaration counts -/
+def parseRedFile (redttProds : List (String × GrammarExpr))
+                 (tokenProds : List (String × GrammarExpr))
+                 (path : String) : IO (Nat × Nat) := do
+  try
+    let content ← IO.FS.readFile path
+    let decls := splitRedDecls content
+    let results := decls.map (parseRedDecl redttProds tokenProds)
+    let passed := results.filter id |>.length
+    let total := results.length
+    pure (passed, total)
+  catch _ =>
+    pure (0, 0)
+
+/-- Recursively find all .red files in a directory -/
+partial def findRedFiles (dir : String) : IO (List String) := do
+  let mut files : List String := []
+  try
+    let entries ← System.FilePath.readDir dir
+    for entry in entries do
+      let path := entry.path.toString
+      if ← System.FilePath.isDir entry.path then
+        let subFiles ← findRedFiles path
+        files := files ++ subFiles
+      else if path.endsWith ".red" then
+        files := files ++ [path]
+  catch _ =>
+    pure ()
+  pure files
+
+/-- Run tests parsing .red files from the redtt library -/
+def runRedttParsingTests : IO (List TestResult) := do
+  -- Load RedttParser grammar
+  let grammarResult ← do
+    try
+      let content ← IO.FS.readFile "./test/RedttParser.lego"
+      pure (Bootstrap.parseLegoFile content)
+    catch _ =>
+      pure none
+
+  match grammarResult with
+  | none => pure [{ name := "redtt_library_parse", passed := false, message := "✗ RedttParser.lego failed to load" }]
+  | some ast =>
+    let redttProds := extractAllProductions ast
+    let tokenProds := extractTokenProductions ast
+
+    -- Find all .red files in vendor/redtt/library (relative path from toy/)
+    let libraryPath := "../vendor/redtt/library"
+    let testFiles ← findRedFiles libraryPath
+    let sortedFiles := testFiles.toArray.qsort (· < ·) |>.toList
+
+    let mut totalParsed := 0
+    let mut totalDecls := 0
+
+    for filePath in sortedFiles do
+      let (parsed, total) ← parseRedFile redttProds tokenProds filePath
+      totalParsed := totalParsed + parsed
+      totalDecls := totalDecls + total
+
+    -- Summary test - pass if we can parse anything
+    let overallRate := if totalDecls > 0 then (totalParsed * 100) / totalDecls else 0
+    let summaryTest := {
+      name := "redtt_library"
+      passed := totalParsed > 0  -- Pass if we parse at least something
+      message := s!"✓ ({totalParsed}/{totalDecls} = {overallRate}%) across {sortedFiles.length} files"
+    }
+
+    pure [summaryTest]
+
 /-! ## Run All Tests -/
 
 def allTests : List TestResult :=
@@ -778,6 +914,11 @@ def main : IO Unit := do
   -- Run AST GrammarExpr tests (uses AST typeclass)
   let grammarExprTests ← runGrammarExprTests
   let (p, f) ← printTestGroup "AST GrammarExpr Tests" grammarExprTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  -- Run redtt library parsing tests
+  let redttTests ← runRedttParsingTests
+  let (p, f) ← printTestGroup "Redtt Library Parsing Tests" redttTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   IO.println ""

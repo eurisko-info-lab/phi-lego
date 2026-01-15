@@ -22,3 +22,6 @@ lean_exe «toantlr» where
 
 lean_exe «totreesitter» where
   root := `tools.ToTreeSitter
+
+lean_exe «tolean» where
+  root := `tools.ToLean

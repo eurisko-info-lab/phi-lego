@@ -33,37 +33,53 @@ def atomPiece : Piece := {
 def termPiece : Piece := {
   name := "Term"
   grammar := [
+    -- Note: conname allows both idents and symbols (for reserved keywords in test cases)
+    ("Term.conname", (ref "Atom.ident").alt (ref "TOKEN.sym")),
     ("Term.term",
       (node "var" (ref "Atom.ident")).alt
       ((node "lit" (ref "Atom.string")).alt
       ((node "num" (ref "Atom.number")).alt
-       (node "con" ((lit "(").seq ((ref "Atom.ident").seq ((ref "Term.term").star.seq (lit ")"))))))))
+       (node "con" ((lit "(").seq ((ref "Term.conname").seq ((ref "Term.term").star.seq (lit ")"))))))))
   ]
   rules := []
 }
 
-/-- Pattern piece: match patterns -/
+/-- Pattern piece: match patterns
+    Produces clean Terms without punctuation:
+    - $x       → (var "$x")
+    - (f x y)  → (con "f" [(con "x" []), (con "y" [])])
+-/
 def patternPiece : Piece := {
   name := "Pattern"
   grammar := [
     ("Pattern.pattern",
-      (node "metavar" ((lit "$").seq (ref "Atom.ident"))).alt
-      ((node "pcon" ((lit "(").seq ((ref "Atom.ident").seq ((ref "Pattern.pattern").star.seq (lit ")"))))).alt
-      ((node "plit" (ref "Atom.string")).alt
-       (node "pvar" (ref "Atom.ident")))))
+      -- $ident → var "$ident"
+      ((lit "$").seq (node "var" (ref "Atom.ident"))).alt
+      -- (con args...) → con "con" [args...]
+      ((((lit "(").seq (node "con" ((ref "Term.conname").seq (ref "Pattern.pattern").star))).seq (lit ")")).alt
+      -- "string" → lit "string"
+      ((node "lit" (ref "Atom.string")).alt
+      -- ident → con "ident" []
+       (node "con" (ref "Atom.ident")))))
   ]
   rules := []
 }
 
-/-- Template piece: substitution templates -/
+/-- Template piece: substitution templates
+    Same structure as Pattern - produces clean Terms
+-/
 def templatePiece : Piece := {
   name := "Template"
   grammar := [
     ("Template.template",
-      (node "metavar" ((lit "$").seq (ref "Atom.ident"))).alt
-      ((node "tcon" ((lit "(").seq ((ref "Atom.ident").seq ((ref "Template.template").star.seq (lit ")"))))).alt
-      ((node "tlit" (ref "Atom.string")).alt
-       (node "tvar" (ref "Atom.ident")))))
+      -- $ident → var "$ident"
+      ((lit "$").seq (node "var" (ref "Atom.ident"))).alt
+      -- (con args...) → con "con" [args...]
+      ((((lit "(").seq (node "con" ((ref "Atom.ident").seq (ref "Template.template").star))).seq (lit ")")).alt
+      -- "string" → lit "string"
+      ((node "lit" (ref "Atom.string")).alt
+      -- ident → con "ident" []
+       (node "con" (ref "Atom.ident")))))
   ]
   rules := []
 }
@@ -160,17 +176,26 @@ def metaInterp : LangInterp := metaGrammar.toInterp "File.legoFile"
 
 /-! ## Loading Languages -/
 
+/-- Reserved keywords that should be tokenized as symbols, not identifiers.
+    This prevents them from being consumed as regular identifiers in expressions. -/
+def reservedKeywords : List String :=
+  ["def", "data", "import", "public", "where", "let", "in", "elim"]
+
+/-- Check if a string is a reserved keyword -/
+def isReservedKeyword (s : String) : Bool :=
+  reservedKeywords.contains s
+
 /-- Check if a character is a symbol character (ASCII) -/
 def isSymChar (c : Char) : Bool :=
   c ∈ ['(', ')', '[', ']', '{', '}', ':', '=', '|', '*', '+', '?', '~', '>', '<', '$', '.', ',', ';', '^']
 
 /-- Check if a character is a Unicode symbol -/
 def isUnicodeSymChar (c : Char) : Bool :=
-  c ∈ ['→', '←', '×', '∂', '𝕀', '∨', '∧', '∀', '∃', 'ε', 'μ', '▸', '▹', 'ω', 'π']
+  c ∈ ['→', '←', '×', '∂', '∨', '∧', '∀', '∃', '▸', '▹', '⊢', '⦉', '⦊']
 
 /-- Check if a character is a Unicode letter (Greek, etc.) that can start identifiers -/
 def isUnicodeLetter (c : Char) : Bool :=
-  c ∈ ['λ', 'Σ', 'Π', 'α', 'β', 'γ', 'δ', 'φ', 'ψ', 'τ', 'σ', 'ρ']
+  c ∈ ['λ', 'Σ', 'Π', 'α', 'β', 'γ', 'δ', 'φ', 'ψ', 'τ', 'σ', 'ρ', '𝕀', 'ε', 'μ', 'ω', 'π']
 
 /-- Check if a character is an operator character that can be multi-char -/
 def isOpChar (c : Char) : Bool :=
@@ -225,7 +250,9 @@ where
       -- Identifier or keyword (ASCII or Unicode letter)
       else if c.isAlpha || c == '_' || isUnicodeLetter c then
         let (ident, rest') := takeIdent chars ""
-        tokenizeLine rest' (Token.ident ident :: acc)
+        -- Reserved keywords become symbols, not identifiers
+        let tok := if isReservedKeyword ident then Token.sym ident else Token.ident ident
+        tokenizeLine rest' (tok :: acc)
       -- Number
       else if c.isDigit then
         let (num, rest') := takeNumber chars ""
@@ -233,7 +260,6 @@ where
       else
         -- Skip unknown character
         tokenizeLine rest acc
-
   takeChar (chars : List Char) : String × List Char :=
     match chars with
     | [] => ("", [])
@@ -252,8 +278,28 @@ where
     match chars with
     | [] => (acc, [])
     | c :: rest =>
-      if c.isAlpha || c.isDigit || c == '_' || isUnicodeLetter c then
+      -- Allow alphanumeric, _, /, ', - in identifiers for redtt compatibility
+      if c.isAlpha || c.isDigit || c == '_' || c == '/' || c == '\'' || c == '-' || isUnicodeLetter c then
         takeIdent rest (acc.push c)
+      -- Special: → followed by letter is part of identifier (e.g., binnat→nat)
+      else if c == '→' then
+        match rest with
+        | c' :: _ =>
+          if c'.isAlpha || c' == '_' || isUnicodeLetter c' then
+            takeIdent rest (acc.push c)
+          else
+            (acc, chars)
+        | [] => (acc, chars)
+      -- Special: + or * followed by letter or digit is part of identifier (e.g., m+n, n+0)
+      -- This is for redtt where IH variables can have operators in names like n+0
+      else if (c == '+' || c == '*') && !acc.isEmpty then
+        match rest with
+        | c' :: _ =>
+          if c'.isAlpha || c'.isDigit || c' == '_' || isUnicodeLetter c' then
+            takeIdent rest (acc.push c)
+          else
+            (acc, chars)
+        | [] => (acc, chars)
       else
         (acc, chars)
 

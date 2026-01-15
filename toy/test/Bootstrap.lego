@@ -60,10 +60,12 @@ piece Atom
 -----------------------------------------------------
 
 piece Term
-  term ::= ident → var
-         | string → lit
-         | number → num
-         | "(" ident term* ")" → con ;
+  term    ::= ident → var
+            | string → lit
+            | number → num
+            | "(" conname term* ")" → con ;
+  -- conname: in hardcoded bootstrap, this gets extended to accept TOKEN.sym
+  conname ::= ident ;
 
 -----------------------------------------------------
 -- Pattern: Match patterns for rules
