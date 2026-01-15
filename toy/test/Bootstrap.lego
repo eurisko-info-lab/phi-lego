@@ -64,8 +64,8 @@ piece Term
             | string → lit
             | number → num
             | "(" conname term* ")" → con ;
-  -- conname: in hardcoded bootstrap, this gets extended to accept TOKEN.sym
-  conname ::= ident ;
+  -- conname: constructor names can be idents or reserved keywords (as symbols)
+  conname ::= ident | <sym> ;
 
 -----------------------------------------------------
 -- Pattern: Match patterns for rules

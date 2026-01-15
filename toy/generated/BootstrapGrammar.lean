@@ -8,8 +8,6 @@
 
   DO NOT EDIT - regenerate with:
     lake exe tolean --grammar test/Bootstrap.lego > generated/BootstrapGrammar.lean
-
-  Initial version: Hand-written bootstrap (copied from original Bootstrap.lean)
 -/
 
 import Lego.Algebra
@@ -21,6 +19,27 @@ open GrammarExpr
 open Lego
 
 /-! ## Grammar Pieces -/
+
+/-- Token piece -/
+def tokenPiece : Piece := {
+  name := "Token"
+  level := .token
+  grammar := [
+    ("Token.digit", ((lit "'0'").alt ((lit "'1'").alt ((lit "'2'").alt ((lit "'3'").alt ((lit "'4'").alt ((lit "'5'").alt ((lit "'6'").alt ((lit "'7'").alt ((lit "'8'").alt (lit "'9'"))))))))))),
+    ("Token.lower", ((lit "'a'").alt ((lit "'b'").alt ((lit "'c'").alt ((lit "'d'").alt ((lit "'e'").alt ((lit "'f'").alt ((lit "'g'").alt ((lit "'h'").alt ((lit "'i'").alt ((lit "'j'").alt ((lit "'k'").alt ((lit "'l'").alt ((lit "'m'").alt ((lit "'n'").alt ((lit "'o'").alt ((lit "'p'").alt ((lit "'q'").alt ((lit "'r'").alt ((lit "'s'").alt ((lit "'t'").alt ((lit "'u'").alt ((lit "'v'").alt ((lit "'w'").alt ((lit "'x'").alt ((lit "'y'").alt (lit "'z'"))))))))))))))))))))))))))),
+    ("Token.upper", ((lit "'A'").alt ((lit "'B'").alt ((lit "'C'").alt ((lit "'D'").alt ((lit "'E'").alt ((lit "'F'").alt ((lit "'G'").alt ((lit "'H'").alt ((lit "'I'").alt ((lit "'J'").alt ((lit "'K'").alt ((lit "'L'").alt ((lit "'M'").alt ((lit "'N'").alt ((lit "'O'").alt ((lit "'P'").alt ((lit "'Q'").alt ((lit "'R'").alt ((lit "'S'").alt ((lit "'T'").alt ((lit "'U'").alt ((lit "'V'").alt ((lit "'W'").alt ((lit "'X'").alt ((lit "'Y'").alt (lit "'Z'"))))))))))))))))))))))))))),
+    ("Token.greek", ((lit "'α'").alt ((lit "'β'").alt ((lit "'γ'").alt ((lit "'δ'").alt ((lit "'ε'").alt ((lit "'ζ'").alt ((lit "'η'").alt ((lit "'θ'").alt ((lit "'ι'").alt ((lit "'κ'").alt ((lit "'λ'").alt ((lit "'μ'").alt ((lit "'ν'").alt ((lit "'ξ'").alt ((lit "'ο'").alt ((lit "'π'").alt ((lit "'ρ'").alt ((lit "'σ'").alt ((lit "'τ'").alt ((lit "'υ'").alt ((lit "'φ'").alt ((lit "'χ'").alt ((lit "'ψ'").alt ((lit "'ω'").alt ((lit "'Α'").alt ((lit "'Β'").alt ((lit "'Γ'").alt ((lit "'Δ'").alt ((lit "'Ε'").alt ((lit "'Ζ'").alt ((lit "'Η'").alt ((lit "'Θ'").alt ((lit "'Ι'").alt ((lit "'Κ'").alt ((lit "'Λ'").alt ((lit "'Μ'").alt ((lit "'Ν'").alt ((lit "'Ξ'").alt ((lit "'Ο'").alt ((lit "'Π'").alt ((lit "'Ρ'").alt ((lit "'Σ'").alt ((lit "'Τ'").alt ((lit "'Υ'").alt ((lit "'Φ'").alt ((lit "'Χ'").alt ((lit "'Ψ'").alt (lit "'Ω'"))))))))))))))))))))))))))))))))))))))))))))))))),
+    ("Token.alpha", ((ref "Token.lower").alt ((ref "Token.upper").alt ((ref "Token.greek").alt (lit "'_'"))))),
+    ("Token.symch", ((lit "'('").alt ((lit "')'").alt ((lit "'['").alt ((lit "']'").alt ((lit "'{'").alt ((lit "'}'").alt ((lit "'<'").alt ((lit "'>'").alt ((lit "':'").alt ((lit "';'").alt ((lit "','").alt ((lit "'.'").alt ((lit "'|'").alt ((lit "'!'").alt ((lit "'?'").alt ((lit "'@'").alt ((lit "'#'").alt ((lit "'$'").alt ((lit "'%'").alt ((lit "'^'").alt ((lit "'&'").alt ((lit "'*'").alt ((lit "'+'").alt ((lit "'-'").alt ((lit "'='").alt ((lit "'~'").alt ((lit "'/'").alt ((lit "'\\\\'").alt ((lit "'→'").alt ((lit "'←'").alt ((lit "'↔'").alt (lit "'⊕'"))))))))))))))))))))))))))))))))),
+    ("Token.ident", ((ref "Token.alpha").seq (((ref "Token.alpha").alt (ref "Token.digit")).star))),
+    ("Token.number", ((ref "Token.digit").seq ((ref "Token.digit").star))),
+    ("Token.string", (((lit "'\"'").seq ((ref "Token.strchar").star)).seq (lit "'\"'"))),
+    ("Token.strchar", (((empty.seq (lit "'\\\\'")).seq (ref "Token.escape")).alt (ref "Token.printable"))),
+    ("Token.escape", ((lit "'\"'").alt ((lit "'\\\\'").alt ((lit "'n'").alt ((lit "'t'").alt (lit "'r'")))))),
+    ("Token.printable", ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt (lit "' '")))))
+  ]
+  rules := []
+}
 
 /-- Atom piece -/
 def atomPiece : Piece := {
@@ -38,8 +57,8 @@ def atomPiece : Piece := {
 def termPiece : Piece := {
   name := "Term"
   grammar := [
-    ("Term.conname", (ref "Atom.ident").alt (ref "TOKEN.sym")),
-    ("Term.term", ((node "var" (ref "Atom.ident")).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" ((((lit "(").seq (ref "Term.conname")).seq ((ref "Term.term").star)).seq (lit ")")))))))
+    ("Term.term", ((node "var" (ref "Atom.ident")).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" ((((lit "(").seq (ref "Term.conname")).seq ((ref "Term.term").star)).seq (lit ")"))))))),
+    ("Term.conname", ((ref "Atom.ident").alt (ref "TOKEN.sym")))
   ]
   rules := []
 }
@@ -99,7 +118,7 @@ def filePiece : Piece := {
 /-! ## Combined Grammar -/
 
 /-- All piece definitions -/
-def allPieces : List Piece := [atomPiece, termPiece, patternPiece, templatePiece, grammarExprPiece, filePiece]
+def allPieces : List Piece := [tokenPiece, atomPiece, termPiece, patternPiece, templatePiece, grammarExprPiece, filePiece]
 
 /-- Get all productions from all pieces -/
 def allProductions : Productions :=

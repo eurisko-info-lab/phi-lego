@@ -485,13 +485,17 @@ end Lego.ToLean
 
 /-- Main entry point -/
 def main (args : List String) : IO Unit := do
-  let (mode, path) ← match args with
-    | ["--grammar", p] => pure (Lego.ToLean.OutputMode.grammar, p)
-    | ["--tokenizer", p] => pure (Lego.ToLean.OutputMode.tokenizer, p)
-    | ["--rules", p] => pure (Lego.ToLean.OutputMode.rules, p)
-    | [p] => pure (Lego.ToLean.OutputMode.full, p)
+  let (mode, path, outputPath) ← match args with
+    | ["--grammar", p, "-o", out] => pure (Lego.ToLean.OutputMode.grammar, p, some out)
+    | ["--grammar", p] => pure (Lego.ToLean.OutputMode.grammar, p, none)
+    | ["--tokenizer", p, "-o", out] => pure (Lego.ToLean.OutputMode.tokenizer, p, some out)
+    | ["--tokenizer", p] => pure (Lego.ToLean.OutputMode.tokenizer, p, none)
+    | ["--rules", p, "-o", out] => pure (Lego.ToLean.OutputMode.rules, p, some out)
+    | ["--rules", p] => pure (Lego.ToLean.OutputMode.rules, p, none)
+    | [p, "-o", out] => pure (Lego.ToLean.OutputMode.full, p, some out)
+    | [p] => pure (Lego.ToLean.OutputMode.full, p, none)
     | _ =>
-      IO.eprintln "Usage: tolean [--grammar|--tokenizer|--rules] <file.lego>"
+      IO.eprintln "Usage: tolean [--grammar|--tokenizer|--rules] <file.lego> [-o <output.lean>]"
       IO.eprintln ""
       IO.eprintln "Converts a Lego grammar to Lean source code."
       IO.eprintln ""
@@ -499,11 +503,26 @@ def main (args : List String) : IO Unit := do
       IO.eprintln "  --grammar    Generate only grammar pieces (for import)"
       IO.eprintln "  --tokenizer  Generate only tokenizer function"
       IO.eprintln "  --rules      Generate only rewrite rules"
+      IO.eprintln "  -o <file>    Write to file (creates .bak backup) instead of stdout"
       IO.eprintln "  (default)    Generate complete standalone module"
       IO.eprintln ""
       IO.eprintln "Examples:"
       IO.eprintln "  lake exe tolean test/Bootstrap.lego"
-      IO.eprintln "  lake exe tolean --grammar test/Bootstrap.lego > generated/BootstrapGrammar.lean"
+      IO.eprintln "  lake exe tolean --grammar test/Bootstrap.lego -o generated/BootstrapGrammar.lean"
       IO.Process.exit 1
+
+  -- Generate code in memory first
   let lean ← Lego.ToLean.legoFileToLean path mode
-  IO.println lean
+
+  match outputPath with
+  | none =>
+    -- Print to stdout
+    IO.println lean
+  | some out =>
+    -- Write to file with backup
+    let outPath := System.FilePath.mk out
+    if ← outPath.pathExists then
+      let bakPath := System.FilePath.mk (out ++ ".bak")
+      IO.FS.rename outPath bakPath
+    IO.FS.writeFile outPath lean
+    IO.eprintln s!"Wrote {lean.length} bytes to {out}"
