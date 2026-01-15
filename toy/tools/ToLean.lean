@@ -166,110 +166,63 @@ def {leanIdent} : Piece := \{
   rules := []
 }"
 
-/-- Extract character set from token grammar (for tokenizer generation) -/
-partial def extractCharSet (g : GrammarExpr) : List Char :=
-  match g with
-  | .mk (.lit s) =>
-    -- Character literals like 'x' → extract x
-    if s.startsWith "'" && s.endsWith "'" && s.length == 3 then
-      match s.toList with
-      | [_, c, _] => [c]
-      | _ => []
-    else if s.length == 1 then
-      [s.toList.head!]
-    else []
-  | .mk (.alt g1 g2) => extractCharSet g1 ++ extractCharSet g2
-  | .mk (.seq g1 g2) => extractCharSet g1 ++ extractCharSet g2
-  | .mk (.star g') => extractCharSet g'
-  | .mk (.node _ g') => extractCharSet g'
-  | .mk (.ref _) => []
-  | .mk .empty => []
-  | .mk (.bind _ g') => extractCharSet g'
-
-/-- Generate character set predicate -/
-def generateCharPredicate (name : String) (chars : List Char) : String :=
-  let charLits := chars.map (fun c => s!"'{c}'")
-  let charList := ", ".intercalate charLits
-  s!"/-- Check if character is in {name} set -/
-def is{name} (c : Char) : Bool :=
-  c ∈ [{charList}]"
-
-/-- Extract all character sets from token productions -/
-def extractTokenCharSets (tokenProds : Productions) : List (String × List Char) :=
-  tokenProds.filterMap fun (name, expr) =>
-    let chars := extractCharSet expr
-    if chars.isEmpty then none
-    else
-      let shortName := match name.splitOn "." with
-        | [_, n] => n.capitalize
-        | _ => name.capitalize
-      some (shortName, chars.eraseDups)
-
 /-- Default tokenizer when no token piece is defined -/
 def defaultTokenizer : String :=
 "
 /-- Default tokenizer (uses Bootstrap tokenizer) -/
 def tokenize : String → TokenStream := Lego.Bootstrap.tokenize"
 
-/-- Generate the tokenizer function skeleton -/
-def generateTokenizer (charSets : List (String × List Char)) : String :=
-  let predicates := charSets.map (fun (n, cs) => generateCharPredicate n cs)
-  let predCode := "\n\n".intercalate predicates
-  s!"{predCode}
+/-- Generate tokenizer module that uses grammar-driven lexing -/
+def generateTokenizerModule (langName : String) (tokenProds : Productions) : String :=
+  -- Generate the Token piece definition (same as grammar piece but for chars)
+  let tokenPiece := generatePiece "Token" tokenProds (isToken := true)
 
-/-- Tokenize a string into tokens -/
-partial def tokenize (s : String) : TokenStream :=
-  let lines := s.splitOn \"\\n\" |>.map String.trim |>.filter (· ≠ \"\")
-  lines.foldl (fun acc line => acc ++ tokenizeLine line.toList []) []
-where
-  tokenizeLine (chars : List Char) (acc : List Token) : TokenStream :=
-    match chars with
-    | [] => acc.reverse
-    | c :: rest =>
-      if c.isWhitespace then
-        tokenizeLine rest acc
-      else if c == '\"' then
-        let (str, rest') := takeString rest \"\"
-        tokenizeLine rest' (Token.lit s!\"\\\"\{str}\\\"\" :: acc)
-      else if c == '\\'' then
-        let (chr, rest') := takeChar rest
-        tokenizeLine rest' (Token.lit s!\"'\{chr}'\" :: acc)
-      else if c.isAlpha || c == '_' then
-        let (ident, rest') := takeIdent chars \"\"
-        tokenizeLine rest' (Token.ident ident :: acc)
-      else if c.isDigit then
-        let (num, rest') := takeNumber chars \"\"
-        tokenizeLine rest' (Token.number num :: acc)
-      else
-        tokenizeLine rest (Token.sym (String.singleton c) :: acc)
+  -- Find main token productions (ident, number, string, sym)
+  let mainProds := tokenProds.filterMap fun (name, _) =>
+    let shortName := match name.splitOn "." with
+      | [_, n] => n
+      | _ => name
+    if shortName ∈ ["ident", "number", "string"] then some s!"\"{name}\""
+    else none
+  let mainProdList := ", ".intercalate mainProds
 
-  takeString (chars : List Char) (acc : String) : String × List Char :=
-    match chars with
-    | [] => (acc, [])
-    | '\"' :: rest => (acc, rest)
-    | '\\\\' :: c :: rest => takeString rest (acc.push '\\\\' |>.push c)
-    | c :: rest => takeString rest (acc.push c)
+  s!"/-
+  Generated Tokenizer from {langName}.lego
 
-  takeChar (chars : List Char) : String × List Char :=
-    match chars with
-    | [] => (\"\", [])
-    | c :: '\\'' :: rest => (String.singleton c, rest)
-    | _ => (\"\", chars)
+  This module uses grammar-driven lexing. The Token piece grammar
+  is interpreted by tokenizeWithGrammar, just like the parser uses
+  grammar pieces.
 
-  takeIdent (chars : List Char) (acc : String) : String × List Char :=
-    match chars with
-    | [] => (acc, [])
-    | c :: rest =>
-      if c.isAlpha || c.isDigit || c == '_' then
-        takeIdent rest (acc.push c)
-      else (acc, chars)
+  DO NOT EDIT - regenerate with:
+    lake exe tolean --tokenizer test/{langName}.lego -o generated/{langName}Tokenizer.lean
+-/
 
-  takeNumber (chars : List Char) (acc : String) : String × List Char :=
-    match chars with
-    | [] => (acc, [])
-    | c :: rest =>
-      if c.isDigit then takeNumber rest (acc.push c)
-      else (acc, chars)"
+import Lego.Algebra
+import Lego.Interp
+
+namespace Lego.Generated.{langName}
+
+open GrammarExpr
+open Lego
+
+/-! ## Token Grammar -/
+
+{tokenPiece}
+
+/-- Token productions -/
+def tokenProductions : Productions := tokenPiece.grammar
+
+/-- Main token production names (ident, number, string) -/
+def mainTokenProds : List String := [{mainProdList}]
+
+/-! ## Tokenizer -/
+
+/-- Tokenize using grammar-driven lexing -/
+def tokenize (s : String) : TokenStream :=
+  Lego.tokenizeWithGrammar tokenProductions mainTokenProds s
+
+end Lego.Generated.{langName}
+"
 
 /-! ## Rule Generation -/
 
@@ -335,13 +288,16 @@ def findStartProd (prods : Productions) : String :=
 
 /-! ## Grammar-Only Generation -/
 
-/-- Generate grammar-only module (for import by hand-written code) -/
+/-- Generate grammar-only module (for import by hand-written code)
+    Excludes token pieces - those go in the tokenizer module -/
 def generateGrammarModule (langName : String) (prods : Productions) (tokenPieceNames : List String := []) : String :=
   let grouped := groupByPiece prods
-  let pieces := grouped.map (fun (n, ps) => generatePiece n ps (tokenPieceNames.contains n))
+  -- Filter out token pieces (they belong in the tokenizer module)
+  let nonTokenGroups := grouped.filter (fun (n, _) => !tokenPieceNames.contains n)
+  let pieces := nonTokenGroups.map (fun (n, ps) => generatePiece n ps false)
   let pieceCode := "\n\n".intercalate pieces
 
-  let pieceNames := grouped.map (·.1)
+  let pieceNames := nonTokenGroups.map (·.1)
   let pieceIdents := pieceNames.map pieceToLeanIdent
   let pieceList := ", ".intercalate pieceIdents
 
@@ -393,15 +349,36 @@ def generateLeanModule (langName : String) (prods : Productions) (tokenProds : P
 
   let startProd := findStartProd prods
 
-  -- Generate tokenizer from token productions (or use default)
-  let charSets := extractTokenCharSets tokenProds
-  let tokenizerCode := if tokenProds.isEmpty then defaultTokenizer else generateTokenizer charSets
+  -- Generate tokenizer section
+  let (tokenizerCode, tokenizerImport) :=
+    if tokenProds.isEmpty then
+      (defaultTokenizer, "\nimport Lego.Bootstrap")
+    else
+      -- Generate Token piece for grammar-driven tokenizing
+      let tokenPiece := generatePiece "Token" tokenProds (isToken := true)
+      let mainProds := tokenProds.filterMap fun (name, _) =>
+        let shortName := match name.splitOn "." with
+          | [_, n] => n
+          | _ => name
+        if shortName ∈ ["ident", "number", "string"] then some s!"\"{name}\""
+        else none
+      let mainProdList := ", ".intercalate mainProds
+      let code := s!"
+{tokenPiece}
+
+/-- Token productions -/
+def tokenProductions : Productions := tokenPiece.grammar
+
+/-- Main token production names -/
+def mainTokenProds : List String := [{mainProdList}]
+
+/-- Tokenize using grammar-driven lexing -/
+def tokenize (s : String) : TokenStream :=
+  Lego.tokenizeWithGrammar tokenProductions mainTokenProds s"
+      (code, "")
 
   -- Generate rules
   let rulesCode := generateRules rules
-
-  -- Add Bootstrap import if using default tokenizer
-  let bootstrapImport := if tokenProds.isEmpty then "\nimport Lego.Bootstrap" else ""
 
   s!"/-
   Generated from {langName}.lego
@@ -411,7 +388,7 @@ def generateLeanModule (langName : String) (prods : Productions) (tokenProds : P
 -/
 
 import Lego.Algebra
-import Lego.Interp{bootstrapImport}
+import Lego.Interp{tokenizerImport}
 
 namespace Lego.{langName}
 
@@ -472,11 +449,10 @@ def legoFileToLean (path : String) (mode : OutputMode := .full) : IO String := d
     | .full => pure (generateLeanModule langName prods tokenProds rules tokenPieceNames)
     | .grammar => pure (generateGrammarModule langName prods tokenPieceNames)
     | .tokenizer =>
-      let charSets := extractTokenCharSets tokenProds
       if tokenProds.isEmpty then
         pure defaultTokenizer
       else
-        pure (generateTokenizer charSets)
+        pure (generateTokenizerModule langName tokenProds)
     | .rules => pure (generateRules rules)
   | none =>
     throw (IO.userError s!"Failed to parse {path}")
