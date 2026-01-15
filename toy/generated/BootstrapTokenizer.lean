@@ -1,20 +1,17 @@
 /-
   Generated Tokenizer from Bootstrap.lego
 
-  This module uses grammar-driven lexing. The Token piece grammar
-  is interpreted by tokenizeWithGrammar, just like the parser uses
-  grammar pieces.
+  Purely grammar-driven lexing. All token patterns are defined in the
+  Token piece grammar and interpreted by tokenizeWithGrammar.
 
   DO NOT EDIT - regenerate with:
     lake exe tolean --tokenizer test/Bootstrap.lego -o generated/BootstrapTokenizer.lean
 -/
 
 import Lego.Algebra
-import TokenEngine
+import Lego.Interp
 
 namespace Lego.Generated.Bootstrap
-
-open Lego.Generated
 
 open GrammarExpr
 open Lego
@@ -37,7 +34,18 @@ def tokenPiece : Piece := {
     ("Token.string", (((lit "'\"'").seq ((ref "Token.strchar").star)).seq (lit "'\"'"))),
     ("Token.strchar", (((empty.seq (lit "'\\\\'")).seq (ref "Token.escape")).alt (ref "Token.printable"))),
     ("Token.escape", ((lit "'\"'").alt ((lit "'\\\\'").alt ((lit "'n'").alt ((lit "'t'").alt (lit "'r'")))))),
-    ("Token.printable", ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt (lit "' '")))))
+    ("Token.printable", ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt (lit "' '"))))),
+    -- Character literal: 'x' or '\x'
+    ("Token.char", (((lit "'\''").seq (ref "Token.charinner")).seq (lit "'\''"))),
+    ("Token.charinner", (((lit "'\\\\'").seq (ref "Token.escape")).alt ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt (lit "' '")))))),
+    -- Whitespace and comments (to skip)
+    ("Token.ws", ((lit "' '").alt ((lit "'\t'").alt ((lit "'\n'").alt (lit "'\r'"))))),
+    ("Token.comment", (((lit "'-'").seq (lit "'-'")).seq ((ref "Token.nonnl").star))),
+    ("Token.nonnl", ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt ((lit "' '").alt ((lit "'\t'").alt ((lit "'\''").alt (lit "'\"'")))))))),
+    ("Token.op3", (((lit "':'").seq (lit "':'")).seq (lit "'='"))),
+    ("Token.op2", ((((lit "'~'").seq (lit "'~'")).seq (lit "'>'")).alt (((lit "':'").seq (lit "'='")).alt (((lit "'~'").seq (lit "'>'")).alt (((lit "'-'").seq (lit "'>'")).alt ((lit "'<'").seq (lit "'-'"))))))),
+    ("Token.special", (((lit "'<'").seq ((ref "Token.alpha").seq ((ref "Token.alpha").star))).seq (lit "'>'"))),
+    ("Token.sym", (ref "Token.symch"))
   ]
   rules := []
 }
@@ -45,8 +53,8 @@ def tokenPiece : Piece := {
 /-- Token productions -/
 def tokenProductions : Productions := tokenPiece.grammar
 
-/-- Main token production names (ident, number, string) -/
-def mainTokenProds : List String := ["Token.ident", "Token.number", "Token.string"]
+/-- Main token productions in priority order -/
+def mainTokenProds : List String := ["Token.comment", "Token.ws", "Token.op3", "Token.op2", "Token.string", "Token.char", "Token.special", "Token.ident", "Token.number", "Token.sym"]
 
 /-! ## Tokenizer -/
 

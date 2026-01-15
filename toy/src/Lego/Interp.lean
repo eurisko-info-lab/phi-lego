@@ -1,10 +1,9 @@
 /-
-  Lego.Interp: Bidirectional Grammar Interpretation (Parser)
+  Lego.Interp: Bidirectional Grammar Interpretation
 
-  The grammar is an Iso: TokenStream ⇌ Term
-
-  This module contains only the syntax-level grammar engine.
-  For the character-level (tokenizer) engine, see Token.lean.
+  Two grammar engines using the same GrammarExpr algebra:
+  - Character level: CharStream ⇌ String (lexGrammar)
+  - Token level:     TokenStream ⇌ Term  (parseGrammar)
 
   Helper functions (combineSeq, splitSeq, wrapNode, unwrapNode) are
   imported from BootstrapRules where they are defined alongside the
@@ -12,19 +11,161 @@
 -/
 
 import Lego.Algebra
-import TokenEngine
 import BootstrapRules
 
 namespace Lego
 
--- Re-export from TokenEngine
-open Lego.Generated (Productions)
-export Lego.Generated (Productions tokenizeWithGrammar lexGrammar)
-
 -- Import helper functions from generated rules module
 open Lego.Generated.Bootstrap (combineSeq splitSeq wrapNode unwrapNode)
 
-/-! ## Parsing State -/
+/-! ## Common Types -/
+
+/-- Grammar productions map -/
+abbrev Productions := List (String × GrammarExpr)
+
+/-! ## Character Stream (for lexer) -/
+
+abbrev CharStream := List Char
+
+/-- Lexer state -/
+structure LexState where
+  chars : CharStream
+  acc   : String := ""  -- accumulated characters for current token
+  deriving Repr
+
+/-- Result of lexing one token -/
+abbrev LexResult := Option (String × LexState)
+
+/-! ## Character-level Grammar Engine (Lexer) -/
+
+/-- Extract character from 'x' format literal -/
+def extractCharLit (s : String) : Option Char :=
+  if s.startsWith "'" && s.endsWith "'" && s.length == 3 then
+    s.toList[1]?
+  else
+    none
+
+/-- Interpret a GrammarExpr for lexing (CharStream → String)
+    Single quotes in grammar match single characters -/
+partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) : LexResult :=
+  match g with
+  | .mk .empty => some (st.acc, st)
+
+  | .mk (.lit s) =>
+    -- For token grammars, check for 'x' character literals first
+    match extractCharLit s with
+    | some expected =>
+      match st.chars with
+      | c :: rest =>
+        if c == expected then
+          some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
+        else none
+      | [] => none
+    | none =>
+      if s.length == 1 then
+        match st.chars with
+        | c :: rest =>
+          if c == s.get ⟨0⟩ then
+            some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
+          else none
+        | [] => none
+      else
+        let rec matchChars (pat : List Char) (chars : CharStream) (acc : String) : Option (String × CharStream) :=
+          match pat with
+          | [] => some (acc, chars)
+          | p :: ps =>
+            match chars with
+            | c :: rest => if c == p then matchChars ps rest (acc.push c) else none
+            | [] => none
+        match matchChars s.toList st.chars st.acc with
+        | some (acc', rest) => some (acc', { st with chars := rest, acc := acc' })
+        | none => none
+
+  | .mk (.ref name) =>
+    match prods.find? (·.1 == name) with
+    | some (_, g') => lexGrammar prods g' st
+    | none => none
+
+  | .mk (.seq g1 g2) => do
+    let (acc1, st1) ← lexGrammar prods g1 st
+    let (acc2, st2) ← lexGrammar prods g2 { st1 with acc := acc1 }
+    pure (acc2, st2)
+
+  | .mk (.alt g1 g2) =>
+    lexGrammar prods g1 st <|> lexGrammar prods g2 st
+
+  | .mk (.star g') =>
+    let rec go (st : LexState) : LexResult :=
+      match lexGrammar prods g' st with
+      | some (acc', st') => go { st' with acc := acc' }
+      | none => some (st.acc, st)
+    go st
+
+  | .mk (.bind _ g') => lexGrammar prods g' st
+
+  | .mk (.node _ g') => lexGrammar prods g' st
+
+/-! ## Grammar-Driven Tokenizer -/
+
+/-- Try to lex a token using a specific production -/
+def tryLexProd (prods : Productions) (prodName : String) (chars : CharStream) : Option (String × CharStream) :=
+  match prods.find? (·.1 == prodName) with
+  | some (_, g) =>
+    match lexGrammar prods g { chars := chars, acc := "" } with
+    | some (acc, st') => if acc.isEmpty then none else some (acc, st'.chars)
+    | none => none
+  | none => none
+
+/-- Tokenize using grammar-driven lexing.
+    tokenProds: all token productions
+    mainProds: productions to try in priority order (longest/most-specific first)
+    Each production name determines the Token constructor:
+    - ends with "ident" → Token.ident
+    - ends with "number" → Token.number
+    - ends with "string" → Token.lit
+    - "ws" or "comment" → skip (no token emitted)
+    - otherwise → Token.sym -/
+partial def tokenizeWithGrammar (prods : Productions) (mainProds : List String) (input : String) : TokenStream :=
+  go prods mainProds input.toList []
+where
+  skipWhitespace : CharStream → CharStream
+    | [] => []
+    | c :: rest => if c.isWhitespace then skipWhitespace rest else c :: rest
+
+  /-- Determine token type from production name -/
+  prodToToken (prodName : String) (value : String) : Option Token :=
+    let shortName := match prodName.splitOn "." with
+      | [_, n] => n
+      | _ => prodName
+    -- Skip whitespace and comments
+    if shortName == "ws" || shortName == "comment" then none
+    else if shortName == "ident" then some (Token.ident value)
+    else if shortName == "number" then some (Token.number value)
+    else if shortName == "string" || shortName == "char" then some (Token.lit value)
+    else some (Token.sym value)
+
+  /-- Try each production in priority order -/
+  tryTokenize (prods : Productions) (mainProds : List String) (chars : CharStream) : Option (Option Token × CharStream) :=
+    mainProds.findSome? fun prodName =>
+      match tryLexProd prods prodName chars with
+      | some (value, rest) =>
+        some (prodToToken prodName value, rest)
+      | none => none
+
+  go (prods : Productions) (mainProds : List String) (chars : CharStream) (acc : TokenStream) : TokenStream :=
+    match skipWhitespace chars with
+    | [] => acc.reverse
+    | chars' =>
+      match tryTokenize prods mainProds chars' with
+      | some (some tok, rest) => go prods mainProds rest (tok :: acc)
+      | some (none, rest) => go prods mainProds rest acc  -- ws/comment: skip
+      | none =>
+        -- Unknown char - skip it
+        match chars' with
+        | _ :: rest => go prods mainProds rest acc
+        | [] => acc.reverse
+
+/-! ## Token-level Parsing State -/
 
 /-- Parsing state -/
 structure ParseState where

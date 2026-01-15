@@ -38,12 +38,34 @@ token Token
            | '=' | '~' | '/' | '\\' | '→' | '←' | '↔' | '⊕' ;
 
   -- Token patterns
-  ident  ::= alpha (alpha | digit | '-')* ;
-  number ::= digit+ ;
-  string ::= '"' strchar* '"' ;
+  ident   ::= alpha (alpha | digit | '-')* ;
+  number  ::= digit digit* ;
+  string  ::= '"' strchar* '"' ;
   strchar ::= '\\' escape | printable ;
-  escape ::= '"' | '\\' | 'n' | 't' | 'r' ;
+  escape  ::= '"' | '\\' | 'n' | 't' | 'r' ;
   printable ::= alpha | digit | symch | ' ' ;
+  -- Character literals: 'x' or '\x'
+  char    ::= '\'' charinner '\'' ;
+  charinner ::= '\\' escape | alpha | digit | symch | ' ' ;
+
+  -- Whitespace and comments (to skip)
+  ws      ::= ' ' | '\t' | '\n' | '\r' ;
+  comment ::= '-' '-' nonnl* ;
+  nonnl   ::= alpha | digit | symch | ' ' | '\t' | '\'' | '"' ;
+
+  -- Multi-character operators (ordered longest first)
+  op3     ::= ':' ':' '=' ;  -- ::=
+  op2     ::= '~' '~' '>'    -- ~~>
+            | ':' '='        -- :=
+            | '~' '>'        -- ~>
+            | '-' '>'        -- ->
+            | '<' '-' ;      -- <-
+
+  -- Special <name> syntax
+  special ::= '<' alpha+ '>' ;
+
+  -- Single symbol (fallback)
+  sym     ::= symch ;
 
 -----------------------------------------------------
 -- Atoms: Basic tokens (references Token piece outputs)

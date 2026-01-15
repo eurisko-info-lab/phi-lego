@@ -177,21 +177,31 @@ def generateTokenizerModule (langName : String) (tokenProds : Productions) : Str
   -- Generate the Token piece definition (same as grammar piece but for chars)
   let tokenPiece := generatePiece "Token" tokenProds (isToken := true)
 
-  -- Find main token productions (ident, number, string, sym)
-  let mainProds := tokenProds.filterMap fun (name, _) =>
-    let shortName := match name.splitOn "." with
-      | [_, n] => n
-      | _ => name
-    if shortName ∈ ["ident", "number", "string"] then some s!"\"{name}\""
-    else none
+  -- Build main productions in priority order:
+  -- 1. comment (skip before anything else)
+  -- 2. ws (whitespace - skip)
+  -- 3. op3 (3-char operators like ::=)
+  -- 4. op2 (2-char operators like ~>, :=)
+  -- 5. string (before ident to handle "...")
+  -- 6. special (before ident to handle <...>)
+  -- 7. ident
+  -- 8. number
+  -- 9. sym (single symbol fallback)
+  let priorityOrder := ["comment", "ws", "op3", "op2", "string", "special", "ident", "number", "sym"]
+  let mainProds := priorityOrder.filterMap fun shortName =>
+    -- Find the production with this short name
+    tokenProds.find? (fun (name, _) =>
+      match name.splitOn "." with
+      | [_, n] => n == shortName
+      | _ => name == shortName
+    ) |>.map fun (name, _) => s!"\"{name}\""
   let mainProdList := ", ".intercalate mainProds
 
   s!"/-
   Generated Tokenizer from {langName}.lego
 
-  This module uses grammar-driven lexing. The Token piece grammar
-  is interpreted by tokenizeWithGrammar, just like the parser uses
-  grammar pieces.
+  Purely grammar-driven lexing. All token patterns are defined in the
+  Token piece grammar and interpreted by tokenizeWithGrammar.
 
   DO NOT EDIT - regenerate with:
     lake exe tolean --tokenizer test/{langName}.lego -o generated/{langName}Tokenizer.lean
@@ -212,14 +222,14 @@ open Lego
 /-- Token productions -/
 def tokenProductions : Productions := tokenPiece.grammar
 
-/-- Main token production names (ident, number, string) -/
+/-- Main token productions in priority order -/
 def mainTokenProds : List String := [{mainProdList}]
 
 /-! ## Tokenizer -/
 
 /-- Tokenize using grammar-driven lexing -/
 def tokenize (s : String) : TokenStream :=
-  Lego.tokenizeWithGrammar tokenProductions mainTokenProds s
+  tokenizeWithGrammar tokenProductions mainTokenProds s
 
 end Lego.Generated.{langName}
 "
