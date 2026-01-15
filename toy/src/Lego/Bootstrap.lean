@@ -87,7 +87,7 @@ def grammarExprPiece : Piece := {
       (node "lit" (ref "Atom.string")).alt
       ((node "ref" (ref "Atom.ident")).alt
       ((node "group" ((lit "(").seq ((ref "GrammarExpr.expr").seq (lit ")")))).alt
-      ((node "special" ((lit "<").seq ((ref "Atom.ident").seq (lit ">")))).alt
+      ((node "special" (ref "TOKEN.special")).alt
        (node "empty" (lit "ε"))))))
   ]
   rules := []
@@ -146,9 +146,17 @@ def metaInterp : LangInterp := metaGrammar.toInterp "File.legoFile"
 
 /-! ## Loading Languages -/
 
-/-- Check if a character is a symbol character -/
+/-- Check if a character is a symbol character (ASCII) -/
 def isSymChar (c : Char) : Bool :=
-  c ∈ ['(', ')', '[', ']', '{', '}', ':', '=', '|', '*', '+', '?', '~', '>', '<', '$', '.', ',', ';']
+  c ∈ ['(', ')', '[', ']', '{', '}', ':', '=', '|', '*', '+', '?', '~', '>', '<', '$', '.', ',', ';', '^']
+
+/-- Check if a character is a Unicode symbol -/
+def isUnicodeSymChar (c : Char) : Bool :=
+  c ∈ ['→', '←', '×', '∂', '𝕀', '∨', '∧', '∀', '∃', 'ε', 'μ', '▸', '▹', 'ω', 'π']
+
+/-- Check if a character is a Unicode letter (Greek, etc.) that can start identifiers -/
+def isUnicodeLetter (c : Char) : Bool :=
+  c ∈ ['λ', 'Σ', 'Π', 'α', 'β', 'γ', 'δ', 'φ', 'ψ', 'τ', 'σ', 'ρ']
 
 /-- Check if a character is an operator character that can be multi-char -/
 def isOpChar (c : Char) : Bool :=
@@ -190,11 +198,18 @@ where
         tokenizeLine rest.tail.tail (Token.sym "~~>" :: acc)
       else if c == '~' && rest.head? == some '>' then
         tokenizeLine rest.tail (Token.sym "~>" :: acc)
-      -- Single-char symbols
-      else if isSymChar c then
+      -- Special syntax: <ident> as single token
+      else if c == '<' then
+        let (special, rest') := takeSpecial rest ""
+        tokenizeLine rest' (Token.sym s!"<{special}>" :: acc)
+      -- Single-char symbols (ASCII)
+      else if isSymChar c && c != '<' then
         tokenizeLine rest (Token.sym (String.singleton c) :: acc)
-      -- Identifier or keyword
-      else if c.isAlpha || c == '_' then
+      -- Unicode symbols (single char)
+      else if isUnicodeSymChar c then
+        tokenizeLine rest (Token.sym (String.singleton c) :: acc)
+      -- Identifier or keyword (ASCII or Unicode letter)
+      else if c.isAlpha || c == '_' || isUnicodeLetter c then
         let (ident, rest') := takeIdent chars ""
         tokenizeLine rest' (Token.ident ident :: acc)
       -- Number
@@ -216,7 +231,7 @@ where
     match chars with
     | [] => (acc, [])
     | c :: rest =>
-      if c.isAlpha || c.isDigit || c == '_' then
+      if c.isAlpha || c.isDigit || c == '_' || isUnicodeLetter c then
         takeIdent rest (acc.push c)
       else
         (acc, chars)
@@ -229,6 +244,16 @@ where
         takeNumber rest (acc.push c)
       else
         (acc, chars)
+
+  takeSpecial (chars : List Char) (acc : String) : String × List Char :=
+    match chars with
+    | [] => (acc, [])
+    | '>' :: rest => (acc, rest)
+    | c :: rest =>
+      if c.isAlpha || c.isDigit || c == '_' then
+        takeSpecial rest (acc.push c)
+      else
+        (acc, chars)  -- malformed, but recover
 
 /-- Parse a .lego file into declarations -/
 def parseLegoFile (content : String) : Option Term :=

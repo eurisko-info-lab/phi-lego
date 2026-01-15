@@ -1,0 +1,72 @@
+-----------------------------------------------------
+-- Bootstrap: The Meta-Grammar
+--
+-- This is the grammar that parses grammars.
+-- Self-describing: it defines the syntax used to write itself.
+-----------------------------------------------------
+
+lang Bootstrap :=
+
+-----------------------------------------------------
+-- Atoms: Basic tokens
+-----------------------------------------------------
+
+piece Atom
+  ident  ::= <ident>
+  string ::= <string>
+  number ::= <number>
+
+-----------------------------------------------------
+-- Term: S-expression terms
+-----------------------------------------------------
+
+piece Term
+  term ::= var | lit | con
+  var  ::= <ident>
+  lit  ::= <string>
+  con  ::= "(" <ident> term* ")"
+
+-----------------------------------------------------
+-- Pattern: Match patterns for rules
+-----------------------------------------------------
+
+piece Pattern
+  pattern ::= metavar | pcon | plit | pvar
+  metavar ::= "$" <ident>
+  pcon    ::= "(" <ident> pattern* ")"
+  plit    ::= <string>
+  pvar    ::= <ident>
+
+-----------------------------------------------------
+-- Template: Substitution templates for rules
+-----------------------------------------------------
+
+piece Template
+  template ::= metavar | tcon | tlit | tvar
+  tcon     ::= "(" <ident> template* ")"
+  tlit     ::= <string>
+  tvar     ::= <ident>
+
+-----------------------------------------------------
+-- GrammarExpr: Grammar expressions
+-----------------------------------------------------
+
+piece GrammarExpr
+  expr   ::= alt
+  alt    ::= seq "|" alt | seq
+  seq    ::= suffix+ | suffix
+  suffix ::= atom "*" | atom "+" | atom "?" | atom
+  atom   ::= lit | ref | group
+  lit    ::= <string>
+  ref    ::= <ident>
+  group  ::= "(" expr ")"
+
+-----------------------------------------------------
+-- Tests (only Term syntax - not Pattern syntax)
+-----------------------------------------------------
+
+test "parse ident": x
+test "parse string": "hello"
+test "parse term var": x
+test "parse term con": (f x y)
+test "parse nested con": (app (lam x x) y)

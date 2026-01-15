@@ -77,6 +77,15 @@ partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseStat
       match st.tokens with
       | .number s :: rest => some (.lit s, { st with tokens := rest })
       | _ => none
+    else if name == "TOKEN.special" then
+      -- Match any <...> token (sym starting and ending with angle brackets)
+      match st.tokens with
+      | .sym s :: rest =>
+        if s.startsWith "<" && s.endsWith ">" then
+          some (.var s, { st with tokens := rest })
+        else
+          none
+      | _ => none
     else
       match prods.find? (·.1 == name) with
       | some (_, g') => parseGrammar prods g' st
