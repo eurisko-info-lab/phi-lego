@@ -24,5 +24,6 @@ import Lego.Algebra
 import Lego.Interp
 import Lego.Bootstrap
 import Lego.Laws
+import Lego.Loader
 
 -- Re-export everything for convenient access

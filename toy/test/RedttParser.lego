@@ -8,37 +8,24 @@
 -- Simplified to standard Lego format.
 -----------------------------------------------------
 
-import Redtt
-
-lang RedttParser (Redtt) :=
+lang RedttParser :=
 
 -----------------------------------------------------
 -- File Structure (simplified)
 -----------------------------------------------------
 
 piece FileStructure
-  file ::= decl
-  decl ::= importdecl | defn
+  file ::= decl ;
+  decl ::= importdecl ;
 
 -----------------------------------------------------
 -- Imports (simplified)
 -----------------------------------------------------
 
 piece ImportDecl
-  importdecl ::= "import" modpath
-  modpath ::= name
+  importdecl ::= "import" name ;
 
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
-test "file": _
-test "import": _
-
--- =============================================================================
--- TODO: Executable Language Checklist for RedttParser
--- =============================================================================
--- [ ] Grammar: Full redtt parsing
--- [ ] Rules: reduction semantics
--- [ ] Normalization: terms reduce to normal forms
--- Keywords: cuts := ["piece", "rule", "test", "def"]
--- =============================================================================
+test "import": (import path) ;
