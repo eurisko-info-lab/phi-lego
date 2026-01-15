@@ -15,3 +15,10 @@ lean_exe «lego-test» where
   root := `Test
   -- Ensure proper linking with Init library
   moreLinkArgs := #["-lInit"]
+
+-- Tools
+lean_exe «toantlr» where
+  root := `tools.ToAntlr
+
+lean_exe «totreesitter» where
+  root := `tools.ToTreeSitter
