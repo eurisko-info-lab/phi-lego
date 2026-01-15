@@ -79,12 +79,14 @@ piece PathTypes
   -- Extension type with boundary constraints
   -- [i] A [| i=0 → M | i=1 → N]
   pathtype ::= "[" dimvars "]" term "[" pathconstrs "]"
-  pathconstrs ::= ("|" pathconstr)*
+  pathconstrs ::= barpathconstr*
+  barpathconstr ::= "|" pathconstr
   pathconstr ::= constraint "→" term
   
   -- Boundary constraints
   constraint ::= dimvar "=" iterm       -- i=0, i=1
-  conjconstr ::= constraint ("|" constraint)*  -- i=0 | j=1
+  conjconstr ::= constraint barconstraint*  -- i=0 | j=1
+  barconstraint ::= "|" constraint
 
 -- Interval terms  
 piece IntervalTerms
@@ -102,8 +104,9 @@ piece CubicalOps
   
   -- comp r r' a [ | φ → u ]
   compexpr ::= "comp" iterm iterm term "[" compconstrs "]"
-  compconstrs ::= ("|" compconstr)*
-  compconstr ::= constraint [dimvar] "→" term  -- | i=0 j → M
+  compconstrs ::= barcompconstr*
+  barcompconstr ::= "|" compconstr
+  compconstr ::= constraint dimvar? "→" term  -- | i=0 j → M
   
   -- hcom (homogeneous composition)
   hcomexpr ::= "hcom" iterm iterm term "[" compconstrs "]"
@@ -117,7 +120,8 @@ piece CubicalOps
 
 piece Definitions
   -- def name (args) : type = body
-  defn ::= "def" <ident> defargs [":" term] "=" term
+  defn ::= "def" <ident> defargs opttype "=" term
+  opttype ::= (":" term)?
   defargs ::= defarg*
   defarg ::= "(" <ident> ":" term ")"   -- Typed argument
            | <ident>                     -- Untyped argument
@@ -130,17 +134,19 @@ piece DataTypes
   -- data Name where | Con1 | Con2 (x : A) | ...
   -- (A : type) ⊢ data Name where ...  (parameterized)
   datadecl ::= dataparams "data" <ident> "where" datacons
-  dataparams ::= ["(" <ident> ":" term ")" "⊢"]  -- Optional parameter
-  datacons ::= ("|" datacon)*
+  dataparams ::= ("(" <ident> ":" term ")" "⊢")?  -- Optional parameter
+  datacons ::= bardatacon*
+  bardatacon ::= "|" datacon
   
   -- Constructor: | name (args) [boundary]
-  datacon ::= <ident> dataconargs [databdy]
+  datacon ::= <ident> dataconargs databdy?
   dataconargs ::= dataconarg*
   dataconarg ::= "(" <ident> ":" term ")"
   
   -- Boundary constraint for HIT constructors
   -- [i=0 → M | i=1 → N]
-  databdy ::= "[" databdyconstr ("|" databdyconstr)* "]"
+  databdy ::= "[" databdyconstr bardatabdyconstr* "]"
+  bardatabdyconstr ::= "|" databdyconstr
   databdyconstr ::= constraint "→" term
 
 -----------------------------------------------------
@@ -150,8 +156,9 @@ piece DataTypes
 piece Eliminators
   -- elim [ | case → body | ... ]
   -- elim term [ | case → body | ... ]
-  elimexpr ::= "elim" [term] "[" elimcases "]"
-  elimcases ::= ("|" elimcase)*
+  elimexpr ::= "elim" term? "[" elimcases "]"
+  elimcases ::= barelimcase*
+  barelimcase ::= "|" elimcase
   elimcase ::= elimpat "→" term
   
   -- Patterns in eliminators
@@ -159,7 +166,9 @@ piece Eliminators
             | <ident> elimpatargs       -- Constructor with args
             | <ident> "*"               -- Constructor with wildcard args
             | "*"                        -- Wildcard
-  elimpatargs ::= elimpat ("(" elimpat ["→" <ident>] ")")*  -- Recursive: (n → rec)
+  elimpatargs ::= elimpat elimpatarg*  -- Recursive: (n → rec)
+  elimpatarg ::= "(" elimpat optrec ")"
+  optrec ::= ("→" <ident>)?
 
 -----------------------------------------------------
 -- Comments
@@ -174,8 +183,9 @@ piece Comments
 -----------------------------------------------------
 
 piece Imports
-  importdecl ::= ["public"] "import" modulepath
-  modulepath ::= <ident> ("." <ident>)*
+  importdecl ::= "public"? "import" modulepath
+  modulepath ::= <ident> dotident*
+  dotident ::= "." <ident>
 
 -----------------------------------------------------
 -- Top-level file structure
