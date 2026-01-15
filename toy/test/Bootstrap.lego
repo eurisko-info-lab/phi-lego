@@ -17,7 +17,7 @@ lang Bootstrap :=
 -----------------------------------------------------
 
 token Token
-  -- Character classes (alternatives of single chars)
+  -- Character classes
   digit  ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
   lower  ::= 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
            | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't'
@@ -25,11 +25,25 @@ token Token
   upper  ::= 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J'
            | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T'
            | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z' ;
-  alpha  ::= lower | upper | '_' ;
+  greek  ::= 'α' | 'β' | 'γ' | 'δ' | 'ε' | 'ζ' | 'η' | 'θ' | 'ι' | 'κ'
+           | 'λ' | 'μ' | 'ν' | 'ξ' | 'ο' | 'π' | 'ρ' | 'σ' | 'τ' | 'υ'
+           | 'φ' | 'χ' | 'ψ' | 'ω'
+           | 'Α' | 'Β' | 'Γ' | 'Δ' | 'Ε' | 'Ζ' | 'Η' | 'Θ' | 'Ι' | 'Κ'
+           | 'Λ' | 'Μ' | 'Ν' | 'Ξ' | 'Ο' | 'Π' | 'Ρ' | 'Σ' | 'Τ' | 'Υ'
+           | 'Φ' | 'Χ' | 'Ψ' | 'Ω' ;
+  alpha  ::= lower | upper | greek | '_' ;
+  symch  ::= '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>'
+           | ':' | ';' | ',' | '.' | '|' | '!' | '?' | '@'
+           | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '-'
+           | '=' | '~' | '/' | '\\' | '→' | '←' | '↔' | '⊕' ;
 
-  -- Token patterns (composed from character classes)
+  -- Token patterns
   ident  ::= alpha (alpha | digit)* ;
   number ::= digit+ ;
+  string ::= '"' strchar* '"' ;
+  strchar ::= '\\' escape | printable ;
+  escape ::= '"' | '\\' | 'n' | 't' | 'r' ;
+  printable ::= alpha | digit | symch | ' ' ;
 
 -----------------------------------------------------
 -- Atoms: Basic tokens (references Token piece outputs)
@@ -46,32 +60,30 @@ piece Atom
 -----------------------------------------------------
 
 piece Term
-  term ::= var | lit | num | con ;
-  var  ::= ident ;
-  lit  ::= string ;
-  num  ::= number ;
-  con  ::= "(" ident term* ")" ;
+  term ::= ident → var
+         | string → lit
+         | number → num
+         | "(" ident term* ")" → con ;
 
 -----------------------------------------------------
 -- Pattern: Match patterns for rules
 -----------------------------------------------------
 
 piece Pattern
-  pattern ::= metavar | pcon | plit | pvar ;
-  metavar ::= "$" ident ;
-  pcon    ::= "(" ident pattern* ")" ;
-  plit    ::= string ;
-  pvar    ::= ident ;
+  pattern ::= "$" ident → metavar
+            | "(" ident pattern* ")" → pcon
+            | string → plit
+            | ident → pvar ;
 
 -----------------------------------------------------
 -- Template: Substitution templates for rules
 -----------------------------------------------------
 
 piece Template
-  template ::= metavar | tcon | tlit | tvar ;
-  tcon     ::= "(" ident template* ")" ;
-  tlit     ::= string ;
-  tvar     ::= ident ;
+  template ::= "$" ident → metavar
+             | "(" ident template* ")" → tcon
+             | string → tlit
+             | ident → tvar ;
 
 -----------------------------------------------------
 -- GrammarExpr: Grammar expressions
@@ -79,16 +91,22 @@ piece Template
 
 piece GrammarExpr
   expr    ::= alt ;
-  alt     ::= seq "|" alt | seq ;
-  seq     ::= suffix+ | suffix ;
-  suffix  ::= atom "*" | atom "+" | atom "?" | atom ;
-  atom    ::= lit | chr | ref | group | special | empty ;
-  lit     ::= string ;
-  chr     ::= char ;
-  ref     ::= ident ;
-  group   ::= "(" expr ")" ;
-  special ::= <special> ;
-  empty   ::= "ε" ;
+  alt     ::= seq "|" alt → alt
+            | seq ;
+  seq     ::= seqBase "→" ident → annotated
+            | seqBase ;
+  seqBase ::= suffix+ → seq
+            | suffix ;
+  suffix  ::= atom "*" → star
+            | atom "+" → plus
+            | atom "?" → opt
+            | atom ;
+  atom    ::= string → lit
+            | char → chr
+            | ident → ref
+            | "(" expr ")" → group
+            | <special> → special
+            | "ε" → empty ;
 
 -----------------------------------------------------
 -- File: Top-level declarations

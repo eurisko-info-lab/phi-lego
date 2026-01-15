@@ -76,7 +76,11 @@ def grammarExprPiece : Piece := {
     ("GrammarExpr.alt",
       (node "alt" ((ref "GrammarExpr.seq").seq ((lit "|").seq (ref "GrammarExpr.alt")))).alt
        (ref "GrammarExpr.seq")),
+    -- seq can optionally have → ident for constructor annotation
     ("GrammarExpr.seq",
+      (node "annotated" ((ref "GrammarExpr.seqBase").seq ((lit "→").seq (ref "Atom.ident")))).alt
+       (ref "GrammarExpr.seqBase")),
+    ("GrammarExpr.seqBase",
       (node "seq" ((ref "GrammarExpr.suffix").seq (ref "GrammarExpr.suffix").star)).alt
        (ref "GrammarExpr.suffix")),
     ("GrammarExpr.suffix",

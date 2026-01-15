@@ -38,6 +38,18 @@ where
 
 /-! ## AST → GrammarExpr -/
 
+/-- Flatten nested seq terms into a list -/
+partial def flattenSeq (t : Term) : List Term :=
+  match t with
+  | .con "seq" [left, right] => flattenSeq left ++ flattenSeq right
+  | other => [other]
+
+/-- Extract annotation (conName, rest) from flattened args ending in → ident -/
+def extractAnnotationFromFlat (args : List Term) : Option (String × List Term) :=
+  match args.reverse with
+  | .con "ident" [.var conName] :: .lit "→" :: rest => some (conName, rest.reverse)
+  | _ => none
+
 /-- Convert a parsed grammar expression AST back to GrammarExpr.
     pieceName is used to prefix unqualified references. -/
 partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option GrammarExpr :=
@@ -117,30 +129,72 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
   | .con "group" [_, g, _] =>
     astToGrammarExpr pieceName g
 
+  -- Annotated: (annotated ... "→" (ident conName))
+  -- This wraps a grammar expression with a constructor name
+  | .con "annotated" args =>
+    -- Flatten and find the → ident part
+    let flatArgs := args.flatMap flattenSeq
+    -- Look for → ident at end
+    match extractAnnotationFromFlat flatArgs with
+    | some (conName, rest) =>
+      -- Recursively convert the rest as a sequence
+      let gexprs := rest.filterMap (astToGrammarExpr pieceName)
+      match gexprs with
+      | [] => none
+      | [g] => some (GrammarExpr.node conName g)
+      | g :: gs => some (GrammarExpr.node conName (gs.foldl GrammarExpr.seq g))
+    | none => none  -- malformed annotated
+
   -- Fallback for unrecognized patterns
   | _ => none
 
 /-- Extract production name from a grammar declaration -/
 def extractProdName (pieceName : String) (gramDecl : Term) : Option String :=
   match gramDecl with
-  | .con "DGrammar" (.con "ident" [.var prodName] :: _) =>
-    some s!"{pieceName}.{prodName}"
+  | .con "DGrammar" args =>
+    -- Flatten nested seq and look for ident at start
+    let flatArgs := args.flatMap flattenSeq
+    match flatArgs with
+    | .con "ident" [.var prodName] :: _ => some s!"{pieceName}.{prodName}"
+    | _ => none
   | _ => none
+
+/-- Extract constructor annotation from flattened args (→ conName) if present -/
+def extractConstructorAnnotation (args : List Term) : Option String :=
+  -- Look for pattern: ... → ident ; at end of flattened seq
+  match args.reverse with
+  | .lit ";" :: .con "ident" [.var conName] :: .lit "→" :: _ => some conName
+  | _ => none
+
+/-- Strip constructor annotation from flattened args if present -/
+def stripConstructorAnnotation (args : List Term) : List Term :=
+  match args.reverse with
+  | semi :: .con "ident" [_] :: .lit "→" :: rest => (semi :: rest).reverse
+  | _ => args
 
 /-- Extract grammar expression from a grammar declaration -/
 def extractGrammarExpr (pieceName : String) (gramDecl : Term) : Option GrammarExpr :=
   match gramDecl with
   | .con "DGrammar" args =>
-    -- Structure: [ident, "::=", expr1, expr2, ..., ";"]
-    -- Skip first 2 (name, ::=) and last 1 (;), combine rest as sequence
-    if args.length < 4 then none  -- need at least: name, ::=, one expr, ;
+    -- DGrammar now has a single nested seq child - flatten it first
+    let flatArgs := args.flatMap flattenSeq
+    -- Structure after flattening: [ident, "::=", expr1, expr2, ..., ("→" ident)?, ";"]
+    if flatArgs.length < 4 then none  -- need at least: name, ::=, one expr, ;
     else
-      let exprArgs := args.drop 2 |>.dropLast  -- skip name, ::=, ;
+      -- Check for constructor annotation
+      let conName := extractConstructorAnnotation flatArgs
+      let cleanArgs := stripConstructorAnnotation flatArgs
+      let exprArgs := cleanArgs.drop 2 |>.dropLast  -- skip name, ::=, ;
       let gexprs := exprArgs.filterMap (astToGrammarExpr pieceName)
-      match gexprs with
-      | [] => none
-      | [g] => some g  -- single expression
-      | g :: gs => some <| gs.foldl GrammarExpr.seq g  -- fold to sequence
+      let baseExpr := match gexprs with
+        | [] => none
+        | [g] => some g  -- single expression
+        | g :: gs => some <| gs.foldl GrammarExpr.seq g  -- fold to sequence
+      -- Wrap with node if constructor annotation present
+      match conName, baseExpr with
+      | some name, some g => some (GrammarExpr.node name g)
+      | none, some g => some g
+      | _, none => none
   | _ => none
 
 /-- Extract all productions from a piece declaration -/
@@ -169,10 +223,9 @@ def builtinProductions : Productions := [
   ("number", GrammarExpr.ref "TOKEN.number")
 ]
 
-/-- Extract all productions from a parsed .lego file AST -/
-partial def extractAllProductions (ast : Term) : Productions :=
-  let extracted := go ast
-  builtinProductions ++ extracted
+/-- Extract productions from a parsed .lego file AST (without builtins) -/
+partial def extractProductionsOnly (ast : Term) : Productions :=
+  go ast
 where
   go (t : Term) : Productions :=
     match t with
@@ -187,6 +240,10 @@ where
     | .con _ ts =>
       ts.flatMap go
     | _ => []
+
+/-- Extract all productions from a parsed .lego file AST (includes builtins) -/
+def extractAllProductions (ast : Term) : Productions :=
+  builtinProductions ++ extractProductionsOnly ast
 
 /-! ## Symbol Extraction for Tokenization -/
 
@@ -275,13 +332,13 @@ def parseAsGrammarExpr (grammar : LoadedGrammar) (input : String) : Option Gramm
 
 /-! ## Bootstrap Loading -/
 
-/-- Load Bootstrap.lego and extract productions.
-    This allows replacing the hard-coded Bootstrap with the parsed version. -/
+/-- Load Bootstrap.lego and extract productions (without builtins).
+    This allows comparing with the hard-coded Bootstrap. -/
 def loadBootstrapProductions (path : String := "./test/Bootstrap.lego") : IO (Option Productions) := do
   try
     let content ← IO.FS.readFile path
     match Bootstrap.parseLegoFile content with
-    | some ast => pure (some (extractAllProductions ast))
+    | some ast => pure (some (extractProductionsOnly ast))
     | none => pure none
   catch _ =>
     pure none

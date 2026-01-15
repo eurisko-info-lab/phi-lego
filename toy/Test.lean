@@ -647,12 +647,13 @@ def runGrammarExprTests : IO (List TestResult) := do
         { name := "hardcoded_subset_of_parsed"
           passed := false
           message := s!"✗ missing in parsed: {missing.take 5}" }
-      -- Test that parsed grammar can parse a term
-      let termTest := match parsedProds.find? (·.1 == "Term.term") with
+      -- Test that parsed grammar can parse a term (need to add builtins for TOKEN refs)
+      let fullProds := builtinProductions ++ parsedProds
+      let termTest := match fullProds.find? (·.1 == "Term.term") with
       | some (_, g) =>
         let termTokens := Bootstrap.tokenize "(app x y)"
         let st : ParseState := { tokens := termTokens, binds := [] }
-        match parseGrammar parsedProds g st with
+        match parseGrammar fullProds g st with
         | some (_, st') =>
           { name := "parsed_bootstrap_parses_term"
             passed := st'.tokens.isEmpty
