@@ -28,7 +28,7 @@ def tokenPiece : Piece := {
     ("Token.upper", ((lit "A").alt ((lit "B").alt ((lit "C").alt ((lit "D").alt ((lit "E").alt ((lit "F").alt ((lit "G").alt ((lit "H").alt ((lit "I").alt ((lit "J").alt ((lit "K").alt ((lit "L").alt ((lit "M").alt ((lit "N").alt ((lit "O").alt ((lit "P").alt ((lit "Q").alt ((lit "R").alt ((lit "S").alt ((lit "T").alt ((lit "U").alt ((lit "V").alt ((lit "W").alt ((lit "X").alt ((lit "Y").alt (lit "Z"))))))))))))))))))))))))))),
     ("Token.greek", ((lit "α").alt ((lit "β").alt ((lit "γ").alt ((lit "δ").alt ((lit "ε").alt ((lit "ζ").alt ((lit "η").alt ((lit "θ").alt ((lit "ι").alt ((lit "κ").alt ((lit "λ").alt ((lit "μ").alt ((lit "ν").alt ((lit "ξ").alt ((lit "ο").alt ((lit "π").alt ((lit "ρ").alt ((lit "σ").alt ((lit "τ").alt ((lit "υ").alt ((lit "φ").alt ((lit "χ").alt ((lit "ψ").alt ((lit "ω").alt ((lit "Α").alt ((lit "Β").alt ((lit "Γ").alt ((lit "Δ").alt ((lit "Ε").alt ((lit "Ζ").alt ((lit "Η").alt ((lit "Θ").alt ((lit "Ι").alt ((lit "Κ").alt ((lit "Λ").alt ((lit "Μ").alt ((lit "Ν").alt ((lit "Ξ").alt ((lit "Ο").alt ((lit "Π").alt ((lit "Ρ").alt ((lit "Σ").alt ((lit "Τ").alt ((lit "Υ").alt ((lit "Φ").alt ((lit "Χ").alt ((lit "Ψ").alt (lit "Ω"))))))))))))))))))))))))))))))))))))))))))))))))),
     ("Token.alpha", ((ref "Token.lower").alt ((ref "Token.upper").alt ((ref "Token.greek").alt (lit "_"))))),
-    ("Token.symch", ((lit "(").alt ((lit ")").alt ((lit "[").alt ((lit "]").alt ((lit "{").alt ((lit "}").alt ((lit "<").alt ((lit ">").alt ((lit ":").alt ((lit ";").alt ((lit ",").alt ((lit ".").alt ((lit "|").alt ((lit "!").alt ((lit "?").alt ((lit "@").alt ((lit "#").alt ((lit "$").alt ((lit "%").alt ((lit "^").alt ((lit "&").alt ((lit "*").alt ((lit "+").alt ((lit "-").alt ((lit "=").alt ((lit "~").alt ((lit "/").alt ((lit "\\").alt ((lit "→").alt ((lit "←").alt ((lit "↔").alt (lit "⊕"))))))))))))))))))))))))))))))))),
+    ("Token.symch", ((lit "(").alt ((lit ")").alt ((lit "[").alt ((lit "]").alt ((lit "{").alt ((lit "}").alt ((lit "<").alt ((lit ">").alt ((lit ":").alt ((lit ";").alt ((lit ",").alt ((lit ".").alt ((lit "|").alt ((lit "!").alt ((lit "?").alt ((lit "@").alt ((lit "#").alt ((lit "$").alt ((lit "%").alt ((lit "^").alt ((lit "&").alt ((lit "*").alt ((lit "+").alt ((lit "-").alt ((lit "=").alt ((lit "~").alt ((lit "/").alt ((lit "\\").alt ((lit "→").alt ((lit "←").alt ((lit "↔").alt ((lit "⊕").alt ((lit "⊢").alt ((lit "×").alt ((lit "λ").alt ((lit "∂").alt ((lit "∀").alt (lit "∃"))))))))))))))))))))))))))))))))))))))),
     ("Token.ident", ((ref "Token.alpha").seq (((ref "Token.alpha").alt ((ref "Token.digit").alt (lit "-"))).star))),
     ("Token.number", ((ref "Token.digit").seq ((ref "Token.digit").star))),
     ("Token.string", (((lit "\"").seq ((ref "Token.strchar").star)).seq (lit "\""))),
@@ -37,7 +37,8 @@ def tokenPiece : Piece := {
     ("Token.printable", ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt (lit " "))))),
     ("Token.char", (((lit "'").seq (ref "Token.charinner")).seq (lit "'"))),
     ("Token.charinner", (((empty.seq (lit "\\")).seq (ref "Token.escape")).alt ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt ((lit " ").alt (lit "\""))))))),
-    ("Token.ws", ((lit " ").alt ((lit "\t").alt ((lit "\n").alt (lit ""))))),
+    ("Token.ws", ((lit " ").alt ((lit "\t").alt ((lit "\n").alt (lit "
+"))))),
     ("Token.comment", (((lit "-").seq (lit "-")).seq ((ref "Token.nonnl").star))),
     ("Token.nonnl", ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt ((lit " ").alt ((lit "\t").alt ((lit "'").alt (lit "\"")))))))),
     ("Token.op3", (((lit ":").seq (lit ":")).seq (lit "="))),

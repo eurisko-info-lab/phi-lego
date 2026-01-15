@@ -132,6 +132,28 @@ where
     | [] => []
     | c :: rest => if c.isWhitespace then skipWhitespace rest else c :: rest
 
+  /-- Skip a line comment: from "--" to end of line (any unicode allowed) -/
+  skipComment : CharStream → Option CharStream
+    | '-' :: '-' :: rest =>
+      -- Consume until newline or end
+      let rec skipToEol : CharStream → CharStream
+        | [] => []
+        | '\n' :: rest => rest
+        | _ :: rest => skipToEol rest
+      some (skipToEol rest)
+    | _ => none
+
+  /-- Try to lex a string literal: "..." with any unicode content -/
+  lexString : CharStream → Option (String × CharStream)
+    | '"' :: rest =>
+      let rec go (acc : List Char) : CharStream → Option (String × CharStream)
+        | [] => none  -- Unterminated string
+        | '"' :: rest => some (String.mk ('"' :: acc ++ ['"']), rest)
+        | '\\' :: c :: rest => go (acc ++ ['\\', c]) rest
+        | c :: rest => go (acc ++ [c]) rest
+      go [] rest
+    | _ => none
+
   /-- Determine token type from production name -/
   prodToToken (prodName : String) (value : String) : Option Token :=
     let shortName := match prodName.splitOn "." with
@@ -156,14 +178,22 @@ where
     match skipWhitespace chars with
     | [] => acc.reverse
     | chars' =>
-      match tryTokenize prods mainProds chars' with
-      | some (some tok, rest) => go prods mainProds rest (tok :: acc)
-      | some (none, rest) => go prods mainProds rest acc  -- ws/comment: skip
+      -- Handle comments specially (-- to EOL, any unicode)
+      match skipComment chars' with
+      | some rest => go prods mainProds rest acc
       | none =>
-        -- Unknown char - skip it
-        match chars' with
-        | _ :: rest => go prods mainProds rest acc
-        | [] => acc.reverse
+        -- Handle strings specially (any unicode content)
+        match lexString chars' with
+        | some (str, rest) => go prods mainProds rest (Token.lit str :: acc)
+        | none =>
+          match tryTokenize prods mainProds chars' with
+          | some (some tok, rest) => go prods mainProds rest (tok :: acc)
+          | some (none, rest) => go prods mainProds rest acc  -- ws: skip
+          | none =>
+            -- Unknown char - skip it
+            match chars' with
+            | _ :: rest => go prods mainProds rest acc
+            | [] => acc.reverse
 
 /-! ## Token-level Parsing State -/
 
