@@ -9,9 +9,8 @@
   Eventually the hand-coded functions can be replaced by applying the rules,
   but for now we keep both for bootstrapping.
 
-  To regenerate the rules section:
+  Regenerate with:
     lake exe tolean --rules test/Bootstrap.lego -o generated/BootstrapRules.lean
-  (But currently this file has hand-coded additions, so don't overwrite blindly)
 -/
 
 import Lego.Algebra
@@ -20,7 +19,7 @@ namespace Lego.Generated.Bootstrap
 
 open Lego
 
-/-! ## Hand-coded Helper Functions (used by Interp.lean) -/
+/-! ## Helper Functions (used by Interp.lean) -/
 
 /-- Combine two terms into a sequence -/
 def combineSeq (t1 t2 : Term) : Term :=
@@ -50,7 +49,8 @@ def unwrapNode (name : String) (t : Term) : Term :=
   | .con n ts => if n == name then .con "seq" ts else t
   | _ => t
 
-/-! ## Rewrite Rules (generated from Bootstrap.lego) -/
+
+/-! ## Rewrite Rules -/
 
 /-- Rule: combine-seq-seq -/
 def rule_combine_seq_seq : Rule := {

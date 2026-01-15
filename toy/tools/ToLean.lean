@@ -273,18 +273,58 @@ partial def normalize (t : Term) : Term :=
     | .con c args => .con c (args.map normalize)
     | _ => t"
 
+/-- Hand-coded helper functions that the interpreter needs.
+    These implement the same logic as the rewrite rules but as direct Lean functions
+    for efficiency during parsing. -/
+def helperFunctions : String :=
+"/-! ## Helper Functions (used by Interp.lean) -/
+
+/-- Combine two terms into a sequence -/
+def combineSeq (t1 t2 : Term) : Term :=
+  match t1, t2 with
+  | .con \"seq\" ts, .con \"seq\" us => .con \"seq\" (ts ++ us)
+  | .con \"seq\" ts, t => .con \"seq\" (ts ++ [t])
+  | t, .con \"seq\" us => .con \"seq\" (t :: us)
+  | .con \"unit\" [], t => t
+  | t, .con \"unit\" [] => t
+  | t1, t2 => .con \"seq\" [t1, t2]
+
+/-- Split first element from a sequence -/
+def splitSeq (t : Term) : Term × Term :=
+  match t with
+  | .con \"seq\" (h :: rest) => (h, .con \"seq\" rest)
+  | t => (t, .con \"unit\" [])
+
+/-- Wrap a term with a node name -/
+def wrapNode (name : String) (t : Term) : Term :=
+  match t with
+  | .con \"seq\" ts => .con name ts
+  | _ => .con name [t]
+
+/-- Unwrap a node if name matches -/
+def unwrapNode (name : String) (t : Term) : Term :=
+  match t with
+  | .con n ts => if n == name then .con \"seq\" ts else t
+  | _ => t
+"
+
 /-- Generate rules-only module (for import by hand-written code) -/
 def generateRulesModule (langName : String) (rules : List Rule) : String :=
   let rulesCode := generateRules rules
   let hasRules := !rules.isEmpty
 
   s!"/-
-  Generated Rules from {langName}.lego
+  Bootstrap Rules and Helper Functions
 
-  This module contains ONLY the rewrite rule definitions.
-  Import this from your interpreter to use the generated rules.
+  This module contains:
+  1. Hand-coded helper functions (combineSeq, splitSeq, wrapNode, unwrapNode)
+     used by the interpreter during parsing
+  2. Generated rewrite rules from {langName}.lego that express the same logic
 
-  DO NOT EDIT - regenerate with:
+  Eventually the hand-coded functions can be replaced by applying the rules,
+  but for now we keep both for bootstrapping.
+
+  Regenerate with:
     lake exe tolean --rules test/{langName}.lego -o generated/{langName}Rules.lean
 -/
 
@@ -293,6 +333,8 @@ import Lego.Algebra
 namespace Lego.Generated.{langName}
 
 open Lego
+
+{helperFunctions}
 
 {if hasRules then rulesCode else "/-- No rules defined -/\ndef allRules : List Rule := []"}
 
