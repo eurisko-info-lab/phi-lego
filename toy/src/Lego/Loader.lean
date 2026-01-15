@@ -404,13 +404,17 @@ def loadAndParse (grammarPath : String) (startProd : String) (inputPath : String
 
 /-- Convert a parsed pattern AST to a Term for pattern matching.
     Handles various formats from the grammar:
-    - (var (ident name)) for $name metavars
+    - (var "$" (ident name)) for $name metavars (generated grammar)
+    - (var (ident name)) for $name metavars (old format)
     - (con (ident name) args...) for (name args...)
     - (seq ...) wrapper nodes to be stripped
     - Punctuation ($, parens) to be filtered out
 -/
 partial def patternAstToTerm (t : Term) : Term :=
   match t with
+  -- NEW format from generated grammar: (var "$" (ident name)) → .var "$name"
+  | .con "var" [.lit "$", .con "ident" [.var name]] =>
+    .var s!"${name}"
   -- seq with $ prefix → metavar
   | .con "seq" [.lit "$", .con "var" [.con "ident" [.var name]]] =>
     .var s!"${name}"
@@ -426,9 +430,16 @@ partial def patternAstToTerm (t : Term) : Term :=
     match inner with
     | [x] => patternAstToTerm x
     | xs => .con "seq" (xs.map patternAstToTerm)
-  -- New clean format: (var (ident name)) → .var "$name"
+  -- Old clean format: (var (ident name)) → .var "$name"
   | .con "var" [.con "ident" [.var name]] =>
     .var s!"${name}"
+  -- New format with parens: (con "(" (ident name) args... ")") → .con name [args...]
+  | .con "con" (.lit "(" :: rest) =>
+    let filtered := rest.filter (· != .lit "(") |>.filter (· != .lit ")")
+    match filtered with
+    | .con "ident" [.var conName] :: args =>
+      .con conName (args.map patternAstToTerm)
+    | _ => .con "con" (rest.map patternAstToTerm)
   -- New clean format: (con (ident/sym name) args...) → .con name [args...]
   | .con "con" (.con "ident" [.var conName] :: args) =>
     .con conName (args.map patternAstToTerm)
@@ -458,6 +469,9 @@ partial def patternAstToTerm (t : Term) : Term :=
 -/
 partial def templateAstToTerm (t : Term) : Term :=
   match t with
+  -- NEW format from generated grammar: (var "$" (ident name)) → .var "$name"
+  | .con "var" [.lit "$", .con "ident" [.var name]] =>
+    .var s!"${name}"
   -- seq with $ prefix → metavar
   | .con "seq" [.lit "$", .con "var" [.con "ident" [.var name]]] =>
     .var s!"${name}"
@@ -475,6 +489,13 @@ partial def templateAstToTerm (t : Term) : Term :=
   -- New clean format: (var (ident name)) → .var "$name"
   | .con "var" [.con "ident" [.var name]] =>
     .var s!"${name}"
+  -- New format with parens: (con "(" (ident name) args... ")") → .con name [args...]
+  | .con "con" (.lit "(" :: rest) =>
+    let filtered := rest.filter (· != .lit "(") |>.filter (· != .lit ")")
+    match filtered with
+    | .con "ident" [.var conName] :: args =>
+      .con conName (args.map templateAstToTerm)
+    | _ => .con "con" (rest.map templateAstToTerm)
   -- New clean format: (con (ident name) args...) → .con name [args...]
   | .con "con" (.con "ident" [.var conName] :: args) =>
     .con conName (args.map templateAstToTerm)

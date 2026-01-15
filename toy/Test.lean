@@ -303,21 +303,36 @@ def filterParens (args : List Term) : List Term :=
     Patterns use $x for metavariables -/
 partial def patternToTerm (t : Term) : Term :=
   match t with
-  -- (metavar "$" (ident x)) -> .var "$x"
+  -- NEW format: (var "$" (ident x)) -> .var "$x"
+  | .con "var" [.lit "$", .con "ident" [.var name]] =>
+    .var s!"${name}"
+  -- (metavar "$" (ident x)) -> .var "$x" [legacy]
   | .con "metavar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var s!"${n}"
     | none => t
-  -- (pvar (ident x)) -> .var "x"
+  -- (pvar (ident x)) -> .var "x" [legacy]
   | .con "pvar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var n
     | none => t
+  -- (lit (string "...")) -> .lit "..."
+  | .con "lit" [.con "string" [.lit s]] => .lit s
+  | .con "lit" [.lit s] => .lit s
   | .con "plit" [.con "string" [.lit s]] => .lit s
   | .con "plit" [.lit s] => .lit s
-  -- (pcon "(" (ident name) args... ")") -> .con name [args...]
+  -- NEW format: (con "(" (ident name) args... ")") -> .con name [args...]
+  | .con "con" args =>
+    let filtered := filterParens args
+    match filtered with
+    | ident :: rest =>
+      match getIdentName ident with
+      | some name => .con name (rest.map patternToTerm)
+      | none => t
+    | _ => t
+  -- (pcon "(" (ident name) args... ")") -> .con name [args...] [legacy]
   | .con "pcon" args =>
     let filtered := filterParens args
     match filtered with
@@ -332,21 +347,36 @@ partial def patternToTerm (t : Term) : Term :=
 /-- Convert parsed template AST to Term for substitution -/
 partial def templateToTerm (t : Term) : Term :=
   match t with
-  -- (metavar "$" (ident x)) -> .var "$x"
+  -- NEW format: (var "$" (ident x)) -> .var "$x"
+  | .con "var" [.lit "$", .con "ident" [.var name]] =>
+    .var s!"${name}"
+  -- (metavar "$" (ident x)) -> .var "$x" [legacy]
   | .con "metavar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var s!"${n}"
     | none => t
-  -- (tvar (ident x)) -> .var "x"
+  -- (tvar (ident x)) -> .var "x" [legacy]
   | .con "tvar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var n
     | none => t
+  -- (lit (string "...")) -> .lit "..."
+  | .con "lit" [.con "string" [.lit s]] => .lit s
+  | .con "lit" [.lit s] => .lit s
   | .con "tlit" [.con "string" [.lit s]] => .lit s
   | .con "tlit" [.lit s] => .lit s
-  -- (tcon "(" (ident name) args... ")") -> .con name [args...]
+  -- NEW format: (con "(" (ident name) args... ")") -> .con name [args...]
+  | .con "con" args =>
+    let filtered := filterParens args
+    match filtered with
+    | ident :: rest =>
+      match getIdentName ident with
+      | some name => .con name (rest.map templateToTerm)
+      | none => t
+    | _ => t
+  -- (tcon "(" (ident name) args... ")") -> .con name [args...] [legacy]
   | .con "tcon" args =>
     let filtered := filterParens args
     match filtered with
@@ -361,10 +391,11 @@ partial def templateToTerm (t : Term) : Term :=
 /-- Convert parsed term AST (s-expression) to simplified Term -/
 partial def termAstToTerm (t : Term) : Term :=
   match t with
-  -- (var (ident x)) -> .var "x"
+  -- (var (ident x)) -> .con "x" [] (bare ident is a constant, not a variable)
+  -- This matches how Pattern grammar treats bare idents
   | .con "var" [ident] =>
     match getIdentName ident with
-    | some n => .var n
+    | some n => .con n []  -- Treat as zero-arg constructor
     | none => t
   -- (lit (string "...")) -> .lit "..."
   | .con "lit" [.con "string" [.lit s]] => .lit s
@@ -454,6 +485,8 @@ partial def applySubst (x : String) (val : Term) (body : Term) : Term :=
   | .var name => if name == x then val else body
   -- Parsed var structure: (var (var "x")) or similar
   | .con "var" [.var name] => if name == x then val else body
+  -- Parsed var structure with zero-arg con: (var (con "x" []))
+  | .con "var" [.con name []] => if name == x then val else body
   -- Lit stays unchanged
   | .lit _ => body
   -- Recursively substitute in constructor args
@@ -464,6 +497,9 @@ def stepBuiltin (t : Term) : Option Term :=
   match t with
   -- (subst x val body) where x is a var name -> apply substitution
   | .con "subst" [.var x, val, body] =>
+    some (applySubst x val body)
+  -- Also handle case where x is a zero-arg con (from Pattern grammar)
+  | .con "subst" [.con x [], val, body] =>
     some (applySubst x val body)
   | _ => none
 
@@ -503,11 +539,19 @@ partial def normalize (fuel : Nat) (rules : List Rule) (t : Term) : Term :=
     | some t' => normalize n rules t'
     | none => t  -- Normal form
 
-/-- Canonicalize a term (convert parsed (var x) to simple .var "x") -/
+/-- Canonicalize a term (normalize variable representations) -/
 partial def canonicalize (t : Term) : Term :=
   match t with
-  | .con "var" [.var name] => .var name
+  -- (var (var name)) → bare var
+  | .con "var" [.var name] => .con name []
+  -- (var (con "x" [])) → bare var (from new grammar)
+  | .con "var" [.con name []] => .con name []
+  -- Zero-arg con stays as-is (already canonical)
+  | .con name [] => .con name []
+  -- Recursively canonicalize args
   | .con name args => .con name (args.map canonicalize)
+  -- Simple var → zero-arg con (normalize representation)
+  | .var name => .con name []
   | _ => t
 
 /-- Compare terms for equality after canonicalization -/
@@ -874,10 +918,13 @@ def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) :
     if t.passed then passed := passed + 1 else failed := failed + 1
   pure (passed, failed)
 
-def main : IO Unit := do
+def main (args : List String) : IO Unit := do
   IO.println "═══════════════════════════════════════════════════════════════"
   IO.println "Lego Test Suite"
   IO.println "═══════════════════════════════════════════════════════════════"
+
+  -- Check if --all or --redtt flag is passed to include slow redtt tests
+  let runRedtt := args.contains "--all" || args.contains "--redtt"
 
   let mut totalPassed := 0
   let mut totalFailed := 0
@@ -916,10 +963,13 @@ def main : IO Unit := do
   let (p, f) ← printTestGroup "AST GrammarExpr Tests" grammarExprTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  -- Run redtt library parsing tests
-  let redttTests ← runRedttParsingTests
-  let (p, f) ← printTestGroup "Redtt Library Parsing Tests" redttTests
-  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+  -- Run redtt library parsing tests (optional, slow)
+  if runRedtt then
+    let redttTests ← runRedttParsingTests
+    let (p, f) ← printTestGroup "Redtt Library Parsing Tests" redttTests
+    totalPassed := totalPassed + p; totalFailed := totalFailed + f
+  else
+    IO.println "\n── Redtt Library Parsing Tests (skipped, use --all or --redtt) ──"
 
   IO.println ""
   IO.println "═══════════════════════════════════════════════════════════════"

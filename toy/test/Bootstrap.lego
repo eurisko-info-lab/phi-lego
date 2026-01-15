@@ -50,10 +50,10 @@ token Token
 -----------------------------------------------------
 
 piece Atom
-  ident  ::= <ident> ;
-  string ::= <string> ;
-  char   ::= <char> ;
-  number ::= <number> ;
+  ident  ::= <ident> → ident ;
+  string ::= <string> → string ;
+  char   ::= <char> → char ;
+  number ::= <number> → number ;
 
 -----------------------------------------------------
 -- Term: S-expression terms
@@ -69,23 +69,25 @@ piece Term
 
 -----------------------------------------------------
 -- Pattern: Match patterns for rules
+-- Produces clean Terms: $x → (var "$x"), (f x) → (con "f" [...])
 -----------------------------------------------------
 
 piece Pattern
-  pattern ::= "$" ident → metavar
-            | "(" ident pattern* ")" → pcon
-            | string → plit
-            | ident → pvar ;
+  pattern ::= "$" ident → var
+            | "(" conname pattern* ")" → con
+            | string → lit
+            | ident → con ;
 
 -----------------------------------------------------
 -- Template: Substitution templates for rules
+-- Same structure as Pattern - produces clean Terms
 -----------------------------------------------------
 
 piece Template
-  template ::= "$" ident → metavar
-             | "(" ident template* ")" → tcon
-             | string → tlit
-             | ident → tvar ;
+  template ::= "$" ident → var
+             | "(" ident template* ")" → con
+             | string → lit
+             | ident → con ;
 
 -----------------------------------------------------
 -- GrammarExpr: Grammar expressions
@@ -117,16 +119,16 @@ piece GrammarExpr
 piece File
   legoFile   ::= decl* ;
   decl       ::= importDecl | langDecl | tokenDecl | pieceDecl | ruleDecl | testDecl ;
-  importDecl ::= "import" ident ";" ;
-  langDecl   ::= "lang" ident imports? ":=" langBody ;
-  imports    ::= "(" ident ("," ident)* ")" ;
+  importDecl ::= "import" ident ";" → DImport ;
+  langDecl   ::= "lang" ident imports? ":=" langBody → DLang ;
+  imports    ::= "(" ident ("," ident)* ")" → DImports ;
   langBody   ::= innerDecl* ;
   innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | testDecl ;
-  tokenDecl  ::= "token" ident prodDecl+ ;
-  pieceDecl  ::= "piece" ident prodDecl+ ;
-  prodDecl   ::= ident "::=" expr ";" ;
-  ruleDecl   ::= "rule" ident ":" pattern "~>" template ";" ;
-  testDecl   ::= "test" string ":" term ("~~>" term)? ";" ;
+  tokenDecl  ::= "token" ident prodDecl+ → DToken ;
+  pieceDecl  ::= "piece" ident prodDecl+ → DPiece ;
+  prodDecl   ::= ident "::=" expr ";" → DGrammar ;
+  ruleDecl   ::= "rule" ident ":" pattern "~>" template ";" → DRule ;
+  testDecl   ::= "test" string ":" term ("~~>" term)? ";" → DTest ;
 
 -----------------------------------------------------
 -- Tests (only Term syntax - not Pattern syntax)
