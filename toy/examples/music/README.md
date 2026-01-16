@@ -1,62 +1,82 @@
-# Music Theory Tutorial - Elm App
+# Music.lego IDE
 
-An interactive music theory tutorial that demonstrates the Music.lego grammar.
+A **Faust-inspired** live coding environment for music DSL.
+
+![Screenshot](screenshot.png)
 
 ## Quick Start
 
-1. Install Elm: https://guide.elm-lang.org/install/elm.html
-
-2. Build and run:
 ```bash
 elm make src/Main.elm --output=main.js
-open index.html
-```
-
-Or use `elm reactor` for development:
-```bash
 elm reactor
-# Open http://localhost:8000/src/Main.elm
+# Open http://localhost:8000/index.html
 ```
 
 ## Features
 
-- **Interactive Piano** - Click to play notes
-- **Scale Visualizer** - See and hear major/minor scales  
-- **Chord Builder** - Understand chord construction
-- **Guitar Tab** - Tablature notation examples
-- **Live Parser** - Parse Music.lego S-expressions in real-time
+Inspired by [Faust](https://faust.grame.fr/) (Functional Audio Stream):
+
+| Feature | Description |
+|---------|-------------|
+| **Live Code Editor** | Write Music.lego DSL with real-time parsing |
+| **Signal Flow Diagram** | AST visualization as you type |
+| **Synthesizer Controls** | Volume, tempo, waveform, ADSR envelope |
+| **WebAudio Playback** | Click ▶ Run to hear your code |
+| **Example Library** | 8 examples from notes to drum patterns |
+
+## Examples
+
+```lego
+-- Simple note
+(Note (PC 0) (Oct 4))
+
+-- C Major chord
+(Chord
+  (Note (PC 0) (Oct 4))   -- C
+  (Note (PC 4) (Oct 4))   -- E
+  (Note (PC 7) (Oct 4)))  -- G
+
+-- Arpeggio at 120 BPM
+(Arpeggio 120
+  (Note (PC 0) (Oct 4))
+  (Note (PC 4) (Oct 4))
+  (Note (PC 7) (Oct 4)))
+
+-- Synth with ADSR
+(Synth
+  (Waveform Sawtooth)
+  (ADSR 0.5 0.2 0.7 1.0)
+  (Chord ...))
+```
 
 ## Architecture
 
-The Elm app implements the same grammar as `Music.lego`:
-
 ```
-Music.lego (Haskell DSL)  ←→  Main.elm (Elm frontend)
-         ↓                            ↓
-    S-expressions             S-expression parser
-         ↓                            ↓
-    Term AST                   Term type
-         ↓                            ↓
-    Pretty print              printTerm function
-```
-
-Both share the same S-expression format:
-
-```lego
-(Note (PC 0) (Oct 4))     -- Middle C
-(Scale (PC 0) Major)      -- C Major scale
-(openChord C maj)         -- C Major open chord
+Music.lego Grammar (source of truth)
+         ↓
+    S-expressions
+         ↓
+  Elm Parser (bidirectional)
+         ↓
+    AST → Diagram
+         ↓
+  Elm Ports → WebAudio
+         ↓
+    🔊 Sound
 ```
 
-## The Music.lego Grammar
+The same grammar drives **parsing AND printing** - the Lego philosophy.
 
-The grammar defines:
+## Synthesizer Controls
 
-- **PitchClass** - Chromatic pitch (0-11)
-- **Octave** - Scientific pitch notation (-1 to 9)
-- **Note** - Pitch class + octave
-- **Scale** - Root + scale type (Major, Minor, etc.)
-- **Chord** - Multiple notes + duration
-- **openChord** - Named open guitar chords
+- **Volume**: Master volume (0-1)
+- **Tempo**: BPM for sequences (40-240)
+- **Octave**: Base octave offset (1-7)
+- **Waveform**: Sine, Square, Sawtooth, Triangle
+- **ADSR**: Attack, Decay, Sustain, Release envelope
 
-See `Music.lego` for the complete bidirectional grammar.
+## Files
+
+- `src/Main.elm` - Faust-inspired IDE (ports for WebAudio)
+- `index.html` - Dark theme + WebAudio synthesizer
+- `Music.lego` - Comprehensive grammar (2400+ lines)
