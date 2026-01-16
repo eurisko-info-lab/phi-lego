@@ -46,7 +46,7 @@ def extractCharLit (s : String) : Option Char :=
     none
 
 /-- Default fuel for grammar operations -/
-def defaultFuel : Nat := 1000
+def defaultFuel : Nat := 10000
 
 /-- Interpret a GrammarExpr for lexing (CharStream → String)
     Single quotes in grammar match single characters.
