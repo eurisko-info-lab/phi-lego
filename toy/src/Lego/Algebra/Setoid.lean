@@ -8,7 +8,7 @@
   - Rule normalization (same normal form)
 
   Algebraic insight: Quotients give us canonical representatives.
-  
+
   Note: We use `EqRel` instead of `Setoid` to avoid conflicts with Lean's stdlib.
 -/
 
@@ -35,7 +35,7 @@ namespace EqRel
 
 set_option quotPrecheck false in
 /-- Notation for equivalence relation -/
-scoped notation:50 a " ≈[" S "] " b => S.r a b
+scoped notation:50 a " ≈[" _S "] " b => _S.r a b
 
 /-- The trivial equivalence (equality) -/
 def trivial (α : Type u) : EqRel α where
@@ -86,7 +86,7 @@ structure Quot (S : EqRel α) where
 namespace Quot
 
 /-- Lift a function to the quotient (must respect equivalence) -/
-def lift {S : EqRel α} (f : α → β) 
+def lift {S : EqRel α} (f : α → β)
     (_h : ∀ a b, S.r a b → f a = f b) : Quot S → β :=
   fun q => f q.val
 
@@ -125,7 +125,7 @@ inductive EqvClosure (r : α → α → Prop) : α → α → Prop where
 /-- The equivalence closure forms an EqRel -/
 def EqvClosure.toEqRel (r : α → α → Prop) : EqRel α where
   r := EqvClosure r
-  refl := fun x => EqvClosure.refl
+  refl := fun _ => EqvClosure.refl
   symm := fun _ _ h => EqvClosure.symm h
   trans := fun _ _ _ h₁ h₂ => EqvClosure.trans h₁ h₂
 

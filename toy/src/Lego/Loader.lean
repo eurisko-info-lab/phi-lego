@@ -77,7 +77,7 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
                  else s
     -- Handle escape sequences
     let s' := if inner.startsWith "\\" && inner.length == 2 then
-                let escaped := inner.get ⟨1⟩
+                let escaped := inner.data[1]!
                 match escaped with
                 | 'n' => "\n"
                 | 't' => "\t"
@@ -370,7 +370,7 @@ def parseWithGrammar (grammar : LoadedGrammar) (input : String) : Option Term :=
   let st : ParseState := { tokens := tokens, binds := [] }
   match grammar.productions.find? (·.1 == grammar.startProd) with
   | some (_, g) =>
-    match parseGrammar grammar.productions g st with
+    match parseGrammar defaultFuel grammar.productions g st with
     | some (t, st') => if st'.tokens.isEmpty then some t else none
     | none => none
   | none => none
@@ -391,7 +391,7 @@ def parseWithGrammarAs (α : Type) [AST α] (grammar : LoadedGrammar) (input : S
   let st : ParseStateT α := { tokens := tokens, binds := [] }
   match grammar.productions.find? (·.1 == grammar.startProd) with
   | some (_, g) =>
-    match parseGrammarT grammar.productions g st with
+    match parseGrammarT defaultFuel grammar.productions g st with
     | some (t, st') => if st'.tokens.isEmpty then some t else none
     | none => none
   | none => none

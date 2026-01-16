@@ -42,18 +42,18 @@ end Iso
 /-! ## Kleene Algebra Laws (GrammarExpr) -/
 
 /-- Sequence is associative (semantic) -/
-axiom seq_assoc (a b c : GrammarExpr) (prods : Productions) (st : ParseState) :
-    parseGrammar prods ((a.seq b).seq c) st = parseGrammar prods (a.seq (b.seq c)) st
+axiom seq_assoc (a b c : GrammarExpr) (prods : Productions) (st : ParseState) (fuel : Nat) :
+    parseGrammar fuel prods ((a.seq b).seq c) st = parseGrammar fuel prods (a.seq (b.seq c)) st
 
 /-! ## Semantic Equality Axioms -/
 
 /-- Alternative is commutative (semantic) -/
-axiom alt_comm_semantic (a b : GrammarExpr) (prods : Productions) (st : ParseState) :
-    parseGrammar prods (a.alt b) st = parseGrammar prods (b.alt a) st
+axiom alt_comm_semantic (a b : GrammarExpr) (prods : Productions) (st : ParseState) (fuel : Nat) :
+    parseGrammar fuel prods (a.alt b) st = parseGrammar fuel prods (b.alt a) st
 
 /-- Star unfolds: g* = (g ⬝ g*) ⊕ ε -/
-axiom star_unfold_semantic (g : GrammarExpr) (prods : Productions) (st : ParseState) :
-    parseGrammar prods g.star st = parseGrammar prods ((g.seq g.star).alt .empty) st
+axiom star_unfold_semantic (g : GrammarExpr) (prods : Productions) (st : ParseState) (fuel : Nat) :
+    parseGrammar fuel prods g.star st = parseGrammar fuel prods ((g.seq g.star).alt .empty) st
 
 /-! ## Roundtrip Theorem -/
 

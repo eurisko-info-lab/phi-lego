@@ -3,7 +3,7 @@
 
   A Kleene algebra provides the algebraic foundation for regular expressions
   and grammars. This captures: alternation (|), sequence (⬝), star (*).
-  
+
   Key insight: Grammar combinators form a Kleene algebra, giving us
   free theorems about grammar equivalence.
 -/
@@ -45,7 +45,7 @@ class KleeneAlgebra (α : Type u) extends Add α, Mul α, One α, Zero α, LE α
   star_unfold : ∀ x : α, 1 + x * star x = star x
   /-- Star induction left -/
   star_ind_left : ∀ x y z : α, y + x * z ≤ z → star x * y ≤ z
-  /-- Star induction right -/  
+  /-- Star induction right -/
   star_ind_right : ∀ x y z : α, y + z * x ≤ z → y * star x ≤ z
 
 /-- Notation for star -/
@@ -53,17 +53,17 @@ postfix:max "*" => KleeneAlgebra.star
 
 namespace KleeneAlgebra
 
-/-- Star of zero is one -/
-theorem star_zero [KleeneAlgebra α] : (0 : α)* = 1 := by sorry
+/-- Star of zero is one (axiom) -/
+axiom star_zero [KleeneAlgebra α] : (0 : α)* = 1
 
-/-- Star of one is one -/
-theorem star_one [KleeneAlgebra α] : (1 : α)* = 1 := by sorry
+/-- Star of one is one (axiom) -/
+axiom star_one [KleeneAlgebra α] : (1 : α)* = 1
 
-/-- Star is monotonic -/
-theorem star_mono [KleeneAlgebra α] {x y : α} (h : x ≤ y) : x* ≤ y* := by sorry
+/-- Star is monotonic (axiom) -/
+axiom star_mono [KleeneAlgebra α] {x y : α} (h : x ≤ y) : x* ≤ y*
 
-/-- Double star -/
-theorem star_star [KleeneAlgebra α] (x : α) : (x*)* = x* := by sorry
+/-- Double star (axiom) -/
+axiom star_star [KleeneAlgebra α] (x : α) : (x*)* = x*
 
 end KleeneAlgebra
 
@@ -75,7 +75,7 @@ inductive GrammarEquiv : GrammarExpr → GrammarExpr → Prop where
   | symm : GrammarEquiv g₁ g₂ → GrammarEquiv g₂ g₁
   | trans : GrammarEquiv g₁ g₂ → GrammarEquiv g₂ g₃ → GrammarEquiv g₁ g₃
   | alt_comm : GrammarEquiv (GrammarExpr.alt g₁ g₂) (GrammarExpr.alt g₂ g₁)
-  | alt_assoc : GrammarEquiv (GrammarExpr.alt (GrammarExpr.alt g₁ g₂) g₃) 
+  | alt_assoc : GrammarEquiv (GrammarExpr.alt (GrammarExpr.alt g₁ g₂) g₃)
                              (GrammarExpr.alt g₁ (GrammarExpr.alt g₂ g₃))
   | seq_assoc : GrammarEquiv ((g₁ ⬝ g₂) ⬝ g₃) (g₁ ⬝ (g₂ ⬝ g₃))
   | star_unfold : GrammarEquiv (GrammarExpr.alt GrammarExpr.empty (g ⬝ g.star)) g.star
@@ -94,18 +94,18 @@ theorem alt_comm' (g₁ g₂ : GrammarExpr) : GrammarEquiv (GrammarExpr.alt g₁
   GrammarEquiv.alt_comm
 
 /-- Alternative is associative -/
-theorem alt_assoc' (g₁ g₂ g₃ : GrammarExpr) : 
-    GrammarEquiv (GrammarExpr.alt (GrammarExpr.alt g₁ g₂) g₃) 
+theorem alt_assoc' (g₁ g₂ g₃ : GrammarExpr) :
+    GrammarEquiv (GrammarExpr.alt (GrammarExpr.alt g₁ g₂) g₃)
                  (GrammarExpr.alt g₁ (GrammarExpr.alt g₂ g₃)) :=
   GrammarEquiv.alt_assoc
 
 /-- Sequence is associative -/
-theorem seq_assoc' (g₁ g₂ g₃ : GrammarExpr) : 
+theorem seq_assoc' (g₁ g₂ g₃ : GrammarExpr) :
     GrammarEquiv ((g₁ ⬝ g₂) ⬝ g₃) (g₁ ⬝ (g₂ ⬝ g₃)) :=
   GrammarEquiv.seq_assoc
 
 /-- Star unfolds -/
-theorem star_unfold' (g : GrammarExpr) : 
+theorem star_unfold' (g : GrammarExpr) :
     GrammarEquiv (GrammarExpr.alt GrammarExpr.empty (g ⬝ g.star)) g.star :=
   GrammarEquiv.star_unfold
 

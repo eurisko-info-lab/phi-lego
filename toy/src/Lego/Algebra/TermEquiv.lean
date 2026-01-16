@@ -23,8 +23,8 @@ inductive AlphaEquiv : Term → Term → Prop where
   | trans : AlphaEquiv t₁ t₂ → AlphaEquiv t₂ t₃ → AlphaEquiv t₁ t₃
   | var : AlphaEquiv (.var x) (.var x)
   | lit : AlphaEquiv (.lit s) (.lit s)
-  | con : (∀ i (h₁ : i < ts.length) (h₂ : i < us.length), 
-           AlphaEquiv (ts.get ⟨i, h₁⟩) (us.get ⟨i, h₂⟩)) → 
+  | con : (∀ i (h₁ : i < ts.length) (h₂ : i < us.length),
+           AlphaEquiv (ts.get ⟨i, h₁⟩) (us.get ⟨i, h₂⟩)) →
           ts.length = us.length →
           AlphaEquiv (Term.con name ts) (Term.con name us)
 
@@ -45,7 +45,7 @@ def subst (x : String) (arg : Term) : Term → Term
 
 /-- Beta step: single reduction step -/
 inductive BetaStep : Term → Term → Prop where
-  | app_lam : BetaStep (.con "app" [.con "lam" [.var x, body], arg]) 
+  | app_lam : BetaStep (.con "app" [.con "lam" [.var x, body], arg])
                        (subst x arg body)
 
 /-- Beta equivalence: reflexive-symmetric-transitive closure of beta steps -/

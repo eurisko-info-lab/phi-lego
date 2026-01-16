@@ -665,7 +665,7 @@ def runGrammarExprTests : IO (List TestResult) := do
   let test1 := match hardcodedProds.find? (·.1 == testProd) with
   | some (_, g) =>
     let st : ParseStateT GrammarExpr := { tokens := tokens, binds := [] }
-    match parseGrammarT hardcodedProds g st with
+    match parseGrammarT defaultFuel hardcodedProds g st with
     | some (_, st') =>
       let passed := st'.tokens.isEmpty
       { name := "parse_ident_as_GrammarExpr"
@@ -697,7 +697,7 @@ def runGrammarExprTests : IO (List TestResult) := do
       | some (_, g) =>
         let termTokens := Bootstrap.tokenize "(app x y)"
         let st : ParseState := { tokens := termTokens, binds := [] }
-        match parseGrammar fullProds g st with
+        match parseGrammar defaultFuel fullProds g st with
         | some (_, st') =>
           { name := "parsed_bootstrap_parses_term"
             passed := st'.tokens.isEmpty
@@ -741,7 +741,7 @@ def runGrammarExprTests : IO (List TestResult) := do
         match redttProds.find? (·.1 == importProd) with
         | some (_, g) =>
           let st : ParseState := { tokens := importTokens, binds := [] }
-          match parseGrammar redttProds g st with
+          match parseGrammar defaultFuel redttProds g st with
           | some (_, st') =>
             let passed := st'.tokens.isEmpty
             pure { name := "parse_import_with_RedttParser"
@@ -781,7 +781,7 @@ def parseRedDecl (redttProds : List (String × GrammarExpr))
   match redttProds.find? (·.1 == declProd) with
   | some (_, g) =>
     let st : ParseState := { tokens := tokens, binds := [] }
-    match parseGrammar redttProds g st with
+    match parseGrammar defaultFuel redttProds g st with
     | some (_, st') => st'.tokens.isEmpty
     | none => false
   | none => false
@@ -895,10 +895,12 @@ def runRedttParsingTests : IO (List TestResult) := do
 
     -- Summary test - pass if we can parse anything
     let overallRate := if totalDecls > 0 then (totalParsed * 100) / totalDecls else 0
+    let allPassed := overallRate = 100
+    let checkMark := if allPassed then "✓" else "✗"
     let summaryTest := {
       name := "redtt_library"
-      passed := totalParsed > 0  -- Pass if we parse at least something
-      message := s!"✓ ({totalParsed}/{totalDecls} = {overallRate}%) across {sortedFiles.length} files"
+      passed := overallRate = 100  -- Pass if we parse at least something
+      message := s!"{checkMark} ({totalParsed}/{totalDecls} = {overallRate}%) across {sortedFiles.length} files"
     }
 
     pure [summaryTest]

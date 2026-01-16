@@ -45,9 +45,16 @@ def extractCharLit (s : String) : Option Char :=
   else
     none
 
+/-- Default fuel for grammar operations -/
+def defaultFuel : Nat := 1000
+
 /-- Interpret a GrammarExpr for lexing (CharStream → String)
-    Single quotes in grammar match single characters -/
-partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) : LexResult :=
+    Single quotes in grammar match single characters.
+    Uses fuel for termination. -/
+def lexGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (st : LexState) : LexResult :=
+  match fuel with
+  | 0 => none  -- fuel exhausted
+  | fuel' + 1 =>
   match g with
   | .mk .empty => some (st.acc, st)
 
@@ -65,7 +72,7 @@ partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) :
       if s.length == 1 then
         match st.chars with
         | c :: rest =>
-          if c == s.get ⟨0⟩ then
+          if c == s.data[0]! then
             some (st.acc.push c, { st with chars := rest, acc := st.acc.push c })
           else none
         | [] => none
@@ -83,27 +90,30 @@ partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) :
 
   | .mk (.ref name) =>
     match prods.find? (·.1 == name) with
-    | some (_, g') => lexGrammar prods g' st
+    | some (_, g') => lexGrammar fuel' prods g' st
     | none => none
 
   | .mk (.seq g1 g2) => do
-    let (acc1, st1) ← lexGrammar prods g1 st
-    let (acc2, st2) ← lexGrammar prods g2 { st1 with acc := acc1 }
+    let (acc1, st1) ← lexGrammar fuel' prods g1 st
+    let (acc2, st2) ← lexGrammar fuel' prods g2 { st1 with acc := acc1 }
     pure (acc2, st2)
 
   | .mk (.alt g1 g2) =>
-    lexGrammar prods g1 st <|> lexGrammar prods g2 st
+    lexGrammar fuel' prods g1 st <|> lexGrammar fuel' prods g2 st
 
   | .mk (.star g') =>
-    let rec go (st : LexState) : LexResult :=
-      match lexGrammar prods g' st with
-      | some (acc', st') => go { st' with acc := acc' }
-      | none => some (st.acc, st)
-    go st
+    let rec go (f : Nat) (st : LexState) : LexResult :=
+      match f with
+      | 0 => some (st.acc, st)
+      | f' + 1 =>
+        match lexGrammar f' prods g' st with
+        | some (acc', st') => go f' { st' with acc := acc' }
+        | none => some (st.acc, st)
+    go fuel' st
 
-  | .mk (.bind _ g') => lexGrammar prods g' st
+  | .mk (.bind _ g') => lexGrammar fuel' prods g' st
 
-  | .mk (.node _ g') => lexGrammar prods g' st
+  | .mk (.node _ g') => lexGrammar fuel' prods g' st
 
 /-! ## Grammar-Driven Tokenizer -/
 
@@ -111,7 +121,7 @@ partial def lexGrammar (prods : Productions) (g : GrammarExpr) (st : LexState) :
 def tryLexProd (prods : Productions) (prodName : String) (chars : CharStream) : Option (String × CharStream) :=
   match prods.find? (·.1 == prodName) with
   | some (_, g) =>
-    match lexGrammar prods g { chars := chars, acc := "" } with
+    match lexGrammar defaultFuel prods g { chars := chars, acc := "" } with
     | some (acc, st') => if acc.isEmpty then none else some (acc, st'.chars)
     | none => none
   | none => none
@@ -125,8 +135,8 @@ def tryLexProd (prods : Productions) (prodName : String) (chars : CharStream) : 
     - ends with "string" → Token.lit
     - "ws" or "comment" → skip (no token emitted)
     - otherwise → Token.sym -/
-partial def tokenizeWithGrammar (prods : Productions) (mainProds : List String) (input : String) : TokenStream :=
-  go prods mainProds input.toList []
+def tokenizeWithGrammar (fuel : Nat) (prods : Productions) (mainProds : List String) (input : String) : TokenStream :=
+  go fuel prods mainProds input.toList []
 where
   skipWhitespace : CharStream → CharStream
     | [] => []
@@ -174,25 +184,28 @@ where
         some (prodToToken prodName value, rest)
       | none => none
 
-  go (prods : Productions) (mainProds : List String) (chars : CharStream) (acc : TokenStream) : TokenStream :=
+  go (fuel : Nat) (prods : Productions) (mainProds : List String) (chars : CharStream) (acc : TokenStream) : TokenStream :=
+    match fuel with
+    | 0 => acc.reverse  -- fuel exhausted
+    | fuel' + 1 =>
     match skipWhitespace chars with
     | [] => acc.reverse
     | chars' =>
       -- Handle comments specially (-- to EOL, any unicode)
       match skipComment chars' with
-      | some rest => go prods mainProds rest acc
+      | some rest => go fuel' prods mainProds rest acc
       | none =>
         -- Handle strings specially (any unicode content)
         match lexString chars' with
-        | some (str, rest) => go prods mainProds rest (Token.lit str :: acc)
+        | some (str, rest) => go fuel' prods mainProds rest (Token.lit str :: acc)
         | none =>
           match tryTokenize prods mainProds chars' with
-          | some (some tok, rest) => go prods mainProds rest (tok :: acc)
-          | some (none, rest) => go prods mainProds rest acc  -- ws: skip
+          | some (some tok, rest) => go fuel' prods mainProds rest (tok :: acc)
+          | some (none, rest) => go fuel' prods mainProds rest acc  -- ws: skip
           | none =>
             -- Unknown char - skip it
             match chars' with
-            | _ :: rest => go prods mainProds rest acc
+            | _ :: rest => go fuel' prods mainProds rest acc
             | [] => acc.reverse
 
 /-! ## Token-level Parsing State -/
@@ -208,8 +221,12 @@ abbrev ParseResult := Option (Term × ParseState)
 
 /-! ## Token-level Grammar Engine (Parser) -/
 
-/-- Interpret a GrammarExpr for parsing (forward direction) -/
-partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseState) : ParseResult :=
+/-- Interpret a GrammarExpr for parsing (forward direction).
+    Uses fuel for termination. -/
+def parseGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (st : ParseState) : ParseResult :=
+  match fuel with
+  | 0 => none  -- fuel exhausted
+  | fuel' + 1 =>
   match g with
   | .mk .empty => some (.con "unit" [], st)
 
@@ -247,34 +264,41 @@ partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseStat
     else
       -- Regular production reference
       match prods.find? (·.1 == name) with
-      | some (_, g') => parseGrammar prods g' st
+      | some (_, g') => parseGrammar fuel' prods g' st
       | none => none
 
   | .mk (.seq g1 g2) => do
-    let (t1, st1) ← parseGrammar prods g1 st
-    let (t2, st2) ← parseGrammar prods g2 st1
+    let (t1, st1) ← parseGrammar fuel' prods g1 st
+    let (t2, st2) ← parseGrammar fuel' prods g2 st1
     pure (combineSeq t1 t2, st2)
 
   | .mk (.alt g1 g2) =>
-    parseGrammar prods g1 st <|> parseGrammar prods g2 st
+    parseGrammar fuel' prods g1 st <|> parseGrammar fuel' prods g2 st
 
   | .mk (.star g') =>
-    let rec go (acc : List Term) (st : ParseState) : ParseResult :=
-      match parseGrammar prods g' st with
-      | some (t, st') => go (acc ++ [t]) st'
-      | none => some (.con "seq" acc, st)
-    go [] st
+    let rec go (f : Nat) (acc : List Term) (st : ParseState) : ParseResult :=
+      match f with
+      | 0 => some (.con "seq" acc, st)
+      | f' + 1 =>
+        match parseGrammar f' prods g' st with
+        | some (t, st') => go f' (acc ++ [t]) st'
+        | none => some (.con "seq" acc, st)
+    go fuel' [] st
 
   | .mk (.bind x g') => do
-    let (t, st') ← parseGrammar prods g' st
+    let (t, st') ← parseGrammar fuel' prods g' st
     pure (t, { st' with binds := (x, t) :: st'.binds })
 
   | .mk (.node name g') => do
-    let (t, st') ← parseGrammar prods g' st
+    let (t, st') ← parseGrammar fuel' prods g' st
     pure (wrapNode name t, st')
 
-/-- Interpret a GrammarExpr for printing (backward direction) -/
-partial def printGrammar (prods : Productions) (g : GrammarExpr) (t : Term) (acc : List Token) : Option (List Token) :=
+/-- Interpret a GrammarExpr for printing (backward direction).
+    Uses fuel for termination. -/
+def printGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (t : Term) (acc : List Token) : Option (List Token) :=
+  match fuel with
+  | 0 => none  -- fuel exhausted
+  | fuel' + 1 =>
   match g with
   | .mk .empty => some acc
 
@@ -282,29 +306,37 @@ partial def printGrammar (prods : Productions) (g : GrammarExpr) (t : Term) (acc
 
   | .mk (.ref name) =>
     match prods.find? (·.1 == name) with
-    | some (_, g') => printGrammar prods g' t acc
+    | some (_, g') => printGrammar fuel' prods g' t acc
     | none => none
 
   | .mk (.seq g1 g2) =>
     let (t1, t2) := splitSeq t
-    match printGrammar prods g1 t1 acc with
-    | some acc' => printGrammar prods g2 t2 acc'
+    match printGrammar fuel' prods g1 t1 acc with
+    | some acc' => printGrammar fuel' prods g2 t2 acc'
     | none => none
 
   | .mk (.alt g1 g2) =>
-    printGrammar prods g1 t acc <|> printGrammar prods g2 t acc
+    printGrammar fuel' prods g1 t acc <|> printGrammar fuel' prods g2 t acc
 
   | .mk (.star g') =>
     match t with
     | .con "seq" ts =>
-      ts.foldlM (fun acc' t' => printGrammar prods g' t' acc') acc
+      let rec go (f : Nat) (ts : List Term) (acc : List Token) : Option (List Token) :=
+        match f, ts with
+        | 0, _ => some acc
+        | _, [] => some acc
+        | f' + 1, t' :: rest =>
+          match printGrammar f' prods g' t' acc with
+          | some acc' => go f' rest acc'
+          | none => none
+      go fuel' ts acc
     | _ => some acc
 
-  | .mk (.bind _ g') => printGrammar prods g' t acc
+  | .mk (.bind _ g') => printGrammar fuel' prods g' t acc
 
   | .mk (.node name g') =>
     let t' := unwrapNode name t
-    printGrammar prods g' t' acc
+    printGrammar fuel' prods g' t' acc
 
 /-! ## Parameterized Grammar Interpretation (AST typeclass) -/
 
@@ -322,77 +354,90 @@ def combineSeqT [AST α] (t1 t2 : α) : α := AST.seq t1 t2
 /-- Wrap with node name (parameterized) -/
 def wrapNodeT [AST α] (name : String) (inner : α) : α := AST.con name [inner]
 
-/-- Parameterized grammar parser: builds into any AST type. -/
-partial def parseGrammarT [AST α] (prods : Productions) (g : GrammarExpr)
+mutual
+/-- Parameterized grammar parser: builds into any AST type. Total via fuel. -/
+def parseGrammarT [AST α] (fuel : Nat) (prods : Productions) (g : GrammarExpr)
     (st : ParseStateT α) : ParseResultT α :=
-  match g with
-  | .mk .empty => some (AST.unit, st)
+  match fuel with
+  | 0 => none  -- fuel exhausted
+  | fuel' + 1 =>
+    match g with
+    | .mk .empty => some (AST.unit, st)
 
-  | .mk (.lit s) =>
-    match st.tokens with
-    | .lit l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
-    | .sym l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
-    | .ident l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
-    | _ => none
+    | .mk (.lit s) =>
+      match st.tokens with
+      | .lit l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
+      | .sym l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
+      | .ident l :: rest => if l == s then some (AST.lit s, { st with tokens := rest }) else none
+      | _ => none
 
-  | .mk (.ref name) =>
-    -- Handle built-in token types (TOKEN.*)
-    if name.startsWith "TOKEN." then
-      let tokType := name.drop 6
-      match tokType, st.tokens with
-      | "ident",   .ident s :: rest  => some (AST.var s, { st with tokens := rest })
-      | "string",  .lit s :: rest    =>
-        -- Match "..." string literals (not '...' char literals)
-        if s.startsWith "\"" then
-          some (AST.lit s, { st with tokens := rest })
-        else none
-      | "char",    .lit s :: rest    =>
-        if s.startsWith "'" && s.endsWith "'" then
-          some (AST.lit s, { st with tokens := rest })
-        else none
-      | "number",  .number s :: rest => some (AST.lit s, { st with tokens := rest })
-      | "special", .sym s :: rest    =>
-        if s.startsWith "<" && s.endsWith ">" then
-          some (AST.var s, { st with tokens := rest })
-        else none
-      | _, _ => none
-    else
-      match prods.find? (·.1 == name) with
-      | some (_, g') => parseGrammarT prods g' st
+    | .mk (.ref name) =>
+      -- Handle built-in token types (TOKEN.*)
+      if name.startsWith "TOKEN." then
+        let tokType := name.drop 6
+        match tokType, st.tokens with
+        | "ident",   .ident s :: rest  => some (AST.var s, { st with tokens := rest })
+        | "string",  .lit s :: rest    =>
+          -- Match "..." string literals (not '...' char literals)
+          if s.startsWith "\"" then
+            some (AST.lit s, { st with tokens := rest })
+          else none
+        | "char",    .lit s :: rest    =>
+          if s.startsWith "'" && s.endsWith "'" then
+            some (AST.lit s, { st with tokens := rest })
+          else none
+        | "number",  .number s :: rest => some (AST.lit s, { st with tokens := rest })
+        | "special", .sym s :: rest    =>
+          if s.startsWith "<" && s.endsWith ">" then
+            some (AST.var s, { st with tokens := rest })
+          else none
+        | _, _ => none
+      else
+        match prods.find? (·.1 == name) with
+        | some (_, g') => parseGrammarT fuel' prods g' st
+        | none => none
+
+    | .mk (.seq g1 g2) =>
+      match parseGrammarT fuel' prods g1 st with
+      | some (t1, st1) =>
+        match parseGrammarT fuel' prods g2 st1 with
+        | some (t2, st2) => some (combineSeqT t1 t2, st2)
+        | none => none
       | none => none
 
-  | .mk (.seq g1 g2) =>
-    match parseGrammarT prods g1 st with
-    | some (t1, st1) =>
-      match parseGrammarT prods g2 st1 with
-      | some (t2, st2) => some (combineSeqT t1 t2, st2)
+    | .mk (.alt g1 g2) =>
+      parseGrammarT fuel' prods g1 st <|> parseGrammarT fuel' prods g2 st
+
+    | .mk (.star g') =>
+      parseStarT fuel' prods g' [] st
+
+    | .mk (.bind x g') =>
+      match parseGrammarT fuel' prods g' st with
+      | some (t, st') => some (t, { st' with binds := (x, t) :: st'.binds })
       | none => none
-    | none => none
 
-  | .mk (.alt g1 g2) =>
-    parseGrammarT prods g1 st <|> parseGrammarT prods g2 st
+    | .mk (.node name g') =>
+      match parseGrammarT fuel' prods g' st with
+      | some (t, st') => some (wrapNodeT name t, st')
+      | none => none
+termination_by fuel
 
-  | .mk (.star g') =>
-    let rec go (acc : List α) (st : ParseStateT α) : ParseResultT α :=
-      match parseGrammarT prods g' st with
-      | some (t, st') => go (acc ++ [t]) st'
-      | none => some (AST.con "seq" acc, st)
-    go [] st
-
-  | .mk (.bind x g') =>
-    match parseGrammarT prods g' st with
-    | some (t, st') => some (t, { st' with binds := (x, t) :: st'.binds })
-    | none => none
-
-  | .mk (.node name g') =>
-    match parseGrammarT prods g' st with
-    | some (t, st') => some (wrapNodeT name t, st')
-    | none => none
+/-- Helper: parse a star (zero or more) with fuel -/
+def parseStarT [AST α] (fuel : Nat) (prods : Productions) (g' : GrammarExpr)
+    (acc : List α) (st : ParseStateT α) : ParseResultT α :=
+  match fuel with
+  | 0 => some (AST.con "seq" acc, st)
+  | f + 1 =>
+    match parseGrammarT f prods g' st with
+    | some (t, st') => parseStarT f prods g' (acc ++ [t]) st'
+    | none => some (AST.con "seq" acc, st)
+termination_by fuel
+end
 
 /-- Convenience: parse with specific AST target -/
 def parseGrammarAs (α : Type) [AST α] (prods : Productions) (g : GrammarExpr)
     (tokens : TokenStream) : Option α :=
-  match parseGrammarT prods g ⟨tokens, []⟩ with
+  match parseGrammarT defaultFuel prods g ⟨tokens, []⟩ with
   | some (result, _) => some result
   | none => none
 
@@ -418,7 +463,7 @@ def Language.toInterp (lang : Language) (startProd : String) : LangInterp where
     let st : ParseState := { tokens := tokens, binds := [] }
     match prods.find? (·.1 == startProd) with
     | some (_, g) =>
-      match parseGrammar prods g st with
+      match parseGrammar defaultFuel prods g st with
       | some (t, st') => if st'.tokens.isEmpty then some t else none
       | none => none
     | none => none
@@ -426,7 +471,7 @@ def Language.toInterp (lang : Language) (startProd : String) : LangInterp where
   print := fun t =>
     let prods := lang.allGrammar
     match prods.find? (·.1 == startProd) with
-    | some (_, g) => printGrammar prods g t []
+    | some (_, g) => printGrammar defaultFuel prods g t []
     | none => none
 
   normalize := fun t =>
@@ -443,13 +488,13 @@ def grammarToIso (prods : Productions) (startProd : String) : Iso TokenStream Te
     let st : ParseState := { tokens := tokens, binds := [] }
     match prods.find? (·.1 == startProd) with
     | some (_, g) =>
-      match parseGrammar prods g st with
+      match parseGrammar defaultFuel prods g st with
       | some (t, st') => if st'.tokens.isEmpty then some t else none
       | none => none
     | none => none
   backward := fun t =>
     match prods.find? (·.1 == startProd) with
-    | some (_, g) => printGrammar prods g t []
+    | some (_, g) => printGrammar defaultFuel prods g t []
     | none => none
 
 end Lego

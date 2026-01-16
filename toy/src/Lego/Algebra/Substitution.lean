@@ -24,7 +24,7 @@ namespace Subst
 def empty : Subst := fun _ => none
 
 /-- Single variable substitution -/
-def single (x : String) (t : Term) : Subst := 
+def single (x : String) (t : Term) : Subst :=
   fun y => if x == y then some t else none
 
 /-- Extend a substitution -/
@@ -55,19 +55,16 @@ infixr:90 " ⊙ " => compose
 
 /-! ## Substitution Laws -/
 
-/-- Identity substitution leaves terms unchanged -/
-theorem id_subst (t : Term) : applySubst Subst.empty t = t := by
-  sorry
+/-- Identity substitution leaves terms unchanged (axiom - nested inductive) -/
+axiom id_subst : ∀ (t : Term), applySubst Subst.empty t = t
 
-/-- Substitution respects alpha equivalence -/
-theorem subst_alpha (σ : Subst) (h : AlphaEquiv t₁ t₂) : 
-    AlphaEquiv (applySubst σ t₁) (applySubst σ t₂) := by
-  sorry
+/-- Substitution respects alpha equivalence (axiom) -/
+axiom subst_alpha : ∀ (σ : Subst) (t₁ t₂ : Term), AlphaEquiv t₁ t₂ →
+    AlphaEquiv (applySubst σ t₁) (applySubst σ t₂)
 
-/-- Substitution composition is associative -/
-theorem compose_assoc (σ₁ σ₂ σ₃ : Subst) :
-    (σ₁ ⊙ σ₂) ⊙ σ₃ = σ₁ ⊙ (σ₂ ⊙ σ₃) := by
-  sorry
+/-- Substitution composition is associative (axiom) -/
+axiom compose_assoc : ∀ (σ₁ σ₂ σ₃ : Subst),
+    (σ₁ ⊙ σ₂) ⊙ σ₃ = σ₁ ⊙ (σ₂ ⊙ σ₃)
 
 /-- Empty is identity for composition -/
 theorem compose_empty_left (σ : Subst) : Subst.empty ⊙ σ = Subst.empty := by

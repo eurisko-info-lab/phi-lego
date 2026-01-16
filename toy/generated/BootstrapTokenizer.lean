@@ -60,6 +60,6 @@ def mainTokenProds : List String := ["Token.comment", "Token.ws", "Token.op3", "
 
 /-- Tokenize using grammar-driven lexing -/
 def tokenize (s : String) : TokenStream :=
-  tokenizeWithGrammar tokenProductions mainTokenProds s
+  tokenizeWithGrammar defaultFuel tokenProductions mainTokenProds s
 
 end Lego.Generated.Bootstrap

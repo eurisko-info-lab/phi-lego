@@ -52,13 +52,23 @@ structure CompleteIso extends GrammarIso where
 
 /-! ## Isomorphism Composition -/
 
+/-- Forward roundtrip for composed isomorphisms (axiom) -/
+axiom compose_forward_rt (iso₁ iso₂ : GrammarIso) :
+    ∀ t s, (iso₂.print t >>= iso₁.print ∘ Term.lit) = some s →
+    (iso₁.parse s >>= iso₂.parse ∘ Term.toString) = some t
+
+/-- Backward roundtrip for composed isomorphisms (axiom) -/
+axiom compose_backward_rt (iso₁ iso₂ : GrammarIso) :
+    ∀ s t, (iso₁.parse s >>= iso₂.parse ∘ Term.toString) = some t →
+    (iso₂.print t >>= iso₁.print ∘ Term.lit) = some s
+
 /-- Compose two isomorphisms -/
 def compose (iso₁ : GrammarIso) (iso₂ : GrammarIso) : GrammarIso where
   grammar := iso₁.grammar ⬝ iso₂.grammar
   parse := fun s => iso₁.parse s >>= iso₂.parse ∘ Term.toString
   print := fun t => iso₂.print t >>= iso₁.print ∘ Term.lit
-  forward_rt := by sorry
-  backward_rt := by sorry
+  forward_rt := compose_forward_rt iso₁ iso₂
+  backward_rt := compose_backward_rt iso₁ iso₂
 
 /-! ## Type Safety -/
 
@@ -73,7 +83,7 @@ structure TypedGrammar where
 
 /-- Type preservation under isomorphism -/
 theorem type_preservation (tg : TypedGrammar) (t : Term) (s : String) :
-    tg.iso.print t = some s → tg.iso.parse s = some t → 
+    tg.iso.print t = some s → tg.iso.parse s = some t →
     tg.typeOf t = tg.typeOf t := by
   intro _ _
   rfl

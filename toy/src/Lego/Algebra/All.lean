@@ -1,11 +1,11 @@
 /-
   Lego.Algebra.All
-  
+
   Re-exports all algebra modules for convenient access.
-  
+
   Usage:
     import Lego.Algebra.All
-  
+
   This provides access to:
   - Setoid: Equivalence relations, quotients, congruences
   - KleeneAlgebra: Grammar as Kleene algebra with formal laws
@@ -17,6 +17,7 @@
   - Roundtrip: Bidirectional roundtrip proofs
   - Bootstrap: Meta-circularity and grammar self-description
   - SelfDescribing: Complete self-description formalization
+  - Interp: Bridge from abstract algebra to concrete implementation
 -/
 
 -- Foundation
@@ -38,3 +39,6 @@ import Lego.Algebra.Roundtrip
 -- Meta-circularity
 import Lego.Algebra.Bootstrap
 import Lego.Algebra.SelfDescribing
+
+-- Concrete implementation bridge
+import Lego.Algebra.Interp
