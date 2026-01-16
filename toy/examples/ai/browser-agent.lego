@@ -1,0 +1,701 @@
+-- browser-agent.lego: Browser AI Agent with WebGPU
+-- Local AI inference entirely in the browser via WebGPU
+-- Your data never leaves your device.
+--
+-- Use case: A coding assistant that analyzes your code locally.
+-- The agent:
+--   1. Analyzes code structure
+--   2. Detects potential bugs
+--   3. Suggests improvements
+--   4. All running locally on your GPU
+--
+-- Composes: Agents
+
+import Agents
+
+lang BrowserAgent (Agents) :=
+
+-----------------------------------------------------
+-- PART I: The Browser Agent Architecture
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Browser SLM Type (Small Language Model for browser)
+-----------------------------------------------------
+piece BrowserSLM
+  browserslm ::= "(" "BrowserSLM" number number ")"  -- dim, layers (~50MB quantized)
+               | "(" "SLM" number number ")"
+
+-----------------------------------------------------
+-- Code Review Agent
+-----------------------------------------------------
+piece CodeReviewAgent
+  reviewagent ::= "(" "CodeReviewAgent" cragentfield+ ")"
+  cragentfield ::= "model" term
+                 | "tokenizer" term
+                 | "context" term
+                 | "capabilities" caplist
+  caplist ::= "[" capabilities "]"
+  capabilities ::= capability | capability "," capabilities
+
+-----------------------------------------------------
+-- Capabilities
+-----------------------------------------------------
+piece Capability
+  capability ::= "BugDetection"
+               | "StyleSuggestion"
+               | "SecurityAudit"
+               | "Refactoring"
+               | "Documentation"
+
+-----------------------------------------------------
+-- PART II: WebGPU Compilation Target
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- WebGPU Tensor Types
+-----------------------------------------------------
+piece WebGPUTensor
+  wgputensor ::= "(" "WebGPUTensor" shape ")"
+  wgputensordef ::= "(" "WebGPUTensor" wgputensorfield+ ")"
+  wgputensorfield ::= "buffer" term
+                    | "shape" shape
+                    | "dtype" dtype
+  shape ::= "[" dims "]"
+  dims ::= number | number "," dims
+  dtype ::= "Float16" | "Float32" | "Int4" | "Int8"
+
+-----------------------------------------------------
+-- GPU Buffer
+-----------------------------------------------------
+piece GPUBuffer
+  gpubuffer ::= "(" "GPUBuffer" term ")"
+
+-----------------------------------------------------
+-- WebGPU Compute Operations
+-----------------------------------------------------
+piece WebGPUOps
+  wgpuop ::= "(" "matmul_wgsl" term term ")"
+           | "(" "attention_wgsl" term ")"
+           | "(" "softmax_wgsl" term ")"
+           | "(" "gelu_wgsl" term ")"
+           | "(" "layernorm_wgsl" term ")"
+
+-----------------------------------------------------
+-- WGSL Shader Compilation
+-----------------------------------------------------
+piece WGSLCompile
+  wgslcompile ::= "(" "compile_to" string ")"
+                | "(" "dispatch_compute" string term term ")"
+                | "@compute" "@workgroup_size" "(" number "," number ")"
+
+-----------------------------------------------------
+-- PART III: Model Loading & Quantization
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Model Loading
+-----------------------------------------------------
+piece ModelLoad
+  modelload ::= "(" "loadModel" string ")"
+              | "(" "fetch" string ")"
+              | "(" "createGPUBuffers" term ")"
+              | "(" "initLayers" term ")"
+
+-----------------------------------------------------
+-- Model Config
+-----------------------------------------------------
+piece ModelConfig
+  modelconfig ::= "(" "config" configfield+ ")"
+  configfield ::= "d_model" number
+                | "n_heads" number
+                | "n_layers" number
+
+-----------------------------------------------------
+-- Quantization Operations
+-----------------------------------------------------
+piece Quantization
+  quantize ::= "(" "quantize" term ")"
+             | "(" "dequantize" term ")"
+             | "(" "pack4bit" term term ")"
+             | "(" "unpack4bit" term ")"
+             | "(" "round" term ")"
+
+-----------------------------------------------------
+-- PART IV: The Inference Pipeline
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Token Generation
+-----------------------------------------------------
+piece TokenGen
+  tokengen ::= "(" "generate" term term ")"
+             | "(" "unfold" term term ")"
+             | "(" "initState" term ")"
+             | "(" "append" term term ")"
+
+-----------------------------------------------------
+-- Forward Pass
+-----------------------------------------------------
+piece ForwardPass
+  forwardpass ::= "(" "forward_pass" term term ")"
+                | "(" "embed" term term ")"
+                | "(" "apply_layer" term term ")"
+                | "(" "project" term term ")"
+                | "(" "foldl" term term term ")"
+
+-----------------------------------------------------
+-- Sampling
+-----------------------------------------------------
+piece Sampling
+  sampling ::= "(" "sample_top_p" number term ")"
+             | "(" "sample_top_k" number term ")"
+             | "(" "sample_temperature" number term ")"
+             | "(" "softmax" term ")"
+
+-----------------------------------------------------
+-- Streaming
+-----------------------------------------------------
+piece Streaming
+  streaming ::= "(" "streamToUI" term term ")"
+              | "(" "forEach" term term ")"
+              | "(" "detokenize" term ")"
+              | "(" "collectStream" term ")"
+
+-----------------------------------------------------
+-- PART V: Code Analysis Capabilities
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Code Analysis Prompts
+-----------------------------------------------------
+piece CodeAnalysis
+  analysis ::= "(" "bugDetectionPrompt" term ")"
+             | "(" "securityAuditPrompt" term ")"
+             | "(" "refactoringPrompt" term ")"
+             | "(" "stylePrompt" term ")"
+             | "(" "documentationPrompt" term ")"
+             | "(" "genericPrompt" term ")"
+
+-----------------------------------------------------
+-- Code Review Result
+-----------------------------------------------------
+piece CodeReview
+  codereview ::= "(" "CodeReview" crfield+ ")"
+  crfield ::= "issues" term
+            | "severity" severity
+            | "fixes" term
+            | "line_numbers" term
+  severity ::= "HIGH" | "MEDIUM" | "LOW"
+
+-----------------------------------------------------
+-- Parse Code Review Output
+-----------------------------------------------------
+piece ParseReview
+  parsereview ::= "(" "parseCodeReview" term ")"
+                | "(" "extractIssues" term ")"
+                | "(" "extractSeverity" term ")"
+                | "(" "extractFixes" term ")"
+                | "(" "extractLines" term ")"
+
+-----------------------------------------------------
+-- Issue Type
+-----------------------------------------------------
+piece Issue
+  issue ::= "(" "Issue" issuefield+ ")"
+  issuefield ::= "line" number
+               | "description" string
+               | "severity" severity
+               | "fix" maybefix
+  maybefix ::= "Nothing" | "(" "Just" term ")"
+
+-----------------------------------------------------
+-- PART VI: The Complete Web Application
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Application State
+-----------------------------------------------------
+piece AppState
+  appstate ::= "(" "AppState" appfield+ ")"
+  appfield ::= "model" maybemodel
+             | "loading" bool
+             | "code" string
+             | "review" maybereview
+             | "streaming" bool
+             | "gpu_info" term
+  maybemodel ::= "Nothing" | "(" "Just" term ")"
+  maybereview ::= "Nothing" | "(" "Just" term ")"
+  bool ::= "True" | "False"
+
+-----------------------------------------------------
+-- GPU Info
+-----------------------------------------------------
+piece GPUInfo
+  gpuinfo ::= "(" "GPUInfo" gpufield+ ")"
+  gpufield ::= "vendor" string
+             | "maxBufferSize" number
+             | "supported" bool
+
+-----------------------------------------------------
+-- WebGPU Check
+-----------------------------------------------------
+piece WebGPUCheck
+  webgpucheck ::= "checkWebGPU"
+                | "(" "navigator.gpu.requestAdapter" ")"
+                | "(" "requestAdapter" ")"
+                | "(" "requestDevice" ")"
+                | "(" "a.requestDevice" ")"
+
+-----------------------------------------------------
+-- Application Init
+-----------------------------------------------------
+piece AppInit
+  appinit ::= "(" "initApp" ")"
+            | "(" "onCodeChange" term term ")"
+            | "(" "runReview" term term ")"
+
+-----------------------------------------------------
+-- PART VII: UI Components
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- UI Components
+-----------------------------------------------------
+piece UIComponent
+  uicomp ::= "(" "App" term ")"
+           | "Header"
+           | "Footer" term
+           | "GPUWarning"
+           | "StreamingIndicator"
+           | "(" "Placeholder" string ")"
+           | "(" "CodeEditor" term term ")"
+           | "(" "CapabilitySelector" term ")"
+           | "(" "ReviewResults" term ")"
+
+-----------------------------------------------------
+-- HTML Elements
+-----------------------------------------------------
+piece HTMLElement
+  htmlelem ::= "(" "div" attrlist elemlist ")"
+             | "(" "textarea" attrlist ")"
+             | "(" "button" attrlist elemlist ")"
+             | "(" "span" attrlist elemlist ")"
+             | "(" "h2" string ")"
+             | "(" "h3" string ")"
+             | "(" "ul" attrlist elemlist ")"
+             | "(" "li" attrlist elemlist ")"
+             | "(" "text" term ")"
+             | "empty"
+
+-----------------------------------------------------
+-- HTML Attributes
+-----------------------------------------------------
+piece HTMLAttr
+  attrlist ::= "[" "]" | "[" attrs "]"
+  attrs ::= attr | attr "," attrs
+  attr ::= "(" "class" string ")"
+         | "(" "value" term ")"
+         | "(" "onClick" term ")"
+         | "(" "onInput" term ")"
+         | "(" "placeholder" string ")"
+
+-----------------------------------------------------
+-- Element List
+-----------------------------------------------------
+piece ElemList
+  elemlist ::= "[" "]" | "[" elems "]"
+  elems ::= elem | elem "," elems
+  elem ::= htmlelem | term | string
+
+-----------------------------------------------------
+-- Issue Item Component
+-----------------------------------------------------
+piece IssueItem
+  issueitem ::= "(" "issueItem" term ")"
+              | "(" "fixItem" term ")"
+              | "(" "severityClass" term ")"
+              | "(" "applyFix" term ")"
+
+-----------------------------------------------------
+-- PART VIII: Web Compilation
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Web Assets
+-----------------------------------------------------
+piece WebAssets
+  webassets ::= "(" "WebAssets" assetfield+ ")"
+  assetfield ::= "html" string
+               | "js" term
+               | "wgsl" term
+               | "css" term
+               | "model_url" string
+
+-----------------------------------------------------
+-- Web Compilation
+-----------------------------------------------------
+piece WebCompile
+  webcompile ::= "(" "compile_webapp" term ")"
+               | "(" "compile_js" term ")"
+               | "(" "compile_wgsl" term ")"
+               | "(" "compile_css" term ")"
+
+-----------------------------------------------------
+-- PART IX: Deployment
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- File Operations
+-----------------------------------------------------
+piece FileOps
+  fileops ::= "(" "writeFile" string term ")"
+            | "(" "readFile" string ")"
+
+-----------------------------------------------------
+-- Deployment
+-----------------------------------------------------
+piece Deploy
+  deploy ::= "(" "deploy" ")"
+           | "(" "cloudflare.deploy" string string ")"
+
+-----------------------------------------------------
+-- PART X: Browser Agent Variants
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Document Summarizer
+-----------------------------------------------------
+piece DocumentSummarizer
+  docsummarizer ::= "(" "DocumentSummarizer" dsfield+ ")"
+  dsfield ::= "model" term | "prompt" string
+
+-----------------------------------------------------
+-- Translator
+-----------------------------------------------------
+piece Translator
+  translator ::= "(" "Translator" transfield+ ")"
+  transfield ::= "model" term | "prompt" string
+
+-----------------------------------------------------
+-- Writing Assistant
+-----------------------------------------------------
+piece WritingAssistant
+  writingassistant ::= "(" "WritingAssistant" wafield+ ")"
+  wafield ::= "model" term | "prompt" string
+
+-----------------------------------------------------
+-- SQL Generator
+-----------------------------------------------------
+piece SQLGenerator
+  sqlgenerator ::= "(" "SQLGenerator" sqlfield+ ")"
+  sqlfield ::= "model" term | "prompt" string
+
+-----------------------------------------------------
+-- Regex Helper
+-----------------------------------------------------
+piece RegexHelper
+  regexhelper ::= "(" "RegexHelper" rxfield+ ")"
+  rxfield ::= "model" term | "prompt" string
+
+-----------------------------------------------------
+-- Browser Agent Variant Type
+-----------------------------------------------------
+piece BrowserAgentVariant
+  variant ::= "DocumentSummarizer"
+            | "Translator"
+            | "WritingAssistant"
+            | "SQLGenerator"
+            | "RegexHelper"
+
+-----------------------------------------------------
+-- Rules: Model Loading
+-----------------------------------------------------
+rule load_model:
+  (loadModel $url) ~> (do (fetch $url) createGPUBuffers initLayers)
+
+rule fetch_weights:
+  (fetch $url) ~> (weights $url)
+
+rule create_buffers:
+  (createGPUBuffers $weights) ~> (buffers $weights)
+
+rule init_layers:
+  (initLayers $buffers) ~> (BrowserSLM 512 6)
+
+-----------------------------------------------------
+-- Rules: Quantization
+-----------------------------------------------------
+rule quantize_tensor:
+  (quantize $tensor) ~> (pack4bit (round (div $tensor (scale $tensor))) (scale $tensor))
+
+rule dequantize_tensor:
+  (dequantize $packed) ~> (mul (unpack4bit $packed) (get_scale $packed))
+
+rule scale_compute:
+  (scale $tensor) ~> (div (max (abs $tensor)) 7.0)
+
+-----------------------------------------------------
+-- Rules: Inference
+-----------------------------------------------------
+rule generate_unfold:
+  (generate $model $prompt) ~> (unfold (step $model) (initState $prompt))
+
+rule forward_pass:
+  (forward_pass $model $ctx) ~> (project (foldl apply_layer (embed $ctx (embeddings $model)) (layers $model)) (head $model))
+
+rule sample_top_p:
+  (sample_top_p $p $logits) ~> (sample (nucleus $p (softmax $logits)))
+
+rule stream_to_ui:
+  (streamToUI $stream $callback) ~> (forEach $stream (lambda (tok) (callback (detokenize tok))))
+
+-----------------------------------------------------
+-- Rules: Code Analysis
+-----------------------------------------------------
+rule bug_detection_prompt:
+  (bugDetectionPrompt $code) ~> (prompt "Analyze this code for potential bugs:" $code)
+
+rule security_audit_prompt:
+  (securityAuditPrompt $code) ~> (prompt "Security audit for:" $code)
+
+rule refactoring_prompt:
+  (refactoringPrompt $code) ~> (prompt "Suggest refactoring for cleaner code:" $code)
+
+rule parse_review:
+  (parseCodeReview $response) ~> (CodeReview (issues (extractIssues $response)) (severity (extractSeverity $response)) (fixes (extractFixes $response)))
+
+-----------------------------------------------------
+-- Rules: WebGPU
+-----------------------------------------------------
+rule check_webgpu:
+  checkWebGPU ~> (do (navigator.gpu.requestAdapter) handleAdapter)
+
+rule request_adapter:
+  (navigator.gpu.requestAdapter) ~> (adapter)
+
+rule matmul_dispatch:
+  (matmul_wgsl $a $b) ~> (dispatch_compute "matmul" $a $b)
+
+rule attention_dispatch:
+  (attention_wgsl $input) ~> (dispatch_compute "attention" $input)
+
+-----------------------------------------------------
+-- Rules: Application
+-----------------------------------------------------
+rule init_app:
+  (initApp) ~> (do checkWebGPU (loadModel model_url) createAppState)
+
+rule on_code_change:
+  (onCodeChange $state $code) ~> (AppState (model (model $state)) (code $code) (review Nothing))
+
+rule run_review:
+  (runReview $state $capability) ~> (do (generate (model $state) (tokenize (prompt $capability (code $state)))) parseCodeReview updateState)
+
+-----------------------------------------------------
+-- Rules: Compilation
+-----------------------------------------------------
+rule compile_webapp:
+  (compile_webapp $app) ~> (WebAssets (html (compile_html $app)) (js (compile_js $app)) (wgsl (compile_wgsl $app)) (css (compile_css $app)))
+
+rule deploy:
+  (deploy) ~> (do (compile_webapp App) writeFiles (cloudflare.deploy "dist/" "code-review.phi.dev"))
+
+-----------------------------------------------------
+-- Tests: Browser SLM
+-----------------------------------------------------
+test "browser_slm": (BrowserSLM 512 6)
+test "slm_alias": (SLM 512 6)
+
+-----------------------------------------------------
+-- Tests: Code Review Agent
+-----------------------------------------------------
+test "code_review_agent": (CodeReviewAgent (model (BrowserSLM 512 6)) (tokenizer tok) (context ctx) (capabilities [BugDetection, SecurityAudit]))
+
+-----------------------------------------------------
+-- Tests: Capabilities
+-----------------------------------------------------
+test "capability_bug": BugDetection
+test "capability_style": StyleSuggestion
+test "capability_security": SecurityAudit
+test "capability_refactor": Refactoring
+test "capability_docs": Documentation
+
+-----------------------------------------------------
+-- Tests: WebGPU Tensor
+-----------------------------------------------------
+test "webgpu_tensor": (WebGPUTensor [32, 512])
+test "webgpu_tensor_full": (WebGPUTensor (buffer buf) (shape [32, 512]) (dtype Float16))
+test "dtype_fp16": Float16
+test "dtype_fp32": Float32
+test "dtype_int4": Int4
+
+-----------------------------------------------------
+-- Tests: WebGPU Ops
+-----------------------------------------------------
+test "matmul_wgsl": (matmul_wgsl a b)
+test "attention_wgsl": (attention_wgsl input)
+test "softmax_wgsl": (softmax_wgsl logits)
+test "gelu_wgsl": (gelu_wgsl x)
+
+-----------------------------------------------------
+-- Tests: Model Loading
+-----------------------------------------------------
+test "load_model": (loadModel "https://models.phi.dev/code-review-500m-q4.bin")
+test "fetch": (fetch url)
+test "create_buffers": (createGPUBuffers weights)
+
+-----------------------------------------------------
+-- Tests: Quantization
+-----------------------------------------------------
+test "quantize": (quantize tensor)
+test "dequantize": (dequantize packed)
+test "pack4bit": (pack4bit quantized scale)
+test "unpack4bit": (unpack4bit packed)
+
+-----------------------------------------------------
+-- Tests: Inference Pipeline
+-----------------------------------------------------
+test "generate": (generate model prompt)
+test "forward_pass": (forward_pass model context)
+test "sample_top_p": (sample_top_p 0.9 logits)
+test "stream_to_ui": (streamToUI stream callback)
+
+-----------------------------------------------------
+-- Tests: Code Analysis
+-----------------------------------------------------
+test "bug_prompt": (bugDetectionPrompt code)
+test "security_prompt": (securityAuditPrompt code)
+test "refactor_prompt": (refactoringPrompt code)
+test "parse_review": (parseCodeReview response)
+
+-----------------------------------------------------
+-- Tests: Code Review
+-----------------------------------------------------
+test "code_review": (CodeReview (issues [i1, i2]) (severity MEDIUM) (fixes [f1]))
+test "severity_high": HIGH
+test "severity_medium": MEDIUM
+test "severity_low": LOW
+
+-----------------------------------------------------
+-- Tests: Issue
+-----------------------------------------------------
+test "issue": (Issue (line 42) (description "Potential null pointer") (severity HIGH) (fix (Just fix_code)))
+
+-----------------------------------------------------
+-- Tests: App State
+-----------------------------------------------------
+test "app_state": (AppState (model Nothing) (loading False) (code "") (review Nothing) (streaming False) (gpu_info info))
+test "app_state_loaded": (AppState (model (Just slm)) (loading False) (code "fn main()") (review Nothing) (streaming False) (gpu_info info))
+
+-----------------------------------------------------
+-- Tests: GPU Info
+-----------------------------------------------------
+test "gpu_info": (GPUInfo (vendor "NVIDIA") (maxBufferSize 268435456) (supported True))
+test "gpu_unsupported": (GPUInfo (vendor "unknown") (maxBufferSize 0) (supported False))
+
+-----------------------------------------------------
+-- Tests: WebGPU Check
+-----------------------------------------------------
+test "check_webgpu": checkWebGPU
+test "request_adapter": (requestAdapter)
+test "request_device": (requestDevice)
+
+-----------------------------------------------------
+-- Tests: UI Components
+-----------------------------------------------------
+test "app_component": (App state)
+test "code_editor": (CodeEditor code onChange)
+test "capability_selector": (CapabilitySelector runReview)
+test "review_results": (ReviewResults review)
+test "streaming_indicator": StreamingIndicator
+test "gpu_warning": GPUWarning
+test "placeholder": (Placeholder "Paste code and select a review type")
+
+-----------------------------------------------------
+-- Tests: HTML Elements
+-----------------------------------------------------
+test "div": (div [(class "app")] [Header, content, Footer])
+test "textarea": (textarea [(class "code-editor"), (value code), (onInput onChange), (placeholder "Paste your code here...")])
+test "button": (button [(onClick handler)] [(text "Apply Fix")])
+test "span": (span [(class "count")] [(text "5 issues found")])
+test "ul": (ul [(class "issues")] [li1, li2])
+test "empty": empty
+
+-----------------------------------------------------
+-- Tests: Web Assets
+-----------------------------------------------------
+test "web_assets": (WebAssets (html "<html>") (js jsCode) (wgsl shaders) (css styles) (model_url "model.bin"))
+
+-----------------------------------------------------
+-- Tests: Web Compilation
+-----------------------------------------------------
+test "compile_webapp": (compile_webapp App)
+test "compile_js": (compile_js app)
+test "compile_wgsl": (compile_wgsl app)
+test "compile_css": (compile_css app)
+
+-----------------------------------------------------
+-- Tests: Deployment
+-----------------------------------------------------
+test "deploy": (deploy)
+test "cloudflare_deploy": (cloudflare.deploy "dist/" "code-review.phi.dev")
+test "write_file": (writeFile "dist/index.html" html)
+
+-----------------------------------------------------
+-- Tests: Browser Agent Variants
+-----------------------------------------------------
+test "doc_summarizer": (DocumentSummarizer (model m) (prompt "Summarize in 3 bullets:"))
+test "translator": (Translator (model m) (prompt "Translate to {lang}:"))
+test "writing_assistant": (WritingAssistant (model m) (prompt "Improve clarity:"))
+test "sql_generator": (SQLGenerator (model m) (prompt "Generate SQL for:"))
+test "regex_helper": (RegexHelper (model m) (prompt "Create regex to match:"))
+
+test "variant_summarizer": DocumentSummarizer
+test "variant_translator": Translator
+test "variant_writing": WritingAssistant
+test "variant_sql": SQLGenerator
+test "variant_regex": RegexHelper
+
+-----------------------------------------------------
+-- Tests: Rules
+-----------------------------------------------------
+test "load_model_rule": (loadModel "model.bin")
+test "quantize_rule": (quantize tensor)
+test "dequantize_rule": (dequantize packed)
+test "check_webgpu_rule": checkWebGPU
+
+-- =============================================================================
+-- Browser Agent Checklist
+-- =============================================================================
+-- [x] Grammar: BrowserSLM, CodeReviewAgent, Capabilities
+-- [x] Grammar: WebGPU types, operations, buffers
+-- [x] Grammar: Model loading, quantization (FP32 -> INT4)
+-- [x] Grammar: Inference pipeline (generate, forward_pass, sampling)
+-- [x] Grammar: Code analysis prompts and review parsing
+-- [x] Grammar: Application state and GPU info
+-- [x] Grammar: UI components (React-like)
+-- [x] Grammar: HTML elements and attributes
+-- [x] Grammar: Web compilation and deployment
+-- [x] Grammar: Browser agent variants (Summarizer, Translator, etc.)
+-- [x] Rules: Model loading, quantization, inference
+-- [x] Rules: Code analysis, WebGPU dispatch
+-- [x] Rules: Application lifecycle, compilation
+-- [ ] Full WebGPU compilation (needs WGSL codegen)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
+
+-- THE INSIGHT:
+-- 1. PRIVACY: Your code/documents never leave your device
+-- 2. SPEED: No network latency, instant responses
+-- 3. COST: No API fees, runs on hardware you already own
+-- 4. OFFLINE: Works without internet after initial load
+-- 5. SCALE: No server costs as users grow
+--
+-- THE PHI ADVANTAGE:
+-- - One spec describes model + UI + deployment
+-- - Type-safe tensor operations (no shape bugs)
+-- - Compiles to optimized WebGPU shaders
+-- - Same code could target CUDA for server deployment
+--
+-- Grammar = Implementation, all the way to the browser.

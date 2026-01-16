@@ -1,0 +1,307 @@
+-- rust_good_parts.lego: Rust - Ownership and Zero-Cost Abstractions
+-- Affine types for memory safety, zero-cost abstractions
+-- Linear logic for borrowing, algebraic data types
+
+lang RustGoodParts :=
+
+-----------------------------------------------------
+-- Ownership (Affine Types)
+-----------------------------------------------------
+piece Ownership
+  owned ::= "(" "Own" term ")"
+          | "own" term
+          | "move" term
+          | "drop" term
+
+-----------------------------------------------------
+-- Borrowing (Linear Logic)
+-----------------------------------------------------
+piece Borrow
+  borrow ::= "(" "Borrow" lifetime term ")"
+           | "borrow_ref" term
+           | "borrow_mut" term
+           | "&" term
+           | "&mut" term
+  lifetime ::= "'" name
+
+-----------------------------------------------------
+-- Result Type
+-----------------------------------------------------
+piece ResultType
+  result ::= "(" "Ok" term ")"
+           | "(" "Err" term ")"
+           | "Result" type type
+
+-----------------------------------------------------
+-- Option Type
+-----------------------------------------------------
+piece OptionType
+  option ::= "(" "Some" term ")"
+           | "None"
+           | "Option" type
+
+-----------------------------------------------------
+-- Pattern Matching
+-----------------------------------------------------
+piece Match
+  match ::= "match" term "{" arms "}"
+  arms ::= arm | arm "," arms
+  arm ::= pattern "=>" term
+  pattern ::= name | "_" | "(" constructor patternlist ")"
+            | literal | "(" pattern "|" pattern ")"
+  patternlist ::= pattern | pattern "," patternlist
+  constructor ::= "Ok" | "Err" | "Some" | "None" | name
+
+-----------------------------------------------------
+-- Traits
+-----------------------------------------------------
+piece Trait
+  trait ::= "trait" name "{" traitbody "}"
+  traitbody ::= traitfn | traitfn traitbody
+  traitfn ::= "fn" name params "->" type
+  impl ::= "impl" name "for" type "{" implbody "}"
+  implbody ::= implfn | implfn implbody
+  implfn ::= "fn" name params "->" type "=" term
+
+-----------------------------------------------------
+-- Common Traits
+-----------------------------------------------------
+piece CommonTraits
+  commontrait ::= "Clone" | "Copy" | "Send" | "Sync"
+                | "Drop" | "Default" | "Debug" | "Display"
+                | "Iterator" | "IntoIterator" | "FromIterator"
+                | "Eq" | "PartialEq" | "Ord" | "PartialOrd"
+                | "Hash" | "From" | "Into"
+
+-----------------------------------------------------
+-- Iterator (Zero-Cost Abstraction)
+-----------------------------------------------------
+piece Iterator
+  iter ::= term ".iter" "()"
+         | term ".into_iter" "()"
+         | term ".iter_mut" "()"
+         | iter ".map" "(" term ")"
+         | iter ".filter" "(" term ")"
+         | iter ".fold" "(" term "," term ")"
+         | iter ".collect" "()"
+         | iter ".sum" "()"
+         | iter ".take" "(" number ")"
+         | iter ".skip" "(" number ")"
+         | iter ".zip" "(" iter ")"
+         | iter ".enumerate" "()"
+         | iter ".chain" "(" iter ")"
+         | iter ".flatten" "()"
+
+-----------------------------------------------------
+-- Memory Layout
+-----------------------------------------------------
+piece MemoryLayout
+  layout ::= "size_of" type
+           | "align_of" type
+           | "Vec" "<" type ">"
+           | "[" type ";" number "]"
+           | "Box" "<" type ">"
+           | "Rc" "<" type ">"
+           | "Arc" "<" type ">"
+
+-----------------------------------------------------
+-- Concurrency
+-----------------------------------------------------
+piece Concurrency
+  concurrent ::= "Arc" "<" term ">"
+               | "Mutex" "<" term ">"
+               | "RwLock" "<" term ">"
+               | "channel" "()"
+               | term ".lock" "()"
+               | term ".read" "()"
+               | term ".write" "()"
+               | "spawn" term
+               | "join" term
+
+-----------------------------------------------------
+-- Error Handling
+-----------------------------------------------------
+piece ErrorHandling
+  errorhandling ::= term "?"           -- propagate
+                  | "unwrap" term
+                  | "expect" term string
+                  | "unwrap_or" term term
+                  | "unwrap_or_else" term term
+                  | "map_err" term term
+                  | "ok_or" term term
+                  | "ok_or_else" term term
+
+-----------------------------------------------------
+-- Closures
+-----------------------------------------------------
+piece Closure
+  closure ::= "|" params "|" term
+            | "move" "|" params "|" term
+            | "Fn" "(" types ")" "->" type
+            | "FnMut" "(" types ")" "->" type
+            | "FnOnce" "(" types ")" "->" type
+  params ::= name | name "," params
+  types ::= type | type "," types
+
+-----------------------------------------------------
+-- Structs and Enums
+-----------------------------------------------------
+piece StructEnum
+  struct ::= "struct" name "{" structfields "}"
+  structfields ::= structfield | structfield "," structfields
+  structfield ::= name ":" type
+  enum ::= "enum" name "{" variants "}"
+  variants ::= variant | variant "," variants
+  variant ::= name | name "(" types ")" | name "{" structfields "}"
+
+-----------------------------------------------------
+-- Lifetimes
+-----------------------------------------------------
+piece Lifetimes
+  lftype ::= type "<" lifetime ">"
+           | "&" lifetime type
+           | "&" lifetime "mut" type
+  lfbound ::= lifetime ":" lifetime
+
+-----------------------------------------------------
+-- Helper types
+-----------------------------------------------------
+piece RustHelpers
+  type ::= name | name "<" types ">"
+  literal ::= number | string | "true" | "false"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule move_ownership:
+  (move (Own $x)) ~> $x
+
+rule drop_owned:
+  (drop (Own $x)) ~> unit
+
+rule borrow_ref:
+  (borrow_ref (Own $x)) ~> (Borrow 'a $x)
+
+rule match_ok:
+  (match (Ok $v) { (Ok $x) => $then, (Err $e) => $else }) ~> $then
+
+rule match_err:
+  (match (Err $e) { (Ok $x) => $then, (Err $y) => $else }) ~> $else
+
+rule match_some:
+  (match (Some $v) { (Some $x) => $then, None => $else }) ~> $then
+
+rule match_none:
+  (match None { (Some $x) => $then, None => $else }) ~> $else
+
+rule unwrap_ok:
+  (unwrap (Ok $v)) ~> $v
+
+rule unwrap_some:
+  (unwrap (Some $v)) ~> $v
+
+rule unwrap_or_none:
+  (unwrap_or None $default) ~> $default
+
+rule unwrap_or_some:
+  (unwrap_or (Some $v) $default) ~> $v
+
+rule propagate_ok:
+  ((Ok $v) ?) ~> (Ok $v)
+
+rule propagate_err:
+  ((Err $e) ?) ~> (return (Err $e))
+
+rule iter_map:
+  ((iter []).map($f)) ~> (iter [])
+
+rule iter_map_cons:
+  ((iter [$x | $xs]).map($f)) ~> (iter [(app $f $x) | ((iter $xs).map($f))])
+
+rule iter_filter:
+  ((iter []).filter($p)) ~> (iter [])
+
+rule iter_collect:
+  ((iter $xs).collect()) ~> $xs
+
+rule iter_sum:
+  ((iter []).sum()) ~> 0
+
+rule iter_sum_cons:
+  ((iter [$x | $xs]).sum()) ~> (add $x ((iter $xs).sum()))
+
+rule iter_fold:
+  ((iter []).fold($acc, $f)) ~> $acc
+
+rule iter_fold_cons:
+  ((iter [$x | $xs]).fold($acc, $f)) ~> ((iter $xs).fold((app (app $f $acc) $x), $f))
+
+rule arc_clone:
+  (clone (Arc $x)) ~> (Arc $x)
+
+rule mutex_lock:
+  ((Mutex $x).lock()) ~> (MutexGuard $x)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "own": (Own value)
+test "move": (move (Own x))
+test "borrow": (borrow_ref (Own x))
+test "borrow_mut": (borrow_mut (Own x))
+test "ref": (& value)
+test "mut_ref": (&mut value)
+
+test "ok": (Ok 42)
+test "err": (Err "error")
+test "some": (Some value)
+test "none": None
+
+test "match_result": (match result { (Ok x) => x, (Err e) => 0 })
+test "match_option": (match opt { (Some x) => x, None => default })
+
+test "unwrap_ok": (unwrap (Ok 5)) ~~> 5
+test "unwrap_some": (unwrap (Some 5)) ~~> 5
+test "unwrap_or_none": (unwrap_or None 10) ~~> 10
+test "unwrap_or_some": (unwrap_or (Some 5) 10) ~~> 5
+
+test "propagate": (result ?)
+
+test "iter_chain": ((vec.iter()).map(|x| (mul x 2)).filter(|x| (gt x 5)).collect())
+test "iter_sum": ((vec.iter()).sum())
+test "iter_fold": ((vec.iter()).fold(0, |acc, x| (add acc x)))
+
+test "closure": (|x| (add x 1))
+test "move_closure": (move |x| (add x captured))
+
+test "vec": (Vec < i32 >)
+test "array": ([i32; 10])
+test "box": (Box < String >)
+test "arc": (Arc < Mutex < Data > >)
+
+test "trait_clone": Clone
+test "trait_send": Send
+test "trait_sync": Sync
+
+test "arc_new": (Arc data)
+test "mutex_new": (Mutex value)
+test "lock": ((Mutex x).lock())
+
+test "spawn": (spawn (|| work))
+test "channel": (channel ())
+
+test "match_ok_rule": (match (Ok 42) { (Ok x) => x, (Err e) => 0 }) ~~> 42
+test "match_err_rule": (match (Err "fail") { (Ok x) => x, (Err e) => 0 }) ~~> 0
+test "match_some_rule": (match (Some 10) { (Some x) => x, None => 0 }) ~~> 10
+test "match_none_rule": (match None { (Some x) => x, None => 0 }) ~~> 0
+
+test "move_own": (move (Own x)) ~~> x
+
+-- =============================================================================
+-- Rust Good Parts Checklist
+-- =============================================================================
+-- [x] Grammar: Ownership, borrowing, Result/Option, iterators
+-- [x] Rules: Pattern matching, unwrap, iterator fusion
+-- [ ] Full borrow checker (needs lifetime analysis)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
