@@ -631,14 +631,14 @@ def analyzeLegoFile (path : String) : IO (List TestResult) := do
 
 /-- Run .lego file parsing tests -/
 def runLegoFileTests : IO (List TestResult) := do
-  -- Test files in toy/test/
+  -- Test files in toy/test/ and toy/examples/
   let testPath := "./test"
+  let examplePath := "./examples"
   let files := [
-    s!"{testPath}/Lambda.lego",
-    s!"{testPath}/Arith.lego",
-    s!"{testPath}/INet.lego",
-    s!"{testPath}/Meta.lego",
-    s!"{testPath}/K.lego",
+    s!"{examplePath}/Lambda.lego",
+    s!"{examplePath}/Arith.lego",
+    s!"{examplePath}/INet.lego",
+    s!"{examplePath}/K.lego",
     s!"{testPath}/Bootstrap.lego"
   ]
   let mut results : List TestResult := []
