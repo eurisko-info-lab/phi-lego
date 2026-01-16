@@ -31,7 +31,9 @@ token Token
            | 'Α' | 'Β' | 'Γ' | 'Δ' | 'Ε' | 'Ζ' | 'Η' | 'Θ' | 'Ι' | 'Κ'
            | 'Λ' | 'Μ' | 'Ν' | 'Ξ' | 'Ο' | 'Π' | 'Ρ' | 'Σ' | 'Τ' | 'Υ'
            | 'Φ' | 'Χ' | 'Ψ' | 'Ω' ;
-  alpha  ::= lower | upper | greek | '_' ;
+  -- Double-struck (blackboard bold) letters used in type theory (𝕀 for interval, etc)
+  mathbb ::= '𝕀' | '𝔽' | '𝕊' ;
+  alpha  ::= lower | upper | greek | mathbb | '_' ;
   symch  ::= '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>'
            | ':' | ';' | ',' | '.' | '|' | '!' | '?' | '@'
            | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '-'
@@ -39,7 +41,9 @@ token Token
            | '⊢' | '×' | 'λ' | '∂' | '∀' | '∃' ;
 
   -- Token patterns
-  ident   ::= alpha (alpha | digit | '-')* ;
+  -- Note: '/' is allowed in identifiers for hierarchical names (e.g., trans/filler in redtt)
+  -- Note: '\'' is allowed as a suffix for primed identifiers (e.g., symm' in redtt)
+  ident   ::= alpha (alpha | digit | '-' | '/' | '\'')* ;
   number  ::= digit digit* ;
   string  ::= '"' strchar* '"' ;
   strchar ::= '\\' escape | printable ;

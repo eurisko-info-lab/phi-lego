@@ -10,10 +10,14 @@
 import Lego.Algebra
 import Lego.Interp
 import Lego.Bootstrap
+import Lego.Validation
+import Std.Data.HashMap
 
 namespace Lego.Loader
 
 open Lego
+open Lego.Validation
+open Std (HashMap)
 
 /-! ## Helper Functions -/
 
@@ -309,6 +313,23 @@ partial def extractSymbols (g : GrammarExpr) : List String :=
 def extractAllSymbols (prods : Productions) : List String :=
   prods.flatMap (fun (_, g) => extractSymbols g) |>.eraseDups
 
+/-! ## Validation Helpers -/
+
+/-- Convert Productions list to HashMap for validation -/
+def productionsToHashMap (prods : Productions) : HashMap String GrammarExpr :=
+  prods.foldl (init := HashMap.emptyWithCapacity) fun acc (name, g) =>
+    acc.insert name g
+
+/-- Validate productions and return result -/
+def validateProductions (prods : Productions) : ValidationResult :=
+  let grammarMap := productionsToHashMap prods
+  validateGrammar grammarMap
+
+/-- Validate a full piece (grammar + rules) -/
+def validatePiece (prods : Productions) (rules : List Rule) : ValidationResult :=
+  let grammarMap := productionsToHashMap prods
+  validate grammarMap rules
+
 /-! ## Grammar Loading -/
 
 /-- A loaded grammar ready for parsing -/
@@ -316,6 +337,7 @@ structure LoadedGrammar where
   productions : Productions
   symbols : List String
   startProd : String
+  validation : ValidationResult := ValidationResult.empty
   deriving Repr
 
 /-- Load a grammar from a .lego file -/
@@ -326,7 +348,8 @@ def loadGrammarFromFile (path : String) (startProd : String) : IO (Option Loaded
     | some ast =>
       let prods := extractAllProductions ast
       let symbols := extractAllSymbols prods
-      pure (some { productions := prods, symbols := symbols, startProd := startProd })
+      let validationResult := validateProductions prods
+      pure (some { productions := prods, symbols := symbols, startProd := startProd, validation := validationResult })
     | none =>
       pure none
   catch _ =>
@@ -336,7 +359,8 @@ def loadGrammarFromFile (path : String) (startProd : String) : IO (Option Loaded
 def loadGrammarFromAST (ast : Term) (startProd : String) : LoadedGrammar :=
   let prods := extractAllProductions ast
   let symbols := extractAllSymbols prods
-  { productions := prods, symbols := symbols, startProd := startProd }
+  let validationResult := validateProductions prods
+  { productions := prods, symbols := symbols, startProd := startProd, validation := validationResult }
 
 /-! ## Parsing with Loaded Grammar -/
 

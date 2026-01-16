@@ -45,17 +45,16 @@ piece Redtt
   -----------------------------------------------------
   -- Data Types (Higher Inductive Types)
   -- data Name where | Con1 | Con2 (x : A) | ...
-  -- (A : type) ⊢ data Name where ...  (parameterized)
-  -- (A B : type) ⊢ data Name where ...  (multiple params)
+  -- data (A : type) ⊢ Name where ...  (parameterized)
+  -- data (A B : type) ⊢ Name where ...  (multiple params)
+  -- data Name where ... (non-parameterized)
   -----------------------------------------------------
-  datadecl   ::= dataparams? "data" ident "where" datacons ;
+  datadecl   ::= "data" dataparams? ident "where" datacons ;
   dataparams ::= picell+ "⊢" ;
   datacons   ::= datacon* ;
-  datacon    ::= "|" ident dataconargs databdy? ;
+  datacon    ::= "|" ident dataconargs constraints? ;
   dataconargs ::= dataconarg* ;
   dataconarg ::= "(" ident ":" expr ")" ;
-  databdy    ::= "[" databdyconstr ("|" databdyconstr)* "]" ;
-  databdyconstr ::= ident "=" dimexpr "→" expr ;
   
   -----------------------------------------------------
   -- Expressions (priority: low to high)
@@ -98,9 +97,13 @@ piece Redtt
   -----------------------------------------------------
   -- Let: let x : A = M in N  OR  let f (x : A) : B = M in N
   --      let (x, y) = M in N  (pattern matching)
+  -- Note: letvalue restricted to avoid consuming 'in' as application arg
+  -- projexpr handles: atoms, projections, but not application chains
+  -- For complex values, use parentheses: let x = (complex expr) in ...
   -----------------------------------------------------
-  letin      ::= "let" letpat binders? (":" expr)? "=" expr "in" expr ;
+  letin      ::= "let" letpat binders? (":" expr)? "=" letvalue "in" expr ;
   letpat     ::= "(" ident ("," ident)+ ")" | ident ;
+  letvalue   ::= projexpr ;
   
   -----------------------------------------------------
   -- Path Types
