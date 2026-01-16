@@ -20,11 +20,22 @@ open Lego
 
 /-! ## Roundtrip for Concrete Isos -/
 
-/-- If parseGrammar succeeds, printGrammar can reconstruct (axiom connecting to impl) -/
-axiom parseGrammar_printGrammar_roundtrip (prods : Productions) (g : GrammarExpr)
+/-- If parseGrammar succeeds, printGrammar can reconstruct (axiom connecting to impl).
+    TODO: Prove by induction on grammar structure when fuel is sufficient. -/
+axiom parseGrammar_printGrammar_roundtrip (fuel : Nat) (prods : Productions) (g : GrammarExpr)
     (st : ParseState) (t : Term) (st' : ParseState) :
-    parseGrammar prods g st = some (t, st') →
-    ∃ tokens, printGrammar prods g t [] = some tokens
+    parseGrammar fuel prods g st = some (t, st') →
+    ∃ tokens, printGrammar fuel prods g t [] = some tokens
+
+/-- grammarToIso.forward is deterministic: same input gives same output -/
+theorem grammarToIso_forward_deterministic (prods : Productions) (startProd : String) :
+    let iso := grammarToIso prods startProd
+    ∀ tokens t₁ t₂,
+      iso.forward tokens = some t₁ →
+      iso.forward tokens = some t₂ →
+      t₁ = t₂ := by
+  intro iso tokens t₁ t₂ h₁ h₂
+  simp_all
 
 /-- grammarToIso has forward roundtrip on its domain -/
 axiom grammarToIso_forward_rt (prods : Productions) (startProd : String) :
