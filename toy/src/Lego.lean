@@ -23,7 +23,6 @@
 import Lego.Algebra
 import Lego.Interp
 import Lego.Bootstrap
-import Lego.Laws
 import Lego.Loader
 import Lego.Validation
 

@@ -23,4 +23,7 @@ test/build/
 # OS
 .DS_Store
 Thumbs.db
-toy/.lake/
+.lake/
+elm-stuff/
+toy/examples/music/main.js
+toy/examples/music/elm.js
