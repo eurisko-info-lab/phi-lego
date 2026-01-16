@@ -11,12 +11,12 @@ I've completed a thorough analysis of the Lean code in `/home/patrick/IdeaProjec
 - Grammar is data that can be interpreted at runtime
 - The system is self-hosting: a grammar can parse grammars
 
-**Code Organization (1,928 lines total):**
+**Code Organization (2,100+ lines total):**
 - `Algebra.lean` (377 lines) - Core algebraic structures
-- `Interp.lean` (455 lines) - Grammar interpretation engine
+- `Interp.lean` (470 lines) - Grammar interpretation engine (total with fuel)
 - `Loader.lean` (605 lines) - Load/parse .lego files
 - `Validation.lean` (359 lines) - Semantic validation
-- `Laws.lean` (76 lines) - Algebraic laws and axioms
+- `Laws.lean` (179 lines) - Algebraic laws: proven theorems + axioms
 - `Bootstrap.lean` (56 lines) - Meta-grammar definition
 
 ---
@@ -134,23 +134,25 @@ partial def tokenizeWithGrammar (prods : Productions) (mainProds : List String)
 ### C. Token-Level Parsing (`parseGrammar` in Interp.lean)
 
 ```lean
-partial def parseGrammar (prods : Productions) (g : GrammarExpr) (st : ParseState) : ParseResult
+def parseGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (st : ParseState) : ParseResult
 ```
 
-- **Input**: TokenStream, Grammar, ParseState (tokens + bindings)
+- **Total function**: Uses fuel parameter for termination (no partial)
+- **Input**: TokenStream, Grammar, ParseState (tokens + bindings), fuel limit
 - **Handles built-in token types**: `TOKEN.ident`, `TOKEN.string`, `TOKEN.char`, `TOKEN.number`, `TOKEN.sym`
 - **Sequence**: combines adjacent terms via `combineSeq` helper (seqs flatten)
-- **Star**: collects 0+ repetitions into `(seq ...)` term
+- **Star**: collects 0+ repetitions into `(seq ...)` term via inner `go` function
 - **Bind**: captures to bindings list
 - **Node**: wraps result with constructor name
 
 ### D. Bidirectional Printing (`printGrammar` in Interp.lean)
 
 ```lean
-partial def printGrammar (prods : Productions) (g : GrammarExpr) (t : Term) 
+def printGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (t : Term) 
     (acc : List Token) : Option (List Token)
 ```
 
+- **Total function**: Uses fuel parameter like parseGrammar
 - **Inverse of parsing**: reconstructs token stream from term
 - Uses `splitSeq` to decompose sequenced terms
 - Returns accumulated token list
@@ -254,24 +256,56 @@ Detects semantic errors that pass parsing:
 
 ## 6. Laws and Algebraic Properties (Laws.lean)
 
-**Currently using Axioms (not proven):**
+### Proven Theorems:
+
+```lean
+-- Iso Laws (fully proven)
+instance : LawfulIso (Iso.id : Iso A A)
+theorem comp_lawful [LawfulIso f] [LawfulIso g] : 
+    (f >>> g) is lawful if f and g are
+
+-- Grammar Parsing Laws (proven via structural decomposition)
+theorem star_unfold_zero : parseGrammar 0 prods g.star st = none
+    -- Zero fuel trivially fails
+
+theorem empty_succeeds : fuel > 0 → parseGrammar fuel prods .empty st = some (.con "unit" [], st)
+    -- Empty grammar returns unit
+
+theorem alt_first_success' : parseGrammar fuel prods (.mk (.alt g1 g2)) st = some (t, st') →
+    (parseGrammar (fuel-1) prods g1 st = some (t, st') ∨
+     (parseGrammar (fuel-1) prods g1 st = none ∧
+      parseGrammar (fuel-1) prods g2 st = some (t, st')))
+    -- Case analysis on first alternative (both branches proven)
+```
+
+**Proof Pattern:** Match on fuel, handle 0 trivially, then for `n+1` simp and case analyze.
+
+### Axioms (remaining):
 
 ```lean
 -- Kleene Algebra Laws
 axiom seq_assoc : Sequence is associative (semantically)
-axiom alt_comm_semantic : Alternative is commutative
-axiom star_unfold_semantic : g* = (g ⬝ g*) ⊕ ε
+    -- Requires showing combineSeq is associative
+
+-- Alternative Laws (corrected from original)
+axiom alt_comm_disjoint : For disjoint alternatives, a|b = b|a
+    -- Note: Original alt_comm_semantic was FALSE (Option.<|> is left-biased)
+axiom alt_left_fail : parseGrammar _ a st = none → (a|b) = b
+axiom alt_left_success : parseGrammar _ a st = some r → (a|b) = some r
 
 -- Bidirectional Roundtrip
 axiom roundtrip : parse ∘ print = id (on domain where both succeed)
 
 -- Confluence
 axiom confluence : Normalizing with rules is confluent (Church-Rosser)
+```
 
--- Iso Laws (proven)
-instance : LawfulIso (Iso.id : Iso A A)
-theorem comp_lawful [LawfulIso f] [LawfulIso g] : 
-    (f >>> g) is lawful if f and g are
+### Edge Cases (marked sorry, need lemmas about nested `go` or do-notation):
+
+```lean
+theorem seq_parse'      -- do-notation bind elimination
+theorem star_zero_matches -- go's internal fuel semantics
+theorem star_one_match   -- go's accumulation semantics
 ```
 
 ---
@@ -472,7 +506,10 @@ The `generated/` directory contains pre-compiled code:
 | Grammar equivalence | Syntactic BEq | Semantic setoid + quotient | Prove Kleene algebra laws formally |
 | Term substitution | List-based bindings | Equivalence classes for alpha/beta/eta | Type-safe, formally correct rewriting |
 | Rule normalization | Fixpoint iteration | Quotient by reducibility | Canonical representatives, confluence |
-| Iso properties | Axioms | Path types / equivalences | Formalize roundtrip, type safety |
+| Iso properties | Proven for id/comp | Path types / equivalences | Extend to all constructions |
 | Bootstrap self-proof | Informal | Higher inductive GrammarPath | Formal verification of meta-circularity |
+| Grammar parsing laws | Mix of proven/axioms | Complete proofs via go lemmas | Full formal verification |
 
-The codebase is a beautiful example of **language as algebra**, and these techniques would formalize the algebraic properties that are currently expressed as axioms or informal reasoning.
+**Key Discovery:** `Option.<|>` is left-biased, not commutative—the original `alt_comm_semantic` axiom was FALSE. Replaced with correct `alt_comm_disjoint` for genuinely disjoint alternatives.
+
+The codebase is a beautiful example of **language as algebra**, and these techniques would formalize the algebraic properties. The fuel-based total functions now enable proving theorems that were previously only axioms.
