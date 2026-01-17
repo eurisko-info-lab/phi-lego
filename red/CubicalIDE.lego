@@ -133,6 +133,8 @@ rule eraseAll_cons:
 piece IDE
   ide ::= "open" term
         | "typecheck" term
+        | "infer" term
+        | "check" term type
         | "normalize" term
         | "visualize" net
 
@@ -140,7 +142,11 @@ rules:
   rule open_file:
     (open $t) ~> $t
   rule typecheck_term:
-    (typecheck $t) ~> infer $t
+    (typecheck $t) ~> inferType $t
+  rule infer_term:
+    (infer $t) ~> inferType $t
+  rule check_term:
+    (check $t $ty) ~> typecheckTerm $t $ty
   rule normalize_term:
     (normalize $t) ~> eval $t
   rule visualize_net:

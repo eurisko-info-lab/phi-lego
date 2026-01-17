@@ -95,11 +95,22 @@ normalize t = t
 -----------------------------------------------------
 -- IDE Operations
 -----------------------------------------------------
+import CubicalTypecheck
+
 open : Term -> Term
 open t = t
 
-typecheck : Term -> Type
-typecheck t = infer t  -- stub: could call RedTT type inference
+-- Type check with full error reporting
+typecheck : Term -> Result Type
+typecheck t = inferType t
+
+-- Infer type of term
+infer : Term -> Result Type
+infer t = inferType t
+
+-- Check term against expected type
+check : Term -> Type -> Result ()
+check t ty = typecheckTerm t ty
 
 visualize : NetCell -> String
 visualize n = show n  -- stub: could render graph

@@ -138,11 +138,22 @@ normalize (HIT (TruncN t n)) = HIT (TruncN (normalize t) n)
 -----------------------------------------------------
 -- IDE Operations
 -----------------------------------------------------
+import CubicalTypecheck
+
 open : Term -> Term
 open t = t
 
-typecheck : Term -> Type
-typecheck t = infer t -- stub: placeholder
+-- Type check a term, returning result with errors
+typecheck : Term -> Result Type
+typecheck t = inferType t
+
+-- Infer type (alias for compatibility)
+infer : Term -> Result Type
+infer t = inferType t
+
+-- Check term against expected type
+check : Term -> Type -> Result ()
+check t ty = typecheckTerm t ty
 
 -- Visualize NetCells as ASCII graph
 visualize : NetCell -> String
