@@ -71,9 +71,12 @@ toy/
 ├── lakefile.lean            -- Lake build config
 ├── lean-toolchain           -- Lean version
 ├── Main.lean                -- Entry point
-├── Test.lean                -- Test suite (127 tests)
+├── Test.lean                -- Core test suite (111 tests)
+├── TestRed.lean             -- Red/cubical tests (190 tests)
 ├── ATTR-TODO.md             -- Attribute grammar implementation status
 ├── README.md                -- This file
+├── docs/
+│   └── REDTT.md             -- Red module documentation
 └── src/
     ├── Lego.lean            -- Re-exports all modules
     └── Lego/
@@ -83,8 +86,27 @@ toy/
         ├── Interp.lean      -- Grammar interpretation (parse/print)
         ├── Bootstrap.lean   -- Meta (pre-compiled, like Grammar.sexpr)
         ├── Laws.lean        -- Algebraic laws and axioms
+        ├── Red/
+        │   ├── Core.lean    -- Cubical type theory core IR
+        │   └── TypeAttrs.lean -- Type checking rules
         └── Example/
             └── Lambda.lean  -- Lambda calculus + Interaction nets examples
+```
+
+## Red: Cubical Type Theory
+
+The `Lego.Red` module implements cubical type theory with:
+- **De Bruijn indexed Core IR** with substitution engine
+- **Universe polymorphism** with Level expressions (zero, suc, max, lvar)
+- **Path types** with η-laws: `p ≡ λi. p @ i`, `refl a ≡ λi. a`
+- **Coercion and composition** (coe, hcom, hcomTube)
+- **Tube agreement checking** for composition
+
+See [docs/REDTT.md](docs/REDTT.md) for full documentation.
+
+```bash
+# Run Red tests (190 tests)
+lake exe lego-test-red --all
 ```
 
 ## Attribute Grammars
