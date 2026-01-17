@@ -1183,16 +1183,22 @@ def runRedttAttrEvalTests : IO (List TestResult) := do
     ("var_in_ctx", Term.var "x"),
     -- Literal
     ("lit", Term.lit "42"),
-    -- Lambda - uses bound variable that IS the binder (x bound to Type, body is x)
-    -- The issue: lam child[2] (body) references x which isn't in ctx yet
-    -- This is expected - proper eval needs to extend ctx with x:Type before evaluating body
-    -- For now, use a term where body doesn't reference the bound var
+    -- Lambda with constant body (no bound var reference)
     ("lam_const", Term.con "lam" [.var "z", .var "Type", .var "a"]),
+    -- Lambda with bound variable in body (tests scope extension!)
+    -- λ w : Type . w  (identity on types)
+    ("lam_id", Term.con "lam" [.var "w", .var "Type", .var "w"]),
+    -- Nested lambdas with scoping
+    -- λ p : A . λ q : B . p
+    ("lam_nested", Term.con "lam" [.var "p", .var "A",
+                     Term.con "lam" [.var "q", .var "B", .var "p"]]),
     -- Application (with context)
     ("app", Term.con "app" [.var "f", .var "a"]),
-    -- Pi type - same issue: B might reference A
-    -- Use a non-dependent Pi
+    -- Pi type - non-dependent
     ("pi_nondep", Term.con "Pi" [.var "unused", .var "A", .var "B"]),
+    -- Pi type - dependent! The codomain references the bound variable
+    -- Π v : Type . v  (identity type family)
+    ("pi_dep", Term.con "Pi" [.var "v", .var "Type", .var "v"]),
     -- Refl (with context)
     ("refl", Term.con "refl" [.var "a"]),
     -- Path type (with context)

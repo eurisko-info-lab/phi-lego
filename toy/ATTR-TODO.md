@@ -1,6 +1,6 @@
 # Attribute Grammar Implementation
 
-**Status**: Phase 10 Complete ✅ (Full Integration Test with Redtt)
+**Status**: Phase 11 Complete ✅ (Scope Handling for Binders)
 
 ## Mathematical Foundation
 
@@ -83,20 +83,32 @@ Attribute Grammars are catamorphisms + paramorphisms over parse trees:
 - [x] Validates `evalAllAttrs` produces expected synthesized attributes
 - [x] All 124 tests pass (113 fast + 11 redtt attr eval + 733/733 parsing)
 
+### Phase 11: Scope Handling for Binders ✅
+- [x] `binderProductions`: List of (prod, binderIdx, typeIdx, bodyIdx)
+      - lam, Pi, Sigma: (0, 1, 2) - binder name, type, body
+      - let: (0, 1, 3) - name, type, value, body
+- [x] `getBinderInfo`: Lookup binder metadata by production name
+- [x] `extractName`: Extract variable name from Term.var or Term.lit
+- [x] `isBindingPosition`: Skip variable lookup for binder names
+- [x] Context extension: Extend ctx with binder when evaluating body
+- [x] Tests: lam_id (λ w : Type . w), lam_nested, pi_dep
+- [x] All 127 tests pass
+
 ## Completed ✅
 
-All 10 phases complete! The attribute grammar system is fully operational:
+All 11 phases complete! The attribute grammar system is fully operational:
 - Core types and evaluation
 - Grammar syntax parsing
 - Redtt integration
 - Error reporting with source locations
 - Full integration tests
+- **Proper scope handling for binders**
 
 ## Next Steps
 
 ### Future Work (Optional)
 - [ ] Production-ready type inference rules in AttrEval
-- [ ] Proper scope handling for binders (extend ctx in lambda body)
+- [ ] let bindings with values (extend context with value as well as type)
 - [ ] Performance optimization for large files
 - [ ] Integration with CubicalTypecheck.red
 

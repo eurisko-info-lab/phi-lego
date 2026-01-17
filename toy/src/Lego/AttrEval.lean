@@ -288,10 +288,29 @@ def mergeEvalEnv (acc child : EvalEnv) : EvalEnv :=
     attrs := AttrEnv.merge acc.attrs child.attrs
     errors := acc.errors ++ child.errors }
 
+/-- Productions that bind variables: (prod, binderChildIdx, typeChildIdx, bodyChildIdx) -/
+def binderProductions : List (String × Nat × Nat × Nat) :=
+  [ ("lam", 0, 1, 2)    -- λ x : A . body
+  , ("Pi", 0, 1, 2)     -- Π x : A . B
+  , ("Sigma", 0, 1, 2)  -- Σ x : A . B
+  , ("let", 0, 1, 3)    -- let x : A = v in body (body is child 3)
+  ]
+
+/-- Get binder info if this is a binder production -/
+def getBinderInfo (prod : String) : Option (Nat × Nat × Nat) :=
+  binderProductions.find? (·.1 == prod) |>.map (fun (_, a, b, c) => (a, b, c))
+
+/-- Extract variable name from a term (handles var and lit) -/
+def extractName (t : Term) : Option String :=
+  match t with
+  | .var n => some n
+  | .lit n => some n
+  | _ => none
+
 /-- Evaluate synthesized attributes bottom-up with error handling.
 
     For each node:
-    1. Recursively evaluate children
+    1. Recursively evaluate children (with scope extension for binders)
     2. Collect children's synthesized attributes
     3. Evaluate this node's rules using children's attributes
     4. Report errors for missing/invalid attributes -/
@@ -307,9 +326,42 @@ partial def evalSynWithErrors
     let config' := { config with maxDepth := config.maxDepth - 1 }
     match term with
     | .con prod children =>
-      -- Step 1: Recursively evaluate children and collect attributes
+      -- Check if this is a binder production
+      let binderInfo := getBinderInfo prod
+
+      -- Step 1: Recursively evaluate children with scope handling
       let childResults := enumerate children |>.map fun (i, child) =>
-        let childEnv := evalSynWithErrors config' defs child parentEnv
+        -- Check if this child is in a binding position (binder name in lam/Pi/etc)
+        let isBindingPosition := match binderInfo with
+          | some (binderIdx, _, _) => i == binderIdx
+          | none => false
+
+        -- For binder productions, extend context before evaluating body
+        let evalEnv := match binderInfo with
+          | some (binderIdx, typeIdx, bodyIdx) =>
+            if i == bodyIdx then
+              -- This is the body - extend context with the binder
+              let binderTerm := children[binderIdx]?
+              let typeTerm := children[typeIdx]?
+              match binderTerm, typeTerm with
+              | some bt, some tt =>
+                match extractName bt with
+                | some name => parentEnv.addBinding name tt
+                | none => parentEnv
+              | _, _ => parentEnv
+            else
+              parentEnv
+          | none => parentEnv
+
+        -- Skip variable lookup for binding positions
+        let childEnv := if isBindingPosition then
+          match child with
+          | .var name =>
+            -- Binder name - don't look up, just set name attribute
+            evalEnv.setAttr [] "name" (.lit name)
+          | _ => evalSynWithErrors config' defs child evalEnv
+        else
+          evalSynWithErrors config' defs child evalEnv
         let childName := s!"child{i}"
         -- Prefix child's attributes
         let prefixed : AttrEnv := ⟨childEnv.attrs.values.map fun ((path, name), val) =>
@@ -347,7 +399,10 @@ partial def evalSynWithErrors
       -- Literal: could be number, string, etc.
       parentEnv.setAttr [] "elab" (.lit s)
 
-/-- Evaluate inherited attributes top-down with error handling -/
+/-- Evaluate inherited attributes top-down with error handling.
+
+    For binder productions (lam, Pi, Sigma, let), extends context before
+    evaluating body children. -/
 partial def evalInhWithErrors
     (config : EvalConfig)
     (defs : List AttrDef)
@@ -360,10 +415,14 @@ partial def evalInhWithErrors
     let config' := { config with maxDepth := config.maxDepth - 1 }
     match term with
     | .con prod children =>
+      -- Check if this is a binder production
+      let binderInfo := getBinderInfo prod
+
       -- For each child, compute inherited attributes
       let inhDefs := defs.filter (fun d => d.flow == .inh)
       let childEnvs := enumerate children |>.map fun (i, child) =>
         let childName := s!"child{i}"
+
         -- For each inh attribute, check for rules targeting this child
         let childEnv := inhDefs.foldl (fun (env : EvalEnv) (def_ : AttrDef) =>
           match findRule prod [childName] def_.rules with
@@ -376,8 +435,26 @@ partial def evalInhWithErrors
             | some val => env.setAttr [] def_.name val
             | none => env
         ) EvalEnv.empty
+
+        -- For binder productions, extend context before evaluating body
+        let childEnvWithScope := match binderInfo with
+          | some (binderIdx, typeIdx, bodyIdx) =>
+            if i == bodyIdx then
+              let binderTerm := children[binderIdx]?
+              let typeTerm := children[typeIdx]?
+              match binderTerm, typeTerm with
+              | some bt, some tt =>
+                match extractName bt with
+                | some name =>
+                  { childEnv with ctx := childEnv.ctx.extend name tt }
+                | none => childEnv
+              | _, _ => childEnv
+            else
+              childEnv
+          | none => childEnv
+
         -- Recurse into child
-        evalInhWithErrors config' defs child childEnv
+        evalInhWithErrors config' defs child childEnvWithScope
 
       -- Merge all child environments
       childEnvs.foldl (fun acc env =>
