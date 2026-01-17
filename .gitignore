@@ -24,6 +24,5 @@ test/build/
 .DS_Store
 Thumbs.db
 .lake/
-elm-stuff/
-toy/examples/music/main.js
-toy/examples/music/elm.js
+toy/rust/
+node_modules/

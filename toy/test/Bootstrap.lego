@@ -18,7 +18,7 @@ lang Bootstrap :=
 
 token Token
   -- Character classes
-  digit  ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+  digit  ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '²' | '³' ;
   lower  ::= 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
            | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't'
            | 'u' | 'v' | 'w' | 'x' | 'y' | 'z' ;
@@ -33,12 +33,15 @@ token Token
            | 'Φ' | 'Χ' | 'Ψ' | 'Ω' ;
   -- Double-struck (blackboard bold) letters used in type theory (𝕀 for interval, etc)
   mathbb ::= '𝕀' | '𝔽' | '𝕊' ;
-  alpha  ::= lower | upper | greek | mathbb | '_' ;
+  -- Math symbols used in type theory
+  mathsym ::= '≈' | '≅' | '≤' | '≥' | '∘' | '⊗' | '⊙' | '∧' | '∨' ;
+  alpha  ::= lower | upper | greek | mathbb | mathsym | '_' ;
   symch  ::= '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>'
            | ':' | ';' | ',' | '.' | '|' | '!' | '?' | '@'
            | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '-'
            | '=' | '~' | '/' | '\\' | '→' | '←' | '↔' | '⊕'
-           | '⊢' | '×' | 'λ' | '∂' | '∀' | '∃' ;
+           | '⊢' | '×' | 'λ' | '∂' | '∀' | '∃' | '⦉' | '⦊'
+           | '«' | '»' | '★' | '☆' | '`' ;
 
   -- Token patterns
   -- Note: '/' is allowed in identifiers for hierarchical names (e.g., trans/filler in redtt)

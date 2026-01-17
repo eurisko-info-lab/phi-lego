@@ -12,6 +12,7 @@
 
 import Lego.Algebra
 import BootstrapRules
+import Std.Data.HashMap
 
 namespace Lego
 
@@ -46,7 +47,7 @@ def extractCharLit (s : String) : Option Char :=
     none
 
 /-- Default fuel for grammar operations -/
-def defaultFuel : Nat := 10000
+def defaultFuel : Nat := 100000
 
 /-- Interpret a GrammarExpr for lexing (CharStream → String)
     Single quotes in grammar match single characters.
@@ -129,14 +130,15 @@ def tryLexProd (prods : Productions) (prodName : String) (chars : CharStream) : 
 /-- Tokenize using grammar-driven lexing.
     tokenProds: all token productions
     mainProds: productions to try in priority order (longest/most-specific first)
+    keywords: reserved words that should be tokenized as symbols, not identifiers
     Each production name determines the Token constructor:
-    - ends with "ident" → Token.ident
+    - ends with "ident" → Token.ident (unless it's a keyword → Token.sym)
     - ends with "number" → Token.number
     - ends with "string" → Token.lit
     - "ws" or "comment" → skip (no token emitted)
     - otherwise → Token.sym -/
-def tokenizeWithGrammar (fuel : Nat) (prods : Productions) (mainProds : List String) (input : String) : TokenStream :=
-  go fuel prods mainProds input.toList []
+def tokenizeWithGrammar (fuel : Nat) (prods : Productions) (mainProds : List String) (input : String) (keywords : List String := []) : TokenStream :=
+  go fuel prods mainProds keywords input.toList []
 where
   skipWhitespace : CharStream → CharStream
     | [] => []
@@ -165,26 +167,29 @@ where
     | _ => none
 
   /-- Determine token type from production name -/
-  prodToToken (prodName : String) (value : String) : Option Token :=
+  prodToToken (keywords : List String) (prodName : String) (value : String) : Option Token :=
     let shortName := match prodName.splitOn "." with
       | [_, n] => n
       | _ => prodName
     -- Skip whitespace and comments
     if shortName == "ws" || shortName == "comment" then none
-    else if shortName == "ident" then some (Token.ident value)
+    else if shortName == "ident" then
+      -- Check if this identifier is a reserved keyword
+      if keywords.contains value then some (Token.sym value)
+      else some (Token.ident value)
     else if shortName == "number" then some (Token.number value)
     else if shortName == "string" || shortName == "char" then some (Token.lit value)
     else some (Token.sym value)
 
   /-- Try each production in priority order -/
-  tryTokenize (prods : Productions) (mainProds : List String) (chars : CharStream) : Option (Option Token × CharStream) :=
+  tryTokenize (prods : Productions) (mainProds : List String) (keywords : List String) (chars : CharStream) : Option (Option Token × CharStream) :=
     mainProds.findSome? fun prodName =>
       match tryLexProd prods prodName chars with
       | some (value, rest) =>
-        some (prodToToken prodName value, rest)
+        some (prodToToken keywords prodName value, rest)
       | none => none
 
-  go (fuel : Nat) (prods : Productions) (mainProds : List String) (chars : CharStream) (acc : TokenStream) : TokenStream :=
+  go (fuel : Nat) (prods : Productions) (mainProds : List String) (keywords : List String) (chars : CharStream) (acc : TokenStream) : TokenStream :=
     match fuel with
     | 0 => acc.reverse  -- fuel exhausted
     | fuel' + 1 =>
@@ -193,105 +198,165 @@ where
     | chars' =>
       -- Handle comments specially (-- to EOL, any unicode)
       match skipComment chars' with
-      | some rest => go fuel' prods mainProds rest acc
+      | some rest => go fuel' prods mainProds keywords rest acc
       | none =>
         -- Handle strings specially (any unicode content)
         match lexString chars' with
-        | some (str, rest) => go fuel' prods mainProds rest (Token.lit str :: acc)
+        | some (str, rest) => go fuel' prods mainProds keywords rest (Token.lit str :: acc)
         | none =>
-          match tryTokenize prods mainProds chars' with
-          | some (some tok, rest) => go fuel' prods mainProds rest (tok :: acc)
-          | some (none, rest) => go fuel' prods mainProds rest acc  -- ws: skip
+          match tryTokenize prods mainProds keywords chars' with
+          | some (some tok, rest) => go fuel' prods mainProds keywords rest (tok :: acc)
+          | some (none, rest) => go fuel' prods mainProds keywords rest acc  -- ws: skip
           | none =>
             -- Unknown char - skip it
             match chars' with
-            | _ :: rest => go fuel' prods mainProds rest acc
+            | _ :: rest => go fuel' prods mainProds keywords rest acc
             | [] => acc.reverse
 
 /-! ## Token-level Parsing State -/
 
-/-- Parsing state -/
+/-- Memo key: (position, production name) -/
+abbrev MemoKey := (Nat × String)
+
+/-- Memo entry: cached parse result -/
+structure MemoEntry where
+  result : Option (Term × Nat × List (String × Term))  -- (term, remaining pos, binds) or none
+  deriving Repr
+
+/-- Memo table for Packrat parsing -/
+abbrev MemoTable := Std.HashMap MemoKey MemoEntry
+
+/-- Parsing state with memoization -/
 structure ParseState where
   tokens : TokenStream
   binds  : List (String × Term)
+  memo   : MemoTable := {}  -- Packrat memo table
+  pos    : Nat := 0         -- Current position for memo keys
   deriving Repr, Nonempty
 
-/-- Result of grammar interpretation -/
-abbrev ParseResult := Option (Term × ParseState)
+/-- Result of grammar interpretation.
+    Always returns (optionalResult, updatedMemo) to enable proper Packrat memoization
+    where memo persists even through failures. -/
+abbrev ParseResult := Option (Term × ParseState) × MemoTable
 
 /-! ## Token-level Grammar Engine (Parser) -/
 
 /-- Interpret a GrammarExpr for parsing (forward direction).
-    Uses fuel for termination. -/
-def parseGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (st : ParseState) : ParseResult :=
+    Uses fuel for termination and Packrat memoization for efficiency.
+    Returns (result, updatedMemo) where memo is updated even on failure. -/
+partial def parseGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (st : ParseState) : ParseResult :=
   match fuel with
-  | 0 => none  -- fuel exhausted
+  | 0 => (none, st.memo)  -- fuel exhausted
   | fuel' + 1 =>
   match g with
-  | .mk .empty => some (.con "unit" [], st)
+  | .mk .empty => (some (.con "unit" [], st), st.memo)
 
   | .mk (.lit s) =>
     match st.tokens with
-    | .lit l :: rest => if l == s then some (.lit s, { st with tokens := rest }) else none
-    | .sym l :: rest => if l == s then some (.lit s, { st with tokens := rest }) else none
-    | .ident l :: rest => if l == s then some (.lit s, { st with tokens := rest }) else none
-    | _ => none
+    | .lit l :: rest => if l == s then (some (.lit s, { st with tokens := rest, pos := st.pos + 1 }), st.memo) else (none, st.memo)
+    | .sym l :: rest => if l == s then (some (.lit s, { st with tokens := rest, pos := st.pos + 1 }), st.memo) else (none, st.memo)
+    | .ident l :: rest => if l == s then (some (.lit s, { st with tokens := rest, pos := st.pos + 1 }), st.memo) else (none, st.memo)
+    | _ => (none, st.memo)
 
   | .mk (.ref name) =>
     -- Handle built-in token types (TOKEN.*)
     if name.startsWith "TOKEN." then
       let tokType := name.drop 6  -- Remove "TOKEN." prefix
       match tokType, st.tokens with
-      | "ident",   .ident s :: rest  => some (.var s, { st with tokens := rest })
+      | "ident",   .ident s :: rest  => (some (.var s, { st with tokens := rest, pos := st.pos + 1 }), st.memo)
       | "string",  .lit s :: rest    =>
         -- Match "..." string literals (not '...' char literals)
         if s.startsWith "\"" then
-          some (.lit s, { st with tokens := rest })
-        else none
+          (some (.lit s, { st with tokens := rest, pos := st.pos + 1 }), st.memo)
+        else (none, st.memo)
       | "char",    .lit s :: rest    =>
         -- Match 'x' character literals
         if s.startsWith "'" && s.endsWith "'" then
-          some (.lit s, { st with tokens := rest })
-        else none
-      | "number",  .number s :: rest => some (.lit s, { st with tokens := rest })
-      | "sym",     .sym s :: rest    => some (.var s, { st with tokens := rest })
+          (some (.lit s, { st with tokens := rest, pos := st.pos + 1 }), st.memo)
+        else (none, st.memo)
+      | "number",  .number s :: rest => (some (.lit s, { st with tokens := rest, pos := st.pos + 1 }), st.memo)
+      | "sym",     .sym s :: rest    => (some (.var s, { st with tokens := rest, pos := st.pos + 1 }), st.memo)
       | "special", .sym s :: rest    =>
         -- Match any <...> token
         if s.startsWith "<" && s.endsWith ">" then
-          some (.var s, { st with tokens := rest })
-        else none
-      | _, _ => none
+          (some (.var s, { st with tokens := rest, pos := st.pos + 1 }), st.memo)
+        else (none, st.memo)
+      | _, _ => (none, st.memo)
     else
-      -- Regular production reference
-      match prods.find? (·.1 == name) with
-      | some (_, g') => parseGrammar fuel' prods g' st
-      | none => none
+      -- Packrat memoization for production references
+      let key := (st.pos, name)
+      match st.memo.get? key with
+      | some entry =>
+        -- Cache hit - return cached result
+        match entry.result with
+        | some (term, endPos, newBinds) =>
+          -- Reconstruct state from cached info
+          let tokenCount := endPos - st.pos
+          let newTokens := st.tokens.drop tokenCount
+          (some (term, { st with tokens := newTokens, pos := endPos, binds := newBinds }), st.memo)
+        | none => (none, st.memo)  -- Cached failure
+      | none =>
+        -- Cache miss - parse and cache
+        match prods.find? (·.1 == name) with
+        | some (_, g') =>
+          let (result, memo') := parseGrammar fuel' prods g' st
+          match result with
+          | some (term, st') =>
+            -- Cache success
+            let entry := { result := some (term, st'.pos, st'.binds) : MemoEntry }
+            let memo'' := memo'.insert key entry
+            (some (term, { st' with memo := memo'' }), memo'')
+          | none =>
+            -- Cache failure - now we CAN propagate memo on failure!
+            let entry := { result := none : MemoEntry }
+            let memo'' := memo'.insert key entry
+            (none, memo'')
+        | none => (none, st.memo)
 
-  | .mk (.seq g1 g2) => do
-    let (t1, st1) ← parseGrammar fuel' prods g1 st
-    let (t2, st2) ← parseGrammar fuel' prods g2 st1
-    pure (combineSeq t1 t2, st2)
+  | .mk (.seq g1 g2) =>
+    let (r1, memo1) := parseGrammar fuel' prods g1 st
+    match r1 with
+    | some (t1, st1) =>
+      let st1' := { st1 with memo := memo1 }
+      let (r2, memo2) := parseGrammar fuel' prods g2 st1'
+      match r2 with
+      | some (t2, st2) => (some (combineSeq t1 t2, st2), memo2)
+      | none => (none, memo2)
+    | none => (none, memo1)
 
   | .mk (.alt g1 g2) =>
-    parseGrammar fuel' prods g1 st <|> parseGrammar fuel' prods g2 st
+    -- Try first alternative
+    let (r1, memo1) := parseGrammar fuel' prods g1 st
+    match r1 with
+    | some result => (some result, memo1)
+    | none =>
+      -- First failed, try second with updated memo
+      let st' := { st with memo := memo1 }
+      parseGrammar fuel' prods g2 st'
 
   | .mk (.star g') =>
-    let rec go (f : Nat) (acc : List Term) (st : ParseState) : ParseResult :=
+    let rec go (f : Nat) (acc : List Term) (st : ParseState) (memo : MemoTable) : ParseResult :=
       match f with
-      | 0 => some (.con "seq" acc, st)
+      | 0 => (some (.con "seq" acc, st), memo)
       | f' + 1 =>
-        match parseGrammar f' prods g' st with
-        | some (t, st') => go f' (acc ++ [t]) st'
-        | none => some (.con "seq" acc, st)
-    go fuel' [] st
+        let st' := { st with memo := memo }
+        let (r, memo') := parseGrammar f' prods g' st'
+        match r with
+        | some (t, st'') => go f' (acc ++ [t]) st'' memo'
+        | none => (some (.con "seq" acc, st), memo')
+    go fuel' [] st st.memo
 
-  | .mk (.bind x g') => do
-    let (t, st') ← parseGrammar fuel' prods g' st
-    pure (t, { st' with binds := (x, t) :: st'.binds })
+  | .mk (.bind x g') =>
+    let (r, memo') := parseGrammar fuel' prods g' st
+    match r with
+    | some (t, st') => (some (t, { st' with binds := (x, t) :: st'.binds }), memo')
+    | none => (none, memo')
 
-  | .mk (.node name g') => do
-    let (t, st') ← parseGrammar fuel' prods g' st
-    pure (wrapNode name t, st')
+  | .mk (.node name g') =>
+    let (r, memo') := parseGrammar fuel' prods g' st
+    match r with
+    | some (t, st') => (some (wrapNode name t, st'), memo')
+    | none => (none, memo')
 
 /-- Interpret a GrammarExpr for printing (backward direction).
     Uses fuel for termination. -/
@@ -463,7 +528,8 @@ def Language.toInterp (lang : Language) (startProd : String) : LangInterp where
     let st : ParseState := { tokens := tokens, binds := [] }
     match prods.find? (·.1 == startProd) with
     | some (_, g) =>
-      match parseGrammar defaultFuel prods g st with
+      let (result, _) := parseGrammar defaultFuel prods g st
+      match result with
       | some (t, st') => if st'.tokens.isEmpty then some t else none
       | none => none
     | none => none
@@ -488,7 +554,8 @@ def grammarToIso (prods : Productions) (startProd : String) : Iso TokenStream Te
     let st : ParseState := { tokens := tokens, binds := [] }
     match prods.find? (·.1 == startProd) with
     | some (_, g) =>
-      match parseGrammar defaultFuel prods g st with
+      let (result, _) := parseGrammar defaultFuel prods g st
+      match result with
       | some (t, st') => if st'.tokens.isEmpty then some t else none
       | none => none
     | none => none

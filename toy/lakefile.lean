@@ -1,6 +1,23 @@
 import Lake
 open Lake DSL
 
+/-!
+# Bootstrap Chain
+
+Code generation follows a bootstrap chain with no circular dependency:
+
+    gen(V_n) = tolean_{V_{n-1}}(Bootstrap.lego)
+
+Build stages:
+  1. Stage 1: Build tolean using checked-in generated/*.lean (V_{n-1})
+  2. Stage 2: Run tolean to regenerate from Bootstrap.lego → V_n
+  3. Stage 3: Rebuild with V_n (if different)
+  4. Fixpoint check: V_n should produce V_n (self-hosting)
+
+To regenerate: ./scripts/bootstrap.sh
+To verify canonical (CI): ./scripts/bootstrap.sh --check
+-/
+
 package «lego» where
   version := v!"0.1.0"
 
@@ -8,6 +25,8 @@ lean_lib «Lego» where
   srcDir := "src"
 
 -- Generated code (from ToLean)
+-- These are build outputs conceptually, but checked in for bootstrap.
+-- Regenerate with: ./scripts/bootstrap.sh
 lean_lib «LegoGenerated» where
   srcDir := "generated"
   roots := #[`BootstrapGrammar, `BootstrapTokenizer, `BootstrapRules]

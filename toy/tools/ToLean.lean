@@ -230,7 +230,7 @@ def mainTokenProds : List String := [{mainProdList}]
 
 /-- Tokenize using grammar-driven lexing -/
 def tokenize (s : String) : TokenStream :=
-  tokenizeWithGrammar tokenProductions mainTokenProds s
+  tokenizeWithGrammar defaultFuel tokenProductions mainTokenProds s
 
 end Lego.Generated.{langName}
 "

@@ -54,9 +54,21 @@ def extractAnnotationFromFlat (args : List Term) : Option (String × List Term) 
   | .con "ident" [.var conName] :: .lit "→" :: rest => some (conName, rest.reverse)
   | _ => none
 
+/-- Resolve an unqualified reference name to its qualified form.
+    nameMap maps unqualified names to qualified names (e.g., "defndecl" → "Definitions.defndecl").
+    Returns the qualified name if found, otherwise the original name. -/
+def resolveRefName (nameMap : HashMap String String) (name : String) : String :=
+  -- Already qualified (contains dot) or is a TOKEN reference
+  if name.contains '.' || name.startsWith "TOKEN." then name
+  else
+    -- Look up in name map
+    match nameMap.get? name with
+    | some qualName => qualName
+    | none => name  -- keep as-is (might be a built-in like "ident")
+
 /-- Convert a parsed grammar expression AST back to GrammarExpr.
-    pieceName is used to prefix unqualified references. -/
-partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option GrammarExpr :=
+    nameMap is used to resolve unqualified references to qualified names. -/
+partial def astToGrammarExpr (nameMap : HashMap String String := HashMap.emptyWithCapacity) (t : Term) : Option GrammarExpr :=
   match t with
   -- Empty
   | .con "empty" _ => some GrammarExpr.empty
@@ -91,13 +103,9 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
 
   -- Reference: (ref (ident name))
   | .con "ref" [.con "ident" [.var name]] =>
-    -- Built-in production names that should not be prefixed
-    -- Note: "name" was removed - pieces should define their own if needed
-    let builtins := ["ident", "string", "number"]
-    -- Prefix with piece name for unqualified references (except built-ins)
-    let qualName := if pieceName.isEmpty || name.contains '.' || builtins.contains name then name
-                    else s!"{pieceName}.{name}"
-    some (GrammarExpr.ref qualName)
+    -- Resolve unqualified references using the name map (parse-time resolution)
+    let resolvedName := resolveRefName nameMap name
+    some (GrammarExpr.ref resolvedName)
 
   -- Special: <ident>, <string>, etc.
   | .con "special" [.var special] =>
@@ -111,7 +119,7 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
   -- Sequence: (seq g1 g2 ...)
   | .con "seq" gs =>
     gs.foldlM (fun acc g => do
-      let g' ← astToGrammarExpr pieceName g
+      let g' ← astToGrammarExpr nameMap g
       pure (GrammarExpr.seq acc g')) GrammarExpr.empty
 
   -- Alternative: (alt g1 "|" g2 "|" g3 ...)
@@ -120,26 +128,26 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
     let parts := splitByPipe args
     match parts with
     | [] => none
-    | [single] => astToGrammarExpr pieceName single
+    | [single] => astToGrammarExpr nameMap single
     | first :: rest => do
-      let first' ← astToGrammarExpr pieceName first
+      let first' ← astToGrammarExpr nameMap first
       rest.foldlM (fun acc part => do
-        let g' ← astToGrammarExpr pieceName part
+        let g' ← astToGrammarExpr nameMap part
         pure (GrammarExpr.alt acc g')) first'
 
   -- Star: (star g "*")
   | .con "star" [g, _] => do
-    let g' ← astToGrammarExpr pieceName g
+    let g' ← astToGrammarExpr nameMap g
     pure (GrammarExpr.star g')
 
   -- Plus: (plus g "+")
   | .con "plus" [g, _] => do
-    let g' ← astToGrammarExpr pieceName g
+    let g' ← astToGrammarExpr nameMap g
     pure (GrammarExpr.plus g')
 
   -- Optional: (opt g "?")
   | .con "opt" [g, _] => do
-    let g' ← astToGrammarExpr pieceName g
+    let g' ← astToGrammarExpr nameMap g
     pure (GrammarExpr.alt g' GrammarExpr.empty)
 
   -- Group: (group "(" expr... ")")
@@ -149,11 +157,11 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
     | [] => none
     | [_] => none  -- just "(" - invalid
     | [_, _] => none  -- "(" ")" - invalid
-    | [_, g, _] => astToGrammarExpr pieceName g  -- single expr
+    | [_, g, _] => astToGrammarExpr nameMap g  -- single expr
     | _ =>
       -- Multiple expressions: drop parens and convert middle to seq
       let middle := args.drop 1 |>.dropLast
-      let gexprs := middle.filterMap (astToGrammarExpr pieceName)
+      let gexprs := middle.filterMap (astToGrammarExpr nameMap)
       match gexprs with
       | [] => none
       | [g] => some g
@@ -168,7 +176,7 @@ partial def astToGrammarExpr (pieceName : String := "") (t : Term) : Option Gram
     match extractAnnotationFromFlat flatArgs with
     | some (conName, rest) =>
       -- Recursively convert the rest as a sequence
-      let gexprs := rest.filterMap (astToGrammarExpr pieceName)
+      let gexprs := rest.filterMap (astToGrammarExpr nameMap)
       match gexprs with
       | [] => none
       | [g] => some (GrammarExpr.node conName g)
@@ -203,7 +211,7 @@ def stripConstructorAnnotation (args : List Term) : List Term :=
   | _ => args
 
 /-- Extract grammar expression from a grammar declaration -/
-def extractGrammarExpr (pieceName : String) (gramDecl : Term) : Option GrammarExpr :=
+def extractGrammarExpr (nameMap : HashMap String String) (gramDecl : Term) : Option GrammarExpr :=
   match gramDecl with
   | .con "DGrammar" args =>
     -- DGrammar now has a single nested seq child - flatten it first
@@ -215,7 +223,7 @@ def extractGrammarExpr (pieceName : String) (gramDecl : Term) : Option GrammarEx
       let conName := extractConstructorAnnotation flatArgs
       let cleanArgs := stripConstructorAnnotation flatArgs
       let exprArgs := cleanArgs.drop 2 |>.dropLast  -- skip name, ::=, ;
-      let gexprs := exprArgs.filterMap (astToGrammarExpr pieceName)
+      let gexprs := exprArgs.filterMap (astToGrammarExpr nameMap)
       let baseExpr := match gexprs with
         | [] => none
         | [g] => some g  -- single expression
@@ -227,17 +235,41 @@ def extractGrammarExpr (pieceName : String) (gramDecl : Term) : Option GrammarEx
       | _, none => none
   | _ => none
 
-/-- Extract all productions from a piece declaration -/
-def extractPieceProductions (pieceDecl : Term) : List (String × GrammarExpr) :=
+/-- Extract all production names from a piece declaration (first pass) -/
+def extractPieceProductionNames (pieceDecl : Term) : List (String × String) :=
   match pieceDecl with
   | .con "DPiece" (.lit _ :: .con "ident" [.var pieceName] :: gramDecls) =>
     gramDecls.filterMap fun g =>
-      match extractProdName pieceName g, extractGrammarExpr pieceName g with
+      match extractProdName pieceName g with
+      | some qualName =>
+        -- Extract unqualified name (after the dot)
+        let unqualName := match qualName.splitOn "." with
+          | [_, n] => n
+          | _ => qualName
+        some (unqualName, qualName)
+      | none => none
+  | .con "DToken" (.lit _ :: .con "ident" [.var pieceName] :: gramDecls) =>
+    gramDecls.filterMap fun g =>
+      match extractProdName pieceName g with
+      | some qualName =>
+        let unqualName := match qualName.splitOn "." with
+          | [_, n] => n
+          | _ => qualName
+        some (unqualName, qualName)
+      | none => none
+  | _ => []
+
+/-- Extract all productions from a piece declaration (second pass, with name resolution) -/
+def extractPieceProductions (nameMap : HashMap String String) (pieceDecl : Term) : List (String × GrammarExpr) :=
+  match pieceDecl with
+  | .con "DPiece" (.lit _ :: .con "ident" [.var pieceName] :: gramDecls) =>
+    gramDecls.filterMap fun g =>
+      match extractProdName pieceName g, extractGrammarExpr nameMap g with
       | some name, some expr => some (name, expr)
       | _, _ => none
   | .con "DToken" (.lit _ :: .con "ident" [.var pieceName] :: gramDecls) =>
     gramDecls.filterMap fun g =>
-      match extractProdName pieceName g, extractGrammarExpr pieceName g with
+      match extractProdName pieceName g, extractGrammarExpr nameMap g with
       | some name, some expr => some (name, expr)
       | _, _ => none
   | _ => []
@@ -253,42 +285,81 @@ def builtinProductions : Productions := [
   ("number", GrammarExpr.ref "TOKEN.number")
 ]
 
-/-- Extract productions from a parsed .lego file AST (without builtins) -/
-partial def extractProductionsOnly (ast : Term) : Productions :=
+/-- First pass: collect all production names from AST (only piece, not token) -/
+partial def collectProductionNames (ast : Term) : List (String × String) :=
   go ast
 where
-  go (t : Term) : Productions :=
+  go (t : Term) : List (String × String) :=
+    match t with
+    | .con "DLang" ts => ts.flatMap go
+    | .con "DPiece" _ => extractPieceProductionNames t
+    | .con "DToken" _ => []  -- Skip token productions - they don't affect parser name resolution
+    | .con "seq" ts => ts.flatMap go
+    | .con _ ts => ts.flatMap go
+    | _ => []
+
+/-- Build name resolution map from collected names -/
+def buildNameMap (names : List (String × String)) : HashMap String String :=
+  names.foldl (init := HashMap.emptyWithCapacity) fun acc (unqual, qual) =>
+    acc.insert unqual qual
+
+/-- Extract productions from a parsed .lego file AST (without builtins).
+    Two-pass approach: first collect names, then extract with resolution. -/
+partial def extractProductionsOnly (ast : Term) : Productions :=
+  -- First pass: collect all production names
+  let names := collectProductionNames ast
+  let nameMap := buildNameMap names
+  -- Second pass: extract productions with name resolution
+  go nameMap ast
+where
+  go (nameMap : HashMap String String) (t : Term) : Productions :=
     match t with
     | .con "DLang" ts =>
-      ts.flatMap go
+      ts.flatMap (go nameMap)
     | .con "DPiece" _ =>
-      extractPieceProductions t
+      extractPieceProductions nameMap t
     | .con "DToken" _ =>
-      extractPieceProductions t
+      []  -- Skip token productions - they're handled by extractTokenProductions
     | .con "seq" ts =>
-      ts.flatMap go
+      ts.flatMap (go nameMap)
     | .con _ ts =>
-      ts.flatMap go
+      ts.flatMap (go nameMap)
     | _ => []
 
 /-- Extract all productions from a parsed .lego file AST (includes builtins) -/
 def extractAllProductions (ast : Term) : Productions :=
   builtinProductions ++ extractProductionsOnly ast
 
-/-- Extract only token (lexer) productions from a parsed .lego file AST -/
-partial def extractTokenProductions (ast : Term) : Productions :=
+/-- Collect only token production names from AST (for token name resolution) -/
+partial def collectTokenProductionNames (ast : Term) : List (String × String) :=
   go ast
 where
-  go (t : Term) : Productions :=
+  go (t : Term) : List (String × String) :=
+    match t with
+    | .con "DLang" ts => ts.flatMap go
+    | .con "DToken" _ => extractPieceProductionNames t
+    | .con "seq" ts => ts.flatMap go
+    | .con _ ts => ts.flatMap go
+    | _ => []
+
+/-- Extract only token (lexer) productions from a parsed .lego file AST -/
+partial def extractTokenProductions (ast : Term) : Productions :=
+  -- First pass: collect all TOKEN production names (not piece names)
+  let names := collectTokenProductionNames ast
+  let nameMap := buildNameMap names
+  -- Second pass: extract token productions with name resolution
+  go nameMap ast
+where
+  go (nameMap : HashMap String String) (t : Term) : Productions :=
     match t with
     | .con "DLang" ts =>
-      ts.flatMap go
+      ts.flatMap (go nameMap)
     | .con "DToken" _ =>
-      extractPieceProductions t
+      extractPieceProductions nameMap t
     | .con "seq" ts =>
-      ts.flatMap go
+      ts.flatMap (go nameMap)
     | .con _ ts =>
-      ts.flatMap go
+      ts.flatMap (go nameMap)
     | _ => []
 
 /-- Get main token production names (top-level productions in token pieces) -/
@@ -312,6 +383,132 @@ partial def extractSymbols (g : GrammarExpr) : List String :=
 /-- Extract all symbols from productions -/
 def extractAllSymbols (prods : Productions) : List String :=
   prods.flatMap (fun (_, g) => extractSymbols g) |>.eraseDups
+
+/-- Check if a string looks like a keyword (all alphabetic or underscore) -/
+def isKeywordLike (s : String) : Bool :=
+  !s.isEmpty && s.all fun c => c.isAlpha || c == '_' || c == '-'
+
+/-- Extract literals that appear at the START of a grammar expression -/
+partial def extractStartLiterals (g : GrammarExpr) : List String :=
+  match g with
+  | .mk .empty => []
+  | .mk (.lit s) => [s]
+  | .mk (.ref _) => []
+  | .mk (.seq g1 _) => extractStartLiterals g1  -- only look at start
+  | .mk (.alt g1 g2) => extractStartLiterals g1 ++ extractStartLiterals g2
+  | .mk (.star g') => extractStartLiterals g'
+  | .mk (.bind _ g') => extractStartLiterals g'
+  | .mk (.node _ g') => extractStartLiterals g'
+
+/-- Check if a grammar expression ends with a star (greedy) -/
+partial def endsWithStar : GrammarExpr → Bool
+  | .mk .empty => false
+  | .mk (.lit _) => false
+  | .mk (.ref _) => false
+  | .mk (.seq _ g2) => endsWithStar g2
+  | .mk (.alt g1 g2) => endsWithStar g1 || endsWithStar g2
+  | .mk (.star _) => true
+  | .mk (.bind _ g') => endsWithStar g'
+  | .mk (.node _ g') => endsWithStar g'
+
+/-- Compute which productions can transitively end with a star.
+    Returns a set of production names that can end with star.
+    Uses iterative fixed-point computation for efficiency. -/
+def computeStarEndingProds (prods : Productions) : List String :=
+  -- Build prodMap for O(1) lookup
+  let prodMap := prods.foldl (init := HashMap.emptyWithCapacity prods.length) fun acc (name, g) =>
+    acc.insert name g
+  -- Initialize: all productions that DIRECTLY end with star
+  let directEnds := prods.filterMap fun (name, g) =>
+    if endsWithStar g then some name else none
+  -- Fixed-point: add productions that end with a ref to a star-ending prod
+  go 20 prodMap directEnds
+where
+  canEndViaRef (starEnds : List String) (g : GrammarExpr) : Bool :=
+    match g with
+    | .mk .empty => false
+    | .mk (.lit _) => false
+    | .mk (.ref name) => starEnds.contains name
+    | .mk (.seq _ g2) => canEndViaRef starEnds g2
+    | .mk (.alt g1 g2) => canEndViaRef starEnds g1 || canEndViaRef starEnds g2
+    | .mk (.star _) => true
+    | .mk (.bind _ g') => canEndViaRef starEnds g'
+    | .mk (.node _ g') => canEndViaRef starEnds g'
+
+  go : Nat → HashMap String GrammarExpr → List String → List String
+    | 0, _, starEnds => starEnds
+    | fuel+1, prodMap, starEnds =>
+      -- Find new productions that end via ref to star-ending prod
+      let newEnds := prodMap.fold (init := starEnds) fun acc name g =>
+        if acc.contains name then acc
+        else if canEndViaRef starEnds g then name :: acc
+        else acc
+      -- Fixed point?
+      if newEnds.length == starEnds.length then starEnds
+      else go fuel prodMap newEnds
+
+/-- Check if a production (transitively) can end with a star.
+    Uses pre-computed set for O(1) lookup. -/
+def canEndWithStar (starEndingProds : List String) (prodName : String) : Bool :=
+  starEndingProds.contains prodName
+
+/-- Extract the reference at the END of a grammar expression, if any -/
+partial def extractEndRef : GrammarExpr → Option String
+  | .mk .empty => none
+  | .mk (.lit _) => none
+  | .mk (.ref name) => some name
+  | .mk (.seq _ g2) => extractEndRef g2  -- look at the end
+  | .mk (.alt g1 g2) =>
+    -- Both branches must end with same ref (or we return none)
+    match extractEndRef g1, extractEndRef g2 with
+    | some r1, some r2 => if r1 == r2 then some r1 else none
+    | _, _ => none
+  | .mk (.star _) => none  -- star doesn't have a fixed end ref
+  | .mk (.bind _ g') => extractEndRef g'
+  | .mk (.node _ g') => extractEndRef g'
+
+/-- Find literals that follow a reference in a grammar.
+    Returns pairs of (refName, literalThatFollows).
+    Looks for patterns where a ref is at the END of g1 in (seq g1 g2). -/
+partial def findRefFollows (g : GrammarExpr) : List (String × String) :=
+  match g with
+  | .mk .empty => []
+  | .mk (.lit _) => []
+  | .mk (.ref _) => []
+  | .mk (.seq g1 g2) =>
+    let fromRest := findRefFollows g1 ++ findRefFollows g2
+    -- If g1 ENDS with a ref, g2's start literals follow it
+    match extractEndRef g1 with
+    | some name =>
+      let follows := extractStartLiterals g2
+      follows.map (fun lit => (name, lit)) ++ fromRest
+    | none => fromRest
+  | .mk (.alt g1 g2) => findRefFollows g1 ++ findRefFollows g2
+  | .mk (.star g') => findRefFollows g'
+  | .mk (.bind _ g') => findRefFollows g'
+  | .mk (.node _ g') => findRefFollows g'
+
+/-- Extract keywords that need to be reserved.
+
+    A keyword needs reservation when:
+    1. It follows a reference R in some production
+    2. R (transitively) can end with a star
+
+    This finds FOLLOW conflicts where a greedy star could consume
+    a keyword that's meant to be a delimiter.
+
+    Example: `letin ::= ... letinvalue "in" ...` where letinvalue
+    transitively references appexpr which ends with `appitem*`. -/
+def extractKeywords (prods : Productions) : List String :=
+  -- Pre-compute which productions can end with star (fixed-point)
+  let starEndingProds := computeStarEndingProds prods
+  -- Step 1: Find all (ref, followingLiteral) pairs
+  let refFollows := prods.flatMap fun (_, g) => findRefFollows g
+  -- Step 2: Filter to pairs where the ref can transitively end with star
+  let conflictingLits := refFollows.filterMap fun (refName, lit) =>
+    if canEndWithStar starEndingProds refName then some lit else none
+  -- Step 3: Filter to keyword-like strings
+  conflictingLits.filter isKeywordLike |>.eraseDups
 
 /-! ## Validation Helpers -/
 
@@ -370,7 +567,8 @@ def parseWithGrammar (grammar : LoadedGrammar) (input : String) : Option Term :=
   let st : ParseState := { tokens := tokens, binds := [] }
   match grammar.productions.find? (·.1 == grammar.startProd) with
   | some (_, g) =>
-    match parseGrammar defaultFuel grammar.productions g st with
+    let (result, _) := parseGrammar defaultFuel grammar.productions g st
+    match result with
     | some (t, st') => if st'.tokens.isEmpty then some t else none
     | none => none
   | none => none
