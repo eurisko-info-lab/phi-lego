@@ -8,6 +8,7 @@
 -/
 
 import Lego.Algebra
+import Lego.Attr
 import Lego.Interp
 import Lego.Bootstrap
 import Lego.Validation
@@ -799,5 +800,126 @@ where
     | .con "seq" ts => ts.flatMap go
     | .con _ ts => ts.flatMap go
     | _ => []
+
+/-! ## Attribute Grammar Extraction -/
+
+/-- Parse an AttrFlow from AST -/
+def parseAttrFlow (t : Term) : AttrFlow :=
+  match t with
+  | .con "syn" _ => .syn
+  | .con "inh" _ => .inh
+  | .lit "syn" => .syn
+  | .lit "inh" => .inh
+  | _ => .syn  -- default
+
+/-- Parse an AttrPath from AST (e.g., "Lam.body.env") -/
+def parseAttrPath (t : Term) : AttrPath :=
+  -- Recursively collect all ident names from the path structure
+  let rec collect (term : Term) : List String :=
+    match term with
+    | .con "ident" [.var name] => [name]
+    | .con "attrPath" args => args.flatMap collect
+    | .con "seq" args => args.flatMap collect
+    | .var name => if name != "." then [name] else []
+    | .lit _ => []  -- skip punctuation
+    | .con _ args => args.flatMap collect
+  collect t
+
+/-- Extract an AttrDef from a DAttr AST node.
+    Syntax: syn/inh name : type ; -/
+def extractAttrDef (attrDecl : Term) : Option AttrDef :=
+  match attrDecl with
+  | .con "DAttr" args =>
+    -- Filter out punctuation
+    let filtered := args.filter (· != .lit ":") |>.filter (· != .lit ";")
+    match filtered with
+    | [flowTerm, .con "ident" [.var name], typeTerm] =>
+      some {
+        name := name
+        flow := parseAttrFlow flowTerm
+        type := some typeTerm
+        rules := []  -- Rules added separately
+      }
+    | [flowTerm, .con "ident" [.var name]] =>
+      some {
+        name := name
+        flow := parseAttrFlow flowTerm
+        type := none
+        rules := []
+      }
+    | _ => none
+  | _ => none
+
+/-- Extract an AttrRule from a DAttrRule AST node.
+    Syntax: path = expr ; -/
+def extractAttrRule (ruleDecl : Term) : Option AttrRule :=
+  match ruleDecl with
+  | .con "DAttrRule" args =>
+    -- Filter out punctuation
+    let filtered := args.filter (· != .lit "=") |>.filter (· != .lit ";")
+    match filtered with
+    | [pathTerm, exprTerm] =>
+      let path := parseAttrPath pathTerm
+      -- Split path into production + target
+      -- E.g., ["Lam", "body", "env"] → prod = "Lam", target = ["body", "env"]
+      match path with
+      | prod :: target =>
+        some {
+          prod := prod
+          target := target
+          expr := exprTerm
+        }
+      | _ => none
+    | _ => none
+  | _ => none
+
+/-- Extract all attribute definitions from a parsed .lego file AST -/
+partial def extractAttrDefs (ast : Term) : List AttrDef :=
+  go ast
+where
+  go (t : Term) : List AttrDef :=
+    match t with
+    | .con "DAttr" _ =>
+      match extractAttrDef t with
+      | some a => [a]
+      | none => []
+    | .con "DLang" ts => ts.flatMap go
+    | .con "seq" ts => ts.flatMap go
+    | .con _ ts => ts.flatMap go
+    | _ => []
+
+/-- Extract all attribute rules from a parsed .lego file AST -/
+partial def extractAttrRules (ast : Term) : List AttrRule :=
+  go ast
+where
+  go (t : Term) : List AttrRule :=
+    match t with
+    | .con "DAttrRule" _ =>
+      match extractAttrRule t with
+      | some r => [r]
+      | none => []
+    | .con "DLang" ts => ts.flatMap go
+    | .con "seq" ts => ts.flatMap go
+    | .con _ ts => ts.flatMap go
+    | _ => []
+
+/-- Combine attribute definitions with their rules.
+    Rules are matched to definitions by attribute name (from path). -/
+def combineAttrsWithRules (defs : List AttrDef) (rules : List AttrRule) : List AttrDef :=
+  defs.map fun def_ =>
+    -- Find rules that target this attribute
+    -- A rule targets an attr if the last element of path matches attr name
+    let attrName := def_.name
+    let matchingRules := rules.filter fun r =>
+      match r.target.getLast? with
+      | some last => last == attrName
+      | none => r.prod == attrName  -- Direct reference
+    { def_ with rules := matchingRules }
+
+/-- Extract a complete set of attribute definitions with their rules -/
+def extractAttributes (ast : Term) : List AttrDef :=
+  let defs := extractAttrDefs ast
+  let rules := extractAttrRules ast
+  combineAttrsWithRules defs rules
 
 end Lego.Loader

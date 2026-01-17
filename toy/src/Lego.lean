@@ -22,6 +22,7 @@
 
 import Lego.Algebra
 import Lego.Attr
+import Lego.AttrEval
 import Lego.Interp
 import Lego.Bootstrap
 import Lego.Loader

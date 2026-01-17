@@ -148,17 +148,25 @@ piece GrammarExpr
 
 piece File
   legoFile   ::= decl* ;
-  decl       ::= importDecl | langDecl | tokenDecl | pieceDecl | ruleDecl | testDecl ;
+  decl       ::= importDecl | langDecl | tokenDecl | pieceDecl | ruleDecl | testDecl | attrsDecl ;
   importDecl ::= "import" ident ";" → DImport ;
   langDecl   ::= "lang" ident imports? ":=" langBody → DLang ;
   imports    ::= "(" ident ("," ident)* ")" → DImports ;
   langBody   ::= innerDecl* ;
-  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | testDecl ;
+  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | testDecl | attrsDecl ;
   tokenDecl  ::= "token" ident prodDecl+ → DToken ;
   pieceDecl  ::= "piece" ident prodDecl+ → DPiece ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":" pattern "~>" template ";" → DRule ;
   testDecl   ::= "test" string ":" term ("~~>" term)? ";" → DTest ;
+  -- Attribute Grammar section (groups syn/inh declarations and rules)
+  attrsDecl  ::= "attrs" ident attrBody → DAttrs ;
+  attrBody   ::= attrItem* ;
+  attrItem   ::= attrDecl | attrRuleDecl ;
+  attrDecl   ::= attrFlow ident ":" term ";" → DAttr ;
+  attrFlow   ::= "syn" → syn | "inh" → inh ;
+  attrRuleDecl ::= attrPath "=" term ";" → DAttrRule ;
+  attrPath   ::= ident ("." ident)* → attrPath ;
 
 -----------------------------------------------------
 -- Interpreter Rules: Combining sequences

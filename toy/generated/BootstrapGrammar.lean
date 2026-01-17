@@ -79,17 +79,24 @@ def filePiece : Piece := {
   name := "File"
   grammar := [
     ("File.legoFile", ((ref "File.decl").star)),
-    ("File.decl", ((ref "File.importDecl").alt ((ref "File.langDecl").alt ((ref "File.tokenDecl").alt ((ref "File.pieceDecl").alt ((ref "File.ruleDecl").alt (ref "File.testDecl"))))))),
+    ("File.decl", ((ref "File.importDecl").alt ((ref "File.langDecl").alt ((ref "File.tokenDecl").alt ((ref "File.pieceDecl").alt ((ref "File.ruleDecl").alt ((ref "File.testDecl").alt (ref "File.attrsDecl")))))))),
     ("File.importDecl", (node "DImport" (((lit "import").seq (ref "Atom.ident")).seq (lit ";")))),
     ("File.langDecl", (node "DLang" (((((lit "lang").seq (ref "Atom.ident")).seq ((ref "File.imports").alt empty)).seq (lit ":=")).seq (ref "File.langBody")))),
     ("File.imports", (node "DImports" ((((lit "(").seq (ref "Atom.ident")).seq (((lit ",").seq (ref "Atom.ident")).star)).seq (lit ")")))),
     ("File.langBody", ((ref "File.innerDecl").star)),
-    ("File.innerDecl", ((ref "File.tokenDecl").alt ((ref "File.pieceDecl").alt ((ref "File.ruleDecl").alt (ref "File.testDecl"))))),
+    ("File.innerDecl", ((ref "File.tokenDecl").alt ((ref "File.pieceDecl").alt ((ref "File.ruleDecl").alt ((ref "File.testDecl").alt (ref "File.attrsDecl")))))),
     ("File.tokenDecl", (node "DToken" (((lit "token").seq (ref "Atom.ident")).seq ((ref "File.prodDecl").seq ((ref "File.prodDecl").star))))),
     ("File.pieceDecl", (node "DPiece" (((lit "piece").seq (ref "Atom.ident")).seq ((ref "File.prodDecl").seq ((ref "File.prodDecl").star))))),
     ("File.prodDecl", (node "DGrammar" ((((ref "Atom.ident").seq (lit "::=")).seq (ref "GrammarExpr.expr")).seq (lit ";")))),
     ("File.ruleDecl", (node "DRule" (((((((lit "rule").seq (ref "Atom.ident")).seq (lit ":")).seq (ref "Pattern.pattern")).seq (lit "~>")).seq (ref "Template.template")).seq (lit ";")))),
-    ("File.testDecl", (node "DTest" ((((((lit "test").seq (ref "Atom.string")).seq (lit ":")).seq (ref "Term.term")).seq (((lit "~~>").seq (ref "Term.term")).alt empty)).seq (lit ";"))))
+    ("File.testDecl", (node "DTest" ((((((lit "test").seq (ref "Atom.string")).seq (lit ":")).seq (ref "Term.term")).seq (((lit "~~>").seq (ref "Term.term")).alt empty)).seq (lit ";")))),
+    ("File.attrsDecl", (node "DAttrs" (((lit "attrs").seq (ref "Atom.ident")).seq (ref "File.attrBody")))),
+    ("File.attrBody", ((ref "File.attrItem").star)),
+    ("File.attrItem", ((ref "File.attrDecl").alt (ref "File.attrRuleDecl"))),
+    ("File.attrDecl", (node "DAttr" (((((ref "File.attrFlow").seq (ref "Atom.ident")).seq (lit ":")).seq (ref "Term.term")).seq (lit ";")))),
+    ("File.attrFlow", ((node "syn" (lit "syn")).alt (node "inh" (lit "inh")))),
+    ("File.attrRuleDecl", (node "DAttrRule" ((((ref "File.attrPath").seq (lit "=")).seq (ref "Term.term")).seq (lit ";")))),
+    ("File.attrPath", (node "attrPath" ((ref "Atom.ident").seq (((lit ".").seq (ref "Atom.ident")).star))))
   ]
   rules := []
 }

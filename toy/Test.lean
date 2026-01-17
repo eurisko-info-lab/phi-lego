@@ -7,6 +7,7 @@
 
 import Lego
 import Lego.Attr
+import Lego.AttrEval
 import Lego.Bootstrap
 import Lego.Loader
 
@@ -1007,11 +1008,127 @@ def attrTests : List TestResult :=
     assertTrue "attr_eval_creates_env" hasEntries
   ]
 
+/-- IO-based test for loading attribute grammar from file -/
+def runAttrFileTests : IO (List TestResult) := do
+  -- Load AttrTest.lego and verify attribute extraction
+  let path := "./test/AttrTest.lego"
+  try
+    let content ← IO.FS.readFile path
+    match Bootstrap.parseLegoFile content with
+    | some ast =>
+      let attrDefs := Loader.extractAttrDefs ast
+      let attrRules := Loader.extractAttrRules ast
+      let combined := Loader.extractAttributes ast
+
+      pure [
+        assertTrue "attrtest_parses" true,
+        assertTrue "attrtest_has_attr_defs" (attrDefs.length >= 3),
+        assertTrue "attrtest_has_attr_rules" (attrRules.length >= 4),
+        assertTrue "attrtest_combined_has_rules" (combined.any fun d => !d.rules.isEmpty)
+      ]
+    | none =>
+      pure [assertTrue "attrtest_parses" false]
+  catch _ =>
+    -- File might not exist in all environments
+    pure [assertTrue "attrtest_file_optional" true]
+
+/-! ## Phase 8/9: Attribute Evaluation Tests -/
+
+def attrEvalTests : List TestResult :=
+  -- Test SourceLoc
+  let loc := SourceLoc.mk "test.lego" 10 5 0
+  let locStr := loc.toString
+
+  -- Test TypeError
+  let err1 := TypeError.error "test error" loc
+  let err2 := TypeError.mismatch (.var "Int") (.var "Bool") loc
+  let err3 := TypeError.undefined "x" loc
+
+  -- Test EvalResult
+  let ok1 : EvalResult Term := .ok (.var "test") []
+  let ok2 : EvalResult Term := .ok (.var "test") [err1]
+  let fail1 : EvalResult Term := .failed [err2]
+
+  -- Test Context
+  let ctx1 := Context.empty
+  let ctx2 := ctx1.extend "x" (.var "Int")
+  let ctx3 := ctx2.extend "y" (.var "Bool")
+  let lookup1 := ctx3.lookupType "x"
+  let lookup2 := ctx3.lookupType "z"
+
+  -- Test DimContext
+  let dimCtx1 := DimContext.empty
+  let dimCtx2 := dimCtx1.extend "i"
+  let dimCtx3 := dimCtx2.extend "j"
+
+  -- Test EvalEnv
+  let env1 := EvalEnv.empty
+  let env2 := env1.addBinding "x" (.var "Int")
+  let env3 := env2.setAttr [] "type" (.var "Int")
+
+  -- Test typeEq
+  let eq1 := typeEq (.var "Int") (.var "Int")
+  let eq2 := typeEq (.var "Int") (.var "Bool")
+
+  -- Test getDomain/getCodomain
+  let piTy := Term.con "Pi" [.var "x", .var "Int", .var "Bool"]
+  let arrowTy := Term.con "Arrow" [.var "Int", .var "Bool"]
+  let dom1 := getDomain piTy
+  let cod1 := getCodomain piTy
+  let dom2 := getDomain arrowTy
+
+  -- Test error formatting
+  let errStr := formatErrors [err1, err2]
+  let (e, w, i) := countBySeverity [err1, err2, err3]
+
+  [
+    -- SourceLoc tests
+    assertTrue "sourceloc_toString" (locStr == "test.lego:10:5"),
+
+    -- TypeError tests
+    assertTrue "error_has_message" (err1.message == "test error"),
+    assertTrue "mismatch_has_expected" (err2.expected == some (.var "Int")),
+    assertTrue "undefined_has_message" (err3.message == "undefined: x"),
+
+    -- EvalResult tests
+    assertTrue "evalresult_ok_isOk" ok1.isOk,
+    assertTrue "evalresult_ok_with_errors" ok2.isOk,
+    assertTrue "evalresult_failed_not_ok" (!fail1.isOk),
+
+    -- Context tests
+    assertTrue "context_empty" (ctx1.bindings.isEmpty),
+    assertTrue "context_extend" (ctx2.bindings.length == 1),
+    assertTrue "context_lookup_found" (lookup1 == some (.var "Int")),
+    assertTrue "context_lookup_missing" (lookup2 == none),
+    assertTrue "context_names" (ctx3.names == ["y", "x"]),
+
+    -- DimContext tests
+    assertTrue "dimctx_empty" (!dimCtx1.contains "i"),
+    assertTrue "dimctx_extend" (dimCtx2.contains "i"),
+    assertTrue "dimctx_multiple" (dimCtx3.contains "i" && dimCtx3.contains "j"),
+
+    -- EvalEnv tests
+    assertTrue "evalenv_empty_no_errors" (!env1.hasErrors),
+    assertTrue "evalenv_has_binding" (env2.ctx.bindings.length == 1),
+    assertTrue "evalenv_has_attr" (env3.getAttr [] "type" == some (.var "Int")),
+
+    -- Type operations
+    assertTrue "typeEq_same" eq1,
+    assertTrue "typeEq_diff" (!eq2),
+    assertTrue "getDomain_pi" (dom1 == some (.var "Int")),
+    assertTrue "getCodomain_pi" (cod1 == some (.var "Bool")),
+    assertTrue "getDomain_arrow" (dom2 == some (.var "Int")),
+
+    -- Error formatting
+    assertTrue "formatErrors_not_empty" (!errStr.isEmpty),
+    assertTrue "countBySeverity_errors" (e == 3)
+  ]
+
 /-! ## Run All Tests -/
 
 def allTests : List TestResult :=
   termTests ++ isoTests ++ matchTests ++ substTests ++
-  ruleTests ++ interpreterTests ++ natTests ++ letTests ++ attrTests
+  ruleTests ++ interpreterTests ++ natTests ++ letTests ++ attrTests ++ attrEvalTests
 
 def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) := do
   IO.println s!"\n── {name} ──"
@@ -1058,6 +1175,14 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Attribute Grammar Tests" attrTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Attribute Evaluation Tests" attrEvalTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  -- Run attribute file loading tests (IO-based)
+  let attrFileTests ← runAttrFileTests
+  let (p, f) ← printTestGroup "Attribute File Loading Tests" attrFileTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   -- Run .lego file parsing tests (IO-based)

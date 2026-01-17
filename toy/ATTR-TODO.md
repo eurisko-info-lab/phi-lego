@@ -1,6 +1,6 @@
 # Attribute Grammar Implementation
 
-**Status**: Phase 1 Complete ✅ (Core data types + catamorphism/paramorphism)
+**Status**: Phase 9 Complete ✅ (Attribute Evaluation Runtime + Error Reporting)
 
 ## Mathematical Foundation
 
@@ -39,17 +39,50 @@ Attribute Grammars are catamorphisms + paramorphisms over parse trees:
 ### Phase 5: Pushout Compatibility ✅
 - [x] `AttrLanguage.pushout`: Coproduct of attribute algebras
 
-### Phase 6: Grammar Syntax (TODO)
-- [ ] Parse `attributes:` section in .lego files
-- [ ] Parse `syn name : Type` declarations
-- [ ] Parse `inh name : Type` declarations
-- [ ] Parse `attr-rules:` section
-- [ ] Parse `Prod.attr = expr` equations
+### Phase 6: Grammar Syntax ✅
+- [x] `attrs Name` section groups declarations and rules
+- [x] `syn name : Type ;` declarations
+- [x] `inh name : Type ;` declarations
+- [x] `prod.attr = expr ;` rule equations
+- [x] Multi-part paths: `prod.child.attr = expr ;`
+- [x] Bootstrap grammar regenerated (33 productions)
+- [x] Loader extraction: `extractAttrDefs`, `extractAttrRules`, `extractAttributes`
+- [x] Tests: 89/89 passing (including 733/733 redtt)
 
-### Phase 7: Integration with Redtt (TODO)
-- [ ] Define type-checking attributes for Redtt
-- [ ] Define scope/environment attributes
-- [ ] Test on redtt example files
+### Phase 7: Integration with Redtt ✅
+- [x] RedttElab.lego: type-checking attribute grammar
+- [x] TypeCheck attrs: ctx (inh), expected (inh), type (syn), elab (syn)
+- [x] CubicalCheck attrs: dimctx (inh), isCofib (syn) for cubical operations
+- [x] Bidirectional attrs: mode (inh), ok (syn) for check/infer switching
+- [x] 8 attribute definitions, 40 attribute rules
+- [x] All tests passing: 89/89 (733/733 redtt)
+
+### Phase 8: Attribute Evaluation Runtime ✅
+- [x] `SourceLoc`: File, line, column, span tracking for error locations
+- [x] `Context`: Typing context with name/type/value bindings
+- [x] `DimContext`: Dimension context for cubical operations
+- [x] `EvalEnv`: Combined environment (attrs + ctx + dimCtx + errors + loc)
+- [x] `evalSynWithErrors`: Synthesized evaluation with error collection
+- [x] `evalInhWithErrors`: Inherited evaluation with error collection
+- [x] `evalAllAttrs`: Two-pass evaluation (inherited → synthesized)
+- [x] `typecheck`/`elaborateTerm`: High-level API functions
+
+### Phase 9: Error Reporting ✅
+- [x] `Severity`: Error levels (error, warning, info)
+- [x] `TypeError`: Structured errors with expected/actual/context
+- [x] `EvalResult`: Result monad with error accumulation
+- [x] `formatErrors`: Pretty-print error list with source locations
+- [x] `countBySeverity`: Error statistics by severity level
+- [x] `errorSummary`: Summary string with counts
+- [x] All tests passing: 114/114 (including 733/733 redtt)
+
+## Next Steps
+
+### Phase 10: Full Integration Test (TODO)
+- [ ] Run attribute evaluation on actual redtt files
+- [ ] Test type inference on sample redtt expressions
+- [ ] Validate error messages against expected failures
+- [ ] Measure performance on large redtt files
 
 ## Usage Example
 
@@ -73,8 +106,10 @@ let env := evalSyn depthAttr term
 
 ## Key Files
 
-- `src/Lego/Attr.lean`: Core attribute grammar implementation
-- `Test.lean`: Attribute grammar tests (5 tests)
+- `src/Lego/Attr.lean`: Core attribute grammar implementation (AttrFlow, AttrRef, etc.)
+- `src/Lego/AttrEval.lean`: Attribute evaluation runtime with error reporting
+- `test/RedttElab.lego`: Redtt type-checking attribute grammar
+- `Test.lean`: Attribute grammar tests (25+ tests)
 
 ## Algebraic Laws
 
