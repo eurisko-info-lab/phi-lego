@@ -558,6 +558,31 @@ def typecheckTests : List TestResult :=
     | Except.ok Expr.nat => true
     | _ => false
 
+  -- Tube agreement tests for hcomTube
+  -- Good: tube is constant zero, cap is zero → tube(r) = cap ✓
+  let good_tube := hcomTube dim0 dim1 nat [(cof_top, zero)] zero  -- tube(j) = 0, cap = 0
+  let good_tube_result := match infer [] good_tube with
+    | Except.ok Expr.nat => true
+    | _ => false
+
+  -- Bad: tube is constant (suc zero), cap is zero → tube(r) ≠ cap ✗
+  let bad_tube := hcomTube dim0 dim1 nat [(cof_top, suc zero)] zero  -- tube(j) = 1, cap = 0
+  let bad_tube_result := match infer [] bad_tube with
+    | Except.error (TypeError.tubeAgreement _ _ _) => true
+    | _ => false
+
+  -- Empty tubes: always succeeds
+  let empty_tube := hcomTube dim0 dim1 nat [] zero
+  let empty_tube_result := match infer [] empty_tube with
+    | Except.ok Expr.nat => true
+    | _ => false
+
+  -- Tube with cof_bot: skipped (agreement not checked when φ = ⊥)
+  let bot_tube := hcomTube dim0 dim1 nat [(cof_bot, suc zero)] zero
+  let bot_tube_result := match infer [] bot_tube with
+    | Except.ok Expr.nat => true
+    | _ => false
+
   [
     assertTrue "tc_univ" univ_result,
     assertTrue "tc_univ2" univ2_result,
@@ -602,7 +627,12 @@ def typecheckTests : List TestResult :=
     -- Path checking
     assertTrue "tc_plam_refl" refl_check_result,
     assertTrue "tc_plam_bad_boundary" bad_path_fail,
-    assertTrue "tc_hcom_type" hcom_result
+    assertTrue "tc_hcom_type" hcom_result,
+    -- Tube agreement tests
+    assertTrue "tc_tube_good" good_tube_result,
+    assertTrue "tc_tube_bad" bad_tube_result,
+    assertTrue "tc_tube_empty" empty_tube_result,
+    assertTrue "tc_tube_bot_skipped" bot_tube_result
   ]
 
 /-! ## AST ↔ IR Conversion Tests -/

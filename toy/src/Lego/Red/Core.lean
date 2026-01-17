@@ -53,6 +53,7 @@ inductive Expr where
   | refl  : Expr → Expr                    -- refl a : path A a a
   | coe   : Expr → Expr → Expr → Expr → Expr  -- coe r r' (λi.A) a
   | hcom  : Expr → Expr → Expr → Expr → Expr → Expr  -- hcom r r' A φ cap (tube implicit when φ true)
+  | hcomTube : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- hcom r r' A [(φ,tube)...] cap with explicit tubes
   -- Systems (partial elements): list of (cof, term) branches
   | sys   : List (Expr × Expr) → Expr      -- [(φ₁, t₁), (φ₂, t₂), ...]
   -- Glue types (V-types for univalence)
@@ -135,6 +136,12 @@ partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
                                  (shiftAbove cutoff delta ty)
                                  (shiftAbove cutoff delta phi)
                                  (shiftAbove cutoff delta cap)
+  | hcomTube r r' ty tubes cap =>
+    hcomTube (shiftAbove cutoff delta r)
+             (shiftAbove cutoff delta r')
+             (shiftAbove cutoff delta ty)
+             (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))  -- tube binds dim
+             (shiftAbove cutoff delta cap)
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (shiftAbove cutoff delta cof, shiftAbove cutoff delta tm))
@@ -235,6 +242,12 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
          (subst idx val ty)
          (subst idx val phi)
          (subst idx val cap)
+  | hcomTube r r' ty tubes cap =>
+    hcomTube (subst idx val r)
+             (subst idx val r')
+             (subst idx val ty)
+             (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))  -- tube binds dim
+             (subst idx val cap)
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (subst idx val cof, subst idx val tm))
@@ -378,6 +391,15 @@ partial def step : Expr → Option Expr
   -- System extraction (when cof is true)
   | sys ((cof_top, tm) :: _) => some tm
 
+  -- hcomTube reflexivity: hcom r r A tubes cap → cap (when r = r')
+  | hcomTube dim0 dim0 _ _ cap => some cap
+  | hcomTube dim1 dim1 _ _ cap => some cap
+  | hcomTube (dimVar n) (dimVar m) _ _ cap => if n == m then some cap else none
+
+  -- hcomTube: when all cofibrations are ⊥, reduces to cap
+  | hcomTube _ _ _ tubes cap =>
+    if tubes.all (fun (φ, _) => φ == cof_bot) then some cap else none
+
   -- No reduction at this level
   | _ => none
 
@@ -496,6 +518,19 @@ partial def stepDeep : Expr → Option Expr
                 match stepDeep cap with
                 | some cap' => some (hcom r r' ty phi cap')
                 | none => none
+      | hcomTube r r' ty tubes cap =>
+        match stepDeep r with
+        | some r'' => some (hcomTube r'' r' ty tubes cap)
+        | none =>
+          match stepDeep r' with
+          | some r'' => some (hcomTube r r'' ty tubes cap)
+          | none =>
+            match stepDeep ty with
+            | some ty' => some (hcomTube r r' ty' tubes cap)
+            | none =>
+              match stepDeep cap with
+              | some cap' => some (hcomTube r r' ty tubes cap')
+              | none => none  -- tubes reduction omitted for simplicity
       -- Cofibrations
       | cof_eq r s =>
         match stepDeep r with
@@ -637,6 +672,9 @@ partial def toString : Expr → String
   | refl a => s!"(refl {toString a})"
   | coe r r' ty a => s!"(coe {toString r} {toString r'} {toString ty} {toString a})"
   | hcom r r' ty phi cap => s!"(hcom {toString r} {toString r'} {toString ty} [{toString phi}] {toString cap})"
+  | hcomTube r r' ty tubes cap =>
+    let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
+    s!"(hcom {toString r} {toString r'} {toString ty} [{String.intercalate ", " tubeStrs}] {toString cap})"
   -- Systems
   | sys branches =>
     let branchStrs := branches.map fun (cof, tm) => s!"{toString cof} ↦ {toString tm}"
@@ -692,6 +730,10 @@ partial def freeIn (n : Nat) : Expr → Bool
   | .refl a => freeIn n a
   | .coe r r' ty a => freeIn n r || freeIn n r' || freeIn (n + 1) ty || freeIn n a
   | .hcom r r' ty phi cap => freeIn n r || freeIn n r' || freeIn n ty || freeIn n phi || freeIn n cap
+  | .hcomTube r r' ty tubes cap =>
+    freeIn n r || freeIn n r' || freeIn n ty ||
+    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||  -- tube binds dim
+    freeIn n cap
   -- Systems
   | .sys branches => branches.any fun (cof, tm) => freeIn n cof || freeIn n tm
   -- Glue
@@ -874,6 +916,11 @@ partial def conv (a b : Expr) : Bool :=
   | .hcom r1 r1' ty1 φ1 cap1, .hcom r2 r2' ty2 φ2 cap2 =>
     conv r1 r2 && conv r1' r2' && conv ty1 ty2 && conv φ1 φ2 && conv cap1 cap2
 
+  | .hcomTube r1 r1' ty1 tubes1 cap1, .hcomTube r2 r2' ty2 tubes2 cap2 =>
+    conv r1 r2 && conv r1' r2' && conv ty1 ty2 && conv cap1 cap2 &&
+    tubes1.length == tubes2.length &&
+    (tubes1.zip tubes2).all fun ((φ1, t1), (φ2, t2)) => conv φ1 φ2 && conv t1 t2
+
   -- ===== Natural numbers =====
   | .nat, .nat => true
   | .zero, .zero => true
@@ -914,6 +961,28 @@ def lookupCtx (ctx : Ctx) (n : Nat) : TCResult Expr :=
   match ctx[n]? with
   | some ty => .ok (Expr.shiftN (n + 1) ty)  -- Shift to account for bindings
   | none => .error (.unbound n)
+
+/-- Check tube agreement for hcomTube.
+    For each (φ, tube), verify that tube(r) ≡ cap when φ might hold.
+    Returns the type on success, or a tubeAgreement error. -/
+def checkTubeAgreement (r : Expr) (ty : Expr) (tubes : List (Expr × Expr)) (cap : Expr) : TCResult Expr :=
+  let rec go : List (Expr × Expr) → TCResult Expr
+    | [] => .ok ty
+    | (phi, tube) :: rest =>
+      -- tube binds a dimension variable j
+      -- tube(r) should equal cap when phi holds
+      let tubeAtR := Expr.subst0 r tube  -- tube[r/j]
+      let tubeAtR_nf := Expr.eval tubeAtR
+      let cap_nf := Expr.eval cap
+      -- Only check agreement when phi might be satisfiable
+      if Expr.eval phi != .cof_bot then
+        if !conv tubeAtR_nf cap_nf then
+          .error (.tubeAgreement (.hcomTube r .dim1 ty tubes cap) tubeAtR_nf cap_nf)
+        else
+          go rest
+      else
+        go rest
+  go tubes
 
 mutual
 /-- Infer the type of an expression -/
@@ -1042,6 +1111,18 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
     let _ ← infer ctx phi
     -- The result type is ty at r'
     .ok ty
+
+  -- HComTube with explicit tubes and agreement checking
+  -- hcomTube r r' A [(φ₁, tube₁), ...] cap : A
+  -- Requirements:
+  -- 1. cap : A
+  -- 2. For each (φᵢ, tubeᵢ): tubeᵢ : (j : 𝕀) → A  (tube binds dimension j)
+  -- 3. TUBE AGREEMENT: tubeᵢ(r) ≡ cap when φᵢ holds
+  | .hcomTube r r' ty tubes cap => do
+    -- Check cap has type ty
+    let _ ← check ctx cap ty
+    -- Check each tube and verify agreement
+    checkTubeAgreement r ty tubes cap
 
   | .natElim p _ _ n => .ok (.app p n)
   | .circleElim p _ _ x => .ok (.app p x)
