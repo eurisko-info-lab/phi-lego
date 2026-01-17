@@ -71,17 +71,76 @@ toy/
 ├── lakefile.lean            -- Lake build config
 ├── lean-toolchain           -- Lean version
 ├── Main.lean                -- Entry point
+├── Test.lean                -- Test suite (127 tests)
+├── ATTR-TODO.md             -- Attribute grammar implementation status
 ├── README.md                -- This file
 └── src/
     ├── Lego.lean            -- Re-exports all modules
     └── Lego/
         ├── Algebra.lean     -- BiReducer, Term, GrammarExpr, Rule, Piece, Language
+        ├── AttrGrammar.lean -- Attribute Grammar types and evaluation
+        ├── AttrEval.lean    -- Runtime evaluation with error reporting
         ├── Interp.lean      -- Grammar interpretation (parse/print)
         ├── Bootstrap.lean   -- Meta (pre-compiled, like Grammar.sexpr)
         ├── Laws.lean        -- Algebraic laws and axioms
         └── Example/
             └── Lambda.lean  -- Lambda calculus + Interaction nets examples
 ```
+
+## Attribute Grammars
+
+Attribute Grammars extend the bidirectional reducer model with **synthesized** and **inherited** attributes:
+
+| Attribute Type | Morphism | Direction | Example |
+|----------------|----------|-----------|---------|
+| **Synthesized** | Catamorphism | Bottom-up | Type inference: `type` |
+| **Inherited** | Paramorphism | Top-down | Context: `ctx`, `expected` |
+
+### Key Types
+
+```lean
+-- Attribute flow direction
+inductive AttrFlow | syn | inh | synInh
+
+-- Attribute definition
+structure AttrDef where
+  name : String
+  flow : AttrFlow
+  rules : List AttrRule
+
+-- Evaluation environment
+structure EvalEnv where
+  attrs : AttrEnv           -- Computed attributes
+  ctx : Context             -- Typing context
+  dimCtx : DimContext       -- Dimension context (cubical)
+  errors : List TypeError   -- Accumulated errors
+  loc : SourceLoc           -- Current source location
+```
+
+### Scope Handling for Binders
+
+The evaluator properly extends context when entering binder bodies:
+
+```lean
+-- λ w : Type . w
+-- child 0: "w" (binding position - skip lookup)
+-- child 1: Type (reference - lookup in ctx)
+-- child 2: w (reference - lookup in EXTENDED ctx with w:Type)
+
+def binderProductions : List (String × Nat × Nat × Nat) :=
+  [ ("lam", 0, 1, 2)    -- λ x : A . body
+  , ("Pi", 0, 1, 2)     -- Π x : A . B
+  , ("Sigma", 0, 1, 2)  -- Σ x : A . B
+  , ("let", 0, 1, 3)    -- let x : A = v in body
+  ]
+```
+
+### Tests
+
+All 127 tests pass including:
+- 733/733 redtt library parsing (100%)
+- Attribute evaluation on lam, pi, app, refl, path, coe, hcom
+- Scope handling: `lam_id`, `lam_nested`, `pi_dep`
 
 ## Meta: Just Another Language
 
