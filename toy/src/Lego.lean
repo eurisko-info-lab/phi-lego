@@ -21,6 +21,7 @@
 -/
 
 import Lego.Algebra
+import Lego.Attr
 import Lego.Interp
 import Lego.Bootstrap
 import Lego.Loader

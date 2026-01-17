@@ -72,6 +72,74 @@ Created `interpreter/Lego/Schema.hs` for explicit arity declarations:
 
 ## In Progress 🔶
 
+### Priority 0: Attribute Grammars (HIGH PRIORITY - Foundation for Redtt)
+
+**Mathematical Foundation**: Attribute Grammars are catamorphisms + paramorphisms over parse trees.
+
+| Attribute Type | Algebraic Morphism | Direction |
+|----------------|-------------------|-----------|
+| **Synthesized** | Catamorphism (fold) | Bottom-up: `Fix F → A` |
+| **Inherited** | Paramorphism | Top-down: carries context |
+| **Both** | Hylomorphism | Anamorphism ∘ Catamorphism |
+
+**How It Fits Lego's Architecture**:
+- Grammar as Functor: `GrammarExpr` defines `F` via `GrammarF` ✅
+- Parse Tree: `Fix F` (initial algebra) ✅
+- Synthesized Attrs: `F-algebra A : F A → A` - fold to compute
+- Inherited Attrs: `F-coalgebra C : C → F C` - context flows down  
+- Pushout Compatibility: Attr algebras compose via coproduct
+
+**Implementation Phases**:
+
+#### Phase 1: Core Data Types ✅
+- [x] Add `AttrDef`, `AttrFlow`, `AttrRule` to `Lego.hs`
+- [x] Add `lfAttrs :: Map String AttrDef` to `LangF`
+- [x] Backwards compatible (defaults to empty)
+
+#### Phase 2: Catamorphism-based Evaluation
+- [ ] `evalSyn :: (ExprF a -> a) -> Term -> a` - synthesized attribute
+- [ ] `evalInh :: Context -> Term -> AttrEnv` - inherited attribute (paramorphism)
+- [ ] `evalAttrs :: AttrDefs -> Term -> AttrEnv` - combined evaluation
+
+#### Phase 3: Grammar Syntax
+- [ ] `attributes:` section in lang declaration
+- [ ] `syn name : Type` - synthesized attribute declaration
+- [ ] `inh name : Type` - inherited attribute declaration
+- [ ] `attr-rules:` section for attribute equations
+
+#### Phase 4: Pushout of Attributed Languages
+- [ ] `(L₁, A₁) ⊔ (L₂, A₂) = (L₁ ⊔ L₂, A₁ ⋈ A₂)`
+- [ ] Co-product of attribute algebras
+- [ ] Conflict detection for overlapping attribute rules
+
+**Syntax Design**:
+```lego
+lang TypeCheck :=
+  import Lambda
+  
+  attributes:
+    syn type : Type         -- computed bottom-up
+    inh env : Env           -- flows top-down
+
+  attr-rules:
+    Lam.type = Arrow Lam.param-type Lam.body.type
+    Lam.body.env = extend env Lam.param Lam.param-type
+    
+    App.type = codomain App.fun.type
+    App.fun.env = env
+    App.arg.env = env
+    
+    Var.type = lookup env Var.name
+```
+
+**Files to Modify**:
+- `interpreter/Lego.hs`: Add `AttrDef`, `AttrFlow`, `AttrRule`, update `LangF`
+- `interpreter/Lego/Attr.hs`: NEW - Attribute evaluation engine
+- `prelude/lego/Grammar.lego`: Add `attributes:`, `attr-rules:` syntax
+- `prelude/lego/Grammar.sexpr`: Regenerate from Grammar.lego
+
+---
+
 ### Priority 1: Grammar Keywords as EOF Markers (HIGH PRIORITY)
 
 **Problem**: Tests must use bootstrap grammar (`Term.term`) instead of the language being defined.

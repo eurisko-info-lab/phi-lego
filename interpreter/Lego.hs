@@ -32,6 +32,9 @@ module Lego
   , TypeRule(..)
   , LegoDecl(..)
   , Law(..)
+    -- * Attribute Grammars (Catamorphism + Paramorphism)
+  , AttrDef(..), AttrFlow(..), AttrRule(..)
+  , clAttrs, addAttr
     -- * The 3 Operations
   , poGraph, poLang, poLangChecked
   , LangConflict(..), formatConflicts
@@ -537,6 +540,7 @@ data LangF a l = LangF
   , lfGrammar  :: Map String (GrammarExpr a)  -- production name → grammar
   , lfRules    :: [Rule]
   , lfTypes    :: [TypeRule]           -- typing judgements
+  , lfAttrs    :: Map String AttrDef   -- attribute definitions (name → def)
   , lfExtends  :: [l]                  -- base languages (recursive)
   -- Runtime fields (used during evaluation)
   , lfTests    :: [Test]               -- test declarations
@@ -559,9 +563,61 @@ data TypeRule = TypeRule
   , trConclusion :: Term
   } deriving (Eq, Show)
 
+--------------------------------------------------------------------------------
+-- Attribute Grammars: Catamorphism (syn) + Paramorphism (inh)
+--------------------------------------------------------------------------------
+
+-- | Attribute flow direction
+--
+-- Mathematical structure:
+--   Syn   = Catamorphism: F-algebra A, cata alg : Fix F → A (bottom-up)
+--   Inh   = Paramorphism: carries context, para coalg : Fix F → A (top-down)
+--   SynInh = Both directions (bialgebra)
+--
+-- Pushout compatibility:
+--   (L₁, A₁) ⊔ (L₂, A₂) = (L₁ ⊔ L₂, A₁ ⋈ A₂)
+--   where A₁ ⋈ A₂ is the coproduct of attribute algebras
+data AttrFlow
+  = Syn      -- ^ Synthesized: computed bottom-up (children → parent)
+  | Inh      -- ^ Inherited: computed top-down (parent → children)
+  | SynInh   -- ^ Both directions (for circular attributes)
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+-- | Attribute definition
+--
+-- Example:
+--   syn type : Type
+--   inh env : Env
+data AttrDef = AttrDef
+  { adName  :: String      -- ^ Attribute name (e.g., "type", "env")
+  , adFlow  :: AttrFlow    -- ^ Direction: Syn | Inh | SynInh
+  , adType  :: Term        -- ^ Type of the attribute (as a term)
+  , adRules :: [AttrRule]  -- ^ Equations for computing this attribute
+  } deriving (Eq, Show)
+
+-- | Attribute equation
+--
+-- Syntax: Production.attr = expression
+--   Lam.type = Arrow Lam.param-type Lam.body.type
+--   Lam.body.env = extend env Lam.param Lam.param-type
+--
+-- The expression can reference:
+--   - Other attributes of the same node: type, env
+--   - Attributes of children: body.type, param.env
+--   - Inherited attributes from parent: env (in child equations)
+data AttrRule = AttrRule
+  { arProd   :: String     -- ^ Production name (e.g., "Lam", "App")
+  , arTarget :: AttrPath   -- ^ Target attribute path (e.g., ["type"] or ["body", "env"])
+  , arExpr   :: Term       -- ^ Expression to compute the attribute
+  } deriving (Eq, Show)
+
+-- | Path to an attribute: either local or on a child
+-- [] = impossible, ["type"] = this.type, ["body", "type"] = this.body.type
+type AttrPath = [String]
+
 -- | Empty language with given name
 emptyLang :: String -> Lang a
-emptyLang name = Lang $ LangF name S.empty M.empty [] [] [] [] [] [] [] []
+emptyLang name = Lang $ LangF name S.empty M.empty [] [] M.empty [] [] [] [] [] []
 
 -- | Accessor functions for CompiledLang (compatibility layer)
 clName :: CompiledLang -> String
@@ -591,16 +647,19 @@ clInherits = lfInherits . unLang
 clAutocuts :: CompiledLang -> [String]
 clAutocuts = lfAutocuts . unLang
 
+clAttrs :: CompiledLang -> Map String AttrDef
+clAttrs = lfAttrs . unLang
+
 -- | Smart constructor for CompiledLang
 mkCompiledLang :: String -> Set String -> Map String (GrammarExpr ()) 
                -> [Rule] -> [Test] -> [String] -> [Law] -> [String] -> [String]
                -> CompiledLang
 mkCompiledLang name vocab grammar rules tests imports laws inherits autocuts =
-  Lang $ LangF name vocab grammar rules [] [] tests laws imports inherits autocuts
+  Lang $ LangF name vocab grammar rules [] M.empty [] tests laws imports inherits autocuts
 
 -- | Empty compiled language
 emptyCompiled :: String -> CompiledLang
-emptyCompiled name = Lang $ LangF name S.empty M.empty [] [] [] [] [] [] [] []
+emptyCompiled name = Lang $ LangF name S.empty M.empty [] [] M.empty [] [] [] [] [] []
 
 -- | Rename a language (returns a new lang with the given name)
 renameLang :: String -> Lang a -> Lang a
@@ -641,6 +700,9 @@ addGrammar name g (Lang l) = Lang $ l { lfGrammar = M.insert name g (lfGrammar l
 addRule :: Rule -> CompiledLang -> CompiledLang
 addRule r (Lang l) = Lang $ l { lfRules = lfRules l ++ [r] }
 
+addAttr :: AttrDef -> CompiledLang -> CompiledLang
+addAttr a (Lang l) = Lang $ l { lfAttrs = M.insert (adName a) a (lfAttrs l) }
+
 --------------------------------------------------------------------------------
 -- Pushout with Conflict Detection
 --------------------------------------------------------------------------------
@@ -662,6 +724,7 @@ poLang (Lang l1) (Lang l2) = Lang $ LangF
   , lfGrammar = M.union (lfGrammar l1) (lfGrammar l2)
   , lfRules = lfRules l1 ++ lfRules l2
   , lfTypes = lfTypes l1 ++ lfTypes l2
+  , lfAttrs = M.union (lfAttrs l1) (lfAttrs l2)  -- Coproduct of attribute algebras
   , lfExtends = []  -- Flattened
   -- Runtime fields: merge
   , lfTests = lfTests l1 ++ lfTests l2

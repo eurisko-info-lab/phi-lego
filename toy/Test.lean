@@ -6,6 +6,7 @@
 -/
 
 import Lego
+import Lego.Attr
 import Lego.Bootstrap
 import Lego.Loader
 
@@ -963,11 +964,54 @@ def runRedttParsingTests : IO (List TestResult) := do
 
     pure [summaryTest]
 
+/-! ## Attribute Grammar Tests -/
+
+def attrTests : List TestResult :=
+  -- Test basic attribute evaluation
+  -- Define a simple "depth" synthesized attribute
+  let depthAttr : AttrDef := {
+    name := "depth"
+    flow := .syn
+    type := some (Term.var "Nat")
+    rules := [
+      -- Leaf nodes have depth 0
+      { prod := "var", target := [], expr := Term.lit "0" },
+      { prod := "lit", target := [], expr := Term.lit "0" },
+      -- Constructor nodes have depth = 1 + max of children's depths
+      -- Simplified: just use first child's depth + 1
+      { prod := "lam", target := [], expr := Term.con "succ" [Term.var "$child1.depth"] }
+    ]
+  }
+
+  -- Test term: (lam x x) - depth should propagate
+  let testTerm := Term.con "lam" [Term.var "x", Term.var "x"]
+  let env := evalSyn depthAttr testTerm
+
+  -- Verify environment has entries
+  let hasEntries := env.values.length > 0
+
+  -- Test AttrRef construction
+  let selfRef := AttrRef.self "type"
+  let childRef := AttrRef.child "body" "type"
+
+  -- Test AttrEnv operations
+  let env1 := AttrEnv.empty
+  let env2 := env1.insert [] "test" (Term.lit "value")
+  let lookup1 := env2.lookup [] "test"
+
+  [
+    assertTrue "attr_env_empty" (AttrEnv.empty.values.length == 0),
+    assertTrue "attr_env_insert_lookup" (lookup1 == some (Term.lit "value")),
+    assertTrue "attr_ref_self" (selfRef.path.length == 0),
+    assertTrue "attr_ref_child" (childRef.path == ["body"]),
+    assertTrue "attr_eval_creates_env" hasEntries
+  ]
+
 /-! ## Run All Tests -/
 
 def allTests : List TestResult :=
   termTests ++ isoTests ++ matchTests ++ substTests ++
-  ruleTests ++ interpreterTests ++ natTests ++ letTests
+  ruleTests ++ interpreterTests ++ natTests ++ letTests ++ attrTests
 
 def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) := do
   IO.println s!"\n── {name} ──"
@@ -1011,6 +1055,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Let/Letrec Tests" letTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Attribute Grammar Tests" attrTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   -- Run .lego file parsing tests (IO-based)
