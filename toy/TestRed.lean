@@ -509,11 +509,41 @@ def typecheckTests : List TestResult :=
   let pair_check_result := match pair_check with
     | Except.ok () => true
     | _ => false
+
+  -- Conversion tests: β-reduction
   let conv_beta := conv (app (lam (ix 0)) zero) zero
+
+  -- Conversion tests: η for functions - λx. f x ≡ f
   let conv_eta_fn := conv (lam (app (shift (ix 0)) (ix 0))) (ix 0)
+  -- f ≡ λx. f x (other direction)
+  let conv_eta_fn2 := conv (ix 0) (lam (app (shift (ix 0)) (ix 0)))
+
+  -- Conversion tests: η for pairs - (fst p, snd p) ≡ p
+  let some_pair := pair (lit "a") (lit "b")
+  let conv_eta_pair := conv (pair (fst (ix 0)) (snd (ix 0))) (ix 0)
+  -- p ≡ (fst p, snd p) (other direction)
+  let conv_eta_pair2 := conv (ix 0) (pair (fst (ix 0)) (snd (ix 0)))
+
+  -- Conversion tests: η for paths - λi. p @ i ≡ p
+  let conv_eta_path := conv (plam (papp (shift (ix 0)) (dimVar 0))) (ix 0)
+  -- p ≡ λi. p @ i (other direction)
+  let conv_eta_path2 := conv (ix 0) (plam (papp (shift (ix 0)) (dimVar 0)))
+
+  -- Conversion tests: refl a ≡ λi. a
+  let conv_refl_plam := conv (refl (lit "a")) (plam (lit "a"))
+  let conv_plam_refl := conv (plam (lit "a")) (refl (lit "a"))
+
+  -- Structural conversion tests
   let conv_nat := conv nat nat
   let conv_zero := conv zero zero
   let conv_diff := conv zero (suc zero)
+  let conv_pi := conv (pi nat nat) (pi nat nat)
+  let conv_sigma := conv (sigma nat nat) (sigma nat nat)
+  let conv_path_ty := conv (path nat zero zero) (path nat zero zero)
+  let conv_dim := conv dim0 dim0
+  let conv_dim_diff := conv dim0 dim1
+  let conv_cof := conv cof_top cof_top
+
   let refl_zero := refl zero
   let refl_check := check [] (plam zero) (path nat zero zero)
   let refl_check_result := match refl_check with
@@ -545,10 +575,31 @@ def typecheckTests : List TestResult :=
     assertTrue "tc_var_in_ctx" in_ctx_result,
     assertTrue "tc_id_app" id_app_result,
     assertTrue "tc_pair_check" pair_check_result,
+    -- Conversion: β-reduction
     assertTrue "tc_conv_beta" conv_beta,
+    -- Conversion: η for functions
+    assertTrue "tc_conv_eta_fn" conv_eta_fn,
+    assertTrue "tc_conv_eta_fn2" conv_eta_fn2,
+    -- Conversion: η for pairs
+    assertTrue "tc_conv_eta_pair" conv_eta_pair,
+    assertTrue "tc_conv_eta_pair2" conv_eta_pair2,
+    -- Conversion: η for paths
+    assertTrue "tc_conv_eta_path" conv_eta_path,
+    assertTrue "tc_conv_eta_path2" conv_eta_path2,
+    -- Conversion: refl ≡ constant path
+    assertTrue "tc_conv_refl_plam" conv_refl_plam,
+    assertTrue "tc_conv_plam_refl" conv_plam_refl,
+    -- Conversion: structural
     assertTrue "tc_conv_nat_eq" conv_nat,
     assertTrue "tc_conv_zero_eq" conv_zero,
     assertTrue "tc_conv_diff_neq" (!conv_diff),
+    assertTrue "tc_conv_pi" conv_pi,
+    assertTrue "tc_conv_sigma" conv_sigma,
+    assertTrue "tc_conv_path_ty" conv_path_ty,
+    assertTrue "tc_conv_dim" conv_dim,
+    assertTrue "tc_conv_dim_diff" (!conv_dim_diff),
+    assertTrue "tc_conv_cof" conv_cof,
+    -- Path checking
     assertTrue "tc_plam_refl" refl_check_result,
     assertTrue "tc_plam_bad_boundary" bad_path_fail,
     assertTrue "tc_hcom_type" hcom_result

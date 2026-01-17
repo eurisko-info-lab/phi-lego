@@ -760,44 +760,150 @@ abbrev TCResult := Except TypeError
     - β-reduction (function application)
     - η-expansion (functions, pairs, paths)
     - Cubical computation (coe, hcom)
+
+    Key principle: two terms are convertible if they have the same
+    normal form, or if they are extensionally equal via η-laws.
+
+    η-laws:
+    - Functions: f ≡ λx. f x
+    - Pairs:     p ≡ (fst p, snd p)
+    - Paths:     p ≡ λi. p @ i
 -/
 
 /-- Normalize for type comparison -/
 def nfEq (a b : Expr) : Bool :=
   Expr.eval a == Expr.eval b
 
+/-- Check if a term is a neutral (stuck) term that can't reduce further -/
+def isNeutral : Expr → Bool
+  | .ix _ => true
+  | .app f _ => isNeutral f
+  | .fst e => isNeutral e
+  | .snd e => isNeutral e
+  | .papp p _ => isNeutral p
+  | .coe _ _ _ e => isNeutral e  -- coe stuck on neutral
+  | .hcom _ _ _ _ e => isNeutral e  -- hcom stuck on neutral
+  | .natElim _ _ _ n => isNeutral n
+  | .circleElim _ _ _ x => isNeutral x
+  | .unglue e => isNeutral e
+  | _ => false
+
 /-- Conversion checking with η-expansion.
-    More sophisticated than nfEq - handles extensional equality. -/
+    More sophisticated than nfEq - handles extensional equality.
+
+    Strategy:
+    1. Normalize both terms
+    2. If syntactically equal, done
+    3. Try η-expansion based on head constructors
+    4. Recurse structurally on matching constructors
+    5. For neutrals, compare head and spine
+-/
 partial def conv (a b : Expr) : Bool :=
   let a' := Expr.eval a
   let b' := Expr.eval b
   if a' == b' then true
   else match a', b' with
-  -- η for functions: f ≡ λx. f x
+  -- ===== η for functions: f ≡ λx. f x =====
   | .lam body1, .lam body2 => conv body1 body2
   | f, .lam body =>
-    -- η-expand f to λx. f x and compare
-    conv (.lam (.app (Expr.shift f) (.ix 0))) (.lam body)
+    -- η-expand f to λx. f x and compare bodies
+    -- Under the binder, f becomes (shift f), applied to (ix 0)
+    conv (.app (Expr.shift f) (.ix 0)) body
   | .lam body, f =>
-    conv (.lam body) (.lam (.app (Expr.shift f) (.ix 0)))
+    conv body (.app (Expr.shift f) (.ix 0))
 
-  -- η for pairs: p ≡ (fst p, snd p)
+  -- ===== η for pairs: p ≡ (fst p, snd p) =====
   | .pair a1 b1, .pair a2 b2 => conv a1 a2 && conv b1 b2
-  | p, .pair a b =>
-    conv (.pair (.fst p) (.snd p)) (.pair a b)
-  | .pair a b, p =>
-    conv (.pair a b) (.pair (.fst p) (.snd p))
+  | p, .pair a2 b2 =>
+    -- η-expand p to (fst p, snd p)
+    conv (.fst p) a2 && conv (.snd p) b2
+  | .pair a1 b1, p =>
+    conv a1 (.fst p) && conv b1 (.snd p)
 
-  -- η for paths: p ≡ λi. p @ i
+  -- ===== η for paths: p ≡ λi. p @ i =====
   | .plam body1, .plam body2 => conv body1 body2
 
-  -- Structural equality for other terms
+  -- ===== refl: refl a ≡ λi. a (must come before generic plam η) =====
+  | .refl a1, .refl a2 => conv a1 a2
+  | .refl a, .plam body =>
+    -- refl a = λi. a (constant path)
+    conv (Expr.shift a) body
+  | .plam body, .refl a =>
+    conv body (Expr.shift a)
+
+  -- ===== η for paths (generic): p ≡ λi. p @ i =====
+  | p, .plam body =>
+    -- η-expand p to λi. p @ i
+    -- Under the binder, p becomes (shift p), applied to (dimVar 0)
+    conv (.papp (Expr.shift p) (.dimVar 0)) body
+  | .plam body, p =>
+    conv body (.papp (Expr.shift p) (.dimVar 0))
+
+  -- ===== Type formers: structural =====
   | .pi dom1 cod1, .pi dom2 cod2 => conv dom1 dom2 && conv cod1 cod2
   | .sigma dom1 cod1, .sigma dom2 cod2 => conv dom1 dom2 && conv cod1 cod2
   | .path ty1 a1 b1, .path ty2 a2 b2 => conv ty1 ty2 && conv a1 a2 && conv b1 b2
+  | .univ n1, .univ n2 => n1 == n2
+
+  -- ===== Applications and projections: structural =====
   | .app f1 x1, .app f2 x2 => conv f1 f2 && conv x1 x2
+  | .papp p1 r1, .papp p2 r2 => conv p1 p2 && conv r1 r2
+  | .fst e1, .fst e2 => conv e1 e2
+  | .snd e1, .snd e2 => conv e1 e2
+
+  -- ===== Let: should be reduced, but handle structurally =====
+  | .letE ty1 v1 b1, .letE ty2 v2 b2 => conv ty1 ty2 && conv v1 v2 && conv b1 b2
+
+  -- ===== Dimensions =====
+  | .dim0, .dim0 => true
+  | .dim1, .dim1 => true
+  | .dimVar n1, .dimVar n2 => n1 == n2
+
+  -- ===== Cofibrations =====
+  | .cof_top, .cof_top => true
+  | .cof_bot, .cof_bot => true
+  | .cof_eq r1 s1, .cof_eq r2 s2 => conv r1 r2 && conv s1 s2
+  | .cof_and φ1 ψ1, .cof_and φ2 ψ2 => conv φ1 φ2 && conv ψ1 ψ2
+  | .cof_or φ1 ψ1, .cof_or φ2 ψ2 => conv φ1 φ2 && conv ψ1 ψ2
+
+  -- ===== Coercion: structural when stuck =====
+  | .coe r1 r1' ty1 a1, .coe r2 r2' ty2 a2 =>
+    conv r1 r2 && conv r1' r2' && conv ty1 ty2 && conv a1 a2
+
+  -- ===== Composition: structural when stuck =====
+  | .hcom r1 r1' ty1 φ1 cap1, .hcom r2 r2' ty2 φ2 cap2 =>
+    conv r1 r2 && conv r1' r2' && conv ty1 ty2 && conv φ1 φ2 && conv cap1 cap2
+
+  -- ===== Natural numbers =====
+  | .nat, .nat => true
+  | .zero, .zero => true
   | .suc n1, .suc n2 => conv n1 n2
+  | .natElim p1 z1 s1 n1, .natElim p2 z2 s2 n2 =>
+    conv p1 p2 && conv z1 z2 && conv s1 s2 && conv n1 n2
+
+  -- ===== Circle =====
+  | .circle, .circle => true
+  | .base, .base => true
   | .loop r1, .loop r2 => conv r1 r2
+  | .circleElim p1 b1 l1 x1, .circleElim p2 b2 l2 x2 =>
+    conv p1 p2 && conv b1 b2 && conv l1 l2 && conv x1 x2
+
+  -- ===== Glue types =====
+  | .glue a1 φ1 t1 e1, .glue a2 φ2 t2 e2 =>
+    conv a1 a2 && conv φ1 φ2 && conv t1 t2 && conv e1 e2
+  | .glueElem t1 a1, .glueElem t2 a2 => conv t1 t2 && conv a1 a2
+  | .unglue g1, .unglue g2 => conv g1 g2
+
+  -- ===== Systems: compare branches =====
+  | .sys bs1, .sys bs2 =>
+    bs1.length == bs2.length &&
+    (bs1.zip bs2).all fun ((φ1, t1), (φ2, t2)) => conv φ1 φ2 && conv t1 t2
+
+  -- ===== Variables and literals =====
+  | .ix n1, .ix n2 => n1 == n2
+  | .lit s1, .lit s2 => s1 == s2
+
+  -- ===== No match =====
   | _, _ => false
 
 /-- Check if two types are convertible (for type checking) -/
