@@ -465,6 +465,125 @@ piece RunML
   runml      ::= ltr mlcmd rtr ;
 
 -----------------------------------------------------
+-- =====================================================
+-- TRANSFORMATION RULES: Surface AST → Core IR
+-- =====================================================
+-- These rules transform the parsed surface syntax into
+-- an internal representation suitable for type checking
+-- and reduction.
+--
+-- The transformation follows the bidirectional approach:
+--   - Checking mode: term ⇐ type
+--   - Inference mode: term ⇒ type
+--
+-- Architecture (from redtt):
+--   Surface (ML.econ) → Core (Tm.tm) → Domain (value) → Core (normalized)
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Core IR Constructors
+-- These are the target of our transformation rules
+-----------------------------------------------------
+-- Type formers:
+--   (Univ kind lvl)        -- universe type^lvl
+--   (Pi dom cod)           -- (x : A) → B  
+--   (Sg dom cod)           -- (x : A) × B
+--   (Ext dims ty sys)      -- extension types [i] A [sys]
+--   (Path A a b)           -- path types (sugar for Ext)
+--   (V r ty0 ty1 equiv)    -- V-types (univalence)
+--   (Data lbl params)      -- inductive data type
+--
+-- Introduction forms:
+--   (Lam x body)           -- λ x. e
+--   (ExtLam xs body)       -- λ [i j]. e  
+--   (Cons a b)             -- (a, b)
+--   (Refl a)               -- reflexivity proof
+--   (VIn r tm0 tm1)        -- V-type intro
+--   (Box r r' cap sys)     -- box (comp intro)
+--   (Intro dlbl clbl args) -- data constructor
+--
+-- Elimination forms:
+--   (App f x)              -- f x
+--   (ExtApp f dims)        -- f @i @j
+--   (Fst p)                -- p.fst
+--   (Snd p)                -- p.snd
+--   (Elim scrut mot cls)   -- elim scrut [in mot] clauses
+--   (VProj v)              -- v.vproj
+--   (Cap v)                -- v.cap
+--
+-- Kan operations:
+--   (Coe r r' ty tm)       -- coercion
+--   (HCom r r' ty cap sys) -- homogeneous composition
+--   (Com r r' ty cap sys)  -- heterogeneous composition
+--
+-- Variables:
+--   (Var name)             -- named variable
+--   (Ix n)                 -- de Bruijn index
+--   (Meta name)            -- metavariable/hole
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- β-reduction rules (Core → Core)
+-----------------------------------------------------
+-- Function application
+rule beta-lam: (App (Lam $x $body) $arg) ~> (subst $body $x $arg) ;
+
+-- Pair projections
+rule beta-fst: (Fst (Cons $a $b)) ~> $a ;
+rule beta-snd: (Snd (Cons $a $b)) ~> $b ;
+
+-- Let binding (inline)
+rule beta-let: (Let $x $val $body) ~> (subst $body $x $val) ;
+
+-- Extension application at endpoints
+rule beta-extapp-0: (ExtApp (ExtLam $i $body) (Dim0)) ~> (subst $body $i (Dim0)) ;
+rule beta-extapp-1: (ExtApp (ExtLam $i $body) (Dim1)) ~> (subst $body $i (Dim1)) ;
+
+-----------------------------------------------------
+-- Kan operation computation rules
+-----------------------------------------------------
+-- Coercion at same point is identity
+rule coe-refl: (Coe $r $r $ty $tm) ~> $tm ;
+
+-- HCom at same point is cap
+rule hcom-refl: (HCom $r $r $ty $cap $sys) ~> $cap ;
+
+-- Coercion through constant type is identity
+rule coe-const: (Coe $r $r' (const $A) $tm) ~> $tm ;
+
+-----------------------------------------------------
+-- Path computation rules
+-----------------------------------------------------
+-- Path application to refl
+rule path-app-refl: (ExtApp (Refl $a) $r) ~> $a ;
+
+-- Path endpoints
+rule path-0: (ExtApp (ExtLam $i $body) (Dim0)) ~> (subst $body $i (Dim0)) ;
+rule path-1: (ExtApp (ExtLam $i $body) (Dim1)) ~> (subst $body $i (Dim1)) ;
+
+-----------------------------------------------------
+-- V-type computation (univalence)
+-----------------------------------------------------
+-- V at 0 gives ty0
+rule v-0: (V (Dim0) $ty0 $ty1 $equiv) ~> $ty0 ;
+
+-- V at 1 gives ty1  
+rule v-1: (V (Dim1) $ty0 $ty1 $equiv) ~> $ty1 ;
+
+-- VIn at 0 gives tm0
+rule vin-0: (VIn (Dim0) $tm0 $tm1) ~> $tm0 ;
+
+-- VIn at 1 gives tm1
+rule vin-1: (VIn (Dim1) $tm0 $tm1) ~> $tm1 ;
+
+-----------------------------------------------------
+-- Data elimination rules
+-----------------------------------------------------
+-- Elim Intro computes to clause body
+rule elim-intro: (Elim (Intro $dlbl $clbl $args) $mot $clauses) ~>
+  (apply-clause (lookup $clbl $clauses) $args) ;
+
+-----------------------------------------------------
 -- Tests
 -----------------------------------------------------
 test "import simple": (import prelude) ;
