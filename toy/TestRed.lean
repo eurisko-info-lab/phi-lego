@@ -574,6 +574,31 @@ def typecheckTests : List TestResult :=
     | Except.ok (Expr.univ l) => Level.levelEq l (Level.suc Level.zero)
     | _ => false
 
+  -- V-type tests
+  -- V 0 A B equiv → A
+  let vtype_at_0 := eval (vtype dim0 nat circle (lam (ix 0)))
+  let vtype_at_0_ok := vtype_at_0 == nat
+  -- V 1 A B equiv → B
+  let vtype_at_1 := eval (vtype dim1 nat circle (lam (ix 0)))
+  let vtype_at_1_ok := vtype_at_1 == circle
+  -- vin 0 a b → a
+  let vin_at_0 := eval (vin dim0 zero base)
+  let vin_at_0_ok := vin_at_0 == zero
+  -- vin 1 a b → b
+  let vin_at_1 := eval (vin dim1 zero base)
+  let vin_at_1_ok := vin_at_1 == base
+  -- vproj 0 A B equiv v → equiv v
+  let vproj_at_0 := eval (vproj dim0 nat circle (lam (ix 0)) zero)
+  let vproj_at_0_ok := vproj_at_0 == zero  -- (λx.x) 0 → 0
+  -- vproj 1 A B equiv v → v
+  let vproj_at_1 := eval (vproj dim1 nat circle (lam (ix 0)) base)
+  let vproj_at_1_ok := vproj_at_1 == base
+  -- vproj r A B equiv (vin r' a b) → b
+  let vproj_vin := eval (vproj (dimVar 0) nat circle (lam (ix 0)) (vin (dimVar 0) zero base))
+  let vproj_vin_ok := vproj_vin == base
+  -- V-type conversion: V 0 A B e ≡ A
+  let conv_vtype_0 := conv (vtype dim0 nat circle (lam (ix 0))) nat
+
   let refl_zero := refl zero
   let refl_check := check [] (plam zero) (path nat zero zero)
   let refl_check_result := match refl_check with
@@ -663,6 +688,15 @@ def typecheckTests : List TestResult :=
     assertTrue "tc_conv_univ_max" conv_univ_max,
     assertTrue "tc_pi_level" pi_level_ok,
     assertTrue "tc_pi_type_level" pi_type_level_ok,
+    -- V-type tests
+    assertTrue "tc_vtype_at_0" vtype_at_0_ok,
+    assertTrue "tc_vtype_at_1" vtype_at_1_ok,
+    assertTrue "tc_vin_at_0" vin_at_0_ok,
+    assertTrue "tc_vin_at_1" vin_at_1_ok,
+    assertTrue "tc_vproj_at_0" vproj_at_0_ok,
+    assertTrue "tc_vproj_at_1" vproj_at_1_ok,
+    assertTrue "tc_vproj_vin" vproj_vin_ok,
+    assertTrue "tc_conv_vtype_0" conv_vtype_0,
     -- Path checking
     assertTrue "tc_plam_refl" refl_check_result,
     assertTrue "tc_plam_bad_boundary" bad_path_fail,

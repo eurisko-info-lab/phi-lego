@@ -142,7 +142,12 @@ inductive Expr where
   | hcomTube : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- hcom r r' A [(φ,tube)...] cap with explicit tubes
   -- Systems (partial elements): list of (cof, term) branches
   | sys   : List (Expr × Expr) → Expr      -- [(φ₁, t₁), (φ₂, t₂), ...]
-  -- Glue types (V-types for univalence)
+  -- V-types (Glue types for univalence)
+  -- V r A B equiv : when r=0 gives A, when r=1 gives B
+  | vtype : Expr → Expr → Expr → Expr → Expr  -- V r A B equiv
+  | vin   : Expr → Expr → Expr → Expr      -- vin r a b : V r A B e (when r=0 gives a, r=1 gives b)
+  | vproj : Expr → Expr → Expr → Expr → Expr → Expr  -- vproj r A B equiv v : projects out of V-type
+  -- Legacy Glue (deprecated, use V-types)
   | glue  : Expr → Expr → Expr → Expr → Expr  -- Glue A φ T equiv
   | glueElem : Expr → Expr → Expr          -- glue t a : Glue A φ T e  (with [φ → t])
   | unglue : Expr → Expr                   -- unglue g : A
@@ -231,7 +236,20 @@ partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (shiftAbove cutoff delta cof, shiftAbove cutoff delta tm))
-  -- Glue types
+  -- V-types
+  | vtype r a b equiv => vtype (shiftAbove cutoff delta r)
+                               (shiftAbove cutoff delta a)
+                               (shiftAbove cutoff delta b)
+                               (shiftAbove cutoff delta equiv)
+  | vin r el0 el1 => vin (shiftAbove cutoff delta r)
+                         (shiftAbove cutoff delta el0)
+                         (shiftAbove cutoff delta el1)
+  | vproj r a b equiv v => vproj (shiftAbove cutoff delta r)
+                                 (shiftAbove cutoff delta a)
+                                 (shiftAbove cutoff delta b)
+                                 (shiftAbove cutoff delta equiv)
+                                 (shiftAbove cutoff delta v)
+  -- Legacy Glue types
   | glue a phi t equiv => glue (shiftAbove cutoff delta a)
                                (shiftAbove cutoff delta phi)
                                (shiftAbove cutoff delta t)
@@ -337,7 +355,14 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (subst idx val cof, subst idx val tm))
-  -- Glue types
+  -- V-types
+  | vtype r a b equiv =>
+    vtype (subst idx val r) (subst idx val a) (subst idx val b) (subst idx val equiv)
+  | vin r el0 el1 =>
+    vin (subst idx val r) (subst idx val el0) (subst idx val el1)
+  | vproj r a b equiv v =>
+    vproj (subst idx val r) (subst idx val a) (subst idx val b) (subst idx val equiv) (subst idx val v)
+  -- Legacy Glue types
   | glue a phi t equiv =>
     glue (subst idx val a) (subst idx val phi) (subst idx val t) (subst idx val equiv)
   | glueElem t a => glueElem (subst idx val t) (subst idx val a)
@@ -485,6 +510,25 @@ partial def step : Expr → Option Expr
   -- hcomTube: when all cofibrations are ⊥, reduces to cap
   | hcomTube _ _ _ tubes cap =>
     if tubes.all (fun (φ, _) => φ == cof_bot) then some cap else none
+
+  -- ===== V-type computation rules =====
+  -- V 0 A B equiv → A
+  | vtype dim0 a _ _ => some a
+  -- V 1 A B equiv → B
+  | vtype dim1 _ b _ => some b
+
+  -- vin 0 a b → a
+  | vin dim0 a _ => some a
+  -- vin 1 a b → b
+  | vin dim1 _ b => some b
+
+  -- vproj 0 A B equiv v → equiv v (apply the equivalence when r=0)
+  | vproj dim0 _ _ equiv v => some (app equiv v)
+  -- vproj 1 A B equiv v → v (identity projection when r=1)
+  | vproj dim1 _ _ _ v => some v
+
+  -- vproj r A B equiv (vin r' a b) → b when r = r' (extract second component)
+  | vproj _ _ _ _ (vin _ _ b) => some b
 
   -- No reduction at this level
   | _ => none
@@ -675,6 +719,46 @@ partial def stepDeep : Expr → Option Expr
               match stepDeep x with
               | some x' => some (circleElim p b l x')
               | none => none
+      -- V-type operations
+      | vtype r a b equiv =>
+        match stepDeep r with
+        | some r' => some (vtype r' a b equiv)
+        | none =>
+          match stepDeep a with
+          | some a' => some (vtype r a' b equiv)
+          | none =>
+            match stepDeep b with
+            | some b' => some (vtype r a b' equiv)
+            | none =>
+              match stepDeep equiv with
+              | some equiv' => some (vtype r a b equiv')
+              | none => none
+      | vin r el0 el1 =>
+        match stepDeep r with
+        | some r' => some (vin r' el0 el1)
+        | none =>
+          match stepDeep el0 with
+          | some el0' => some (vin r el0' el1)
+          | none =>
+            match stepDeep el1 with
+            | some el1' => some (vin r el0 el1')
+            | none => none
+      | vproj r a b equiv v =>
+        match stepDeep r with
+        | some r' => some (vproj r' a b equiv v)
+        | none =>
+          match stepDeep a with
+          | some a' => some (vproj r a' b equiv v)
+          | none =>
+            match stepDeep b with
+            | some b' => some (vproj r a b' equiv v)
+            | none =>
+              match stepDeep equiv with
+              | some equiv' => some (vproj r a b equiv' v)
+              | none =>
+                match stepDeep v with
+                | some v' => some (vproj r a b equiv v')
+                | none => none
       -- Glue operations
       | glue a phi t equiv =>
         match stepDeep a with
@@ -768,6 +852,11 @@ partial def toString : Expr → String
     let branchStrs := branches.map fun (cof, tm) => s!"{toString cof} ↦ {toString tm}"
     s!"[{String.intercalate ", " branchStrs}]"
   -- Glue
+  -- V-types
+  | vtype r a b equiv => s!"(V {toString r} {toString a} {toString b} {toString equiv})"
+  | vin r el0 el1 => s!"(vin {toString r} {toString el0} {toString el1})"
+  | vproj r a b equiv v => s!"(vproj {toString r} {toString a} {toString b} {toString equiv} {toString v})"
+  -- Legacy Glue
   | glue a phi t equiv => s!"(Glue {toString a} {toString phi} {toString t} {toString equiv})"
   | glueElem t a => s!"(glue {toString t} {toString a})"
   | unglue g => s!"(unglue {toString g})"
@@ -824,7 +913,11 @@ partial def freeIn (n : Nat) : Expr → Bool
     freeIn n cap
   -- Systems
   | .sys branches => branches.any fun (cof, tm) => freeIn n cof || freeIn n tm
-  -- Glue
+  -- V-types
+  | .vtype r a b equiv => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv
+  | .vin r el0 el1 => freeIn n r || freeIn n el0 || freeIn n el1
+  | .vproj r a b equiv v => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv || freeIn n v
+  -- Legacy Glue
   | .glue a phi t equiv => freeIn n a || freeIn n phi || freeIn n t || freeIn n equiv
   | .glueElem t a => freeIn n t || freeIn n a
   | .unglue g => freeIn n g
@@ -1029,6 +1122,14 @@ partial def conv (a b : Expr) : Bool :=
   | .glueElem t1 a1, .glueElem t2 a2 => conv t1 t2 && conv a1 a2
   | .unglue g1, .unglue g2 => conv g1 g2
 
+  -- ===== V-types =====
+  | .vtype r1 a1 b1 e1, .vtype r2 a2 b2 e2 =>
+    conv r1 r2 && conv a1 a2 && conv b1 b2 && conv e1 e2
+  | .vin r1 el01 el11, .vin r2 el02 el12 =>
+    conv r1 r2 && conv el01 el02 && conv el11 el12
+  | .vproj r1 a1 b1 e1 v1, .vproj r2 a2 b2 e2 v2 =>
+    conv r1 r2 && conv a1 a2 && conv b1 b2 && conv e1 e2 && conv v1 v2
+
   -- ===== Systems: compare branches =====
   | .sys bs1, .sys bs2 =>
     bs1.length == bs2.length &&
@@ -1215,7 +1316,20 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   | .natElim p _ _ n => .ok (.app p n)
   | .circleElim p _ _ x => .ok (.app p x)
 
-  -- Glue types
+  -- V-types
+  -- V r A B equiv : Type (when equiv : A → B is an equivalence at r=0)
+  | .vtype _ _ _ _ => .ok (.univ .zero)  -- Simplified: assumes small types
+  -- vin r a b : V r A B equiv (when a : A and b : B)
+  | .vin r a b => do
+    let _ ← infer ctx a  -- a : A
+    let tyB ← infer ctx b  -- b : B
+    .ok tyB  -- Result is in B (simplified)
+  -- vproj r A B equiv v : B
+  | .vproj _ _ b _ v => do
+    let _ ← infer ctx v
+    .ok b
+
+  -- Legacy Glue types
   | .glue _ _ _ _ => .ok (.univ .zero)  -- Simplified
   | .glueElem _ a => infer ctx a
   | .unglue g => infer ctx g
