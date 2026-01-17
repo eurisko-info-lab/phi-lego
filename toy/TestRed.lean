@@ -599,6 +599,20 @@ def typecheckTests : List TestResult :=
   -- V-type conversion: V 0 A B e ≡ A
   let conv_vtype_0 := conv (vtype dim0 nat circle (lam (ix 0))) nat
 
+  -- ===== Com (heterogeneous composition) tests =====
+  -- com r r (λi.A) tubes cap → cap (reflexivity)
+  let com_refl_0 := eval (com dim0 dim0 (plam nat) [] zero)
+  let com_refl_0_ok := com_refl_0 == zero
+  let com_refl_1 := eval (com dim1 dim1 (plam nat) [] zero)
+  let com_refl_1_ok := com_refl_1 == zero
+  -- com with constant type line → hcomTube
+  -- When type doesn't depend on i, com r r' (λi.A) tubes cap → hcomTube r r' A tubes cap
+  let com_const_ty := eval (com dim0 dim1 (plam (shift nat)) [] zero)  -- shift nat to bind fresh dim
+  -- With constant type, this reduces to hcomTube, which with empty tubes reduces to cap
+  let com_const_ty_ok := com_const_ty == zero
+  -- com conversion: com r r ty tubes cap ≡ cap
+  let conv_com_refl := conv (com dim0 dim0 (plam nat) [] zero) zero
+
   let refl_zero := refl zero
   let refl_check := check [] (plam zero) (path nat zero zero)
   let refl_check_result := match refl_check with
@@ -697,6 +711,11 @@ def typecheckTests : List TestResult :=
     assertTrue "tc_vproj_at_1" vproj_at_1_ok,
     assertTrue "tc_vproj_vin" vproj_vin_ok,
     assertTrue "tc_conv_vtype_0" conv_vtype_0,
+    -- Com (heterogeneous composition) tests
+    assertTrue "tc_com_refl_0" com_refl_0_ok,
+    assertTrue "tc_com_refl_1" com_refl_1_ok,
+    assertTrue "tc_com_const_ty" com_const_ty_ok,
+    assertTrue "tc_conv_com_refl" conv_com_refl,
     -- Path checking
     assertTrue "tc_plam_refl" refl_check_result,
     assertTrue "tc_plam_bad_boundary" bad_path_fail,

@@ -140,6 +140,10 @@ inductive Expr where
   | coe   : Expr → Expr → Expr → Expr → Expr  -- coe r r' (λi.A) a
   | hcom  : Expr → Expr → Expr → Expr → Expr → Expr  -- hcom r r' A φ cap (tube implicit when φ true)
   | hcomTube : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- hcom r r' A [(φ,tube)...] cap with explicit tubes
+  -- Heterogeneous composition: com r r' (λi.A[i]) cap sys
+  -- This is the key operation for transport in dependent types.
+  -- com = coe + hcom: coerce the cap and system, then compose homogeneously.
+  | com   : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- com r r' (λi.A) [(φ,tube)...] cap
   -- Systems (partial elements): list of (cof, term) branches
   | sys   : List (Expr × Expr) → Expr      -- [(φ₁, t₁), (φ₂, t₂), ...]
   -- V-types (Glue types for univalence)
@@ -233,6 +237,12 @@ partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
              (shiftAbove cutoff delta ty)
              (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))  -- tube binds dim
              (shiftAbove cutoff delta cap)
+  | com r r' ty tubes cap =>
+    com (shiftAbove cutoff delta r)
+        (shiftAbove cutoff delta r')
+        (shiftAbove (cutoff + 1) delta ty)  -- ty binds dimension
+        (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))  -- tube binds dim
+        (shiftAbove cutoff delta cap)
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (shiftAbove cutoff delta cof, shiftAbove cutoff delta tm))
@@ -352,6 +362,12 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
              (subst idx val ty)
              (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))  -- tube binds dim
              (subst idx val cap)
+  | com r r' ty tubes cap =>
+    com (subst idx val r)
+        (subst idx val r')
+        (subst (idx + 1) (shift val) ty)  -- ty binds dimension
+        (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))  -- tube binds dim
+        (subst idx val cap)
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (subst idx val cof, subst idx val tm))
@@ -389,8 +405,74 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
 /-- Substitute at index 0 (most common case: β-reduction) -/
 def subst0 (val : Expr) (body : Expr) : Expr := subst 0 val body
 
+/-! ## Free Variable Checking -/
+
+/-- Check if index n is free in expression -/
+partial def freeIn (n : Nat) : Expr → Bool
+  | ix m => m == n
+  | lit _ => false
+  | lam body => freeIn (n + 1) body
+  | app f x => freeIn n f || freeIn n x
+  | pi dom cod => freeIn n dom || freeIn (n + 1) cod
+  | sigma dom cod => freeIn n dom || freeIn (n + 1) cod
+  | pair a b => freeIn n a || freeIn n b
+  | fst e => freeIn n e
+  | snd e => freeIn n e
+  | letE ty val body => freeIn n ty || freeIn n val || freeIn (n + 1) body
+  | univ _ => false
+  -- Dimensions
+  | dim0 => false
+  | dim1 => false
+  | dimVar m => m == n
+  -- Cofibrations
+  | cof_top => false
+  | cof_bot => false
+  | cof_eq r s => freeIn n r || freeIn n s
+  | cof_and phi psi => freeIn n phi || freeIn n psi
+  | cof_or phi psi => freeIn n phi || freeIn n psi
+  -- Paths
+  | path ty a b => freeIn n ty || freeIn n a || freeIn n b
+  | plam body => freeIn (n + 1) body
+  | papp p r => freeIn n p || freeIn n r
+  | refl a => freeIn n a
+  | coe r r' ty a => freeIn n r || freeIn n r' || freeIn (n + 1) ty || freeIn n a
+  | hcom r r' ty phi cap => freeIn n r || freeIn n r' || freeIn n ty || freeIn n phi || freeIn n cap
+  | hcomTube r r' ty tubes cap =>
+    freeIn n r || freeIn n r' || freeIn n ty ||
+    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||  -- tube binds dim
+    freeIn n cap
+  | com r r' ty tubes cap =>
+    freeIn n r || freeIn n r' || freeIn (n + 1) ty ||  -- ty is a type line (binds dimension)
+    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||  -- tube binds dim
+    freeIn n cap
+  -- Systems
+  | sys branches => branches.any fun (cof, tm) => freeIn n cof || freeIn n tm
+  -- V-types
+  | vtype r a b equiv => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv
+  | vin r el0 el1 => freeIn n r || freeIn n el0 || freeIn n el1
+  | vproj r a b equiv v => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv || freeIn n v
+  -- Legacy Glue
+  | glue a phi t equiv => freeIn n a || freeIn n phi || freeIn n t || freeIn n equiv
+  | glueElem t a => freeIn n t || freeIn n a
+  | unglue g => freeIn n g
+  -- Nat
+  | nat => false
+  | zero => false
+  | suc e => freeIn n e
+  | natElim p z s e => freeIn n p || freeIn n z || freeIn (n + 2) s || freeIn n e
+  -- Circle
+  | circle => false
+  | base => false
+  | loop r => freeIn n r
+  | circleElim p b l x => freeIn n p || freeIn n b || freeIn (n + 1) l || freeIn n x
+
+/-- Check if variable 0 is free (for eta-expansion detection) -/
+def freeIn0 (e : Expr) : Bool := freeIn 0 e
+
 /-! ## β-Reduction -/
 
+-- Large pattern match requires more time to elaborate
+set_option maxHeartbeats 400000 in
 /-- Single-step reduction (outermost first) -/
 partial def step : Expr → Option Expr
   -- β-reduction: (λ. body) x → body[0 := x]
@@ -510,6 +592,39 @@ partial def step : Expr → Option Expr
   -- hcomTube: when all cofibrations are ⊥, reduces to cap
   | hcomTube _ _ _ tubes cap =>
     if tubes.all (fun (φ, _) => φ == cof_bot) then some cap else none
+
+  -- ===== com (heterogeneous composition) =====
+  -- com r r' (λi.A) tubes cap = hcomTube r r' A[r'] (coerced-tubes) (coe r r' (λi.A) cap)
+  -- This is the fundamental operation for transport in dependent types.
+  --
+  -- Key insight: com combines coercion and composition
+  -- - First coerce the cap from A[r] to A[r']
+  -- - Then compose in the target type A[r']
+  -- - The tubes must also be coerced to match
+
+  -- com reflexivity: com r r (λi.A) tubes cap → cap
+  | com dim0 dim0 _ _ cap => some cap
+  | com dim1 dim1 _ _ cap => some cap
+  | com (dimVar n) (dimVar m) _ _ cap => if n == m then some cap else none
+
+  -- com through constant type line: com r r' (λi.A) tubes cap → hcomTube r r' A tubes cap
+  -- When the type doesn't depend on i, com reduces to hcom
+  | com r r' (plam ty) tubes cap =>
+    if !freeIn 0 ty then
+      -- Type doesn't depend on dimension, so coe is identity
+      some (hcomTube r r' ty tubes cap)
+    else
+      -- General case: convert to hcomTube with coerced cap and tubes
+      -- The cap is coerced: coe r r' (λi.A) cap
+      let coercedCap := coe r r' (plam ty) cap
+      -- The type at r': A[r'/i]
+      let tyAtR' := subst0 r' ty
+      -- Each tube needs to be coerced from j to r'
+      -- tube : (j : 𝕀) → A[j], we need: (j : 𝕀) → A[r']
+      -- So: λj. coe j r' (λi.A) (tube j)
+      let coercedTubes := tubes.map fun (φ, tube) =>
+        (φ, coe (dimVar 0) (shift r') (shift (plam ty)) tube)
+      some (hcomTube r r' tyAtR' coercedTubes coercedCap)
 
   -- ===== V-type computation rules =====
   -- V 0 A B equiv → A
@@ -660,6 +775,19 @@ partial def stepDeep : Expr → Option Expr
             | none =>
               match stepDeep cap with
               | some cap' => some (hcomTube r r' ty tubes cap')
+              | none => none  -- tubes reduction omitted for simplicity
+      | com r r' ty tubes cap =>
+        match stepDeep r with
+        | some r'' => some (com r'' r' ty tubes cap)
+        | none =>
+          match stepDeep r' with
+          | some r'' => some (com r r'' ty tubes cap)
+          | none =>
+            match stepDeep ty with
+            | some ty' => some (com r r' ty' tubes cap)
+            | none =>
+              match stepDeep cap with
+              | some cap' => some (com r r' ty tubes cap')
               | none => none  -- tubes reduction omitted for simplicity
       -- Cofibrations
       | cof_eq r s =>
@@ -847,6 +975,9 @@ partial def toString : Expr → String
   | hcomTube r r' ty tubes cap =>
     let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
     s!"(hcom {toString r} {toString r'} {toString ty} [{String.intercalate ", " tubeStrs}] {toString cap})"
+  | com r r' ty tubes cap =>
+    let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
+    s!"(com {toString r} {toString r'} {toString ty} [{String.intercalate ", " tubeStrs}] {toString cap})"
   -- Systems
   | sys branches =>
     let branchStrs := branches.map fun (cof, tm) => s!"{toString cof} ↦ {toString tm}"
@@ -874,66 +1005,6 @@ partial def toString : Expr → String
 instance : ToString Expr := ⟨toString⟩
 
 end Expr
-
-/-! ## Free Variable Checking -/
-
-/-- Check if index n is free in expression -/
-partial def freeIn (n : Nat) : Expr → Bool
-  | .ix m => m == n
-  | .lit _ => false
-  | .lam body => freeIn (n + 1) body
-  | .app f x => freeIn n f || freeIn n x
-  | .pi dom cod => freeIn n dom || freeIn (n + 1) cod
-  | .sigma dom cod => freeIn n dom || freeIn (n + 1) cod
-  | .pair a b => freeIn n a || freeIn n b
-  | .fst e => freeIn n e
-  | .snd e => freeIn n e
-  | .letE ty val body => freeIn n ty || freeIn n val || freeIn (n + 1) body
-  | .univ _ => false
-  -- Dimensions
-  | .dim0 => false
-  | .dim1 => false
-  | .dimVar m => m == n
-  -- Cofibrations
-  | .cof_top => false
-  | .cof_bot => false
-  | .cof_eq r s => freeIn n r || freeIn n s
-  | .cof_and phi psi => freeIn n phi || freeIn n psi
-  | .cof_or phi psi => freeIn n phi || freeIn n psi
-  -- Paths
-  | .path ty a b => freeIn n ty || freeIn n a || freeIn n b
-  | .plam body => freeIn (n + 1) body
-  | .papp p r => freeIn n p || freeIn n r
-  | .refl a => freeIn n a
-  | .coe r r' ty a => freeIn n r || freeIn n r' || freeIn (n + 1) ty || freeIn n a
-  | .hcom r r' ty phi cap => freeIn n r || freeIn n r' || freeIn n ty || freeIn n phi || freeIn n cap
-  | .hcomTube r r' ty tubes cap =>
-    freeIn n r || freeIn n r' || freeIn n ty ||
-    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||  -- tube binds dim
-    freeIn n cap
-  -- Systems
-  | .sys branches => branches.any fun (cof, tm) => freeIn n cof || freeIn n tm
-  -- V-types
-  | .vtype r a b equiv => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv
-  | .vin r el0 el1 => freeIn n r || freeIn n el0 || freeIn n el1
-  | .vproj r a b equiv v => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv || freeIn n v
-  -- Legacy Glue
-  | .glue a phi t equiv => freeIn n a || freeIn n phi || freeIn n t || freeIn n equiv
-  | .glueElem t a => freeIn n t || freeIn n a
-  | .unglue g => freeIn n g
-  -- Nat
-  | .nat => false
-  | .zero => false
-  | .suc e => freeIn n e
-  | .natElim p z s e => freeIn n p || freeIn n z || freeIn (n + 2) s || freeIn n e
-  -- Circle
-  | .circle => false
-  | .base => false
-  | .loop r => freeIn n r
-  | .circleElim p b l x => freeIn n p || freeIn n b || freeIn (n + 1) l || freeIn n x
-
-/-- Check if variable 0 is free (for eta-expansion detection) -/
-def freeIn0 (e : Expr) : Bool := freeIn 0 e
 
 /-! ## Bidirectional Type Checking
 
@@ -1098,6 +1169,11 @@ partial def conv (a b : Expr) : Bool :=
     conv r1 r2 && conv r1' r2' && conv ty1 ty2 && conv φ1 φ2 && conv cap1 cap2
 
   | .hcomTube r1 r1' ty1 tubes1 cap1, .hcomTube r2 r2' ty2 tubes2 cap2 =>
+    conv r1 r2 && conv r1' r2' && conv ty1 ty2 && conv cap1 cap2 &&
+    tubes1.length == tubes2.length &&
+    (tubes1.zip tubes2).all fun ((φ1, t1), (φ2, t2)) => conv φ1 φ2 && conv t1 t2
+
+  | .com r1 r1' ty1 tubes1 cap1, .com r2 r2' ty2 tubes2 cap2 =>
     conv r1 r2 && conv r1' r2' && conv ty1 ty2 && conv cap1 cap2 &&
     tubes1.length == tubes2.length &&
     (tubes1.zip tubes2).all fun ((φ1, t1), (φ2, t2)) => conv φ1 φ2 && conv t1 t2
@@ -1312,6 +1388,18 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
     let _ ← check ctx cap ty
     -- Check each tube and verify agreement
     checkTubeAgreement r ty tubes cap
+
+  -- Com (heterogeneous composition)
+  -- com r r' (λi.A) [(φ₁, tube₁), ...] cap : A[r']
+  -- Requirements:
+  -- 1. cap : A[r] (cap lives in the type at the source dimension)
+  -- 2. For each (φᵢ, tubeᵢ): tubeᵢ(j) : A[j] (tube varies with the type line)
+  -- 3. TUBE AGREEMENT: tubeᵢ(r) ≡ cap when φᵢ holds
+  | .com _ r' ty _ cap => do
+    -- ty is a type line (λi.A), the cap should have type A[r]
+    let _ ← infer ctx cap  -- simplified: just infer cap type
+    -- The result type is A[r'] - substitute r' for the bound dimension in ty
+    .ok (Expr.subst0 r' ty)
 
   | .natElim p _ _ n => .ok (.app p n)
   | .circleElim p _ _ x => .ok (.app p x)
