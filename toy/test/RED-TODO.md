@@ -7,9 +7,11 @@
 | **Parsing** | ✅ 100% | 733/733 declarations, 111 productions |
 | **Grammar** | ✅ Done | 23 logical pieces with cross-references |
 | **Tokenizer** | ✅ Done | Grammar-driven with FIRST/FOLLOW keywords |
-| **Core IR** | 🔲 Skeleton | Rules defined, not yet executable |
-| **Elaboration** | 🔲 TODO | Surface → Core transformation |
-| **Reduction** | 🔲 TODO | β-reduction, Kan operations |
+| **Core IR** | ✅ Done | De Bruijn indexed Expr type in Lego.Core |
+| **Elaboration** | ✅ Done | Surface Term → Core Expr with name resolution |
+| **Reduction** | ✅ Done | β-reduction, projections, let |
+| **Path Ops** | ✅ Done | plam, papp, dim0/dim1/dimVar |
+| **Kan Ops** | ✅ Done | coe through Pi/Sigma, reflexivity |
 | **Validation** | 🔲 TODO | Scope/type checking |
 
 ## Architecture
@@ -20,19 +22,117 @@
     ▼ (Redtt.lego grammar)
 Surface AST (parsed Term)
     │
-    ▼ (Elaboration rules)
-Core IR (de Bruijn indexed)
+    ▼ (Lego.Core.elaborate)
+Core IR (de Bruijn indexed Expr)
     │
-    ▼ (Reduction rules)
+    ▼ (Lego.Core.Expr.normalize)
 Normal Form
     │
     ▼ (Quote/Print rules)
 Output
 ```
 
-## Phase 1: Core IR Representation
+## Phase 1: Core IR Representation ✅
 
-### 1.1 Term Constructors
+Implemented in `src/Lego/Core.lean`:
+- De Bruijn indexed `Expr` type with: ix, lit, lam, app, pi, sigma, pair, fst, snd, letE, univ, path, refl, coe, hcom
+- `shiftAbove`/`shift`: weakening (context extension)
+- `subst`/`subst0`: capture-avoiding substitution
+- `step`/`stepDeep`: single-step reduction
+- `normalize`: multi-step normalization with fuel
+- `elaborate`: Surface Term → Core Expr conversion
+
+### 1.1 Term Constructors ✅
+
+De Bruijn indexed Core IR in `Lego.Core.Expr`:
+
+```lean
+inductive Expr where
+  | ix    : Nat → Expr           -- de Bruijn index
+  | lit   : String → Expr        -- literal
+  | lam   : Expr → Expr          -- λ. body
+  | app   : Expr → Expr → Expr   -- application
+  | pi    : Expr → Expr → Expr   -- Π A. B
+  | sigma : Expr → Expr → Expr   -- Σ A. B
+  | pair  : Expr → Expr → Expr   -- (a, b)
+  | fst   : Expr → Expr          -- π₁
+  | snd   : Expr → Expr          -- π₂
+  | letE  : Expr → Expr → Expr → Expr  -- let
+  | univ  : Nat → Expr           -- Type^n
+  | path  : Expr → Expr → Expr → Expr  -- path A a b
+  | refl  : Expr → Expr          -- refl a
+  | coe   : ... → Expr           -- coercion
+  | hcom  : ... → Expr           -- hcom
+```
+
+### 1.2 Binding Representation ✅
+
+De Bruijn indices handle bindings automatically:
+- Index 0 = most recently bound variable
+- `shift` increments free variables when going under a binder
+- `subst` handles capture-avoidance via shifting
+
+## Phase 2: Elaboration (Surface → Core) ✅
+
+`Lego.Core.elaborate` converts named variables to de Bruijn indices:
+```lean
+elaborate ["y", "x"] (Term.var "x")  -- → Expr.ix 1
+elaborate [] (Term.con "lam" [Term.var "x", Term.var "x"])  -- → lam (ix 0)
+```
+
+## Phase 3: Reduction Rules ✅
+
+### 3.1 β-Reduction ✅
+
+```lean
+Expr.step (app (lam body) arg) = some (subst0 arg body)
+Expr.step (fst (pair a b)) = some a
+Expr.step (snd (pair a b)) = some b
+Expr.step (letE ty val body) = some (subst0 val body)
+```
+
+### 3.2 Dimension Operations ✅
+
+Path lambda (`plam`) and path application (`papp`) with dimension terms:
+
+```lean
+inductive Expr where
+  ...
+  | dim0   : Expr                 -- dimension 0
+  | dim1   : Expr                 -- dimension 1
+  | dimVar : Nat → Expr           -- dimension variable (de Bruijn)
+  | plam   : Expr → Expr          -- path lambda λ[i]. body
+  | papp   : Expr → Expr → Expr   -- path application p @ r
+
+-- Reduction rules:
+Expr.step (papp (plam body) r) = some (subst0 r body)
+Expr.step (papp (refl a) _) = some a
+```
+
+### 3.3 Kan Operations ✅
+
+Coercion through type formers:
+
+```lean
+-- coe reflexivity: coe r r A a → a
+Expr.step (coe dim0 dim0 ty a) = some a
+Expr.step (coe dim1 dim1 ty a) = some a
+
+-- coe through Pi: coe r r' (λi. Π A. B) f → λ a. coe r r' (B[coerced-arg]) (f (coe r' r A a))
+-- Key insight: argument coerced BACKWARDS, result coerced FORWARDS
+Expr.step (coe r r' (plam (pi dom cod)) f) = some (lam ...)
+
+-- coe through Sigma: coe r r' (λi. Σ A. B) (a, b) → (coe r r' A a, coe r r' B[...] b)
+Expr.step (coe r r' (plam (sigma dom cod)) (pair a b)) = some (pair ...)
+```
+
+TODO for full Kan:
+- hcom (homogeneous composition) boundary matching
+- com (heterogeneous composition) = hcom + coe
+- coe through Path types
+- coe through extension types
+
+### 1.1 Term Constructors (Original)
 
 Define the Core IR as Term constructors that our rules can manipulate:
 

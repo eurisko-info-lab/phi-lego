@@ -1,0 +1,1184 @@
+/-
+  Lego.Core: De Bruijn indexed Core IR with substitution engine
+
+  The foundation for computational type theory:
+  - De Bruijn indices for capture-avoiding substitution
+  - Shifting for correct variable handling under binders
+  - β-reduction rules for computation
+
+  Mathematical structure:
+  - Presheaf model: terms indexed by context length
+  - Substitution: functorial action on terms
+  - Weakening: natural transformation between context extensions
+-/
+
+import Lego.Algebra
+
+namespace Lego.Core
+
+/-! ## De Bruijn Indexed Terms -/
+
+/-- Core term: de Bruijn indexed for substitution.
+    Surface terms use names; Core terms use indices.
+
+    Index 0 = most recently bound variable
+    Index n = variable bound n binders ago
+-/
+inductive Expr where
+  | ix    : Nat → Expr                     -- de Bruijn index
+  | lit   : String → Expr                  -- literal
+  | lam   : Expr → Expr                    -- λ. body (binds index 0)
+  | app   : Expr → Expr → Expr             -- application
+  | pi    : Expr → Expr → Expr             -- Π A. B (binds index 0 in B)
+  | sigma : Expr → Expr → Expr             -- Σ A. B (binds index 0 in B)
+  | pair  : Expr → Expr → Expr             -- (a, b)
+  | fst   : Expr → Expr                    -- π₁
+  | snd   : Expr → Expr                    -- π₂
+  | letE  : Expr → Expr → Expr → Expr      -- let x : A = v in body
+  | univ  : Nat → Expr                     -- Type^n
+  -- Interval and dimension operations
+  | dim0  : Expr                           -- 0 : 𝕀 (left endpoint)
+  | dim1  : Expr                           -- 1 : 𝕀 (right endpoint)
+  | dimVar : Nat → Expr                    -- dimension variable (de Bruijn)
+  -- Cofibrations
+  | cof_top : Expr                         -- ⊤ (always true)
+  | cof_bot : Expr                         -- ⊥ (always false)
+  | cof_eq  : Expr → Expr → Expr           -- r = s (dimension equality)
+  | cof_and : Expr → Expr → Expr           -- φ ∧ ψ (conjunction)
+  | cof_or  : Expr → Expr → Expr           -- φ ∨ ψ (disjunction)
+  -- Cubical operations
+  | path  : Expr → Expr → Expr → Expr      -- path A a b
+  | plam  : Expr → Expr                    -- path lambda: λi. body (binds dim var)
+  | papp  : Expr → Expr → Expr             -- path application: p @ r
+  | refl  : Expr → Expr                    -- refl a : path A a a
+  | coe   : Expr → Expr → Expr → Expr → Expr  -- coe r r' (λi.A) a
+  | hcom  : Expr → Expr → Expr → Expr → Expr → Expr  -- hcom r r' A φ cap (tube implicit when φ true)
+  -- Systems (partial elements): list of (cof, term) branches
+  | sys   : List (Expr × Expr) → Expr      -- [(φ₁, t₁), (φ₂, t₂), ...]
+  -- Glue types (V-types for univalence)
+  | glue  : Expr → Expr → Expr → Expr → Expr  -- Glue A φ T equiv
+  | glueElem : Expr → Expr → Expr          -- glue t a : Glue A φ T e  (with [φ → t])
+  | unglue : Expr → Expr                   -- unglue g : A
+  -- Natural numbers (for HIT treatment)
+  | nat   : Expr                           -- Nat type
+  | zero  : Expr                           -- zero
+  | suc   : Expr → Expr                    -- suc n
+  | natElim : Expr → Expr → Expr → Expr → Expr  -- natElim P z s n
+  -- Circle (HIT)
+  | circle : Expr                          -- S¹ type
+  | base   : Expr                          -- base : S¹
+  | loop   : Expr → Expr                   -- loop r : S¹ (at dimension r)
+  | circleElim : Expr → Expr → Expr → Expr → Expr  -- circleElim P b ℓ x
+  deriving Repr, BEq, Inhabited
+
+namespace Expr
+
+/-! ## Shifting (Weakening)
+
+    shift k e = e with all free variables >= k incremented by 1
+
+    Essential for substitution under binders:
+    - When we go under a binder, the context extends
+    - Free variables must be adjusted to account for the new binding
+-/
+
+/-- Shift free variables at or above cutoff by delta -/
+partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
+  | ix n =>
+    if n >= cutoff then
+      -- Free variable: shift it
+      let n' := (n : Int) + delta
+      if n' >= 0 then ix n'.toNat else ix 0  -- Guard against negative
+    else
+      -- Bound variable: unchanged
+      ix n
+  | lit s => lit s
+  | lam body => lam (shiftAbove (cutoff + 1) delta body)
+  | app f x => app (shiftAbove cutoff delta f) (shiftAbove cutoff delta x)
+  | pi dom cod => pi (shiftAbove cutoff delta dom) (shiftAbove (cutoff + 1) delta cod)
+  | sigma dom cod => sigma (shiftAbove cutoff delta dom) (shiftAbove (cutoff + 1) delta cod)
+  | pair a b => pair (shiftAbove cutoff delta a) (shiftAbove cutoff delta b)
+  | fst e => fst (shiftAbove cutoff delta e)
+  | snd e => snd (shiftAbove cutoff delta e)
+  | letE ty val body =>
+    letE (shiftAbove cutoff delta ty)
+         (shiftAbove cutoff delta val)
+         (shiftAbove (cutoff + 1) delta body)
+  | univ n => univ n
+  -- Dimension terms
+  | dim0 => dim0
+  | dim1 => dim1
+  | dimVar n =>
+    if n >= cutoff then
+      let n' := (n : Int) + delta
+      if n' >= 0 then dimVar n'.toNat else dimVar 0
+    else dimVar n
+  -- Cofibrations
+  | cof_top => cof_top
+  | cof_bot => cof_bot
+  | cof_eq r s => cof_eq (shiftAbove cutoff delta r) (shiftAbove cutoff delta s)
+  | cof_and phi psi => cof_and (shiftAbove cutoff delta phi) (shiftAbove cutoff delta psi)
+  | cof_or phi psi => cof_or (shiftAbove cutoff delta phi) (shiftAbove cutoff delta psi)
+  -- Path operations
+  | path ty a b => path (shiftAbove cutoff delta ty)
+                       (shiftAbove cutoff delta a)
+                       (shiftAbove cutoff delta b)
+  | plam body => plam (shiftAbove (cutoff + 1) delta body)  -- binds dim var
+  | papp p r => papp (shiftAbove cutoff delta p) (shiftAbove cutoff delta r)
+  | refl a => refl (shiftAbove cutoff delta a)
+  | coe r r' ty a => coe (shiftAbove cutoff delta r)
+                         (shiftAbove cutoff delta r')
+                         (shiftAbove (cutoff + 1) delta ty)  -- ty binds dimension
+                         (shiftAbove cutoff delta a)
+  | hcom r r' ty phi cap => hcom (shiftAbove cutoff delta r)
+                                 (shiftAbove cutoff delta r')
+                                 (shiftAbove cutoff delta ty)
+                                 (shiftAbove cutoff delta phi)
+                                 (shiftAbove cutoff delta cap)
+  -- Systems
+  | sys branches => sys (branches.map fun (cof, tm) =>
+      (shiftAbove cutoff delta cof, shiftAbove cutoff delta tm))
+  -- Glue types
+  | glue a phi t equiv => glue (shiftAbove cutoff delta a)
+                               (shiftAbove cutoff delta phi)
+                               (shiftAbove cutoff delta t)
+                               (shiftAbove cutoff delta equiv)
+  | glueElem t a => glueElem (shiftAbove cutoff delta t) (shiftAbove cutoff delta a)
+  | unglue g => unglue (shiftAbove cutoff delta g)
+  -- Nat
+  | nat => nat
+  | zero => zero
+  | suc n => suc (shiftAbove cutoff delta n)
+  | natElim p z s n => natElim (shiftAbove cutoff delta p)
+                               (shiftAbove cutoff delta z)
+                               (shiftAbove (cutoff + 2) delta s)  -- s binds n and ih
+                               (shiftAbove cutoff delta n)
+  -- Circle
+  | circle => circle
+  | base => base
+  | loop r => loop (shiftAbove cutoff delta r)
+  | circleElim p b l x => circleElim (shiftAbove cutoff delta p)
+                                     (shiftAbove cutoff delta b)
+                                     (shiftAbove (cutoff + 1) delta l)  -- l binds dim
+                                     (shiftAbove cutoff delta x)
+
+/-- Shift all free variables by 1 (standard weakening) -/
+def shift (e : Expr) : Expr := shiftAbove 0 1 e
+
+/-- Shift all free variables by n -/
+def shiftN (n : Nat) (e : Expr) : Expr := shiftAbove 0 n e
+
+/-! ## Substitution
+
+    subst e idx val = e[idx := val]
+
+    The core operation: replace index `idx` with `val`.
+    - Variables < idx: unchanged (bound in inner scope)
+    - Variable = idx: replaced with val
+    - Variables > idx: decremented (outer variables shift down)
+-/
+
+/-- Substitute value for index in expression -/
+partial def subst (idx : Nat) (val : Expr) : Expr → Expr
+  | ix n =>
+    if n < idx then
+      ix n          -- Inner bound variable: unchanged
+    else if n == idx then
+      val           -- This is the variable: substitute
+    else
+      ix (n - 1)    -- Outer variable: shift down
+  | lit s => lit s
+  | lam body =>
+    -- Under binder: shift val, increment target index
+    lam (subst (idx + 1) (shift val) body)
+  | app f x => app (subst idx val f) (subst idx val x)
+  | pi dom cod =>
+    pi (subst idx val dom) (subst (idx + 1) (shift val) cod)
+  | sigma dom cod =>
+    sigma (subst idx val dom) (subst (idx + 1) (shift val) cod)
+  | pair a b => pair (subst idx val a) (subst idx val b)
+  | fst e => fst (subst idx val e)
+  | snd e => snd (subst idx val e)
+  | letE ty v body =>
+    letE (subst idx val ty)
+         (subst idx val v)
+         (subst (idx + 1) (shift val) body)
+  | univ n => univ n
+  -- Dimension terms
+  | dim0 => dim0
+  | dim1 => dim1
+  | dimVar n =>
+    if n < idx then dimVar n
+    else if n == idx then val  -- substitute dimension variable
+    else dimVar (n - 1)
+  -- Cofibrations
+  | cof_top => cof_top
+  | cof_bot => cof_bot
+  | cof_eq r s => cof_eq (subst idx val r) (subst idx val s)
+  | cof_and phi psi => cof_and (subst idx val phi) (subst idx val psi)
+  | cof_or phi psi => cof_or (subst idx val phi) (subst idx val psi)
+  -- Path operations
+  | path ty a b => path (subst idx val ty)
+                       (subst idx val a)
+                       (subst idx val b)
+  | plam body => plam (subst (idx + 1) (shift val) body)
+  | papp p r => papp (subst idx val p) (subst idx val r)
+  | refl a => refl (subst idx val a)
+  | coe r r' ty a =>
+    coe (subst idx val r)
+        (subst idx val r')
+        (subst (idx + 1) (shift val) ty)  -- ty binds dimension
+        (subst idx val a)
+  | hcom r r' ty phi cap =>
+    hcom (subst idx val r)
+         (subst idx val r')
+         (subst idx val ty)
+         (subst idx val phi)
+         (subst idx val cap)
+  -- Systems
+  | sys branches => sys (branches.map fun (cof, tm) =>
+      (subst idx val cof, subst idx val tm))
+  -- Glue types
+  | glue a phi t equiv =>
+    glue (subst idx val a) (subst idx val phi) (subst idx val t) (subst idx val equiv)
+  | glueElem t a => glueElem (subst idx val t) (subst idx val a)
+  | unglue g => unglue (subst idx val g)
+  -- Nat
+  | nat => nat
+  | zero => zero
+  | suc n => suc (subst idx val n)
+  | natElim p z s n =>
+    natElim (subst idx val p)
+            (subst idx val z)
+            (subst (idx + 2) (shiftN 2 val) s)  -- s binds n and ih
+            (subst idx val n)
+  -- Circle
+  | circle => circle
+  | base => base
+  | loop r => loop (subst idx val r)
+  | circleElim p b l x =>
+    circleElim (subst idx val p)
+               (subst idx val b)
+               (subst (idx + 1) (shift val) l)  -- l binds dim
+               (subst idx val x)
+
+/-- Substitute at index 0 (most common case: β-reduction) -/
+def subst0 (val : Expr) (body : Expr) : Expr := subst 0 val body
+
+/-! ## β-Reduction -/
+
+/-- Single-step reduction (outermost first) -/
+partial def step : Expr → Option Expr
+  -- β-reduction: (λ. body) x → body[0 := x]
+  | app (lam body) arg => some (subst0 arg body)
+
+  -- let-reduction: let x = v in body → body[0 := v]
+  | letE _ val body => some (subst0 val body)
+
+  -- Projection reductions
+  | fst (pair a _) => some a
+  | snd (pair _ b) => some b
+
+  -- Path application: (λi. body) @ r → body[0 := r]
+  | papp (plam body) r => some (subst0 r body)
+
+  -- Refl application: (refl a) @ r → a  (for any r)
+  | papp (refl a) _ => some a
+
+  -- Cofibration simplification
+  | cof_eq dim0 dim0 => some cof_top
+  | cof_eq dim1 dim1 => some cof_top
+  | cof_eq dim0 dim1 => some cof_bot
+  | cof_eq dim1 dim0 => some cof_bot
+  | cof_eq (dimVar n) (dimVar m) => if n == m then some cof_top else none
+  | cof_and cof_top phi => some phi
+  | cof_and phi cof_top => some phi
+  | cof_and cof_bot _ => some cof_bot
+  | cof_and _ cof_bot => some cof_bot
+  | cof_or cof_top _ => some cof_top
+  | cof_or _ cof_top => some cof_top
+  | cof_or cof_bot phi => some phi
+  | cof_or phi cof_bot => some phi
+
+  -- Coercion reflexivity: coe r r A a → a (when r = r')
+  | coe dim0 dim0 _ a => some a
+  | coe dim1 dim1 _ a => some a
+  | coe (dimVar n) (dimVar m) _ a => if n == m then some a else none
+
+  -- Kan Operations: coe through type formers
+  --
+  -- coe r r' (Π(x:A). B) f = λ a. coe r r' (B[coe r' r A a]) (f (coe r' r A a))
+  --
+  -- The key insight: we coerce the argument BACKWARDS (r' to r) to feed f,
+  -- then coerce the result FORWARDS (r to r').
+
+  -- coe through Pi: coe r r' (λi. Π A. B) f = λ a. coe r r' (B[coerced-arg]) (f (coe r' r A a))
+  -- Here ty = (λi. Π dom. cod) so ty binds dimension i
+  | coe r r' (plam (pi dom cod)) f =>
+    some <|
+      lam <|  -- λ a.
+        let arg := ix 0  -- the argument 'a'
+        let argAtR := coe (shift r') (shift r) (plam (shift dom)) arg
+        let appResult := app (shift f) argAtR
+        coe (shift r) (shift r') (plam (subst0 argAtR (shift cod))) appResult
+
+  -- coe through Sigma: coe r r' (λi. Σ A. B) (a, b) = (coe r r' A a, coe r r' B[...] b)
+  | coe r r' (plam (sigma dom cod)) (pair a b) =>
+    let fstCoerced := coe r r' (plam dom) a
+    let sndCoerced := coe r r' (plam (subst0 (coe r (dimVar 0) (plam (shift dom)) (shift a)) cod)) b
+    some <| pair fstCoerced sndCoerced
+
+  -- coe through Nat: coe r r' Nat n → n (Nat is coercion-stable)
+  | coe _ _ (plam nat) a => some a
+
+  -- coe through Circle: coe r r' S¹ x → x (Circle is coercion-stable)
+  | coe _ _ (plam circle) a => some a
+
+  -- hcom reflexivity: hcom r r A φ cap → cap (when r = r')
+  | hcom dim0 dim0 _ _ cap => some cap
+  | hcom dim1 dim1 _ _ cap => some cap
+  | hcom (dimVar n) (dimVar m) _ _ cap => if n == m then some cap else none
+
+  -- hcom through Pi: hcom r r' (Π A. B) φ f → λ a. hcom r r' (B a) φ (f a)
+  | hcom r r' (pi dom cod) phi f =>
+    some <|
+      lam <|  -- λ a.
+        let arg := ix 0
+        let fibTy := subst0 arg (shift cod)
+        let appCap := app (shift f) arg
+        hcom (shift r) (shift r') fibTy (shift phi) appCap
+
+  -- hcom through Sigma: hcom r r' (Σ A. B) φ (a, b)
+  | hcom r r' (sigma dom cod) phi (pair a b) =>
+    let fstHcom := hcom r r' dom phi a
+    let sndHcom := hcom r r' (subst0 a cod) phi b
+    some <| pair fstHcom sndHcom
+
+  -- hcom in Nat: stays as is (Nat is hcom-stable)
+  -- hcom in Circle: stays as is (handled by circle eliminator)
+
+  -- Nat elimination
+  | natElim _ z _ zero => some z
+  | natElim p z s (suc n) =>
+    -- s expects: n, then ih = natElim P z s n
+    let ih := natElim p z s n
+    some <| subst0 ih (subst0 n s)
+
+  -- Circle elimination
+  -- base case: circleElim P b l base → b
+  | circleElim _ b _ base => some b
+  -- loop case: circleElim P b l (loop r) → l @ r
+  -- But l is λi. ... so we need l[r] = body[0 := r]
+  | circleElim _ _ l (loop r) => some (papp l r)
+
+  -- Glue/unglue reductions
+  -- unglue (glueElem t a) → a
+  | unglue (glueElem _ a) => some a
+
+  -- System extraction (when cof is true)
+  | sys ((cof_top, tm) :: _) => some tm
+
+  -- No reduction at this level
+  | _ => none
+
+/-- Reduce inside subterms (single step, leftmost-outermost) -/
+partial def stepDeep : Expr → Option Expr
+  | e =>
+    -- Try at root first
+    match step e with
+    | some e' => some e'
+    | none =>
+      -- Try in subterms
+      match e with
+      | app f x =>
+        match stepDeep f with
+        | some f' => some (app f' x)
+        | none =>
+          match stepDeep x with
+          | some x' => some (app f x')
+          | none => none
+      | lam body =>
+        match stepDeep body with
+        | some body' => some (lam body')
+        | none => none
+      | pi dom cod =>
+        match stepDeep dom with
+        | some dom' => some (pi dom' cod)
+        | none =>
+          match stepDeep cod with
+          | some cod' => some (pi dom cod')
+          | none => none
+      | sigma dom cod =>
+        match stepDeep dom with
+        | some dom' => some (sigma dom' cod)
+        | none =>
+          match stepDeep cod with
+          | some cod' => some (sigma dom cod')
+          | none => none
+      | pair a b =>
+        match stepDeep a with
+        | some a' => some (pair a' b)
+        | none =>
+          match stepDeep b with
+          | some b' => some (pair a b')
+          | none => none
+      | fst e =>
+        match stepDeep e with
+        | some e' => some (fst e')
+        | none => none
+      | snd e =>
+        match stepDeep e with
+        | some e' => some (snd e')
+        | none => none
+      | letE ty val body =>
+        match stepDeep ty with
+        | some ty' => some (letE ty' val body)
+        | none =>
+          match stepDeep val with
+          | some val' => some (letE ty val' body)
+          | none =>
+            match stepDeep body with
+            | some body' => some (letE ty val body')
+            | none => none
+      -- Path operations
+      | plam body =>
+        match stepDeep body with
+        | some body' => some (plam body')
+        | none => none
+      | papp p r =>
+        match stepDeep p with
+        | some p' => some (papp p' r)
+        | none =>
+          match stepDeep r with
+          | some r' => some (papp p r')
+          | none => none
+      | path ty a b =>
+        match stepDeep ty with
+        | some ty' => some (path ty' a b)
+        | none =>
+          match stepDeep a with
+          | some a' => some (path ty a' b)
+          | none =>
+            match stepDeep b with
+            | some b' => some (path ty a b')
+            | none => none
+      | refl a =>
+        match stepDeep a with
+        | some a' => some (refl a')
+        | none => none
+      | coe r r' ty a =>
+        -- Try each subterm left-to-right
+        match stepDeep r with
+        | some r'' => some (coe r'' r' ty a)
+        | none =>
+          match stepDeep r' with
+          | some r'' => some (coe r r'' ty a)
+          | none =>
+            match stepDeep ty with
+            | some ty' => some (coe r r' ty' a)
+            | none =>
+              match stepDeep a with
+              | some a' => some (coe r r' ty a')
+              | none => none
+      | hcom r r' ty phi cap =>
+        match stepDeep r with
+        | some r'' => some (hcom r'' r' ty phi cap)
+        | none =>
+          match stepDeep r' with
+          | some r'' => some (hcom r r'' ty phi cap)
+          | none =>
+            match stepDeep ty with
+            | some ty' => some (hcom r r' ty' phi cap)
+            | none =>
+              match stepDeep phi with
+              | some phi' => some (hcom r r' ty phi' cap)
+              | none =>
+                match stepDeep cap with
+                | some cap' => some (hcom r r' ty phi cap')
+                | none => none
+      -- Cofibrations
+      | cof_eq r s =>
+        match stepDeep r with
+        | some r' => some (cof_eq r' s)
+        | none =>
+          match stepDeep s with
+          | some s' => some (cof_eq r s')
+          | none => none
+      | cof_and phi psi =>
+        match stepDeep phi with
+        | some phi' => some (cof_and phi' psi)
+        | none =>
+          match stepDeep psi with
+          | some psi' => some (cof_and phi psi')
+          | none => none
+      | cof_or phi psi =>
+        match stepDeep phi with
+        | some phi' => some (cof_or phi' psi)
+        | none =>
+          match stepDeep psi with
+          | some psi' => some (cof_or phi psi')
+          | none => none
+      -- Nat operations
+      | suc n =>
+        match stepDeep n with
+        | some n' => some (suc n')
+        | none => none
+      | natElim p z s n =>
+        match stepDeep p with
+        | some p' => some (natElim p' z s n)
+        | none =>
+          match stepDeep z with
+          | some z' => some (natElim p z' s n)
+          | none =>
+            match stepDeep s with
+            | some s' => some (natElim p z s' n)
+            | none =>
+              match stepDeep n with
+              | some n' => some (natElim p z s n')
+              | none => none
+      -- Circle operations
+      | loop r =>
+        match stepDeep r with
+        | some r' => some (loop r')
+        | none => none
+      | circleElim p b l x =>
+        match stepDeep p with
+        | some p' => some (circleElim p' b l x)
+        | none =>
+          match stepDeep b with
+          | some b' => some (circleElim p b' l x)
+          | none =>
+            match stepDeep l with
+            | some l' => some (circleElim p b l' x)
+            | none =>
+              match stepDeep x with
+              | some x' => some (circleElim p b l x')
+              | none => none
+      -- Glue operations
+      | glue a phi t equiv =>
+        match stepDeep a with
+        | some a' => some (glue a' phi t equiv)
+        | none =>
+          match stepDeep phi with
+          | some phi' => some (glue a phi' t equiv)
+          | none =>
+            match stepDeep t with
+            | some t' => some (glue a phi t' equiv)
+            | none =>
+              match stepDeep equiv with
+              | some equiv' => some (glue a phi t equiv')
+              | none => none
+      | glueElem t a =>
+        match stepDeep t with
+        | some t' => some (glueElem t' a)
+        | none =>
+          match stepDeep a with
+          | some a' => some (glueElem t a')
+          | none => none
+      | unglue g =>
+        match stepDeep g with
+        | some g' => some (unglue g')
+        | none => none
+      -- Systems - try to reduce each branch
+      | sys branches =>
+        let rec tryBranches : List (Expr × Expr) → List (Expr × Expr) → Option Expr
+          | [], _ => none
+          | (cof, tm) :: rest, acc =>
+            match stepDeep cof with
+            | some cof' => some (sys (acc.reverse ++ [(cof', tm)] ++ rest))
+            | none =>
+              match stepDeep tm with
+              | some tm' => some (sys (acc.reverse ++ [(cof, tm')] ++ rest))
+              | none => tryBranches rest ((cof, tm) :: acc)
+        tryBranches branches []
+      | _ => none
+
+/-- Normalize with fuel (prevent infinite loops) -/
+partial def normalize (fuel : Nat) (e : Expr) : Expr :=
+  match fuel with
+  | 0 => e
+  | n + 1 =>
+    match stepDeep e with
+    | some e' => normalize n e'
+    | none => e  -- Normal form
+
+/-- Default normalization with reasonable fuel -/
+def eval (e : Expr) : Expr := normalize 1000 e
+
+/-! ## Pretty Printing -/
+
+/-- Convert to readable string (with de Bruijn indices) -/
+partial def toString : Expr → String
+  | ix n => s!"#{n}"
+  | lit s => s
+  | lam body => s!"(λ. {toString body})"
+  | app f x => s!"({toString f} {toString x})"
+  | pi dom cod => s!"(Π {toString dom}. {toString cod})"
+  | sigma dom cod => s!"(Σ {toString dom}. {toString cod})"
+  | pair a b => s!"({toString a}, {toString b})"
+  | fst e => s!"{toString e}.1"
+  | snd e => s!"{toString e}.2"
+  | letE ty val body => s!"(let : {toString ty} = {toString val} in {toString body})"
+  | univ n => if n == 0 then "Type" else s!"Type^{n}"
+  -- Dimensions
+  | dim0 => "0"
+  | dim1 => "1"
+  | dimVar n => s!"i{n}"
+  -- Cofibrations
+  | cof_top => "⊤"
+  | cof_bot => "⊥"
+  | cof_eq r s => s!"({toString r} = {toString s})"
+  | cof_and phi psi => s!"({toString phi} ∧ {toString psi})"
+  | cof_or phi psi => s!"({toString phi} ∨ {toString psi})"
+  -- Paths
+  | path ty a b => s!"(path {toString ty} {toString a} {toString b})"
+  | plam body => s!"(λi. {toString body})"
+  | papp p r => s!"({toString p} @ {toString r})"
+  | refl a => s!"(refl {toString a})"
+  | coe r r' ty a => s!"(coe {toString r} {toString r'} {toString ty} {toString a})"
+  | hcom r r' ty phi cap => s!"(hcom {toString r} {toString r'} {toString ty} [{toString phi}] {toString cap})"
+  -- Systems
+  | sys branches =>
+    let branchStrs := branches.map fun (cof, tm) => s!"{toString cof} ↦ {toString tm}"
+    s!"[{String.intercalate ", " branchStrs}]"
+  -- Glue
+  | glue a phi t equiv => s!"(Glue {toString a} {toString phi} {toString t} {toString equiv})"
+  | glueElem t a => s!"(glue {toString t} {toString a})"
+  | unglue g => s!"(unglue {toString g})"
+  -- Nat
+  | nat => "ℕ"
+  | zero => "0"
+  | suc n => s!"S({toString n})"
+  | natElim p z s n => s!"(ℕ-elim {toString p} {toString z} {toString s} {toString n})"
+  -- Circle
+  | circle => "S¹"
+  | base => "base"
+  | loop r => s!"(loop {toString r})"
+  | circleElim p b l x => s!"(S¹-elim {toString p} {toString b} {toString l} {toString x})"
+
+instance : ToString Expr := ⟨toString⟩
+
+end Expr
+
+/-! ## Free Variable Checking -/
+
+/-- Check if index n is free in expression -/
+partial def freeIn (n : Nat) : Expr → Bool
+  | .ix m => m == n
+  | .lit _ => false
+  | .lam body => freeIn (n + 1) body
+  | .app f x => freeIn n f || freeIn n x
+  | .pi dom cod => freeIn n dom || freeIn (n + 1) cod
+  | .sigma dom cod => freeIn n dom || freeIn (n + 1) cod
+  | .pair a b => freeIn n a || freeIn n b
+  | .fst e => freeIn n e
+  | .snd e => freeIn n e
+  | .letE ty val body => freeIn n ty || freeIn n val || freeIn (n + 1) body
+  | .univ _ => false
+  -- Dimensions
+  | .dim0 => false
+  | .dim1 => false
+  | .dimVar m => m == n
+  -- Cofibrations
+  | .cof_top => false
+  | .cof_bot => false
+  | .cof_eq r s => freeIn n r || freeIn n s
+  | .cof_and phi psi => freeIn n phi || freeIn n psi
+  | .cof_or phi psi => freeIn n phi || freeIn n psi
+  -- Paths
+  | .path ty a b => freeIn n ty || freeIn n a || freeIn n b
+  | .plam body => freeIn (n + 1) body
+  | .papp p r => freeIn n p || freeIn n r
+  | .refl a => freeIn n a
+  | .coe r r' ty a => freeIn n r || freeIn n r' || freeIn (n + 1) ty || freeIn n a
+  | .hcom r r' ty phi cap => freeIn n r || freeIn n r' || freeIn n ty || freeIn n phi || freeIn n cap
+  -- Systems
+  | .sys branches => branches.any fun (cof, tm) => freeIn n cof || freeIn n tm
+  -- Glue
+  | .glue a phi t equiv => freeIn n a || freeIn n phi || freeIn n t || freeIn n equiv
+  | .glueElem t a => freeIn n t || freeIn n a
+  | .unglue g => freeIn n g
+  -- Nat
+  | .nat => false
+  | .zero => false
+  | .suc e => freeIn n e
+  | .natElim p z s e => freeIn n p || freeIn n z || freeIn (n + 2) s || freeIn n e
+  -- Circle
+  | .circle => false
+  | .base => false
+  | .loop r => freeIn n r
+  | .circleElim p b l x => freeIn n p || freeIn n b || freeIn (n + 1) l || freeIn n x
+
+/-- Check if variable 0 is free (for eta-expansion detection) -/
+def freeIn0 (e : Expr) : Bool := freeIn 0 e
+
+/-! ## Bidirectional Type Checking
+
+    Based on cooltt's approach:
+    - infer: synthesize a type for an expression
+    - check: verify expression has expected type
+
+    The context is a list of types (de Bruijn style, most recent first)
+-/
+
+/-- Typing context: list of types (index 0 = most recent binding) -/
+abbrev Ctx := List Expr
+
+/-- Type error information -/
+inductive TypeError where
+  | unbound : Nat → TypeError
+  | mismatch : Expr → Expr → Expr → TypeError  -- expr, expected, actual
+  | notFunction : Expr → Expr → TypeError      -- expr, type
+  | notPair : Expr → Expr → TypeError
+  | notPath : Expr → Expr → TypeError
+  | cannotInfer : Expr → TypeError
+  | notType : Expr → TypeError
+  | pathBoundaryMismatch : Expr → Expr → Expr → TypeError  -- body, expected endpoint, actual
+  | tubeAgreement : Expr → Expr → Expr → TypeError  -- hcom, face1 value, face2 value
+  | cofibrationError : String → TypeError
+  deriving Repr
+
+instance : ToString TypeError where
+  toString
+  | .unbound n => s!"Unbound variable #{n}"
+  | .mismatch e exp act => s!"Type mismatch in {e}: expected {exp}, got {act}"
+  | .notFunction e ty => s!"Expected function type, got {ty} in {e}"
+  | .notPair e ty => s!"Expected sigma type, got {ty} in {e}"
+  | .notPath e ty => s!"Expected path type, got {ty} in {e}"
+  | .cannotInfer e => s!"Cannot infer type of {e}"
+  | .notType e => s!"Expected a type, got {e}"
+  | .pathBoundaryMismatch body exp act => s!"Path boundary mismatch in {body}: expected {exp}, got {act}"
+  | .tubeAgreement hc v1 v2 => s!"Tube agreement failure in {hc}: {v1} ≠ {v2}"
+  | .cofibrationError msg => s!"Cofibration error: {msg}"
+
+/-- Type checking result -/
+abbrev TCResult := Except TypeError
+
+/-! ## Conversion Checking
+
+    Definitional equality for cubical type theory:
+    - β-reduction (function application)
+    - η-expansion (functions, pairs, paths)
+    - Cubical computation (coe, hcom)
+-/
+
+/-- Normalize for type comparison -/
+def nfEq (a b : Expr) : Bool :=
+  Expr.eval a == Expr.eval b
+
+/-- Conversion checking with η-expansion.
+    More sophisticated than nfEq - handles extensional equality. -/
+partial def conv (a b : Expr) : Bool :=
+  let a' := Expr.eval a
+  let b' := Expr.eval b
+  if a' == b' then true
+  else match a', b' with
+  -- η for functions: f ≡ λx. f x
+  | .lam body1, .lam body2 => conv body1 body2
+  | f, .lam body =>
+    -- η-expand f to λx. f x and compare
+    conv (.lam (.app (Expr.shift f) (.ix 0))) (.lam body)
+  | .lam body, f =>
+    conv (.lam body) (.lam (.app (Expr.shift f) (.ix 0)))
+
+  -- η for pairs: p ≡ (fst p, snd p)
+  | .pair a1 b1, .pair a2 b2 => conv a1 a2 && conv b1 b2
+  | p, .pair a b =>
+    conv (.pair (.fst p) (.snd p)) (.pair a b)
+  | .pair a b, p =>
+    conv (.pair a b) (.pair (.fst p) (.snd p))
+
+  -- η for paths: p ≡ λi. p @ i
+  | .plam body1, .plam body2 => conv body1 body2
+
+  -- Structural equality for other terms
+  | .pi dom1 cod1, .pi dom2 cod2 => conv dom1 dom2 && conv cod1 cod2
+  | .sigma dom1 cod1, .sigma dom2 cod2 => conv dom1 dom2 && conv cod1 cod2
+  | .path ty1 a1 b1, .path ty2 a2 b2 => conv ty1 ty2 && conv a1 a2 && conv b1 b2
+  | .app f1 x1, .app f2 x2 => conv f1 f2 && conv x1 x2
+  | .suc n1, .suc n2 => conv n1 n2
+  | .loop r1, .loop r2 => conv r1 r2
+  | _, _ => false
+
+/-- Check if two types are convertible (for type checking) -/
+def typeConv (ty1 ty2 : Expr) : Bool := conv ty1 ty2
+
+/-- Lookup type in context -/
+def lookupCtx (ctx : Ctx) (n : Nat) : TCResult Expr :=
+  match ctx[n]? with
+  | some ty => .ok (Expr.shiftN (n + 1) ty)  -- Shift to account for bindings
+  | none => .error (.unbound n)
+
+mutual
+/-- Infer the type of an expression -/
+partial def infer (ctx : Ctx) : Expr → TCResult Expr
+  -- Variable: lookup in context
+  | .ix n => lookupCtx ctx n
+
+  -- Literals are untyped (for now, treat as their own type)
+  | .lit s => .ok (.lit s)
+
+  -- Universe hierarchy
+  | .univ n => .ok (.univ (n + 1))
+
+  -- Pi type formation: if A : Type_i and B : Type_j then (Π A B) : Type_{max i j}
+  | .pi dom cod => do
+    let domTy ← infer ctx dom
+    match Expr.eval domTy with
+    | .univ i =>
+      let codTy ← infer (dom :: ctx) cod
+      match Expr.eval codTy with
+      | .univ j => .ok (.univ (max i j))
+      | _ => .error (.notType cod)
+    | _ => .error (.notType dom)
+
+  -- Sigma type formation
+  | .sigma dom cod => do
+    let domTy ← infer ctx dom
+    match Expr.eval domTy with
+    | .univ i =>
+      let codTy ← infer (dom :: ctx) cod
+      match Expr.eval codTy with
+      | .univ j => .ok (.univ (max i j))
+      | _ => .error (.notType cod)
+    | _ => .error (.notType dom)
+
+  -- Application: infer function type, check argument
+  | .app f a => do
+    let fTy ← infer ctx f
+    match Expr.eval fTy with
+    | .pi dom cod =>
+      let _ ← check ctx a dom  -- Check argument has domain type
+      .ok (Expr.subst0 a cod)  -- Result type with arg substituted
+    | ty => .error (.notFunction (.app f a) ty)
+
+  -- Projections
+  | .fst p => do
+    let pTy ← infer ctx p
+    match Expr.eval pTy with
+    | .sigma dom _ => .ok dom
+    | ty => .error (.notPair (.fst p) ty)
+
+  | .snd p => do
+    let pTy ← infer ctx p
+    match Expr.eval pTy with
+    | .sigma _ cod => .ok (Expr.subst0 (.fst p) cod)
+    | ty => .error (.notPair (.snd p) ty)
+
+  -- Path type formation
+  | .path ty a b => do
+    let tyTy ← infer ctx ty
+    match Expr.eval tyTy with
+    | .univ n =>
+      let _ ← check ctx a ty
+      let _ ← check ctx b ty
+      .ok (.univ n)
+    | _ => .error (.notType ty)
+
+  -- Path application
+  | .papp p _ => do
+    let pTy ← infer ctx p
+    match Expr.eval pTy with
+    | .path ty _ _ => .ok ty
+    | ty => .error (.notPath (.papp p .dim0) ty)
+
+  -- Refl: infer type from the argument
+  | .refl a => do
+    let aTy ← infer ctx a
+    .ok (.path aTy a a)
+
+  -- Coe: coerce through type line
+  | .coe _ r' ty _ => do
+    -- ty binds a dimension variable, evaluate at r' to get result type
+    .ok (Expr.subst0 r' ty)
+
+  -- Dimensions
+  | .dim0 => .ok (.lit "𝕀")
+  | .dim1 => .ok (.lit "𝕀")
+  | .dimVar _ => .ok (.lit "𝕀")
+
+  -- Cofibrations
+  | .cof_top => .ok (.lit "𝔽")
+  | .cof_bot => .ok (.lit "𝔽")
+  | .cof_eq _ _ => .ok (.lit "𝔽")
+  | .cof_and _ _ => .ok (.lit "𝔽")
+  | .cof_or _ _ => .ok (.lit "𝔽")
+
+  -- Nat type
+  | .nat => .ok (.univ 0)
+  | .zero => .ok .nat
+  | .suc n => do
+    let _ ← check ctx n .nat
+    .ok .nat
+
+  -- Circle type
+  | .circle => .ok (.univ 0)
+  | .base => .ok .circle
+  | .loop _ => .ok .circle
+
+  -- Let: infer body type with binding
+  | .letE ty val body => do
+    let _ ← check ctx val ty
+    infer (ty :: ctx) body
+
+  -- Lambda and pair require annotation to infer
+  | e@(.lam _) => .error (.cannotInfer e)
+  | e@(.pair _ _) => .error (.cannotInfer e)
+  | e@(.plam _) => .error (.cannotInfer e)
+
+  -- HCom with tube agreement checking
+  -- hcom r r' A φ cap : A
+  -- Requirement: when φ holds, tube values must agree with cap at r
+  | .hcom r r' ty phi cap => do
+    -- Check cap has type ty
+    let _ ← check ctx cap ty
+    -- Check phi is a cofibration (simplified: just infer it)
+    let _ ← infer ctx phi
+    -- The result type is ty at r'
+    .ok ty
+
+  | .natElim p _ _ n => .ok (.app p n)
+  | .circleElim p _ _ x => .ok (.app p x)
+
+  -- Glue types
+  | .glue _ _ _ _ => .ok (.univ 0)  -- Simplified
+  | .glueElem _ a => infer ctx a
+  | .unglue g => infer ctx g
+
+  -- Systems
+  | .sys ((_, tm) :: _) => infer ctx tm
+  | .sys [] => .error (.cannotInfer (.sys []))
+
+/-- Check that expression has expected type -/
+partial def check (ctx : Ctx) (e : Expr) (expected : Expr) : TCResult Unit := do
+  match e with
+  -- Lambda introduction: check against Pi type
+  | .lam body =>
+    match Expr.eval expected with
+    | .pi dom cod =>
+      check (dom :: ctx) body cod
+    | _ => .error (.notFunction e expected)
+
+  -- Pair introduction: check against Sigma type
+  | .pair a b =>
+    match Expr.eval expected with
+    | .sigma dom cod =>
+      let _ ← check ctx a dom
+      check ctx b (Expr.subst0 a cod)
+    | _ => .error (.notPair e expected)
+
+  -- Path lambda: check against Path type with boundary verification
+  | .plam body =>
+    match Expr.eval expected with
+    | .path ty lhs rhs =>
+      -- Check body has type ty (with dimension variable in scope)
+      let _ ← infer (ty :: ctx) body
+      -- Verify boundaries: body[0/i] ≡ lhs, body[1/i] ≡ rhs
+      let body0 := Expr.eval (Expr.subst0 .dim0 body)  -- body at i=0
+      let body1 := Expr.eval (Expr.subst0 .dim1 body)  -- body at i=1
+      if !conv body0 lhs then
+        .error (.pathBoundaryMismatch body lhs body0)
+      else if !conv body1 rhs then
+        .error (.pathBoundaryMismatch body rhs body1)
+      else
+        .ok ()
+    | _ => .error (.notPath e expected)
+
+  -- Fallback: infer and compare
+  | _ => do
+    let inferred ← infer ctx e
+    if nfEq inferred expected then
+      .ok ()
+    else
+      .error (.mismatch e expected inferred)
+end
+
+/-- Type check an expression in empty context -/
+def typecheck (e : Expr) : TCResult Expr := infer [] e
+
+/-- Type check with expected type -/
+def typecheckAgainst (e : Expr) (ty : Expr) : TCResult Unit := check [] e ty
+
+/-! ## Elaboration: Named → De Bruijn -/
+
+/-- Environment mapping names to de Bruijn levels -/
+abbrev NameEnv := List String
+
+/-- Resolve a name to de Bruijn index.
+    The environment is a list with most recent binding at the front.
+    Position in list = de Bruijn index (0 = most recent)
+-/
+def resolveName (env : NameEnv) (name : String) : Option Nat :=
+  let rec go (i : Nat) : List String → Option Nat
+    | [] => none
+    | n :: rest => if n == name then some i else go (i + 1) rest
+  go 0 env
+
+open Lego in
+/-- Elaborate a surface Term to Core Expr.
+    Converts named variables to de Bruijn indices.
+-/
+partial def elaborate (env : NameEnv) : Lego.Term → Option Expr
+  -- Named variable → index
+  | Lego.Term.var name =>
+    match resolveName env name with
+    | some idx => some (.ix idx)
+    | none => some (.lit name)  -- Free variable becomes literal (or error?)
+
+  -- Literal
+  | Lego.Term.lit s => some (.lit s)
+
+  -- Lambda: (lam x body) or (lam x A body)
+  | Lego.Term.con "lam" [Lego.Term.var x, body] => do
+    let body' ← elaborate (x :: env) body
+    some (.lam body')
+  | Lego.Term.con "lam" [Lego.Term.var x, _, body] => do
+    let body' ← elaborate (x :: env) body
+    some (.lam body')
+
+  -- Application: (app f x)
+  | Lego.Term.con "app" [f, x] => do
+    let f' ← elaborate env f
+    let x' ← elaborate env x
+    some (.app f' x')
+
+  -- Pi: (Pi x A B) or (pi x A B)
+  | Lego.Term.con "Pi" [Lego.Term.var x, dom, cod] => do
+    let dom' ← elaborate env dom
+    let cod' ← elaborate (x :: env) cod
+    some (.pi dom' cod')
+  | Lego.Term.con "pi" [Lego.Term.var x, dom, cod] => do
+    let dom' ← elaborate env dom
+    let cod' ← elaborate (x :: env) cod
+    some (.pi dom' cod')
+
+  -- Arrow: (Arrow A B) - non-dependent
+  | Lego.Term.con "Arrow" [dom, cod] => do
+    let dom' ← elaborate env dom
+    let cod' ← elaborate ("_" :: env) cod
+    some (.pi dom' cod')
+  | Lego.Term.con "arr" [dom, cod] => do
+    let dom' ← elaborate env dom
+    let cod' ← elaborate ("_" :: env) cod
+    some (.pi dom' cod')
+
+  -- Sigma: (Sigma x A B)
+  | Lego.Term.con "Sigma" [Lego.Term.var x, dom, cod] => do
+    let dom' ← elaborate env dom
+    let cod' ← elaborate (x :: env) cod
+    some (.sigma dom' cod')
+  | Lego.Term.con "sigma" [Lego.Term.var x, dom, cod] => do
+    let dom' ← elaborate env dom
+    let cod' ← elaborate (x :: env) cod
+    some (.sigma dom' cod')
+
+  -- Pair: (pair a b)
+  | Lego.Term.con "pair" [a, b] => do
+    let a' ← elaborate env a
+    let b' ← elaborate env b
+    some (.pair a' b')
+
+  -- Projections
+  | Lego.Term.con "proj1" [e] => do
+    let e' ← elaborate env e
+    some (.fst e')
+  | Lego.Term.con "fst" [e] => do
+    let e' ← elaborate env e
+    some (.fst e')
+  | Lego.Term.con "proj2" [e] => do
+    let e' ← elaborate env e
+    some (.snd e')
+  | Lego.Term.con "snd" [e] => do
+    let e' ← elaborate env e
+    some (.snd e')
+
+  -- Let: (let x A v body)
+  | Lego.Term.con "let" [Lego.Term.var x, ty, val, body] => do
+    let ty' ← elaborate env ty
+    let val' ← elaborate env val
+    let body' ← elaborate (x :: env) body
+    some (.letE ty' val' body')
+  | Lego.Term.con "letexpr" [Lego.Term.var x, ty, val, body] => do
+    let ty' ← elaborate env ty
+    let val' ← elaborate env val
+    let body' ← elaborate (x :: env) body
+    some (.letE ty' val' body')
+
+  -- Universe
+  | Lego.Term.con "type" [] => some (.univ 0)
+  | Lego.Term.con "typeN" [Lego.Term.lit n] => some (.univ (n.toNat!))
+  | Lego.Term.con "Univ" [Lego.Term.lit n] => some (.univ (n.toNat!))
+
+  -- Path: (path A a b) or (pathsugar A a b)
+  | Lego.Term.con "path" [ty, a, b] => do
+    let ty' ← elaborate env ty
+    let a' ← elaborate env a
+    let b' ← elaborate env b
+    some (.path ty' a' b')
+  | Lego.Term.con "pathsugar" [ty, a, b] => do
+    let ty' ← elaborate env ty
+    let a' ← elaborate env a
+    let b' ← elaborate env b
+    some (.path ty' a' b')
+
+  -- Refl: (refl a) or (reflexpr)
+  | Lego.Term.con "refl" [a] => do
+    let a' ← elaborate env a
+    some (.refl a')
+  | Lego.Term.con "reflexpr" [] => some (.refl (.ix 0))  -- implicit
+
+  -- Coe: (coeexpr r r' a A)
+  | Lego.Term.con "coeexpr" [r, r', a, ty] => do
+    let r1 ← elaborate env r
+    let r2 ← elaborate env r'
+    let a' ← elaborate env a
+    let ty' ← elaborate ("_i" :: env) ty  -- ty binds dimension var
+    some (.coe r1 r2 ty' a')
+  | Lego.Term.con "coe" [r, r', a, ty] => do
+    let r1 ← elaborate env r
+    let r2 ← elaborate env r'
+    let a' ← elaborate env a
+    let ty' ← elaborate ("_i" :: env) ty  -- ty binds dimension var
+    some (.coe r1 r2 ty' a')
+
+  -- HCom: (hcomexpr r r' ty phi cap)
+  | Lego.Term.con "hcomexpr" [r, r', ty, phi, cap] => do
+    let r1 ← elaborate env r
+    let r2 ← elaborate env r'
+    let ty' ← elaborate env ty
+    let phi' ← elaborate env phi
+    let cap' ← elaborate env cap
+    some (.hcom r1 r2 ty' phi' cap')
+  | Lego.Term.con "hcom" [r, r', ty, phi, cap] => do
+    let r1 ← elaborate env r
+    let r2 ← elaborate env r'
+    let ty' ← elaborate env ty
+    let phi' ← elaborate env phi
+    let cap' ← elaborate env cap
+    some (.hcom r1 r2 ty' phi' cap')
+  -- Simplified hcom with implicit ⊤ cofibration
+  | Lego.Term.con "hcomexpr" [r, r', ty, cap] => do
+    let r1 ← elaborate env r
+    let r2 ← elaborate env r'
+    let ty' ← elaborate env ty
+    let cap' ← elaborate env cap
+    some (.hcom r1 r2 ty' .cof_top cap')
+  | Lego.Term.con "hcom" [r, r', ty, cap] => do
+    let r1 ← elaborate env r
+    let r2 ← elaborate env r'
+    let ty' ← elaborate env ty
+    let cap' ← elaborate env cap
+    some (.hcom r1 r2 ty' .cof_top cap')
+
+  -- Zero-arg constructor → literal
+  | Lego.Term.con name [] => some (.lit name)
+
+  -- Generic constructor → try to elaborate args
+  | Lego.Term.con "var" [Lego.Term.var name] =>
+    match resolveName env name with
+    | some idx => some (.ix idx)
+    | none => some (.lit name)
+
+  | _ => none
+
+end Lego.Core

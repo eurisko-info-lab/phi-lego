@@ -1,8 +1,11 @@
 /-
-  Test: Runnable tests for Lego
+  Test: Runnable tests for Lego core library
 
   Tests core functionality and parses .lego files.
   Run with: lake exe lego-test
+
+  For Red-specific (cubical type theory) tests, see TestRed.lean
+  Run with: lake exe lego-test-red
 -/
 
 import Lego
@@ -33,17 +36,12 @@ def assertEq [BEq α] [Repr α] (name : String) (actual expected : α) : TestRes
 /-! ## Term Construction Tests -/
 
 def termTests : List TestResult := [
-  -- Basic terms
   assertEq "term_var" (Term.var "x") (Term.var "x"),
   assertEq "term_lit" (Term.lit "42") (Term.lit "42"),
   assertEq "term_con" (Term.con "app" [Term.var "f", Term.var "x"])
                       (Term.con "app" [Term.var "f", Term.var "x"]),
-
-  -- Nested terms
   let lam_id := Term.con "lam" [Term.var "x", Term.var "x"]
   assertEq "term_lam_id" lam_id (Term.con "lam" [Term.var "x", Term.var "x"]),
-
-  -- Church zero as term
   let zero := Term.con "lam" [Term.var "f", Term.con "lam" [Term.var "x", Term.var "x"]]
   assertTrue "term_church_zero" (zero.toString.length > 0)
 ]
@@ -51,12 +49,9 @@ def termTests : List TestResult := [
 /-! ## Iso Tests -/
 
 def isoTests : List TestResult :=
-  -- Identity
   let idR : Iso Nat Nat := Iso.id
   let idFwd := idR.forward 42
   let idBwd := idR.backward 42
-
-  -- Composition
   let addOne : Iso Nat Nat := {
     forward := fun n => some (n + 1)
     backward := fun n => if n > 0 then some (n - 1) else none
@@ -64,8 +59,6 @@ def isoTests : List TestResult :=
   let doubled := addOne >>> addOne
   let dblFwd := doubled.forward 5
   let dblBwd := doubled.backward 7
-
-  -- Symmetric
   let sym_addOne := ~addOne
   let symFwd := sym_addOne.forward 5
   let symBwd := sym_addOne.backward 5
@@ -82,22 +75,15 @@ def isoTests : List TestResult :=
 /-! ## Pattern Matching Tests -/
 
 def matchTests : List TestResult :=
-  -- Simple variable pattern
   let pat1 := Term.var "$x"
   let term1 := Term.lit "hello"
   let result1 := Term.matchPattern pat1 term1
-
-  -- Constructor pattern
   let pat2 := Term.con "app" [Term.var "$f", Term.var "$x"]
   let term2 := Term.con "app" [Term.var "add", Term.lit "1"]
   let result2 := Term.matchPattern pat2 term2
-
-  -- Nested pattern
   let pat3 := Term.con "lam" [Term.var "$x", Term.con "app" [Term.var "$f", Term.var "$x"]]
   let term3 := Term.con "lam" [Term.var "y", Term.con "app" [Term.var "inc", Term.var "y"]]
   let result3 := Term.matchPattern pat3 term3
-
-  -- Failed match
   let pat4 := Term.con "lam" [Term.var "$x", Term.var "$body"]
   let term4 := Term.con "app" [Term.var "f", Term.var "x"]
   let result4 := Term.matchPattern pat4 term4
@@ -112,17 +98,12 @@ def matchTests : List TestResult :=
 /-! ## Substitution Tests -/
 
 def substTests : List TestResult :=
-  -- Simple substitution
   let env1 : List (String × Term) := [("$x", Term.lit "42")]
   let template1 := Term.var "$x"
   let result1 := Term.substitute template1 env1
-
-  -- Substitution in constructor
   let env2 := [("$f", Term.var "add"), ("$x", Term.lit "1")]
   let template2 := Term.con "app" [Term.var "$f", Term.var "$x"]
   let result2 := Term.substitute template2 env2
-
-  -- Nested substitution
   let env3 := [("$x", Term.var "y"), ("$body", Term.var "y")]
   let template3 := Term.con "lam" [Term.var "$x", Term.var "$body"]
   let result3 := Term.substitute template3 env3
@@ -136,21 +117,14 @@ def substTests : List TestResult :=
 /-! ## Rule Application Tests -/
 
 def ruleTests : List TestResult :=
-  -- Beta reduction rule
   let betaRule : Rule := {
     name := "beta"
     pattern := Term.con "app" [Term.con "lam" [Term.var "$x", Term.var "$body"], Term.var "$arg"]
     template := Term.con "subst" [Term.var "$x", Term.var "$arg", Term.var "$body"]
   }
-
-  -- Apply beta to (λx.x) y
   let term := Term.con "app" [Term.con "lam" [Term.var "x", Term.var "x"], Term.var "y"]
   let result := betaRule.apply term
-
-  -- Expected: (subst x y x)
   let expected := Term.con "subst" [Term.var "x", Term.var "y", Term.var "x"]
-
-  -- Eta rule: λx.(f x) → f
   let etaRule : Rule := {
     name := "eta"
     pattern := Term.con "lam" [Term.var "$x", Term.con "app" [Term.var "$f", Term.var "$x"]]
@@ -165,15 +139,10 @@ def ruleTests : List TestResult :=
     assertEq "rule_eta" result2 (some (Term.var "inc"))
   ]
 
-/-! ## Lambda Calculus Language Tests -/
-
 /-! ## Interpreter Tests (Reduction) -/
 
 def interpreterTests : List TestResult :=
-  -- Lambda: identity function
   let id_term := Term.con "lam" [Term.var "x", Term.var "x"]
-
-  -- Lambda: application of identity
   let app_id := Term.con "app" [
     Term.con "lam" [Term.var "x", Term.var "x"],
     Term.var "y"
@@ -184,11 +153,7 @@ def interpreterTests : List TestResult :=
     template := Term.con "subst" [Term.var "$x", Term.var "$arg", Term.var "$body"]
   }
   let step1 := betaRule.apply app_id
-
-  -- INet: Wire symmetry
   let wire := Term.con "wire" [Term.con "Port" [Term.var "a"], Term.con "Port" [Term.var "b"]]
-
-  -- Meta: KSeq identity
   let kseq := Term.con "KSeq" [Term.con "KEmpty" [], Term.var "g"]
   let seqIdRule : Rule := {
     name := "seq_id_left"
@@ -207,29 +172,20 @@ def interpreterTests : List TestResult :=
 /-! ## Nat (Church Numerals) Tests -/
 
 def natTests : List TestResult :=
-  -- Church zero: λf.λx.x
   let zero := Term.con "lam" [Term.var "f",
                 Term.con "lam" [Term.var "x", Term.var "x"]]
-
-  -- Church one: λf.λx.(f x)
   let one := Term.con "lam" [Term.var "f",
                Term.con "lam" [Term.var "x",
                  Term.con "app" [Term.var "f", Term.var "x"]]]
-
-  -- Church two: λf.λx.(f (f x))
   let two := Term.con "lam" [Term.var "f",
                Term.con "lam" [Term.var "x",
                  Term.con "app" [Term.var "f",
                    Term.con "app" [Term.var "f", Term.var "x"]]]]
-
-  -- Successor function: λn.λf.λx.(f (n f x))
   let succ := Term.con "lam" [Term.var "n",
                 Term.con "lam" [Term.var "f",
                   Term.con "lam" [Term.var "x",
                     Term.con "app" [Term.var "f",
                       Term.con "app" [Term.con "app" [Term.var "n", Term.var "f"], Term.var "x"]]]]]
-
-  -- Addition: λm.λn.λf.λx.(m f (n f x))
   let add := Term.con "lam" [Term.var "m",
                Term.con "lam" [Term.var "n",
                  Term.con "lam" [Term.var "f",
@@ -248,10 +204,7 @@ def natTests : List TestResult :=
 /-! ## Let/Letrec Tests -/
 
 def letTests : List TestResult :=
-  -- Let expression: (let x e body)
   let letExpr := Term.con "let" [Term.var "x", Term.lit "42", Term.var "x"]
-
-  -- Letrec for factorial (structure only)
   let factDef := Term.con "letrec" [
     Term.var "fact",
     Term.con "lam" [Term.var "n",
@@ -263,8 +216,6 @@ def letTests : List TestResult :=
             Term.con "pred" [Term.var "n"]]]]],
     Term.con "app" [Term.var "fact", Term.lit "5"]
   ]
-
-  -- Fibonacci definition (structure only)
   let fibDef := Term.con "letrec" [
     Term.var "fib",
     Term.con "lam" [Term.var "n",
@@ -285,8 +236,6 @@ def letTests : List TestResult :=
 
 /-! ## .lego File Parsing Tests (IO) -/
 
-/-! ## AST to Rule/Test Conversion -/
-
 /-- Get identifier name from (ident name) node -/
 def getIdentName (t : Term) : Option String :=
   match t with
@@ -301,31 +250,25 @@ def filterParens (args : List Term) : List Term :=
     | .lit ")" => false
     | _ => true
 
-/-- Convert parsed pattern AST to Term for pattern matching.
-    Patterns use $x for metavariables -/
+/-- Convert parsed pattern AST to Term for pattern matching -/
 partial def patternToTerm (t : Term) : Term :=
   match t with
-  -- NEW format: (var "$" (ident x)) -> .var "$x"
   | .con "var" [.lit "$", .con "ident" [.var name]] =>
     .var s!"${name}"
-  -- (metavar "$" (ident x)) -> .var "$x" [legacy]
   | .con "metavar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var s!"${n}"
     | none => t
-  -- (pvar (ident x)) -> .var "x" [legacy]
   | .con "pvar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var n
     | none => t
-  -- (lit (string "...")) -> .lit "..."
   | .con "lit" [.con "string" [.lit s]] => .lit s
   | .con "lit" [.lit s] => .lit s
   | .con "plit" [.con "string" [.lit s]] => .lit s
   | .con "plit" [.lit s] => .lit s
-  -- NEW format: (con "(" (ident name) args... ")") -> .con name [args...]
   | .con "con" args =>
     let filtered := filterParens args
     match filtered with
@@ -334,7 +277,6 @@ partial def patternToTerm (t : Term) : Term :=
       | some name => .con name (rest.map patternToTerm)
       | none => t
     | _ => t
-  -- (pcon "(" (ident name) args... ")") -> .con name [args...] [legacy]
   | .con "pcon" args =>
     let filtered := filterParens args
     match filtered with
@@ -349,27 +291,22 @@ partial def patternToTerm (t : Term) : Term :=
 /-- Convert parsed template AST to Term for substitution -/
 partial def templateToTerm (t : Term) : Term :=
   match t with
-  -- NEW format: (var "$" (ident x)) -> .var "$x"
   | .con "var" [.lit "$", .con "ident" [.var name]] =>
     .var s!"${name}"
-  -- (metavar "$" (ident x)) -> .var "$x" [legacy]
   | .con "metavar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var s!"${n}"
     | none => t
-  -- (tvar (ident x)) -> .var "x" [legacy]
   | .con "tvar" args =>
     let idents := args.filterMap getIdentName
     match idents.head? with
     | some n => .var n
     | none => t
-  -- (lit (string "...")) -> .lit "..."
   | .con "lit" [.con "string" [.lit s]] => .lit s
   | .con "lit" [.lit s] => .lit s
   | .con "tlit" [.con "string" [.lit s]] => .lit s
   | .con "tlit" [.lit s] => .lit s
-  -- NEW format: (con "(" (ident name) args... ")") -> .con name [args...]
   | .con "con" args =>
     let filtered := filterParens args
     match filtered with
@@ -378,7 +315,6 @@ partial def templateToTerm (t : Term) : Term :=
       | some name => .con name (rest.map templateToTerm)
       | none => t
     | _ => t
-  -- (tcon "(" (ident name) args... ")") -> .con name [args...] [legacy]
   | .con "tcon" args =>
     let filtered := filterParens args
     match filtered with
@@ -393,19 +329,14 @@ partial def templateToTerm (t : Term) : Term :=
 /-- Convert parsed term AST (s-expression) to simplified Term -/
 partial def termAstToTerm (t : Term) : Term :=
   match t with
-  -- (var (ident x)) -> .con "x" [] (bare ident is a constant, not a variable)
-  -- This matches how Pattern grammar treats bare idents
   | .con "var" [ident] =>
     match getIdentName ident with
-    | some n => .con n []  -- Treat as zero-arg constructor
+    | some n => .con n []
     | none => t
-  -- (lit (string "...")) -> .lit "..."
   | .con "lit" [.con "string" [.lit s]] => .lit s
   | .con "lit" [.lit s] => .lit s
-  -- (num (number n)) -> .lit n
   | .con "num" [.con "number" [.lit n]] => .lit n
   | .con "num" [.lit n] => .lit n
-  -- (con "(" (ident name) args... ")") -> .con name [args...]
   | .con "con" args =>
     let filtered := filterParens args
     match filtered with
@@ -421,7 +352,6 @@ partial def termAstToTerm (t : Term) : Term :=
 partial def extractRules (t : Term) : List Rule :=
   match t with
   | .con "DRule" args =>
-    -- DRule structure: ["rule", (ident name), ":", optional-newline, pattern, "~>", template]
     let rec findArrowIdx (xs : List Term) (idx : Nat) : Option Nat :=
       match xs with
       | [] => none
@@ -457,71 +387,55 @@ structure EvalTest where
 partial def extractEvalTests (t : Term) : List EvalTest :=
   match t with
   | .con "DTest" args =>
-    -- DTest structure: ["test", (string "name"), ":", input, optional: "~~>", expected]
-    -- Find the "~~>" arrow
     let arrowIdx := args.findIdx? (· == .lit "~~>")
     match arrowIdx with
     | some idx =>
-      -- input is at idx-1, expected is at idx+1
       if idx > 0 ∧ idx + 1 < args.length then
         let input := args[idx - 1]!
         let expected := args[idx + 1]!
-        -- Get name from (string "name")
         let nameOpt := args.findSome? fun
-          | .con "string" [.lit n] => some (n.replace "\"" "")  -- Remove quotes
+          | .con "string" [.lit n] => some (n.replace "\"" "")
           | _ => none
         match nameOpt with
         | some name => [{ name := name, input := termAstToTerm input, expected := termAstToTerm expected }]
         | none => []
       else []
-    | none => []  -- No "~~>", not an eval test
+    | none => []
   | .con "seq" ts => ts.flatMap extractEvalTests
   | .con _ ts => ts.flatMap extractEvalTests
   | _ => []
 
-/-- Apply built-in substitution: (subst x val body)
-    Works with both simple Terms (.var x) and parsed structure (Term.con "var" [Term.var "x"]) -/
+/-- Apply built-in substitution -/
 partial def applySubst (x : String) (val : Term) (body : Term) : Term :=
   match body with
-  -- Simple var: (var "x")
   | .var name => if name == x then val else body
-  -- Parsed var structure: (var (var "x")) or similar
   | .con "var" [.var name] => if name == x then val else body
-  -- Parsed var structure with zero-arg con: (var (con "x" []))
   | .con "var" [.con name []] => if name == x then val else body
-  -- Lit stays unchanged
   | .lit _ => body
-  -- Recursively substitute in constructor args
   | .con name args => .con name (args.map (applySubst x val))
 
-/-- Apply built-in reductions (like subst) -/
+/-- Apply built-in reductions -/
 def stepBuiltin (t : Term) : Option Term :=
   match t with
-  -- (subst x val body) where x is a var name -> apply substitution
   | .con "subst" [.var x, val, body] =>
     some (applySubst x val body)
-  -- Also handle case where x is a zero-arg con (from Pattern grammar)
   | .con "subst" [.con x [], val, body] =>
     some (applySubst x val body)
   | _ => none
 
 /-- Apply a single step with any matching rule -/
 def stepOnce (rules : List Rule) (t : Term) : Option Term :=
-  -- Try rules first
   match rules.findSome? (fun r => r.apply t) with
   | some t' => some t'
   | none => stepBuiltin t
 
 /-- Apply rules to subterms recursively (single step) -/
 partial def stepDeep (rules : List Rule) (t : Term) : Option Term :=
-  -- Try at root first
   match stepOnce rules t with
   | some t' => some t'
   | none =>
-    -- Try recursively in subterms
     match t with
     | .con name args =>
-      -- Try each arg, return first success
       let rec tryArgs (before : List Term) (after : List Term) : Option Term :=
         match after with
         | [] => none
@@ -535,24 +449,19 @@ partial def stepDeep (rules : List Rule) (t : Term) : Option Term :=
 /-- Normalize term by applying rules until fixpoint (with fuel) -/
 partial def normalize (fuel : Nat) (rules : List Rule) (t : Term) : Term :=
   match fuel with
-  | 0 => t  -- Out of fuel
+  | 0 => t
   | n + 1 =>
     match stepDeep rules t with
     | some t' => normalize n rules t'
-    | none => t  -- Normal form
+    | none => t
 
-/-- Canonicalize a term (normalize variable representations) -/
+/-- Canonicalize a term -/
 partial def canonicalize (t : Term) : Term :=
   match t with
-  -- (var (var name)) → bare var
   | .con "var" [.var name] => .con name []
-  -- (var (con "x" [])) → bare var (from new grammar)
   | .con "var" [.con name []] => .con name []
-  -- Zero-arg con stays as-is (already canonical)
   | .con name [] => .con name []
-  -- Recursively canonicalize args
   | .con name args => .con name (args.map canonicalize)
-  -- Simple var → zero-arg con (normalize representation)
   | .var name => .con name []
   | _ => t
 
@@ -567,18 +476,6 @@ def runEvalTest (rules : List Rule) (test : EvalTest) : TestResult :=
     passed := passed
     message := if passed then "✓"
                else s!"✗ got {result}, expected {test.expected}" }
-
-/-- Parse a .lego file and return test results -/
-def parseLegoFileTest (path : String) : IO TestResult := do
-  let name := path.splitOn "/" |>.getLast!
-  try
-    let content ← IO.FS.readFile path
-    let result := Bootstrap.parseLegoFile content
-    match result with
-    | some _ => pure { name := s!"parse_{name}", passed := true, message := "✓" }
-    | none => pure { name := s!"parse_{name}", passed := false, message := "✗ parse failed" }
-  catch _ =>
-    pure { name := s!"parse_{name}", passed := false, message := "✗ file not found" }
 
 /-- Count test declarations in parsed AST -/
 partial def countTests (t : Term) : Nat :=
@@ -596,11 +493,11 @@ partial def countRules (t : Term) : Nat :=
   | .con _ ts => ts.foldl (fun acc t' => acc + countRules t') 0
   | _ => 0
 
-/-- Count piece declarations in parsed AST (both DPiece and DToken) -/
+/-- Count piece declarations in parsed AST -/
 partial def countPieces (t : Term) : Nat :=
   match t with
   | .con "DPiece" _ => 1
-  | .con "DToken" _ => 1  -- token pieces count too
+  | .con "DToken" _ => 1
   | .con "seq" ts => ts.foldl (fun acc t' => acc + countPieces t') 0
   | .con _ ts => ts.foldl (fun acc t' => acc + countPieces t') 0
   | _ => 0
@@ -622,7 +519,6 @@ def analyzeLegoFile (path : String) : IO (List TestResult) := do
       let baseResults := [
         { name := s!"parse_{name}", passed := true, message := "✓" },
         { name := s!"{name}_has_pieces", passed := pieceCount > 0, message := if pieceCount > 0 then s!"✓ ({pieceCount})" else "✗" },
-        -- Rules and tests are optional - count them but don't fail if 0
         { name := s!"{name}_has_rules", passed := true, message := s!"✓ ({ruleCount})" },
         { name := s!"{name}_has_tests", passed := true, message := s!"✓ ({testCount})" }
       ]
@@ -633,7 +529,6 @@ def analyzeLegoFile (path : String) : IO (List TestResult) := do
 
 /-- Run .lego file parsing tests -/
 def runLegoFileTests : IO (List TestResult) := do
-  -- Test files in toy/test/ and toy/examples/
   let testPath := "./test"
   let examplePath := "./examples"
   let files := [
@@ -651,15 +546,9 @@ def runLegoFileTests : IO (List TestResult) := do
 
 /-! ## AST GrammarExpr Tests -/
 
-/-- Test parsing grammar expression directly into GrammarExpr type.
-    This demonstrates the AST typeclass abstraction:
-    - Same grammar can parse into Term OR GrammarExpr
-    - Meta-circular: grammar parsing builds grammar algebra -/
 def runGrammarExprTests : IO (List TestResult) := do
-  -- Use the pre-compiled Bootstrap to test parsing into GrammarExpr
   let hardcodedProds := Bootstrap.metaGrammar.allGrammar
 
-  -- Test 1: parse a simple identifier reference as GrammarExpr
   let testProd := "Atom.ident"
   let testInput := "foo"
   let tokens := Bootstrap.tokenize testInput
@@ -678,12 +567,9 @@ def runGrammarExprTests : IO (List TestResult) := do
   | none =>
     { name := "parse_ident_as_GrammarExpr", passed := false, message := s!"✗ prod not found" }
 
-  -- Test 2: Load Bootstrap.lego and compare with hard-coded version
-  -- The parsed version should be a superset of the hardcoded (may have Token, builtins, etc.)
   let (test2, test3) ← do
     match ← loadBootstrapProductions "./test/Bootstrap.lego" with
     | some parsedProds =>
-      -- Check that hardcoded is subset of parsed (parsed may have extra)
       let (isSubset, missing) := isSubsetOfProductions hardcodedProds parsedProds
       let compTest := if isSubset then
         { name := "hardcoded_subset_of_parsed"
@@ -693,7 +579,6 @@ def runGrammarExprTests : IO (List TestResult) := do
         { name := "hardcoded_subset_of_parsed"
           passed := false
           message := s!"✗ missing in parsed: {missing.take 5}" }
-      -- Test that parsed grammar can parse a term (need to add builtins for TOKEN refs)
       let fullProds := builtinProductions ++ parsedProds
       let termTest := match fullProds.find? (·.1 == "Term.term") with
       | some (_, g) =>
@@ -716,286 +601,33 @@ def runGrammarExprTests : IO (List TestResult) := do
         { name := "parsed_bootstrap_parses_term", passed := false, message := "✗ no grammar" }
       )
 
-  -- Test 4: Load Redtt.lego and extract productions
-  let test4 ← do
-    try
-      let content ← IO.FS.readFile "./test/Redtt.lego"
-      match Bootstrap.parseLegoFile content with
-      | some ast =>
-        let redttProds := extractAllProductions ast
-        pure { name := "load_Redtt.lego"
-               passed := true
-               message := s!"✓ ({redttProds.length} productions)" : TestResult }
-      | none =>
-        pure { name := "load_Redtt.lego", passed := false, message := "✗ parse failed" }
-    catch _ =>
-      pure { name := "load_Redtt.lego", passed := false, message := "✗ file not found" }
-
-  -- Test 5: Parse "import path" using Redtt grammar
-  let test5 ← do
-    try
-      let content ← IO.FS.readFile "./test/Redtt.lego"
-      match Bootstrap.parseLegoFile content with
-      | some ast =>
-        let redttProds := extractAllProductions ast
-        let importProd := "Imports.importdecl"
-        let importInput := "import mypath"
-        let importTokens := Bootstrap.tokenize importInput
-        match redttProds.find? (·.1 == importProd) with
-        | some (_, g) =>
-          let st : ParseState := { tokens := importTokens, binds := [] }
-          let (result, _) := parseGrammar defaultFuel redttProds g st
-          match result with
-          | some (_, st') =>
-            let passed := st'.tokens.isEmpty
-            pure { name := "parse_import_with_Redtt"
-                   passed := passed
-                   message := if passed then s!"✓" else "✗ tokens remaining" : TestResult }
-          | none =>
-            pure { name := "parse_import_with_Redtt", passed := false, message := "✗ parse failed" }
-        | none =>
-          pure { name := "parse_import_with_Redtt", passed := false, message := s!"✗ prod not found" }
-      | none =>
-        pure { name := "parse_import_with_Redtt", passed := false, message := "✗ grammar parse failed" }
-    catch _ =>
-      pure { name := "parse_import_with_Redtt", passed := false, message := "✗ file not found" }
-
   pure [
     { name := "hardcoded_bootstrap_loaded"
       passed := true
       message := s!"✓ ({hardcodedProds.length} productions)" },
     test1,
     test2,
-    test3,
-    test4,
-    test5
+    test3
   ]
-
-/-! ## Redtt Library Parsing Tests -/
-
-/-- Get the main token productions to try in priority order -/
-def getMainTokenProdsOrdered (tokenProds : Productions) : List String :=
-  -- Priority order: comments/ws first (to skip), then longer patterns, then fallback
-  let names := tokenProds.map (·.1)
-  let priority := ["Token.comment", "Token.ws", "Token.string", "Token.ident", "Token.number", "Token.sym"]
-  priority.filter names.contains
-
-/-- Parse a single .red file declaration using Redtt grammar.
-    Uses custom tokenizer from the loaded grammar if available.
-    Keywords are reserved words that should be tokenized as symbols, not identifiers. -/
-def parseRedDecl (redttProds : List (String × GrammarExpr))
-                 (tokenProds : List (String × GrammarExpr))
-                 (keywords : List String)
-                 (decl : String) : Bool :=
-  let declProd := "File.topdecl"
-  -- Use grammar-specific tokenizer if token productions are available
-  let tokens := if tokenProds.isEmpty then
-    Bootstrap.tokenize decl
-  else
-    let mainProds := getMainTokenProdsOrdered tokenProds
-    tokenizeWithGrammar defaultFuel tokenProds mainProds decl keywords
-  match redttProds.find? (·.1 == declProd) with
-  | some (_, g) =>
-    let st : ParseState := { tokens := tokens, binds := [] }
-    let (result, _) := parseGrammar defaultFuel redttProds g st
-    match result with
-    | some (_, st') => st'.tokens.isEmpty
-    | none => false
-  | none => false
-
-/-- Split a .red file into individual top-level declarations.
-    Declarations start with "import", "def", or "data" at the beginning of a line. -/
-def splitRedDecls (content : String) : List String := Id.run do
-  -- First strip block comments (/-  -/)
-  let noBlockComments := stripBlockComments content
-  -- Strip line comments (-- ...)
-  let noComments := noBlockComments.splitOn "\n"
-    |>.map (fun line =>
-      match line.splitOn "--" with
-      | [] => ""
-      | first :: _ => first)
-    |> String.intercalate "\n"
-  -- Split on declaration keywords at line start
-  let lines := noComments.splitOn "\n"
-  let mut decls : List String := []
-  let mut current := ""
-  for line in lines do
-    let trimmed := line.trimLeft
-    if trimmed.startsWith "import " || trimmed.startsWith "def " ||
-       trimmed.startsWith "data " || trimmed.startsWith "public " ||
-       trimmed.startsWith "meta " || trimmed.startsWith "opaque " ||
-       trimmed.startsWith "private " || trimmed == "opaque" then
-      if !current.isEmpty then
-        decls := decls ++ [current.trim]
-      current := line
-    else
-      current := current ++ "\n" ++ line
-  if !current.isEmpty then
-    decls := decls ++ [current.trim]
-  return decls.filter (fun s => !s.isEmpty)
-where
-  stripBlockComments (s : String) : String := Id.run do
-    let mut result := ""
-    let mut i := 0
-    let mut inComment := false
-    let chars := s.toList
-    while i < chars.length do
-      if !inComment && i + 1 < chars.length && chars[i]! == '/' && chars[i+1]! == '-' then
-        inComment := true
-        i := i + 2
-      else if inComment && i + 1 < chars.length && chars[i]! == '-' && chars[i+1]! == '/' then
-        inComment := false
-        i := i + 2
-      else if !inComment then
-        result := result.push chars[i]!
-        i := i + 1
-      else
-        i := i + 1
-    result
-
-/-- Parse a .red file and return (passed, total) declaration counts, also prints failures -/
-def parseRedFile (redttProds : List (String × GrammarExpr))
-                 (tokenProds : List (String × GrammarExpr))
-                 (keywords : List String)
-                 (path : String)
-                 (verbose : Bool := false) : IO (Nat × Nat) := do
-  try
-    let content ← IO.FS.readFile path
-    let decls := splitRedDecls content
-    let mut passed := 0
-    let mut total := 0
-    for decl in decls do
-      total := total + 1
-      if parseRedDecl redttProds tokenProds keywords decl then
-        passed := passed + 1
-      else if verbose then
-        -- Print first 120 chars of failing decl
-        let preview := if decl.length > 120 then decl.take 120 ++ "..." else decl
-        let oneLine := preview.replace "\n" " "
-        IO.println s!"  FAIL [{path}]: {oneLine}"
-    pure (passed, total)
-  catch _ =>
-    pure (0, 0)
-
-/-- Parse a .red file and return (passed, total, list of failures) -/
-def parseRedFileVerbose (redttProds : List (String × GrammarExpr))
-                 (tokenProds : List (String × GrammarExpr))
-                 (keywords : List String)
-                 (path : String) : IO (Nat × Nat × List String) := do
-  try
-    let content ← IO.FS.readFile path
-    let decls := splitRedDecls content
-    let mut passed := 0
-    let mut total := 0
-    let mut failures : List String := []
-    for decl in decls do
-      total := total + 1
-      if parseRedDecl redttProds tokenProds keywords decl then
-        passed := passed + 1
-      else
-        let preview := if decl.length > 200 then decl.take 200 else decl
-        let oneLine := preview.replace "\n" " "
-        failures := failures ++ [oneLine]
-    pure (passed, total, failures)
-  catch _ =>
-    pure (0, 0, [])
-
-/-- Recursively find all .red files in a directory -/
-partial def findRedFiles (dir : String) : IO (List String) := do
-  let mut files : List String := []
-  try
-    let entries ← System.FilePath.readDir dir
-    for entry in entries do
-      let path := entry.path.toString
-      if ← System.FilePath.isDir entry.path then
-        let subFiles ← findRedFiles path
-        files := files ++ subFiles
-      else if path.endsWith ".red" then
-        files := files ++ [path]
-  catch _ =>
-    pure ()
-  pure files
-
-/-- Run tests parsing .red files from the redtt library -/
-def runRedttParsingTests : IO (List TestResult) := do
-  -- Load Redtt grammar
-  let grammarResult ← do
-    try
-      let content ← IO.FS.readFile "./test/Redtt.lego"
-      pure (Bootstrap.parseLegoFile content)
-    catch _ =>
-      pure none
-
-  match grammarResult with
-  | none => pure [{ name := "redtt_library_parse", passed := false, message := "✗ Redtt.lego failed to load" }]
-  | some ast =>
-    let redttProds := extractAllProductions ast
-    let tokenProds := extractTokenProductions ast
-    let keywords := extractKeywords redttProds
-
-    -- Find all .red files in vendor/redtt/library (relative path from toy/)
-    let libraryPath := "../vendor/redtt/library"
-    let testFiles ← findRedFiles libraryPath
-    let sortedFiles := testFiles.toArray.qsort (· < ·) |>.toList
-
-    let mut totalParsed := 0
-    let mut totalDecls := 0
-
-    -- Print failures for debugging (only first 10)
-    let mut failCount := 0
-    IO.println "  Parsing failures (first 10):"
-    for filePath in sortedFiles do
-      let (parsed, total, failures) ← parseRedFileVerbose redttProds tokenProds keywords filePath
-      totalParsed := totalParsed + parsed
-      totalDecls := totalDecls + total
-      for failure in failures do
-        if failCount < 10 then
-          IO.println s!"  FAIL [{filePath}]: {failure.take 120}..."
-          failCount := failCount + 1
-
-    -- Summary test - pass if we can parse anything
-    let overallRate := if totalDecls > 0 then (totalParsed * 100) / totalDecls else 0
-    let allPassed := overallRate = 100
-    let checkMark := if allPassed then "✓" else "✗"
-    let summaryTest := {
-      name := "redtt_library"
-      passed := overallRate = 100  -- Pass if we parse at least something
-      message := s!"{checkMark} ({totalParsed}/{totalDecls} = {overallRate}%) across {sortedFiles.length} files"
-    }
-
-    pure [summaryTest]
 
 /-! ## Attribute Grammar Tests -/
 
 def attrTests : List TestResult :=
-  -- Test basic attribute evaluation
-  -- Define a simple "depth" synthesized attribute
   let depthAttr : AttrDef := {
     name := "depth"
     flow := .syn
     type := some (Term.var "Nat")
     rules := [
-      -- Leaf nodes have depth 0
       { prod := "var", target := [], expr := Term.lit "0" },
       { prod := "lit", target := [], expr := Term.lit "0" },
-      -- Constructor nodes have depth = 1 + max of children's depths
-      -- Simplified: just use first child's depth + 1
       { prod := "lam", target := [], expr := Term.con "succ" [Term.var "$child1.depth"] }
     ]
   }
-
-  -- Test term: (lam x x) - depth should propagate
   let testTerm := Term.con "lam" [Term.var "x", Term.var "x"]
   let env := evalSyn depthAttr testTerm
-
-  -- Verify environment has entries
   let hasEntries := env.values.length > 0
-
-  -- Test AttrRef construction
   let selfRef := AttrRef.self "type"
   let childRef := AttrRef.child "body" "type"
-
-  -- Test AttrEnv operations
   let env1 := AttrEnv.empty
   let env2 := env1.insert [] "test" (Term.lit "value")
   let lookup1 := env2.lookup [] "test"
@@ -1010,7 +642,6 @@ def attrTests : List TestResult :=
 
 /-- IO-based test for loading attribute grammar from file -/
 def runAttrFileTests : IO (List TestResult) := do
-  -- Load AttrTest.lego and verify attribute extraction
   let path := "./test/AttrTest.lego"
   try
     let content ← IO.FS.readFile path
@@ -1029,206 +660,74 @@ def runAttrFileTests : IO (List TestResult) := do
     | none =>
       pure [assertTrue "attrtest_parses" false]
   catch _ =>
-    -- File might not exist in all environments
     pure [assertTrue "attrtest_file_optional" true]
 
-/-! ## Phase 8/9: Attribute Evaluation Tests -/
+/-! ## Attribute Evaluation Tests -/
 
 def attrEvalTests : List TestResult :=
-  -- Test SourceLoc
   let loc := SourceLoc.mk "test.lego" 10 5 0
   let locStr := loc.toString
-
-  -- Test TypeError
   let err1 := TypeError.error "test error" loc
   let err2 := TypeError.mismatch (.var "Int") (.var "Bool") loc
   let err3 := TypeError.undefined "x" loc
-
-  -- Test EvalResult
   let ok1 : EvalResult Term := .ok (.var "test") []
   let ok2 : EvalResult Term := .ok (.var "test") [err1]
   let fail1 : EvalResult Term := .failed [err2]
-
-  -- Test Context
   let ctx1 := Context.empty
   let ctx2 := ctx1.extend "x" (.var "Int")
   let ctx3 := ctx2.extend "y" (.var "Bool")
   let lookup1 := ctx3.lookupType "x"
   let lookup2 := ctx3.lookupType "z"
-
-  -- Test DimContext
   let dimCtx1 := DimContext.empty
   let dimCtx2 := dimCtx1.extend "i"
   let dimCtx3 := dimCtx2.extend "j"
-
-  -- Test EvalEnv
   let env1 := EvalEnv.empty
   let env2 := env1.addBinding "x" (.var "Int")
   let env3 := env2.setAttr [] "type" (.var "Int")
-
-  -- Test typeEq
   let eq1 := typeEq (.var "Int") (.var "Int")
   let eq2 := typeEq (.var "Int") (.var "Bool")
-
-  -- Test getDomain/getCodomain
   let piTy := Term.con "Pi" [.var "x", .var "Int", .var "Bool"]
   let arrowTy := Term.con "Arrow" [.var "Int", .var "Bool"]
   let dom1 := getDomain piTy
   let cod1 := getCodomain piTy
   let dom2 := getDomain arrowTy
-
-  -- Test error formatting
   let errStr := formatErrors [err1, err2]
   let (e, w, i) := countBySeverity [err1, err2, err3]
 
   [
-    -- SourceLoc tests
     assertTrue "sourceloc_toString" (locStr == "test.lego:10:5"),
-
-    -- TypeError tests
     assertTrue "error_has_message" (err1.message == "test error"),
     assertTrue "mismatch_has_expected" (err2.expected == some (.var "Int")),
     assertTrue "undefined_has_message" (err3.message == "undefined: x"),
-
-    -- EvalResult tests
     assertTrue "evalresult_ok_isOk" ok1.isOk,
     assertTrue "evalresult_ok_with_errors" ok2.isOk,
     assertTrue "evalresult_failed_not_ok" (!fail1.isOk),
-
-    -- Context tests
     assertTrue "context_empty" (ctx1.bindings.isEmpty),
     assertTrue "context_extend" (ctx2.bindings.length == 1),
     assertTrue "context_lookup_found" (lookup1 == some (.var "Int")),
     assertTrue "context_lookup_missing" (lookup2 == none),
     assertTrue "context_names" (ctx3.names == ["y", "x"]),
-
-    -- DimContext tests
     assertTrue "dimctx_empty" (!dimCtx1.contains "i"),
     assertTrue "dimctx_extend" (dimCtx2.contains "i"),
     assertTrue "dimctx_multiple" (dimCtx3.contains "i" && dimCtx3.contains "j"),
-
-    -- EvalEnv tests
     assertTrue "evalenv_empty_no_errors" (!env1.hasErrors),
     assertTrue "evalenv_has_binding" (env2.ctx.bindings.length == 1),
     assertTrue "evalenv_has_attr" (env3.getAttr [] "type" == some (.var "Int")),
-
-    -- Type operations
     assertTrue "typeEq_same" eq1,
     assertTrue "typeEq_diff" (!eq2),
     assertTrue "getDomain_pi" (dom1 == some (.var "Int")),
     assertTrue "getCodomain_pi" (cod1 == some (.var "Bool")),
     assertTrue "getDomain_arrow" (dom2 == some (.var "Int")),
-
-    -- Error formatting
     assertTrue "formatErrors_not_empty" (!errStr.isEmpty),
     assertTrue "countBySeverity_errors" (e == 3)
   ]
-
-/-! ## Phase 10: Redtt Attribute Evaluation Tests -/
-
-/-- Run attribute evaluation on a parsed redtt expression with context -/
-def testRedttAttrEvalWithCtx (name : String) (term : Term) (ctx : Context) : TestResult :=
-  -- Create simple attribute definitions for testing
-  let typeDef : AttrDef := {
-    name := "type"
-    flow := .syn
-    type := some (.var "Type")
-    rules := []
-  }
-  let ctxDef : AttrDef := {
-    name := "ctx"
-    flow := .inh
-    type := some (.var "Ctx")
-    rules := []
-  }
-  let defs := [typeDef, ctxDef]
-
-  -- Run evaluation
-  let env := evalAllAttrs {} defs term ctx
-
-  -- Success if no evaluation errors (type inference may have warnings)
-  let errorCount := env.errors.filter (·.severity == .error) |>.length
-  if errorCount == 0 then
-    assertTrue s!"attreval_{name}" true
-  else
-    { name := s!"attreval_{name}", passed := false, message := s!"✗ {errorCount} errors" }
-
-/-- Create a context with common bindings -/
-def testContext : Context :=
-  Context.empty
-    |>.extend "x" (.var "Type")
-    |>.extend "y" (.var "Type")
-    |>.extend "z" (.var "Type")  -- for lam binder
-    |>.extend "unused" (.var "Type")  -- for pi binder
-    |>.extend "a" (.var "A")
-    |>.extend "b" (.var "A")
-    |>.extend "f" (.con "Arrow" [.var "A", .var "B"])
-    |>.extend "A" (.var "Type")
-    |>.extend "B" (.var "Type")
-    |>.extend "Type" (.var "Type")  -- Type is in context
-    |>.extend "i" (.var "I")
-    |>.extend "j" (.var "I")
-    |>.extend "phi" (.var "F")
-    |>.extend "r" (.var "I")
-    |>.extend "s" (.var "I")
-    |>.extend "u" (.var "A")
-
-/-- Run attribute evaluation tests on parsed redtt files -/
-def runRedttAttrEvalTests : IO (List TestResult) := do
-  let ctx := testContext
-
-  -- Sample redtt expressions to test attribute evaluation
-  let sampleExprs := [
-    -- Simple variable (in context)
-    ("var_in_ctx", Term.var "x"),
-    -- Literal
-    ("lit", Term.lit "42"),
-    -- Lambda with constant body (no bound var reference)
-    ("lam_const", Term.con "lam" [.var "z", .var "Type", .var "a"]),
-    -- Lambda with bound variable in body (tests scope extension!)
-    -- λ w : Type . w  (identity on types)
-    ("lam_id", Term.con "lam" [.var "w", .var "Type", .var "w"]),
-    -- Nested lambdas with scoping
-    -- λ p : A . λ q : B . p
-    ("lam_nested", Term.con "lam" [.var "p", .var "A",
-                     Term.con "lam" [.var "q", .var "B", .var "p"]]),
-    -- Application (with context)
-    ("app", Term.con "app" [.var "f", .var "a"]),
-    -- Pi type - non-dependent
-    ("pi_nondep", Term.con "Pi" [.var "unused", .var "A", .var "B"]),
-    -- Pi type - dependent! The codomain references the bound variable
-    -- Π v : Type . v  (identity type family)
-    ("pi_dep", Term.con "Pi" [.var "v", .var "Type", .var "v"]),
-    -- Refl (with context)
-    ("refl", Term.con "refl" [.var "a"]),
-    -- Path type (with context)
-    ("path", Term.con "path" [.var "A", .var "a", .var "b"]),
-    -- Coe (coercion, with context)
-    ("coe", Term.con "coe" [.var "A", .var "i", .var "j", .var "a"]),
-    -- Hcom (homogeneous composition, with context)
-    ("hcom", Term.con "hcom" [.var "A", .var "r", .var "s", .var "phi", .var "u", .var "a"])
-  ]
-
-  -- Test each expression with context
-  let tests := sampleExprs.map fun (name, term) => testRedttAttrEvalWithCtx name term ctx
-
-  -- Also test on some parsed terms from redtt files
-  let pathFile := "../vendor/redtt/library/prelude/path.red"
-  let content ← IO.FS.readFile pathFile
-  let lines := content.splitOn "\n"
-  let defCount := lines.filter (·.startsWith "def ") |>.length
-
-  let tests := tests ++ [
-    assertTrue s!"parsed_{defCount}_defs_from_path.red" (defCount > 0)
-  ]
-
-  pure tests
 
 /-! ## Run All Tests -/
 
 def allTests : List TestResult :=
   termTests ++ isoTests ++ matchTests ++ substTests ++
-  ruleTests ++ interpreterTests ++ natTests ++ letTests ++ attrTests ++ attrEvalTests
+  ruleTests ++ interpreterTests ++ natTests ++ letTests ++
+  attrTests ++ attrEvalTests
 
 def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) := do
   IO.println s!"\n── {name} ──"
@@ -1239,13 +738,10 @@ def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) :
     if t.passed then passed := passed + 1 else failed := failed + 1
   pure (passed, failed)
 
-def main (args : List String) : IO Unit := do
+def main : IO Unit := do
   IO.println "═══════════════════════════════════════════════════════════════"
-  IO.println "Lego Test Suite"
+  IO.println "Lego Test Suite (Core Library)"
   IO.println "═══════════════════════════════════════════════════════════════"
-
-  -- Check if --all or --redtt flag is passed to include slow redtt tests
-  let runRedtt := args.contains "--all" || args.contains "--redtt"
 
   let mut totalPassed := 0
   let mut totalFailed := 0
@@ -1280,40 +776,26 @@ def main (args : List String) : IO Unit := do
   let (p, f) ← printTestGroup "Attribute Evaluation Tests" attrEvalTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  -- Run attribute file loading tests (IO-based)
   let attrFileTests ← runAttrFileTests
   let (p, f) ← printTestGroup "Attribute File Loading Tests" attrFileTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  -- Run .lego file parsing tests (IO-based)
   let legoFileTests ← runLegoFileTests
   let (p, f) ← printTestGroup ".lego File Parsing Tests" legoFileTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  -- Run AST GrammarExpr tests (uses AST typeclass)
   let grammarExprTests ← runGrammarExprTests
   let (p, f) ← printTestGroup "AST GrammarExpr Tests" grammarExprTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
-
-  -- Run redtt library parsing tests (optional, slow)
-  if runRedtt then
-    let redttTests ← runRedttParsingTests
-    let (p, f) ← printTestGroup "Redtt Library Parsing Tests" redttTests
-    totalPassed := totalPassed + p; totalFailed := totalFailed + f
-
-    -- Run attribute evaluation tests on redtt
-    let attrEvalRedttTests ← runRedttAttrEvalTests
-    let (p, f) ← printTestGroup "Redtt Attribute Evaluation Tests" attrEvalRedttTests
-    totalPassed := totalPassed + p; totalFailed := totalFailed + f
-  else
-    IO.println "\n── Redtt Library Parsing Tests (skipped, use --all or --redtt) ──"
-    IO.println "── Redtt Attribute Evaluation Tests (skipped, use --all or --redtt) ──"
 
   IO.println ""
   IO.println "═══════════════════════════════════════════════════════════════"
   IO.println s!"Total: {totalPassed + totalFailed} tests, {totalPassed} passed, {totalFailed} failed"
   if totalFailed == 0 then
     IO.println "All tests passed! ✓"
+    IO.println ""
+    IO.println "For Red-specific tests (cubical type theory), run:"
+    IO.println "  lake exe lego-test-red"
   else
     IO.println s!"FAILED: {totalFailed} tests"
     IO.Process.exit 1
