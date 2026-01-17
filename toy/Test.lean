@@ -697,7 +697,8 @@ def runGrammarExprTests : IO (List TestResult) := do
       | some (_, g) =>
         let termTokens := Bootstrap.tokenize "(app x y)"
         let st : ParseState := { tokens := termTokens, binds := [] }
-        match parseGrammar defaultFuel fullProds g st with
+        let (result, _) := parseGrammar defaultFuel fullProds g st
+        match result with
         | some (_, st') =>
           { name := "parsed_bootstrap_parses_term"
             passed := st'.tokens.isEmpty
@@ -713,48 +714,49 @@ def runGrammarExprTests : IO (List TestResult) := do
         { name := "parsed_bootstrap_parses_term", passed := false, message := "✗ no grammar" }
       )
 
-  -- Test 4: Load RedttParser.lego and extract productions
+  -- Test 4: Load Redtt.lego and extract productions
   let test4 ← do
     try
-      let content ← IO.FS.readFile "./test/RedttParser.lego"
+      let content ← IO.FS.readFile "./test/Redtt.lego"
       match Bootstrap.parseLegoFile content with
       | some ast =>
         let redttProds := extractAllProductions ast
-        pure { name := "load_RedttParser.lego"
+        pure { name := "load_Redtt.lego"
                passed := true
                message := s!"✓ ({redttProds.length} productions)" : TestResult }
       | none =>
-        pure { name := "load_RedttParser.lego", passed := false, message := "✗ parse failed" }
+        pure { name := "load_Redtt.lego", passed := false, message := "✗ parse failed" }
     catch _ =>
-      pure { name := "load_RedttParser.lego", passed := false, message := "✗ file not found" }
+      pure { name := "load_Redtt.lego", passed := false, message := "✗ file not found" }
 
-  -- Test 5: Parse "import path" using RedttParser grammar
+  -- Test 5: Parse "import path" using Redtt grammar
   let test5 ← do
     try
-      let content ← IO.FS.readFile "./test/RedttParser.lego"
+      let content ← IO.FS.readFile "./test/Redtt.lego"
       match Bootstrap.parseLegoFile content with
       | some ast =>
         let redttProds := extractAllProductions ast
-        let importProd := "Redtt.importdecl"
+        let importProd := "Imports.importdecl"
         let importInput := "import mypath"
         let importTokens := Bootstrap.tokenize importInput
         match redttProds.find? (·.1 == importProd) with
         | some (_, g) =>
           let st : ParseState := { tokens := importTokens, binds := [] }
-          match parseGrammar defaultFuel redttProds g st with
+          let (result, _) := parseGrammar defaultFuel redttProds g st
+          match result with
           | some (_, st') =>
             let passed := st'.tokens.isEmpty
-            pure { name := "parse_import_with_RedttParser"
+            pure { name := "parse_import_with_Redtt"
                    passed := passed
                    message := if passed then s!"✓" else "✗ tokens remaining" : TestResult }
           | none =>
-            pure { name := "parse_import_with_RedttParser", passed := false, message := "✗ parse failed" }
+            pure { name := "parse_import_with_Redtt", passed := false, message := "✗ parse failed" }
         | none =>
-          pure { name := "parse_import_with_RedttParser", passed := false, message := s!"✗ prod not found" }
+          pure { name := "parse_import_with_Redtt", passed := false, message := s!"✗ prod not found" }
       | none =>
-        pure { name := "parse_import_with_RedttParser", passed := false, message := "✗ grammar parse failed" }
+        pure { name := "parse_import_with_Redtt", passed := false, message := "✗ grammar parse failed" }
     catch _ =>
-      pure { name := "parse_import_with_RedttParser", passed := false, message := "✗ file not found" }
+      pure { name := "parse_import_with_Redtt", passed := false, message := "✗ file not found" }
 
   pure [
     { name := "hardcoded_bootstrap_loaded"
@@ -769,19 +771,32 @@ def runGrammarExprTests : IO (List TestResult) := do
 
 /-! ## Redtt Library Parsing Tests -/
 
-/-- Parse a single .red file declaration using RedttParser grammar.
-    The grammar handles projections as "." followed by projname.
-    Returns (parsed, total) counts for the declarations in the file. -/
+/-- Get the main token productions to try in priority order -/
+def getMainTokenProdsOrdered (tokenProds : Productions) : List String :=
+  -- Priority order: comments/ws first (to skip), then longer patterns, then fallback
+  let names := tokenProds.map (·.1)
+  let priority := ["Token.comment", "Token.ws", "Token.string", "Token.ident", "Token.number", "Token.sym"]
+  priority.filter names.contains
+
+/-- Parse a single .red file declaration using Redtt grammar.
+    Uses custom tokenizer from the loaded grammar if available.
+    Keywords are reserved words that should be tokenized as symbols, not identifiers. -/
 def parseRedDecl (redttProds : List (String × GrammarExpr))
-                 (_tokenProds : List (String × GrammarExpr))
+                 (tokenProds : List (String × GrammarExpr))
+                 (keywords : List String)
                  (decl : String) : Bool :=
-  let declProd := "Redtt.topdecl"
-  -- Use Bootstrap.tokenize - the grammar handles "." + projname sequences
-  let tokens := Bootstrap.tokenize decl
+  let declProd := "File.topdecl"
+  -- Use grammar-specific tokenizer if token productions are available
+  let tokens := if tokenProds.isEmpty then
+    Bootstrap.tokenize decl
+  else
+    let mainProds := getMainTokenProdsOrdered tokenProds
+    tokenizeWithGrammar defaultFuel tokenProds mainProds decl keywords
   match redttProds.find? (·.1 == declProd) with
   | some (_, g) =>
     let st : ParseState := { tokens := tokens, binds := [] }
-    match parseGrammar defaultFuel redttProds g st with
+    let (result, _) := parseGrammar defaultFuel redttProds g st
+    match result with
     | some (_, st') => st'.tokens.isEmpty
     | none => false
   | none => false
@@ -805,7 +820,9 @@ def splitRedDecls (content : String) : List String := Id.run do
   for line in lines do
     let trimmed := line.trimLeft
     if trimmed.startsWith "import " || trimmed.startsWith "def " ||
-       trimmed.startsWith "data " || trimmed.startsWith "public " then
+       trimmed.startsWith "data " || trimmed.startsWith "public " ||
+       trimmed.startsWith "meta " || trimmed.startsWith "opaque " ||
+       trimmed.startsWith "private " || trimmed == "opaque" then
       if !current.isEmpty then
         decls := decls ++ [current.trim]
       current := line
@@ -834,19 +851,52 @@ where
         i := i + 1
     result
 
-/-- Parse a .red file and return (passed, total) declaration counts -/
+/-- Parse a .red file and return (passed, total) declaration counts, also prints failures -/
 def parseRedFile (redttProds : List (String × GrammarExpr))
                  (tokenProds : List (String × GrammarExpr))
-                 (path : String) : IO (Nat × Nat) := do
+                 (keywords : List String)
+                 (path : String)
+                 (verbose : Bool := false) : IO (Nat × Nat) := do
   try
     let content ← IO.FS.readFile path
     let decls := splitRedDecls content
-    let results := decls.map (parseRedDecl redttProds tokenProds)
-    let passed := results.filter id |>.length
-    let total := results.length
+    let mut passed := 0
+    let mut total := 0
+    for decl in decls do
+      total := total + 1
+      if parseRedDecl redttProds tokenProds keywords decl then
+        passed := passed + 1
+      else if verbose then
+        -- Print first 120 chars of failing decl
+        let preview := if decl.length > 120 then decl.take 120 ++ "..." else decl
+        let oneLine := preview.replace "\n" " "
+        IO.println s!"  FAIL [{path}]: {oneLine}"
     pure (passed, total)
   catch _ =>
     pure (0, 0)
+
+/-- Parse a .red file and return (passed, total, list of failures) -/
+def parseRedFileVerbose (redttProds : List (String × GrammarExpr))
+                 (tokenProds : List (String × GrammarExpr))
+                 (keywords : List String)
+                 (path : String) : IO (Nat × Nat × List String) := do
+  try
+    let content ← IO.FS.readFile path
+    let decls := splitRedDecls content
+    let mut passed := 0
+    let mut total := 0
+    let mut failures : List String := []
+    for decl in decls do
+      total := total + 1
+      if parseRedDecl redttProds tokenProds keywords decl then
+        passed := passed + 1
+      else
+        let preview := if decl.length > 200 then decl.take 200 else decl
+        let oneLine := preview.replace "\n" " "
+        failures := failures ++ [oneLine]
+    pure (passed, total, failures)
+  catch _ =>
+    pure (0, 0, [])
 
 /-- Recursively find all .red files in a directory -/
 partial def findRedFiles (dir : String) : IO (List String) := do
@@ -866,19 +916,20 @@ partial def findRedFiles (dir : String) : IO (List String) := do
 
 /-- Run tests parsing .red files from the redtt library -/
 def runRedttParsingTests : IO (List TestResult) := do
-  -- Load RedttParser grammar
+  -- Load Redtt grammar
   let grammarResult ← do
     try
-      let content ← IO.FS.readFile "./test/RedttParser.lego"
+      let content ← IO.FS.readFile "./test/Redtt.lego"
       pure (Bootstrap.parseLegoFile content)
     catch _ =>
       pure none
 
   match grammarResult with
-  | none => pure [{ name := "redtt_library_parse", passed := false, message := "✗ RedttParser.lego failed to load" }]
+  | none => pure [{ name := "redtt_library_parse", passed := false, message := "✗ Redtt.lego failed to load" }]
   | some ast =>
     let redttProds := extractAllProductions ast
     let tokenProds := extractTokenProductions ast
+    let keywords := extractKeywords redttProds
 
     -- Find all .red files in vendor/redtt/library (relative path from toy/)
     let libraryPath := "../vendor/redtt/library"
@@ -888,10 +939,17 @@ def runRedttParsingTests : IO (List TestResult) := do
     let mut totalParsed := 0
     let mut totalDecls := 0
 
+    -- Print failures for debugging (only first 10)
+    let mut failCount := 0
+    IO.println "  Parsing failures (first 10):"
     for filePath in sortedFiles do
-      let (parsed, total) ← parseRedFile redttProds tokenProds filePath
+      let (parsed, total, failures) ← parseRedFileVerbose redttProds tokenProds keywords filePath
       totalParsed := totalParsed + parsed
       totalDecls := totalDecls + total
+      for failure in failures do
+        if failCount < 10 then
+          IO.println s!"  FAIL [{filePath}]: {failure.take 120}..."
+          failCount := failCount + 1
 
     -- Summary test - pass if we can parse anything
     let overallRate := if totalDecls > 0 then (totalParsed * 100) / totalDecls else 0
