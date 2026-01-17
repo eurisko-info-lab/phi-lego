@@ -16,6 +16,92 @@ import Lego.Algebra
 
 namespace Lego.Core
 
+/-! ## Universe Levels
+
+    Universe polymorphism via level expressions:
+    - Concrete levels: 0, 1, 2, ...
+    - Level variables: α, β, ...  (for polymorphism)
+    - Level successor: suc ℓ
+    - Level maximum: max ℓ₁ ℓ₂
+
+    Key equations:
+    - max ℓ ℓ = ℓ
+    - max ℓ (suc ℓ) = suc ℓ
+    - max (suc ℓ₁) (suc ℓ₂) = suc (max ℓ₁ ℓ₂)
+-/
+
+/-- Universe level expressions -/
+inductive Level where
+  | zero  : Level                    -- Level 0
+  | suc   : Level → Level            -- ℓ + 1
+  | max   : Level → Level → Level    -- max ℓ₁ ℓ₂
+  | lvar  : Nat → Level              -- Level variable (de Bruijn)
+  deriving Repr, BEq, Inhabited
+
+namespace Level
+
+/-- Convert Nat to Level -/
+def ofNat : Nat → Level
+  | 0 => zero
+  | n + 1 => suc (ofNat n)
+
+/-- Try to convert Level to Nat (fails if contains variables) -/
+def toNat? : Level → Option Nat
+  | zero => some 0
+  | suc l => (toNat? l).map (· + 1)
+  | max l1 l2 => do
+    let n1 ← toNat? l1
+    let n2 ← toNat? l2
+    some (Nat.max n1 n2)
+  | lvar _ => none
+
+/-- Normalize level expression -/
+partial def normalize : Level → Level
+  | zero => zero
+  | suc l => suc (normalize l)
+  | max l1 l2 =>
+    let l1' := normalize l1
+    let l2' := normalize l2
+    match l1', l2' with
+    | zero, l => l
+    | l, zero => l
+    | l1, l2 => if l1 == l2 then l1 else max l1 l2
+  | lvar n => lvar n
+
+/-- Check if two levels are equal (after normalization) -/
+def levelEq (l1 l2 : Level) : Bool :=
+  normalize l1 == normalize l2
+
+/-- Check if l1 ≤ l2 (for cumulativity) -/
+partial def leq (l1 l2 : Level) : Bool :=
+  let l1' := normalize l1
+  let l2' := normalize l2
+  match l1', l2' with
+  | zero, _ => true
+  | suc l1, suc l2 => leq l1 l2
+  | l, max l2a l2b => leq l l2a || leq l l2b
+  | max l1a l1b, l => leq l1a l && leq l1b l
+  | lvar n, lvar m => n == m
+  | _, _ => l1' == l2'
+
+/-- Pretty print level -/
+def toString : Level → String
+  | zero => "0"
+  | suc l =>
+    match toNat? (suc l) with
+    | some n => s!"{n}"
+    | none => s!"(suc {toString l})"
+  | max l1 l2 => s!"(max {toString l1} {toString l2})"
+  | lvar n => s!"ℓ{n}"
+
+instance : ToString Level := ⟨toString⟩
+
+/-- Allow numeric literals for concrete levels -/
+instance : OfNat Level n where
+  ofNat := ofNat n
+
+end Level
+
 /-! ## De Bruijn Indexed Terms -/
 
 /-- Core term: de Bruijn indexed for substitution.
@@ -35,7 +121,7 @@ inductive Expr where
   | fst   : Expr → Expr                    -- π₁
   | snd   : Expr → Expr                    -- π₂
   | letE  : Expr → Expr → Expr → Expr      -- let x : A = v in body
-  | univ  : Nat → Expr                     -- Type^n
+  | univ  : Level → Expr                   -- Type^ℓ (universe polymorphism)
   -- Interval and dimension operations
   | dim0  : Expr                           -- 0 : 𝕀 (left endpoint)
   | dim1  : Expr                           -- 1 : 𝕀 (right endpoint)
@@ -654,7 +740,9 @@ partial def toString : Expr → String
   | fst e => s!"{toString e}.1"
   | snd e => s!"{toString e}.2"
   | letE ty val body => s!"(let : {toString ty} = {toString val} in {toString body})"
-  | univ n => if n == 0 then "Type" else s!"Type^{n}"
+  | univ l => match l with
+    | .zero => "Type"
+    | _ => s!"Type^{Level.toString l}"
   -- Dimensions
   | dim0 => "0"
   | dim1 => "1"
@@ -885,7 +973,7 @@ partial def conv (a b : Expr) : Bool :=
   | .pi dom1 cod1, .pi dom2 cod2 => conv dom1 dom2 && conv cod1 cod2
   | .sigma dom1 cod1, .sigma dom2 cod2 => conv dom1 dom2 && conv cod1 cod2
   | .path ty1 a1 b1, .path ty2 a2 b2 => conv ty1 ty2 && conv a1 a2 && conv b1 b2
-  | .univ n1, .univ n2 => n1 == n2
+  | .univ l1, .univ l2 => Level.levelEq l1 l2
 
   -- ===== Applications and projections: structural =====
   | .app f1 x1, .app f2 x2 => conv f1 f2 && conv x1 x2
@@ -994,7 +1082,7 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   | .lit s => .ok (.lit s)
 
   -- Universe hierarchy
-  | .univ n => .ok (.univ (n + 1))
+  | .univ n => .ok (.univ (.suc n))
 
   -- Pi type formation: if A : Type_i and B : Type_j then (Π A B) : Type_{max i j}
   | .pi dom cod => do
@@ -1003,7 +1091,7 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
     | .univ i =>
       let codTy ← infer (dom :: ctx) cod
       match Expr.eval codTy with
-      | .univ j => .ok (.univ (max i j))
+      | .univ j => .ok (.univ (Level.normalize (.max i j)))
       | _ => .error (.notType cod)
     | _ => .error (.notType dom)
 
@@ -1014,7 +1102,7 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
     | .univ i =>
       let codTy ← infer (dom :: ctx) cod
       match Expr.eval codTy with
-      | .univ j => .ok (.univ (max i j))
+      | .univ j => .ok (.univ (Level.normalize (.max i j)))
       | _ => .error (.notType cod)
     | _ => .error (.notType dom)
 
@@ -1080,14 +1168,14 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   | .cof_or _ _ => .ok (.lit "𝔽")
 
   -- Nat type
-  | .nat => .ok (.univ 0)
+  | .nat => .ok (.univ .zero)
   | .zero => .ok .nat
   | .suc n => do
     let _ ← check ctx n .nat
     .ok .nat
 
   -- Circle type
-  | .circle => .ok (.univ 0)
+  | .circle => .ok (.univ .zero)
   | .base => .ok .circle
   | .loop _ => .ok .circle
 
@@ -1128,7 +1216,7 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   | .circleElim p _ _ x => .ok (.app p x)
 
   -- Glue types
-  | .glue _ _ _ _ => .ok (.univ 0)  -- Simplified
+  | .glue _ _ _ _ => .ok (.univ .zero)  -- Simplified
   | .glueElem _ a => infer ctx a
   | .unglue g => infer ctx g
 
@@ -1292,9 +1380,9 @@ partial def elaborate (env : NameEnv) : Lego.Term → Option Expr
     some (.letE ty' val' body')
 
   -- Universe
-  | Lego.Term.con "type" [] => some (.univ 0)
-  | Lego.Term.con "typeN" [Lego.Term.lit n] => some (.univ (n.toNat!))
-  | Lego.Term.con "Univ" [Lego.Term.lit n] => some (.univ (n.toNat!))
+  | Lego.Term.con "type" [] => some (.univ .zero)
+  | Lego.Term.con "typeN" [Lego.Term.lit n] => some (.univ (Level.ofNat n.toNat!))
+  | Lego.Term.con "Univ" [Lego.Term.lit n] => some (.univ (Level.ofNat n.toNat!))
 
   -- Path: (path A a b) or (pathsugar A a b)
   | Lego.Term.con "path" [ty, a, b] => do

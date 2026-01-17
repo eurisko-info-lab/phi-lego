@@ -544,6 +544,36 @@ def typecheckTests : List TestResult :=
   let conv_dim_diff := conv dim0 dim1
   let conv_cof := conv cof_top cof_top
 
+  -- Universe level tests
+  -- Type : Type^1
+  let univ_type := infer [] (univ Level.zero)
+  let univ_type_ok := match univ_type with
+    | Except.ok (Expr.univ l) => Level.levelEq l (Level.suc Level.zero)
+    | _ => false
+  -- Type^1 : Type^2
+  let univ1_type := infer [] (univ (Level.suc Level.zero))
+  let univ1_type_ok := match univ1_type with
+    | Except.ok (Expr.univ l) => Level.levelEq l (Level.suc (Level.suc Level.zero))
+    | _ => false
+  -- Level equality with max: max 0 0 = 0
+  let level_max_eq := Level.levelEq (Level.max Level.zero Level.zero) Level.zero
+  -- Level max: max 0 1 = 1
+  let level_max_01 := Level.levelEq (Level.max Level.zero (Level.suc Level.zero)) (Level.suc Level.zero)
+  -- Level max symmetric: max 1 0 = 1
+  let level_max_10 := Level.levelEq (Level.max (Level.suc Level.zero) Level.zero) (Level.suc Level.zero)
+  -- Level conversion: univ (max 0 0) ≡ univ 0
+  let conv_univ_max := conv (univ (Level.max Level.zero Level.zero)) (univ Level.zero)
+  -- Pi at different levels: (Pi Nat Nat) : Type^0 (since Nat : Type^0)
+  let pi_level_ok := match infer [] (pi nat nat) with
+    | Except.ok (Expr.univ l) => Level.levelEq l Level.zero
+    | _ => false
+  -- Pi at Type level: (Pi Type Type) : Type^1 (since Type : Type^1)
+  let type0 := univ Level.zero
+  let pi_type_level := infer [] (pi type0 type0)
+  let pi_type_level_ok := match pi_type_level with
+    | Except.ok (Expr.univ l) => Level.levelEq l (Level.suc Level.zero)
+    | _ => false
+
   let refl_zero := refl zero
   let refl_check := check [] (plam zero) (path nat zero zero)
   let refl_check_result := match refl_check with
@@ -624,6 +654,15 @@ def typecheckTests : List TestResult :=
     assertTrue "tc_conv_dim" conv_dim,
     assertTrue "tc_conv_dim_diff" (!conv_dim_diff),
     assertTrue "tc_conv_cof" conv_cof,
+    -- Universe polymorphism
+    assertTrue "tc_univ_type_level" univ_type_ok,
+    assertTrue "tc_univ1_type_level" univ1_type_ok,
+    assertTrue "tc_level_max_eq" level_max_eq,
+    assertTrue "tc_level_max_01" level_max_01,
+    assertTrue "tc_level_max_10" level_max_10,
+    assertTrue "tc_conv_univ_max" conv_univ_max,
+    assertTrue "tc_pi_level" pi_level_ok,
+    assertTrue "tc_pi_type_level" pi_type_level_ok,
     -- Path checking
     assertTrue "tc_plam_refl" refl_check_result,
     assertTrue "tc_plam_bad_boundary" bad_path_fail,
