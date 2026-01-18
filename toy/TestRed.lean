@@ -27,6 +27,7 @@ import Lego.Red.HIT
 import Lego.Red.Signature
 import Lego.Red.Cofibration
 import Lego.Red.Splice
+import Lego.Red.Tactic
 import Lego.Loader
 
 open Lego
@@ -3177,6 +3178,378 @@ def spliceModuleTests : List TestResult :=
     assertTrue "splice_eval_simple" splice_eval_simple_ok
   ]
 
+/-! ## Tactic Module Tests -/
+
+def tacticModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Tactic in
+
+  -- Test TacResult
+  let result_ok := TacResult.ok 42
+  let result_ok_is_ok := result_ok.isOk
+  let result_ok_value := result_ok.getOrElse 0 == 42
+
+  let result_err : TacResult Nat := TacResult.error "failed"
+  let result_err_not_ok := !result_err.isOk
+  let result_err_default := result_err.getOrElse 99 == 99
+
+  let result_map := TacResult.map (· + 1) result_ok
+  let result_map_ok := result_map == TacResult.ok 43
+
+  let result_bind := result_ok.bind (fun x => TacResult.ok (x * 2))
+  let result_bind_ok := result_bind == TacResult.ok 84
+
+  let result_bind_err := result_err.bind (fun x => TacResult.ok (x * 2))
+  let result_bind_err_is_err := !result_bind_err.isOk
+
+  -- Test TpCtx
+  let ctx_empty := TpCtx.empty
+  let ctx_empty_size := ctx_empty.size == 0
+  let ctx_empty_lookup_none := ctx_empty.lookup 0 == none
+
+  let ctx1 := ctx_empty.extend nat
+  let ctx1_size := ctx1.size == 1
+  let ctx1_lookup_0 := ctx1.lookup 0 == some nat
+
+  let ctx2 := ctx1.extend circle
+  let ctx2_size := ctx2.size == 2
+  let ctx2_lookup_0 := ctx2.lookup 0 == some circle
+  let ctx2_lookup_1 := ctx2.lookup 1 == some nat
+
+  let ctx_with_cof := ctx_empty.assume cof_top
+  let ctx_with_cof_consistent := ctx_with_cof.isConsistent
+
+  -- Test ChkGoal
+  let goal_simple := ChkGoal.simple nat
+  let goal_simple_tp := goal_simple.tp == nat
+  let goal_simple_cof := goal_simple.cof == cof_top
+
+  let goal_bdry := ChkGoal.withBoundary circle cof_bot zero
+  let goal_bdry_tp := goal_bdry.tp == circle
+  let goal_bdry_cof := goal_bdry.cof == cof_bot
+  let goal_bdry_boundary := goal_bdry.boundary == zero
+
+  -- Test Tp (type formation) tactics
+  let tp_nat := Tp.run Tp.nat ctx_empty
+  let tp_nat_ok := tp_nat == TacResult.ok nat
+
+  let tp_circle := Tp.run Tp.circle ctx_empty
+  let tp_circle_ok := tp_circle == TacResult.ok circle
+
+  let tp_univ := Tp.run Tp.univ ctx_empty
+  let tp_univ_ok := tp_univ == TacResult.ok (univ 0)
+
+  let tp_dim := Tp.run Tp.dim ctx_empty
+  let tp_dim_ok := tp_dim == TacResult.ok (lit "𝕀")
+
+  let tp_pure := Tp.run (Tp.pure (lit "custom")) ctx_empty
+  let tp_pure_ok := tp_pure == TacResult.ok (lit "custom")
+
+  -- Test Tp.pi
+  let tp_pi_nat_nat := Tp.run (Tp.pi Tp.nat (fun _ => Tp.nat)) ctx_empty
+  let tp_pi_ok := match tp_pi_nat_nat with
+    | TacResult.ok (pi nat nat) => true
+    | _ => false
+
+  -- Test Tp.sigma
+  let tp_sigma := Tp.run (Tp.sigma Tp.nat (fun _ => Tp.circle)) ctx_empty
+  let tp_sigma_ok := match tp_sigma with
+    | TacResult.ok (sigma nat circle) => true
+    | _ => false
+
+  -- Test Tp.sub
+  let tp_sub := Tp.run (Tp.sub Tp.nat cof_top zero) ctx_empty
+  let tp_sub_ok := match tp_sub with
+    | TacResult.ok (sub nat _ _) => true
+    | _ => false
+
+  -- Test Tp.map
+  let tp_map := Tp.run (Tp.map (fun _ => circle) Tp.nat) ctx_empty
+  let tp_map_ok := tp_map == TacResult.ok circle
+
+  -- Test Chk (checking) tactics
+  let chk_zero := Chk.run Chk.zero ctx_empty nat
+  let chk_zero_ok := chk_zero == TacResult.ok zero
+
+  let chk_zero_fail := Chk.run Chk.zero ctx_empty circle
+  let chk_zero_fail_is_err := !chk_zero_fail.isOk
+
+  let chk_base := Chk.run Chk.base ctx_empty circle
+  let chk_base_ok := chk_base == TacResult.ok base
+
+  let chk_base_fail := Chk.run Chk.base ctx_empty nat
+  let chk_base_fail_is_err := !chk_base_fail.isOk
+
+  let chk_suc := Chk.run (Chk.suc Chk.zero) ctx_empty nat
+  let chk_suc_ok := chk_suc == TacResult.ok (suc zero)
+
+  let chk_suc_nested := Chk.run (Chk.suc (Chk.suc Chk.zero)) ctx_empty nat
+  let chk_suc_nested_ok := chk_suc_nested == TacResult.ok (suc (suc zero))
+
+  let chk_pure := Chk.run (Chk.pure (lit "test")) ctx_empty nat
+  let chk_pure_ok := chk_pure == TacResult.ok (lit "test")
+
+  -- Test Chk.lam
+  let chk_lam := Chk.run (Chk.lam (fun _ => Chk.zero)) ctx_empty (pi nat nat)
+  let chk_lam_ok := match chk_lam with
+    | TacResult.ok (lam _) => true
+    | _ => false
+
+  let chk_lam_fail := Chk.run (Chk.lam (fun _ => Chk.zero)) ctx_empty nat
+  let chk_lam_fail_is_err := !chk_lam_fail.isOk
+
+  -- Test Chk.pair
+  let chk_pair := Chk.run (Chk.pair Chk.zero Chk.base) ctx_empty (sigma nat circle)
+  let chk_pair_ok := match chk_pair with
+    | TacResult.ok (pair zero base) => true
+    | _ => false
+
+  let chk_pair_fail := Chk.run (Chk.pair Chk.zero Chk.base) ctx_empty nat
+  let chk_pair_fail_is_err := !chk_pair_fail.isOk
+
+  -- Test Chk.loop
+  let chk_loop := Chk.run (Chk.loop (Chk.pure dim0)) ctx_empty circle
+  let chk_loop_ok := match chk_loop with
+    | TacResult.ok (loop _) => true
+    | _ => false
+
+  -- Test Chk.subIn
+  let chk_subin := Chk.run (Chk.subIn Chk.zero) ctx_empty (sub nat cof_top zero)
+  let chk_subin_ok := match chk_subin with
+    | TacResult.ok (subIn _) => true
+    | _ => false
+
+  -- Test Chk.brun (boundary-aware run)
+  let chk_brun := Chk.brun Chk.zero ctx_empty nat cof_top zero
+  let chk_brun_ok := chk_brun == TacResult.ok zero
+
+  -- Test Syn (synthesis) tactics
+  let ctx_with_var := ctx_empty.extend nat
+  let syn_var := Syn.run (Syn.var 0) ctx_with_var
+  let syn_var_ok := match syn_var with
+    | TacResult.ok (tm, ty) => tm == ix 0 && ty == nat
+    | _ => false
+
+  let syn_var_oob := Syn.run (Syn.var 5) ctx_with_var
+  let syn_var_oob_is_err := !syn_var_oob.isOk
+
+  -- Test Syn.app
+  let ctx_with_fn := ctx_empty.extend (pi nat nat)
+  let syn_app := Syn.run (Syn.app (Syn.var 0) Chk.zero) ctx_with_fn
+  let syn_app_ok := match syn_app with
+    | TacResult.ok (app _ _, _) => true
+    | _ => false
+
+  let syn_app_fail := Syn.run (Syn.app (Syn.ann Chk.zero Tp.nat) Chk.zero) ctx_empty
+  let syn_app_fail_is_err := !syn_app_fail.isOk
+
+  -- Test Syn.fst
+  let ctx_with_pair := ctx_empty.extend (sigma nat circle)
+  let syn_fst := Syn.run (Syn.fst (Syn.var 0)) ctx_with_pair
+  let syn_fst_ok := match syn_fst with
+    | TacResult.ok (fst _, ty) => ty == nat
+    | _ => false
+
+  -- Test Syn.snd
+  let syn_snd := Syn.run (Syn.snd (Syn.var 0)) ctx_with_pair
+  let syn_snd_ok := match syn_snd with
+    | TacResult.ok (snd _, _) => true
+    | _ => false
+
+  -- Test Syn.ann (annotate)
+  let syn_ann := Syn.run (Syn.ann Chk.zero Tp.nat) ctx_empty
+  let syn_ann_ok := match syn_ann with
+    | TacResult.ok (tm, ty) => tm == zero && ty == nat
+    | _ => false
+
+  -- Test Syn.subOut
+  let ctx_with_sub := ctx_empty.extend (sub nat cof_top zero)
+  let syn_subout := Syn.run (Syn.subOut (Syn.var 0)) ctx_with_sub
+  let syn_subout_ok := match syn_subout with
+    | TacResult.ok (subOut _, ty) => ty == nat
+    | _ => false
+
+  -- Test Var
+  let test_var := Var.prf cof_top
+  let var_tp_ok := test_var.getTp == lit s!"Prf({cof_top})"
+  let var_term_ok := test_var.getTerm == lit "prf"
+
+  let var_syn := Syn.run test_var.syn ctx_empty
+  let var_syn_ok := var_syn.isOk
+
+  -- Test abstract
+  let abstract_result := abstract nat (fun v ctx' =>
+    TacResult.ok (v.getTerm, ctx'.size)) ctx_empty
+  let abstract_ok := match abstract_result with
+    | TacResult.ok (tm, size) => size == 1
+    | _ => false
+
+  -- Test abstractPrf
+  let abstract_prf_result := abstractPrf cof_top (fun v ctx' =>
+    TacResult.ok v.getTp) ctx_empty
+  let abstract_prf_ok := abstract_prf_result.isOk
+
+  -- Test Chk.tryCatch
+  let chk_catch := Chk.run
+    (Chk.tryCatch Chk.base (fun _ => Chk.zero))
+    ctx_empty nat
+  let chk_catch_ok := chk_catch == TacResult.ok zero
+
+  -- Test Syn.tryCatch
+  let syn_catch := Syn.run
+    (Syn.tryCatch (Syn.var 99) (fun _ => Syn.ann Chk.zero Tp.nat))
+    ctx_empty
+  let syn_catch_ok := match syn_catch with
+    | TacResult.ok (_, ty) => ty == nat
+    | _ => false
+
+  -- Test runChk helper
+  let run_chk := runChk Chk.zero nat
+  let run_chk_ok := run_chk == TacResult.ok zero
+
+  -- Test runSyn helper
+  let run_syn := runSyn (Syn.ann Chk.base Tp.circle)
+  let run_syn_ok := match run_syn with
+    | TacResult.ok (tm, ty) => tm == base && ty == circle
+    | _ => false
+
+  -- Test runTp helper
+  let run_tp := runTp Tp.nat
+  let run_tp_ok := run_tp == TacResult.ok nat
+
+  -- Test Chk.rule
+  let custom_chk := Chk.rule "custom" fun _ goal =>
+    if goal.tp == nat then TacResult.ok (suc zero)
+    else TacResult.error "expected Nat"
+  let custom_chk_ok := Chk.run custom_chk ctx_empty nat == TacResult.ok (suc zero)
+  let custom_chk_fail := !(Chk.run custom_chk ctx_empty circle).isOk
+
+  -- Test Syn.rule
+  let custom_syn := Syn.rule "custom" fun _ =>
+    TacResult.ok (pair zero base, sigma nat circle)
+  let custom_syn_ok := match Syn.run custom_syn ctx_empty with
+    | TacResult.ok (pair zero base, sigma nat circle) => true
+    | _ => false
+
+  -- Test Tp.rule
+  let custom_tp := Tp.rule "custom" fun ctx =>
+    if ctx.size == 0 then TacResult.ok (pi nat nat)
+    else TacResult.error "expected empty context"
+  let custom_tp_ok := match Tp.run custom_tp ctx_empty with
+    | TacResult.ok (pi nat nat) => true
+    | _ => false
+
+  -- Test complex: building id function
+  let id_nat := Chk.run (Chk.lam (fun x =>
+    Chk.syn (fun ctx =>
+      match ctx.lookup 0 with
+      | some _ => TacResult.ok (ix 0, nat)
+      | none => TacResult.error "no var"))) ctx_empty (pi nat nat)
+  let id_nat_ok := match id_nat with
+    | TacResult.ok (lam body) => body == ix 0
+    | _ => false
+
+  -- Test complex: nested function
+  let const_fn := Chk.run (Chk.lam (fun _ =>
+    Chk.lam (fun _ => Chk.zero))) ctx_empty (pi nat (pi nat nat))
+  let const_fn_ok := match const_fn with
+    | TacResult.ok (lam (lam _)) => true
+    | _ => false
+
+  [
+    -- TacResult
+    assertTrue "result_ok_is_ok" result_ok_is_ok,
+    assertTrue "result_ok_value" result_ok_value,
+    assertTrue "result_err_not_ok" result_err_not_ok,
+    assertTrue "result_err_default" result_err_default,
+    assertTrue "result_map" result_map_ok,
+    assertTrue "result_bind" result_bind_ok,
+    assertTrue "result_bind_err" result_bind_err_is_err,
+
+    -- TpCtx
+    assertTrue "ctx_empty_size" ctx_empty_size,
+    assertTrue "ctx_empty_lookup_none" ctx_empty_lookup_none,
+    assertTrue "ctx1_size" ctx1_size,
+    assertTrue "ctx1_lookup_0" ctx1_lookup_0,
+    assertTrue "ctx2_size" ctx2_size,
+    assertTrue "ctx2_lookup_0" ctx2_lookup_0,
+    assertTrue "ctx2_lookup_1" ctx2_lookup_1,
+    assertTrue "ctx_with_cof_consistent" ctx_with_cof_consistent,
+
+    -- ChkGoal
+    assertTrue "goal_simple_tp" goal_simple_tp,
+    assertTrue "goal_simple_cof" goal_simple_cof,
+    assertTrue "goal_bdry_tp" goal_bdry_tp,
+    assertTrue "goal_bdry_cof" goal_bdry_cof,
+    assertTrue "goal_bdry_boundary" goal_bdry_boundary,
+
+    -- Tp tactics
+    assertTrue "tp_nat" tp_nat_ok,
+    assertTrue "tp_circle" tp_circle_ok,
+    assertTrue "tp_univ" tp_univ_ok,
+    assertTrue "tp_dim" tp_dim_ok,
+    assertTrue "tp_pure" tp_pure_ok,
+    assertTrue "tp_pi" tp_pi_ok,
+    assertTrue "tp_sigma" tp_sigma_ok,
+    assertTrue "tp_sub" tp_sub_ok,
+    assertTrue "tp_map" tp_map_ok,
+
+    -- Chk tactics
+    assertTrue "chk_zero" chk_zero_ok,
+    assertTrue "chk_zero_fail" chk_zero_fail_is_err,
+    assertTrue "chk_base" chk_base_ok,
+    assertTrue "chk_base_fail" chk_base_fail_is_err,
+    assertTrue "chk_suc" chk_suc_ok,
+    assertTrue "chk_suc_nested" chk_suc_nested_ok,
+    assertTrue "chk_pure" chk_pure_ok,
+    assertTrue "chk_lam" chk_lam_ok,
+    assertTrue "chk_lam_fail" chk_lam_fail_is_err,
+    assertTrue "chk_pair" chk_pair_ok,
+    assertTrue "chk_pair_fail" chk_pair_fail_is_err,
+    assertTrue "chk_loop" chk_loop_ok,
+    assertTrue "chk_subin" chk_subin_ok,
+    assertTrue "chk_brun" chk_brun_ok,
+
+    -- Syn tactics
+    assertTrue "syn_var" syn_var_ok,
+    assertTrue "syn_var_oob" syn_var_oob_is_err,
+    assertTrue "syn_app" syn_app_ok,
+    assertTrue "syn_app_fail" syn_app_fail_is_err,
+    assertTrue "syn_fst" syn_fst_ok,
+    assertTrue "syn_snd" syn_snd_ok,
+    assertTrue "syn_ann" syn_ann_ok,
+    assertTrue "syn_subout" syn_subout_ok,
+
+    -- Var
+    assertTrue "var_tp" var_tp_ok,
+    assertTrue "var_term" var_term_ok,
+    assertTrue "var_syn" var_syn_ok,
+
+    -- abstract
+    assertTrue "abstract" abstract_ok,
+    assertTrue "abstract_prf" abstract_prf_ok,
+
+    -- catch
+    assertTrue "chk_catch" chk_catch_ok,
+    assertTrue "syn_catch" syn_catch_ok,
+
+    -- helpers
+    assertTrue "run_chk" run_chk_ok,
+    assertTrue "run_syn" run_syn_ok,
+    assertTrue "run_tp" run_tp_ok,
+
+    -- custom rules
+    assertTrue "custom_chk" custom_chk_ok,
+    assertTrue "custom_chk_fail" custom_chk_fail,
+    assertTrue "custom_syn" custom_syn_ok,
+    assertTrue "custom_tp" custom_tp_ok,
+
+    -- complex
+    assertTrue "id_nat" id_nat_ok,
+    assertTrue "const_fn" const_fn_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -3807,6 +4180,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Splice Module Tests" spliceModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Tactic Module Tests" tacticModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
