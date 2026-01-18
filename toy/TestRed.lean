@@ -16,12 +16,15 @@ import Lego.Red.GlobalEnv
 import Lego.Red.Unify
 import Lego.Red.Quote
 import Lego.Red.Datatype
+import Lego.Red.Elaborate
 import Lego.Loader
 
 open Lego
 open Lego.Loader
 open Lego.Red
 open Lego.Red.Datatype
+-- Don't open Elaborate fully to avoid conflicts with Core.infer/check/conv
+-- Use qualified names: Elaborate.Surface, Elaborate.elaborate, etc.
 
 /-! ## Test Framework -/
 
@@ -1294,6 +1297,224 @@ def datatypeTests : List TestResult :=
     assertTrue "nat_elim_suc" nat_elim_suc
   ]
 
+/-! ## Surface Elaboration Tests -/
+
+def surfaceElabTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Lego.Red.Elaborate in
+
+  let env := stdEnvWithDatatypes
+
+  -- Test 1: Infer type of universe
+  let univ_test :=
+    match elaborateInfer env (Surface.univ 0) with
+    | .ok (core, ty) =>
+      core == univ 0 && ty == univ 1
+    | .error _ => false
+
+  -- Test 2: Infer type of literal
+  let lit_test :=
+    match elaborateInfer env (Surface.lit "hello") with
+    | .ok (core, _) =>
+      core == lit "hello"
+    | .error _ => false
+
+  -- Test 3: Lambda against Pi type
+  let lam_test :=
+    let piTy := pi nat nat  -- Nat → Nat
+    match elaborate env (Surface.lam "x" (.var "x")) piTy with
+    | .ok core =>
+      -- Should produce λ (0) where body is de Bruijn index 0
+      match core with
+      | .lam body => body == ix 0
+      | _ => false
+    | .error _ => false
+
+  -- Test 4: Pair against Sigma type (using data.Nat as Nat type)
+  let pair_test :=
+    let natTy := mkData "Nat" []  -- Use datatype encoding
+    let sigTy := sigma natTy natTy  -- (x : Nat) × Nat
+    match elaborate env (Surface.pair (.intro "Nat" "zero" []) (.intro "Nat" "zero" [])) sigTy with
+    | .ok core =>
+      match core with
+      | .pair _ _ => true
+      | _ => false
+    | .error e =>
+      -- Debug: show error
+      dbg_trace s!"pair_test error: {e}"
+      false
+
+  -- Test 5: Hole creates meta
+  let hole_test :=
+    match elaborateInfer env (Surface.hole none) with
+    | .ok (core, _) =>
+      -- Should be a meta literal
+      match core with
+      | .lit s => s.startsWith "meta."
+      | _ => false
+    | .error _ => false
+
+  -- Test 6: Annotated term
+  let ann_test :=
+    let surf := Surface.ann (Surface.univ 0) (Surface.univ 1)
+    match elaborateInfer env surf with
+    | .ok (core, ty) =>
+      core == univ 0 && ty == univ 1
+    | .error _ => false
+
+  -- Test 7: Function application (needs annotated lambda since we can't infer unannotated lambda type)
+  -- Instead, test application of an already-inferred function
+  let app_test :=
+    -- Use annotated term: ((λx. x) : Nat → Nat) zero
+    -- The annotation provides the function type
+    let annLam := Surface.ann (Surface.lam "x" (.var "x")) (Surface.pi "x" (.data "Nat" []) (.data "Nat" []))
+    let surf := Surface.app annLam (Surface.intro "Nat" "zero" [])
+    match elaborateInfer env surf with
+    | .ok _ => true  -- Just check it succeeds
+    | .error e =>
+      dbg_trace s!"app_test error: {e}"
+      false
+
+  -- Test 8: Dimension literals
+  let dim_test :=
+    match elaborateInfer env Surface.dim0 with
+    | .ok (core, ty) =>
+      core == dim0 && ty == lit "𝕀"
+    | .error _ => false
+
+  -- Test 9: Path refl
+  let refl_test :=
+    let surf := Surface.refl (Surface.intro "Nat" "zero" [])
+    match elaborateInfer env surf with
+    | .ok (core, ty) =>
+      match core with
+      | .refl _ => true
+      | _ => false
+    | .error _ => false
+
+  -- Test 10: Datatype formation
+  let data_test :=
+    let surf := Surface.data "Nat" []
+    match elaborateInfer env surf with
+    | .ok (core, ty) =>
+      match isData? core with
+      | some ("Nat", []) => true
+      | _ => false
+    | .error _ => false
+
+  -- Test 11: Intro term
+  let intro_test :=
+    let surf := Surface.intro "Nat" "zero" []
+    match elaborateInfer env surf with
+    | .ok (core, _) =>
+      match isIntro? core with
+      | some ("Nat", "zero", _, _) => true
+      | _ => false
+    | .error _ => false
+
+  -- Test 12: Path lambda (use datatype encoding for Nat)
+  let plam_test :=
+    let natTy := mkData "Nat" []
+    let zeroExpr := mkIntro "Nat" "zero" [] []
+    let pathTy := path natTy zeroExpr zeroExpr
+    match elaborate env (Surface.plam "i" (.intro "Nat" "zero" [])) pathTy with
+    | .ok core =>
+      match core with
+      | .plam _ => true
+      | _ => false
+    | .error _ => false
+
+  -- Test 13: Surface helper - mkPi
+  let mkPi_test :=
+    let surf := Elaborate.mkPi [("A", .univ 0), ("x", .var "A")] (.var "A")
+    match surf with
+    | .pi "A" (.univ 0) (.pi "x" (.var "A") (.var "A")) => true
+    | _ => false
+
+  -- Test 14: Surface helper - mkLam
+  let mkLam_test :=
+    let surf := Elaborate.mkLam ["x", "y"] (.var "x")
+    match surf with
+    | .lam "x" (.lam "y" (.var "x")) => true
+    | _ => false
+
+  -- Test 15: Surface helper - mkApps
+  let mkApps_test :=
+    let surf := Elaborate.mkApps (.var "f") [.var "x", .var "y"]
+    match surf with
+    | .app (.app (.var "f") (.var "x")) (.var "y") => true
+    | _ => false
+
+  -- Test 16: Example surfaces
+  let id_surface_test := idSurface == .lam "x" (.var "x")
+  let const_surface_test := constSurface == .lam "x" (.lam "y" (.var "x"))
+
+  -- Test 17: Check fst projection
+  let fst_test :=
+    let sigTy := sigma nat nat
+    let pairCore := pair (mkIntro "Nat" "zero" [] []) (mkIntro "Nat" "zero" [] [])
+    -- Build a surface fst
+    let surf := Surface.fst (Surface.pair (.intro "Nat" "zero" []) (.intro "Nat" "zero" []))
+    match elaborateInfer env surf with
+    | .ok _ => true
+    | .error _ => false
+
+  -- Test 18: Check snd projection
+  let snd_test :=
+    let surf := Surface.snd (Surface.pair (.intro "Nat" "zero" []) (.intro "Nat" "zero" []))
+    match elaborateInfer env surf with
+    | .ok _ => true
+    | .error _ => false
+
+  -- Test 19: Let binding (use datatype Nat)
+  let let_test :=
+    let natTy := mkData "Nat" []
+    -- let x : Nat = zero in x  should have type Nat
+    let surf := Surface.letIn "x" (.data "Nat" []) (.intro "Nat" "zero" []) (.var "x")
+    match elaborate env surf natTy with
+    | .ok core =>
+      match core with
+      | .letE _ _ _ => true
+      | _ => false
+    | .error e =>
+      dbg_trace s!"let_test error: {e}"
+      false
+
+  -- Test 20: Two-level elaboration idTypeSurface
+  let idType_test :=
+    match elaborateInfer env idTypeSurface with
+    | .ok (_, ty) =>
+      -- The type of idTypeSurface is Type^1 (it's a type formation)
+      match ty with
+      | .univ _ => true
+      | _ => false
+    | .error _ => false
+
+  [
+    assertTrue "elab_univ" univ_test,
+    assertTrue "elab_lit" lit_test,
+    assertTrue "elab_lam" lam_test,
+    assertTrue "elab_pair" pair_test,
+    assertTrue "elab_hole" hole_test,
+    assertTrue "elab_ann" ann_test,
+    assertTrue "elab_app" app_test,
+    assertTrue "elab_dim" dim_test,
+    assertTrue "elab_refl" refl_test,
+    assertTrue "elab_data" data_test,
+    assertTrue "elab_intro" intro_test,
+    assertTrue "elab_plam" plam_test,
+    assertTrue "surface_mkPi" mkPi_test,
+    assertTrue "surface_mkLam" mkLam_test,
+    assertTrue "surface_mkApps" mkApps_test,
+    assertTrue "surface_id" id_surface_test,
+    assertTrue "surface_const" const_surface_test,
+    assertTrue "elab_fst" fst_test,
+    assertTrue "elab_snd" snd_test,
+    assertTrue "elab_let" let_test,
+    assertTrue "elab_idType" idType_test
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -1891,6 +2112,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Datatype Tests" datatypeTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Surface Elaboration Tests" surfaceElabTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
