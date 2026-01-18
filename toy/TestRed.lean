@@ -19,6 +19,7 @@ import Lego.Red.Datatype
 import Lego.Red.Elaborate
 import Lego.Red.Module
 import Lego.Red.Kan
+import Lego.Red.VType
 import Lego.Loader
 
 open Lego
@@ -1731,6 +1732,116 @@ def kanModuleTests : List TestResult :=
     assertTrue "coe_sigma_is_pair" coe_sigma_is_pair
   ]
 
+/-! ## VType Module Tests -/
+
+def vtypeModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Lego.Red.VType in
+  open Lego.Red.Kan in
+
+  -- VType reduction at endpoints
+  let v_at_0 := mkV dim0 (ix 0) (ix 1) (ix 2)
+  let v_at_0_ok := v_at_0 == ix 0
+
+  let v_at_1 := mkV dim1 (ix 0) (ix 1) (ix 2)
+  let v_at_1_ok := v_at_1 == ix 1
+
+  let v_at_var := mkV (dimVar 0) (ix 0) (ix 1) (ix 2)
+  let v_at_var_ok := match v_at_var with
+    | .vtype _ _ _ _ => true
+    | _ => false
+
+  -- VIn reduction at endpoints
+  let vin_at_0 := mkVIn dim0 (ix 0) (ix 1)
+  let vin_at_0_ok := vin_at_0 == ix 0
+
+  let vin_at_1 := mkVIn dim1 (ix 0) (ix 1)
+  let vin_at_1_ok := vin_at_1 == ix 1
+
+  let vin_at_var := mkVIn (dimVar 0) (ix 0) (ix 1)
+  let vin_at_var_ok := match vin_at_var with
+    | .vin _ _ _ => true
+    | _ => false
+
+  -- VProj reduction
+  let vproj_at_0 := reduceVProj dim0 (ix 0) (ix 1) (pair (ix 10) (ix 11)) (ix 5)
+  let vproj_at_0_ok := match vproj_at_0 with
+    | .app (.fst _) (.ix 5) => true
+    | _ => false
+
+  let vproj_at_1 := reduceVProj dim1 (ix 0) (ix 1) (ix 2) (ix 5)
+  let vproj_at_1_ok := vproj_at_1 == ix 5
+
+  -- VTypeInfo
+  let vinfo : VTypeInfo := { dimExpr := dim0, ty0 := ix 0, ty1 := ix 1, equiv := ix 2 }
+  let vinfo_atDim0 := vinfo.atDim0
+
+  let vinfo2 : VTypeInfo := { dimExpr := dimVar 0, ty0 := ix 0, ty1 := ix 1, equiv := ix 2 }
+  let vinfo2_not_atDim0 := !vinfo2.atDim0
+
+  let vinfo_reduce := VTypeInfo.reduce vinfo
+  let vinfo_reduce_ok := vinfo_reduce == some (ix 0)
+
+  -- VInInfo
+  let vininfo : VInInfo := { dimExpr := dim1, tm0 := ix 0, tm1 := ix 1 }
+  let vininfo_atDim1 := vininfo.atDim1
+
+  let vininfo_reduce := VInInfo.reduce vininfo
+  let vininfo_reduce_ok := vininfo_reduce == some (ix 1)
+
+  -- UA construction
+  let ua := mkUA (ix 0) (ix 1) (ix 2)
+  let ua_ok := match ua with
+    | .plam (.vtype _ _ _ _) => true
+    | _ => false
+
+  -- Normalization
+  let norm_v_at_0 := normalizeVExpr (vtype dim0 (ix 0) (ix 1) (ix 2))
+  let norm_v_at_0_ok := norm_v_at_0 == ix 0
+
+  let norm_vin_at_1 := normalizeVExpr (vin dim1 (ix 0) (ix 1))
+  let norm_vin_at_1_ok := norm_vin_at_1 == ix 1
+
+  -- Equiv accessors
+  let efunc := equivFunc (pair (ix 0) (ix 1))
+  let efunc_ok := match efunc with
+    | .fst _ => true
+    | _ => false
+
+  let einv := equivInv (pair (ix 0) (ix 1))
+  let einv_ok := match einv with
+    | .fst (.snd _) => true
+    | _ => false
+
+  -- coeV degenerate
+  let dir_degen : Dir := { src := .i0, tgt := .i0 }
+  let vinfo3 : VTypeInfo := { dimExpr := dimVar 0, ty0 := ix 0, ty1 := ix 1, equiv := ix 2 }
+  let coe_v_degen := coeV dir_degen vinfo3 (ix 5)
+  let coe_v_degen_ok := coe_v_degen == ix 5
+
+  [
+    assertTrue "v_at_0" v_at_0_ok,
+    assertTrue "v_at_1" v_at_1_ok,
+    assertTrue "v_at_var" v_at_var_ok,
+    assertTrue "vin_at_0" vin_at_0_ok,
+    assertTrue "vin_at_1" vin_at_1_ok,
+    assertTrue "vin_at_var" vin_at_var_ok,
+    assertTrue "vproj_at_0" vproj_at_0_ok,
+    assertTrue "vproj_at_1" vproj_at_1_ok,
+    assertTrue "vinfo_atDim0" vinfo_atDim0,
+    assertTrue "vinfo2_not_atDim0" vinfo2_not_atDim0,
+    assertTrue "vinfo_reduce" vinfo_reduce_ok,
+    assertTrue "vininfo_atDim1" vininfo_atDim1,
+    assertTrue "vininfo_reduce" vininfo_reduce_ok,
+    assertTrue "ua_construction" ua_ok,
+    assertTrue "norm_v_at_0" norm_v_at_0_ok,
+    assertTrue "norm_vin_at_1" norm_vin_at_1_ok,
+    assertTrue "equivFunc" efunc_ok,
+    assertTrue "equivInv" einv_ok,
+    assertTrue "coeV_degenerate" coe_v_degen_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2337,6 +2448,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Kan Module Tests" kanModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "VType Module Tests" vtypeModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
