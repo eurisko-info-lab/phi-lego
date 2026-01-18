@@ -218,6 +218,61 @@ def stepElim (env : GlobalEnv) (dlbl : String) (params : List Expr)
   -- Substitute all the bindings into the clause body
   return substMany clauseBody substs
 
+/-- Simplified step for elimination - works for basic cases without full environment lookup
+    Assumes: every arg after params is either constant (1 binding) or recursive (2 bindings)
+    This is a heuristic for testing - use stepElim with GlobalEnv for real evaluation -/
+def stepElimSimple (dlbl : String) (params : List Expr)
+                    (mot : Expr) (clauses : List ElimClause) (scrut : Expr)
+                    (argSpecs : List GArgSpec := [])
+                    : Option Expr := do
+  -- Check if scrut is an intro form
+  let (dlbl', clbl, _introParams, args) ← isIntro? scrut
+  guard (dlbl == dlbl')
+
+  -- Find the clause for this constructor
+  let clauseBody ← findClause clauses clbl
+
+  -- Build substitutions based on specs or assume all const
+  let specs := if argSpecs.isEmpty then args.map (fun _ => GArgSpec.const .nat) else argSpecs
+  let mut substs : List Expr := []
+  let mut argIdx := 0
+
+  for spec in specs do
+    match spec with
+    | GArgSpec.const _ =>
+      if let some arg := args[argIdx]? then
+        substs := substs ++ [arg]
+      argIdx := argIdx + 1
+    | GArgSpec.recursive =>
+      if let some arg := args[argIdx]? then
+        substs := substs ++ [arg]
+        -- IH = recursive call to elim
+        let ih := mkElim dlbl params mot clauses arg
+        substs := substs ++ [ih]
+      argIdx := argIdx + 1
+    | GArgSpec.dim =>
+      if let some arg := args[argIdx]? then
+        substs := substs ++ [arg]
+      argIdx := argIdx + 1
+
+  return substMany clauseBody substs
+
+/-- Convenience: step Nat eliminator -/
+def stepNatElim (mot : Expr) (zeroCase : Expr) (sucCase : Expr) (scrut : Expr) : Option Expr := do
+  let clauses := [
+    { clbl := "zero", body := zeroCase },
+    { clbl := "suc", body := sucCase }
+  ]
+  stepElimSimple "Nat" [] mot clauses scrut [GArgSpec.recursive]
+
+/-- Convenience: step Bool eliminator -/
+def stepBoolElim (mot : Expr) (trueCase : Expr) (falseCase : Expr) (scrut : Expr) : Option Expr := do
+  let clauses := [
+    { clbl := "true", body := trueCase },
+    { clbl := "false", body := falseCase }
+  ]
+  stepElimSimple "Bool" [] mot clauses scrut []
+
 /-! ## Worked Example: Natural Numbers
 
     Given:
