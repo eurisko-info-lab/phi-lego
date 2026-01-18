@@ -536,7 +536,9 @@ def runLegoFileTests : IO (List TestResult) := do
     s!"{examplePath}/Arith.lego",
     s!"{examplePath}/INet.lego",
     s!"{examplePath}/K.lego",
-    s!"{testPath}/Bootstrap.lego"
+    s!"{testPath}/Bootstrap.lego",
+    s!"{testPath}/Redtt.lego",
+    s!"{testPath}/Cooltt.lego"
   ]
   let mut results : List TestResult := []
   for file in files do

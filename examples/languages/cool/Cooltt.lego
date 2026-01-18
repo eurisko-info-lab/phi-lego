@@ -1,0 +1,728 @@
+-----------------------------------------------------
+-- Cooltt: Cartesian Cubical Type Theory
+-- 
+-- A Lego specification for parsing cooltt (.cooltt) files
+-- Based on: https://github.com/RedPRL/cooltt
+--
+-- cooltt is a proof assistant implementing cartesian cubical type theory
+-- with higher inductive types (circle, nat), records, sections,
+-- and sophisticated module system.
+--
+-- Key differences from redtt:
+-- - More sophisticated module system (sections, views, exports)
+-- - First-class records (sig/struct) with refinement patches
+-- - Equation proofs with stepped reasoning
+-- - Simpler extension type syntax: ext i => A with [...]
+-- - sub types for partial elements
+-- - V types for univalence
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Tokens (from Lex.mll)
+-----------------------------------------------------
+
+vocab Cooltt
+  -- Structural
+  "(" ")" "[" "]" "{" "}" "{!" "!}"
+  ":" "::" "=" ":=" "::=" ";" ";;" "," "." "|"
+  "->" "=>" "<-"
+  
+  -- Operators
+  "*" "×" "#" "/\\" "\\/" "∧" "∨" "<=" "≤" "=["  "=[]"
+  
+  -- Logical
+  "⊤" "⊥" "true" "false" "∂"
+  
+  -- Commands
+  "#fail" "#normalize" "#print" "#debug" "#viz" "#quit"
+  
+  -- Keywords  
+  "zero" "suc" "nat" "🔢"
+  "base" "loop" "➰" "circle" "🍪"
+  "sig" "✏" "struct" "🍱"
+  "include" "renaming" "open" "as"
+  "let" "in" "fst" "snd" "elim" "generalize"
+  "def" "abstract" "📌" "axiom" "🛐"
+  "type" "𝕀" "dim" "𝔽" "cof"
+  "sub" "ext" "coe" "hcom" "hfill" "com"
+  "V" "🥦" "vproj" "cap"
+  "with" "import" "unfold" "📥"
+  "begin" "▶️" "end" "⏹️" "equation"
+  "section" "shadowing" "📦"
+  "view" "👁️" "👀" "👓" "🕶️"
+  "repack" "🎁" "🧧"
+  "export" "📤"
+  "on" "off"
+  
+  -- Holes
+  "?" "?_" "_"
+
+-----------------------------------------------------
+-- Core Syntax
+-----------------------------------------------------
+
+-- Identifiers and Names
+piece Names
+  name ::= path | "_"                     -- Name or underscore (anon)
+  path ::= <ident> ("::" <ident>)*        -- Module path: foo::bar::baz
+  user ::= path                           -- User-defined identifier
+
+-- Basic Terms
+piece Terms
+  term ::= atomicterm | cof | appterm | arrowterm | sigmaterm
+         | lambda | letexpr | annotate | elimterm
+         | extterm | cubicalops | vops | patchterm
+         | structterm | equationterm | generalize | unfoldterm | openterm
+
+  atomicterm ::= var | literal | parenexpr | bracketexpr | braceexpr
+               | bangbracket | hole | underscore | builtin
+  
+  var ::= path                            -- Variable/path reference
+  underscore ::= "_"                      -- Implicit/wildcard
+  literal ::= <number>                    -- Numeric literal
+  
+  parenexpr ::= "(" term ")"              -- Parenthesized expression
+  bracketexpr ::= "[" bracketcontent "]"  -- Bracket: pair, split, proof
+  braceexpr ::= "{" term "}"              -- Braces for implicit args
+  bangbracket ::= "{!" term? "!}"         -- Boundary hole
+
+-- Holes
+piece Holes
+  hole ::= "?" holename?                  -- Named hole: ?name
+         | "?_" holename?                 -- Silent hole: ?_name
+  holename ::= <ident>
+
+-----------------------------------------------------
+-- Built-in Types
+-----------------------------------------------------
+
+piece BuiltinTypes
+  builtin ::= typetype | dimtype | coftype 
+            | nattype | circletype | topbot
+            | zeroterm | baseterm | visterm
+  
+  typetype ::= "type"                     -- Universe
+  dimtype ::= "dim" | "𝕀"                 -- Interval type
+  coftype ::= "cof" | "𝔽"                 -- Cofibration type
+  nattype ::= "nat" | "🔢"                -- Natural numbers
+  circletype ::= "circle" | "🍪"          -- Circle type S¹
+  
+  zeroterm ::= "zero"                     -- Zero : nat
+  baseterm ::= "base"                     -- base : circle
+  visterm ::= "#viz"                      -- Visualization command
+
+  topbot ::= topcof | botcof
+  topcof ::= "true" | "⊤"                 -- Top cofibration
+  botcof ::= "false" | "⊥"                -- Bottom cofibration
+
+-----------------------------------------------------
+-- Function Types and Lambda
+-----------------------------------------------------
+
+piece FunctionTypes
+  -- Pi type: (x : A) → B  or  (x y : A) → B
+  arrowterm ::= telecells "->" term       -- Dependent: (x:A) → B x
+              | term "->" term            -- Non-dependent: A → B
+  
+  -- Lambda: x => body  or  x y z => body
+  lambda ::= names "=>" term              -- λ x y z => body
+           | "elim" cases                 -- Eliminator lambda: elim [...]
+  
+  names ::= name+                         -- Multiple binders
+
+-- Telescope cells
+piece Telescope
+  telecells ::= telecell+                 -- (x:A)(y:B)...
+  telecell ::= "(" names ":" term ")"     -- (x y z : A)
+
+-----------------------------------------------------
+-- Sigma Types and Pairs
+-----------------------------------------------------
+
+piece SigmaTypes
+  sigmaterm ::= telecells "*" term        -- Dependent: (x:A) × B x
+              | term "*" term             -- Non-dependent: A × B
+  
+  -- Pairs in brackets: [a, b]
+  pairterm ::= "[" term "," term "]"
+  
+  -- Projections
+  projterm ::= "fst" atomicterm           -- First projection
+             | "snd" atomicterm           -- Second projection
+             | term "." name              -- Field projection
+
+-----------------------------------------------------
+-- Records: sig and struct
+-----------------------------------------------------
+
+piece Records
+  -- Signature type: sig def x : A def y : B end
+  sigtype ::= "sig" sigbody
+  sigbody ::= fielddefs "end"             -- Block form
+            | "[" barefieldspecs "]"      -- Inline form
+  
+  fielddefs ::= fielddef*
+  fielddef ::= "def" barefielddspec
+             | "include" term renaming?
+  
+  barefielddspec ::= user ":" term
+  barefieldspecs ::= barefielddspec ("," barefielddspec)*
+  
+  -- Structure value: struct def x := a def y := b end
+  structterm ::= "struct" structbody
+  structbody ::= structdefs "end"         -- Block form
+               | "[" barefields "]"       -- Inline form
+  
+  structdefs ::= structdef*
+  structdef ::= "def" barefield
+              | "include" term renaming?
+  
+  barefield ::= user ":=" term
+  barefields ::= barefield ("," barefield)*
+  
+  -- Renaming clause
+  renaming ::= "renaming" "[" renamelist "]"
+  renamelist ::= renamepair (";" renamepair)*
+  renamepair ::= user "->" user
+
+  -- Patch: refine a signature type
+  patchterm ::= term "#" "[" patches "]"
+  patches ::= patch ("," patch)*
+  patch ::= user ":=" term                -- Patch field
+          | user "::=" term               -- Substitute field
+
+-----------------------------------------------------
+-- Let and Annotation
+-----------------------------------------------------
+
+piece LetAnnotation
+  -- Let expression: let x : A := M in N  or  let x := M in N
+  letexpr ::= "let" name ":" term ":=" term "in" term
+            | "let" name ":=" term "in" term
+  
+  -- Type annotation: term : type
+  annotate ::= term ":" term
+
+-----------------------------------------------------
+-- Application
+-----------------------------------------------------
+
+piece Application
+  -- Application: f x y z  or f {implicit}
+  appterm ::= atomicterm atomicterm+
+  
+  -- Operators applied to arguments
+  sucterm ::= "suc" atomicterm            -- suc n
+  loopterm ::= "loop" atomicterm          -- loop r
+
+-----------------------------------------------------
+-- Eliminators and Pattern Matching
+-----------------------------------------------------
+
+piece Eliminators
+  -- Eliminator: elim [| pat => body | ...]
+  elimterm ::= "elim" scrut? motive? "with"? cases
+  
+  scrut ::= atomicterm                    -- Scrutinee (optional)
+  motive ::= "as" atomicterm              -- Motive (optional)
+  
+  cases ::= "[" caseopt* "]"
+  caseopt ::= "|"? case
+  case ::= pattern "=>" term
+
+  -- Patterns
+  pattern ::= patlabel patargs?
+  patlabel ::= "zero" | "suc" | "base" | "loop" | path
+  patargs ::= patarg*
+  patarg ::= name                         -- Simple binding: n
+           | "{" name "=>" name "}"       -- Inductive: {n => ih}
+
+-----------------------------------------------------
+-- Cofibrations
+-----------------------------------------------------
+
+piece Cofibrations
+  cof ::= atomiccof | joincof | meetcof
+  
+  atomiccof ::= cofeq | cofle | cofbdry | atomicterm
+  
+  -- Equality cofibration: r = s
+  cofeq ::= atomicterm "=" atomicterm
+  
+  -- Inequality cofibration: r <= s  or  r ≤ s
+  cofle ::= atomicterm "<=" atomicterm
+          | atomicterm "≤" atomicterm
+  
+  -- Boundary cofibration: ∂ r
+  cofbdry ::= "∂" atomicterm
+  
+  -- Join: φ \/ ψ \/ ...  or  φ ∨ ψ ∨ ...
+  joincof ::= atomiccof ("\\/" | "∨") atomiccof+
+  
+  -- Meet: φ /\ ψ /\ ...  or  φ ∧ ψ ∧ ...
+  meetcof ::= atomiccof ("/\\" | "∧") atomiccof+
+
+  -- Cofibration split: [| φ => t | ψ => u]
+  cofsplit ::= "[" "|"? cofsplitcase ("|" cofsplitcase)* "]"
+  cofsplitcase ::= cof "=>" term
+
+  -- Proof term: [ proof ]
+  prfterm ::= "[" term "]"
+
+-----------------------------------------------------
+-- Extension Types
+-----------------------------------------------------
+
+piece ExtensionTypes
+  -- Extension type: ext i => A with [| i=0 => M | i=1 => N]
+  extterm ::= "ext" names? "=>" term "with" extbdy
+  
+  extbdy ::= "[" "|"? extcase ("|" extcase)* "]"
+  extcase ::= cof "=>" term
+
+-----------------------------------------------------
+-- Sub Types (Partial Elements)
+-----------------------------------------------------
+
+piece SubTypes
+  -- Partial element type: sub A φ a
+  -- Elements of (sub A φ a) are elements of A that equal a when φ holds
+  subterm ::= "sub" atomicterm atomicterm atomicterm
+
+-----------------------------------------------------
+-- Cubical Operations
+-----------------------------------------------------
+
+piece CubicalOps
+  cubicalops ::= coeterm | hcomterm | hfillterm | comterm
+  
+  -- Coercion: coe (i => A) r r' a
+  coeterm ::= "coe" atomicterm atomicterm atomicterm atomicterm
+  
+  -- Homogeneous composition: hcom A r r' φ [| φ => i => t]
+  hcomterm ::= "hcom" atomicterm atomicterm atomicterm atomicterm atomicterm
+             | "hcom" atomicterm atomicterm atomicterm  -- Checking form
+  
+  -- Homogeneous fill: hfill A r φ [| φ => i => t]
+  hfillterm ::= "hfill" atomicterm atomicterm atomicterm atomicterm
+              | "hfill" atomicterm atomicterm           -- Checking form
+  
+  -- Composition: com (i => A) r r' φ [| φ => i => t]
+  comterm ::= "com" atomicterm atomicterm atomicterm atomicterm atomicterm
+
+-----------------------------------------------------
+-- V Types (Univalence)
+-----------------------------------------------------
+
+piece VTypes
+  -- V type: V r A B e
+  -- Where e : equiv A B
+  vops ::= vtype | vprojterm | capterm
+  
+  vtype ::= "V" atomicterm atomicterm atomicterm atomicterm
+          | "🥦" atomicterm atomicterm atomicterm atomicterm
+  
+  -- V projection: vproj t
+  vprojterm ::= "vproj" atomicterm
+  
+  -- Cap (boundary): cap t
+  capterm ::= "cap" atomicterm
+
+-----------------------------------------------------
+-- Generalize and Unfold
+-----------------------------------------------------
+
+piece GeneralizeUnfold
+  -- Generalize: generalize x in body
+  generalize ::= "generalize" name "in" term
+  
+  -- Unfold: unfold f g in body
+  unfoldterm ::= "unfold" names "in" term
+  
+  -- Abstract: abstract x <- body
+  -- Used for abstracting type annotations (see patch.cooltt)
+  -- Example: abstract seqL∷tp ← (f : hom) → path ...
+  abstractterm ::= "abstract" name? "<-" term
+
+-----------------------------------------------------
+-- Open
+-----------------------------------------------------
+
+piece OpenExpr
+  -- Open: open struct in body  or  open struct renaming [...] in body
+  openterm ::= "open" term renaming? "in" term
+
+-----------------------------------------------------
+-- Equations (Stepped Proofs)
+-----------------------------------------------------
+
+piece Equations
+  -- Equation proof block:
+  -- equation A begin
+  --   t0 =[ p ] t1 =[ q ] t2
+  -- end
+  equationterm ::= "equation" term "begin" eqnsteps "end"
+  
+  eqnsteps ::= eqnstep+
+  eqnstep ::= term "=[" term "]"          -- With proof: t =[ p ]
+            | term "=[]"                   -- Trivial: t =[]
+  
+  eqnfinal ::= term                       -- Final term
+
+-----------------------------------------------------
+-- Bracket Content (context-dependent)
+-----------------------------------------------------
+
+piece BracketContent
+  bracketcontent ::= pairterm             -- [a, b]
+                   | cofsplit             -- [| φ => t | ψ => u]
+                   | prfterm              -- [ proof ]
+
+-----------------------------------------------------
+-- Declarations
+-----------------------------------------------------
+
+piece Declarations
+  decl ::= defn | axiomdef | importdecl | printcmd | normcmd
+         | failcmd | debugcmd | quitcmd
+         | viewdecl | exportdecl | repackdecl | sectiondecl
+  
+  -- Definition: def name (args) : type := body
+  defn ::= modifiers "def" name telecells? ":" term ":=" term
+  
+  -- Axiom: axiom name (args) : type
+  axiomdef ::= modifiers "axiom" name telecells? ":" term
+  
+  -- Import: import path [modifier]
+  importdecl ::= modifiers "import" modulepath modifier?
+  modulepath ::= <ident> ("." <ident>)*
+  
+  -- Print: #print name
+  printcmd ::= modifiers "#print" name
+  
+  -- Normalize: #normalize term
+  normcmd ::= modifiers "#normalize" term
+  
+  -- Fail: #fail decl
+  failcmd ::= "#fail" decl
+  
+  -- Debug: #debug on/off
+  debugcmd ::= "#debug" flag
+  flag ::= "on" | "off"
+  
+  -- Quit: #quit
+  quitcmd ::= "#quit"
+
+-----------------------------------------------------
+-- Modifiers
+-----------------------------------------------------
+
+piece Modifiers
+  modifiers ::= modifier*
+  modifier ::= "shadowing"                -- Allow shadowing
+             | "abstract"                 -- Mark as abstract
+             | unfoldspec                 -- Unfold names
+  
+  unfoldspec ::= "unfold" names
+
+-----------------------------------------------------
+-- Module System
+-----------------------------------------------------
+
+piece ModuleSystem
+  -- View: view [modifier]
+  viewdecl ::= modifiers "view" bracketmod
+  
+  -- Export: export [modifier] or export path
+  exportdecl ::= modifiers "export" bracketmod
+               | modifiers "export" path
+  
+  -- Repack: repack [modifier]
+  repackdecl ::= modifiers "repack" bracketmod
+  
+  -- Section: section prefix begin decls end [modifier]
+  sectiondecl ::= modifiers "section" path? "begin" decl* "end" bracketmod?
+
+  -- Bracket modifiers
+  bracketmod ::= "[" moditems "]"
+               | "{" moditems "}"
+  
+  moditems ::= moditem (";" | ",") moditems | moditem?
+  
+  moditem ::= "::"                        -- All
+            | path "::" atomicmod         -- In subtree
+            | path "->" path?             -- Rename
+            | "->" path                   -- Rename from root
+            | "!" path?                   -- Except
+            | path                        -- Only
+            | atomicmod
+  
+  atomicmod ::= bracketmod                -- Nested
+              | "!" "::"?                 -- None
+              | "!" path                  -- Except
+              | hole                      -- Print
+
+-----------------------------------------------------
+-- Top-Level File Structure
+-----------------------------------------------------
+
+piece CoolttFile
+  coolttfile ::= decl* eof
+  eof ::= <EOF>
+  
+  -- REPL command
+  replcmd ::= eof                         -- End of file
+            | ";;"                        -- No-op
+            | decl ";;"                   -- Declaration
+
+-----------------------------------------------------
+-- Reduction Rules
+-----------------------------------------------------
+
+piece ReductionRules
+  reduction ::= name
+
+  -- Projection rules
+  rule proj_fst:
+    (fst [a, b]) ~> a
+
+  rule proj_snd:
+    (snd [a, b]) ~> b
+
+  -- Beta reduction
+  rule beta:
+    (f => body) arg ~> body[f/arg]
+
+  -- Suc
+  rule suc_num:
+    suc n ~> n+1 where n is numeral
+
+  -- Extension at endpoints
+  rule ext_at_zero:
+    ((ext i => A with [| i=0 => M | ...]) 0) ~> M
+
+  rule ext_at_one:
+    ((ext i => A with [| ... | i=1 => N]) 1) ~> N
+
+  -- Coercion reflexivity
+  rule coe_refl:
+    coe (i => A) r r a ~> a
+
+  -- V type at endpoints
+  rule V_at_zero:
+    V 0 A B e ~> A
+
+  rule V_at_one:
+    V 1 A B e ~> B
+
+  -- Nat elimination
+  rule elim_nat_zero:
+    elim [| zero => z | suc {n => ih} => s] zero ~> z
+
+  rule elim_nat_suc:
+    elim [| zero => z | suc {n => ih} => s] (suc m) ~> s[n/m, ih/elim [...] m]
+
+  -- Circle elimination
+  rule elim_circle_base:
+    elim [| base => b | loop i => l] base ~> b
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+
+piece Tests
+  -- Basic types
+  test "type": type ~~> type
+  test "nat": nat ~~> nat
+  test "circle": circle ~~> circle
+  test "dim": dim ~~> dim
+  test "cof": cof ~~> cof
+
+  -- Literals and terms
+  test "zero": zero ~~> zero
+  test "suc": suc zero ~~> suc zero
+  test "numeral": 42 ~~> 42
+  test "base": base ~~> base
+
+  -- Lambda and application
+  test "lambda": (x => x) ~~> (x => x)
+  test "app": ((x => x) y) ~~> y
+
+  -- Pairs and projections
+  test "pair": [a, b] ~~> [a, b]
+  test "fst": fst [a, b] ~~> a
+  test "snd": snd [a, b] ~~> b
+
+  -- Pi and Sigma types
+  test "arrow": A -> B ~~> A -> B
+  test "pi": (x : A) -> B ~~> (x : A) -> B
+  test "sigma": (x : A) * B ~~> (x : A) * B
+  test "product": A * B ~~> A * B
+
+  -- Extension types
+  test "path_type": ext i => A with [i=0 => a | i=1 => b] 
+    ~~> ext i => A with [i=0 => a | i=1 => b]
+
+  -- Cofibrations
+  test "cof_eq": (i = 0) ~~> (i = 0)
+  test "cof_join": (i = 0 \/ i = 1) ~~> (i = 0 \/ i = 1)
+  test "cof_meet": (i = 0 /\ j = 0) ~~> (i = 0 /\ j = 0)
+  test "boundary": ∂ i ~~> ∂ i
+  test "top": ⊤ ~~> ⊤
+  test "bot": ⊥ ~~> ⊥
+
+  -- Cubical operations
+  test "coe": coe (i => A) 0 1 a ~~> coe (i => A) 0 1 a
+  test "coe_refl": coe (i => A) 0 0 a ~~> a
+  test "hcom": hcom A 0 1 φ u ~~> hcom A 0 1 φ u
+  test "hfill": hfill A 0 φ u ~~> hfill A 0 φ u
+  test "com": com (i => A) 0 1 φ u ~~> com (i => A) 0 1 φ u
+
+  -- V types
+  test "V": V r A B e ~~> V r A B e
+  test "V_at_0": V 0 A B e ~~> A
+  test "V_at_1": V 1 A B e ~~> B
+  test "vproj": vproj t ~~> vproj t
+  test "cap": cap t ~~> cap t
+
+  -- Sub types
+  test "sub": sub A φ a ~~> sub A φ a
+
+  -- Let
+  test "let_typed": let x : A := M in N ~~> let x : A := M in N
+  test "let_untyped": let x := M in N ~~> let x := M in N
+
+  -- Eliminators
+  test "elim_nat": elim [| zero => z | suc {n => ih} => s] 
+    ~~> elim [| zero => z | suc {n => ih} => s]
+  test "elim_circle": elim [| base => b | loop i => l]
+    ~~> elim [| base => b | loop i => l]
+
+  -- Records
+  test "sig_inline": sig [x : nat, y : nat -> nat]
+    ~~> sig [x : nat, y : nat -> nat]
+  test "struct_inline": struct [x := 0, y := n => suc n]
+    ~~> struct [x := 0, y := n => suc n]
+  test "proj": r.x ~~> r.x
+
+  -- Equations
+  test "equation": equation nat begin x =[ p ] y =[ q ] z end
+    ~~> equation nat begin x =[ p ] y =[ q ] z end
+
+  -- Generalize and unfold
+  test "generalize": generalize x in body ~~> generalize x in body
+  test "unfold": unfold f in body ~~> unfold f in body
+
+  -- Module paths
+  test "path_var": foo::bar::baz ~~> foo::bar::baz
+
+-----------------------------------------------------
+-- Advanced Tests (from cooltt test suite)
+-----------------------------------------------------
+
+piece AdvancedTests
+
+  -- Path sugar: path A x y := ext i => A with [i=0 => x | i=1 => y]
+  test "path_def": (A : type) -> (x : A) -> (y : A) -> type
+    ~~> (A : type) -> (x : A) -> (y : A) -> type
+
+  -- Dependent path: path-p (i => A i) x y
+  test "pathp_def": (A : dim -> type) -> (x : A 0) -> (y : A 1) -> type
+    ~~> (A : dim -> type) -> (x : A 0) -> (y : A 1) -> type
+
+  -- Reflexivity: i => x
+  test "refl": (A : type) -> (x : A) -> (i => x) ~~> (A : type) -> (x : A) -> (i => x)
+
+  -- Symmetry uses hfill
+  test "symm_type": (A : type) -> (p : dim -> A) -> (i => A)
+    ~~> (A : type) -> (p : dim -> A) -> (i => A)
+
+  -- Function extensionality
+  test "funext_type": 
+    (A : type) -> (B : type) -> (f : A -> B) -> (g : A -> B) 
+    -> ((x : A) -> ext i => B with [i=0 => f x | i=1 => g x])
+    -> ext i => (A -> B) with [i=0 => f | i=1 => g]
+    ~~> _
+
+  -- Circle loop
+  test "loop": loop i ~~> loop i
+  test "loopn_type": nat -> (ext i => circle with [i=0 => base | i=1 => base])
+    ~~> nat -> (ext i => circle with [i=0 => base | i=1 => base])
+
+  -- Addition (abstract recursive def)
+  test "add_type": nat -> nat -> nat ~~> nat -> nat -> nat
+  test "add_zero": elim [| zero => n => n | suc {_ => ih} => n => suc (ih n)] zero
+    ~~> (n => n)
+
+  -- Records with include
+  test "sig_include": sig include A def x : B end
+    ~~> sig include A def x : B end
+  test "struct_include": struct include r def x := a end
+    ~~> struct include r def x := a end
+
+  -- Sections
+  test "section_prefix": section foo begin def x : nat := 0 end
+    ~~> section foo begin def x : nat := 0 end
+  test "section_modifier": section begin def x : nat := 0 end [x -> y]
+    ~~> section begin def x : nat := 0 end [x -> y]
+
+  -- Abstract definitions
+  test "abstract_def": abstract def f : nat -> nat := n => suc n
+    ~~> abstract def f : nat -> nat := n => suc n
+
+  -- Shadowing
+  test "shadowing_def": shadowing def x : nat := 1
+    ~~> shadowing def x : nat := 1
+
+  -- View and export
+  test "view": view [?] ~~> view [?]
+  test "export_path": export foo::bar ~~> export foo::bar
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Cooltt
+-- Category: Cartesian Cubical Type Theory
+-- Source: RedPRL/cooltt
+-- =============================================================================
+-- [x] Grammar: Complete cooltt grammar coverage
+-- [ ] Rules: Cubical reduction rules
+-- [ ] Normalization: Path/coe/hcom computation
+-- [ ] Confluence: Verify cubical reduction confluence
+-- Keywords: cuts := ["piece", "rule", "test", "def", "axiom", "sig", "struct", "import", "section"]
+-- =============================================================================
+-- 
+-- Key Constructs from cooltt:
+--
+-- 1. EXTENSION TYPES (ext)
+--    ext i => A with [i=0 => M | i=1 => N]
+--    More explicit than redtt's path syntax
+--
+-- 2. SUB TYPES  
+--    sub A φ a - partial elements
+--    Elements equal a when φ holds
+--
+-- 3. RECORDS (sig/struct)
+--    First-class dependent records
+--    With include and renaming
+--
+-- 4. PATCHES
+--    tp # [field := value] - refine a signature
+--
+-- 5. EQUATIONS
+--    Stepped equational reasoning proofs
+--    equation A begin t =[ p ] s =[ q ] r end
+--
+-- 6. SECTIONS
+--    Module sections with prefixes
+--    View, export, repack operations
+--
+-- 7. V TYPES
+--    V r A B e - univalence primitive
+--    vproj, cap operations
+--
+-- REFERENCE IMPLEMENTATIONS:
+--   - cooltt/src/frontend/Grammar.mly
+--   - cooltt/src/frontend/Lex.mll
+--   - cooltt/src/frontend/ConcreteSyntaxData.ml
+--   - cooltt/test/*.cooltt
+-- =============================================================================
+

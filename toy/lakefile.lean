@@ -44,6 +44,10 @@ lean_exe «lego-test-red» where
   root := `TestRed
   moreLinkArgs := #["-lInit"]
 
+lean_exe «lego-test-cool» where
+  root := `TestCool
+  moreLinkArgs := #["-lInit"]
+
 -- Tools
 lean_exe «toantlr» where
   root := `tools.ToAntlr

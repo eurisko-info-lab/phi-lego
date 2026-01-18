@@ -1,0 +1,338 @@
+-----------------------------------------------------
+-- CoolttTokens: Tokenizer specification for cooltt
+--
+-- Extracted from: vendor/cooltt/src/frontend/Lex.mll
+-- 
+-- This defines the lexical structure of cooltt including:
+-- - Keywords and commands
+-- - Operators and delimiters
+-- - Unicode alternatives (emoji support!)
+-- - Comment syntax
+-- - Identifier rules
+-----------------------------------------------------
+
+import Cooltt
+
+-----------------------------------------------------
+-- Token Categories
+-----------------------------------------------------
+
+vocab CoolttTokens
+  -- Structural tokens
+  "(" ")" "[" "]" "{" "}" "{!" "!}"
+  ":" ";" ";;" "," "." "|"
+  
+  -- Operators
+  "×" "*" "⭐" "🌟"        -- Times (product)
+  "∷" "::"                  -- Cons/path separator
+  "∧" "/\\"                 -- Meet (conjunction)
+  "∨" "\\/"                 -- Join (disjunction)
+  "=" "=["  "=[]"           -- Equality, equation steps
+  "<=" "≤"                  -- Less-than-or-equal
+  "≔" ":="                  -- Definition
+  "::="                     -- Field definition
+  "→" "->"                  -- Arrow (function type)
+  "←" "<-"                  -- Left arrow (abstract)
+  "⇒" "=>"                  -- Double arrow (lambda)
+  "_"                       -- Underscore/wildcard
+  "#"                       -- Hash (patch)
+  "!"                       -- Bang
+
+-----------------------------------------------------
+-- Commands (prefixed with #)
+-----------------------------------------------------
+
+vocab Commands
+  "#fail"                   -- Expect failure
+  "#normalize"              -- Normalize term
+  "#print"                  -- Print definition
+  "#debug"                  -- Toggle debug mode
+  "#viz"                    -- Visualize
+  "#quit"                   -- Exit
+
+-----------------------------------------------------
+-- Keywords with Unicode Alternatives
+-----------------------------------------------------
+
+vocab Keywords
+  -- Natural numbers
+  "zero" "suc" "nat" "🔢"
+  
+  -- Circle
+  "base" "loop" "➰" "circle" "🍪"
+  
+  -- Records
+  "sig" "✏" "struct" "🍱" "include" "renaming" "open" "as"
+  
+  -- Core
+  "let" "in" "fst" "snd" "elim" "generalize"
+  
+  -- Definitions
+  "def" "abstract" "📌" "axiom" "🛐"
+  
+  -- Types
+  "type"
+  "𝕀" "dim"                 -- Interval
+  "𝔽" "cof"                 -- Cofibration
+  "sub" "ext"               -- Sub and extension types
+  
+  -- Cubical operations
+  "coe" "hcom" "hfill" "com"
+  
+  -- V types
+  "V" "🥦" "vproj" "cap"
+  
+  -- Module keywords
+  "with" "import" "unfold" "📥"
+  "begin" "▶️" "end" "⏹️" "equation"
+  "section" "shadowing" "📦"
+  "view" "👁️" "👀" "👓" "🕶️"
+  "repack" "🎁" "🧧"
+  "export" "📤"
+  "on" "off"
+
+-----------------------------------------------------
+-- Logical Constants
+-----------------------------------------------------
+
+vocab LogicalConstants
+  "true" "⊤"                -- Top (true cofibration)
+  "false" "⊥"               -- Bot (false cofibration)
+  "∂"                       -- Boundary operator
+
+-----------------------------------------------------
+-- Holes
+-----------------------------------------------------
+
+vocab HoleTokens
+  "?"                       -- Anonymous hole
+  "?_"                      -- Silent hole prefix
+
+-----------------------------------------------------
+-- Lexical Rules
+-----------------------------------------------------
+
+piece LexicalRules
+  -- Whitespace
+  whitespace ::= [ \t]+
+  lineending ::= \r | \n | \r\n
+  
+  -- Comments
+  linecomment ::= ("--" | "⍝" | "📝") [^\n\r]* lineending
+  blockcomment ::= "/-" blockinner "-/"
+  blockinner ::= ([^-/] | "-" [^/] | "/" [^-] | blockcomment)*
+  
+  -- Numbers
+  numeral ::= [0-9]+
+  
+  -- Identifiers
+  -- atom_initial: not digit, dash, special chars
+  -- atom_subsequent: not parens, brackets, special punctuation
+  atominitial ::= [^0-9\-?!()[\]{}<>.#\\@*^:,;|=" \t\n\r]
+  atomsubsequent ::= [^()[\]{}<>.#\\@*^:,;|=" \t\n\r]
+  atom ::= atominitial atomsubsequent*
+  
+  -- Holes with names
+  holeatom ::= "?" atomsubsequent*
+  silentholeaom ::= "?_" atomsubsequent*
+  
+  -- Module paths (for import)
+  modulepart ::= [^/?!()[\]{}<>.\\ *:,;|=" \t\n\r]+
+
+-----------------------------------------------------
+-- Token Mapping (Lex.mll transcription)
+-----------------------------------------------------
+
+piece TokenMapping
+  -- Numbers
+  rule numeral: numeral -> NUMERAL
+  
+  -- Terminators
+  rule semisemi: "⨾" | ";;" | "🛑" -> SEMISEMI
+  
+  -- Delimiters
+  rule lparen: "(" -> LPR
+  rule rparen: ")" -> RPR
+  rule lbrace: "{" -> LBR
+  rule rbrace: "}" -> RBR
+  rule lsquare: "[" -> LSQ
+  rule rsquare: "]" -> RSQ
+  rule lbang: "{!" -> LBANG
+  rule rbang: "!}" -> RBANG
+  
+  -- Punctuation
+  rule pipe: "|" -> PIPE
+  rule hash: "#" -> HASH
+  rule comma: "," -> COMMA
+  rule dot: "." -> DOT
+  rule semi: ";" -> SEMI
+  
+  -- Operators
+  rule times: "×" | "*" | "⭐" | "🌟" -> TIMES
+  rule colon: ":" -> COLON
+  rule coloncolon: "∷" | "::" -> COLON_COLON
+  rule meet: "∧" | "/\\" -> MEET
+  rule join: "∨" | "\\/" -> JOIN
+  rule equals: "=" -> EQUALS
+  rule eqsq: "=[" -> LSQEQUALS
+  rule eqsqsq: "=[]" -> LRSQEQUALS
+  rule lessthan: "<=" | "≤" -> LESS_THAN
+  rule coloneq: "≔" | ":=" -> COLON_EQUALS
+  rule coloncoloneq: "::=" -> COLON_COLON_EQUALS
+  rule arrow: "→" | "->" -> RIGHT_ARROW
+  rule leftarrow: "←" | "<-" -> LEFT_ARROW
+  rule doublearrow: "⇒" | "=>" -> RRIGHT_ARROW
+  rule underscore: "_" -> UNDERSCORE
+  rule bang: "!" -> BANG
+  rule boundary: "∂" -> BOUNDARY
+  
+  -- Logical constants
+  rule topc: "true" | "⊤" -> TOPC
+  rule botc: "false" | "⊥" -> BOTC
+  
+  -- Holes
+  rule silenthole: "?_" holeatom? -> HOLE_SILENT
+  rule hole: "?" holeatom? -> HOLE
+  
+  -- Keywords (matched from keyword table)
+  rule keyword: atom -> lookup keyword_table
+  
+  -- Default: atom is identifier
+  rule ident: atom -> ATOM
+
+-----------------------------------------------------
+-- Keyword Table
+-----------------------------------------------------
+
+piece KeywordTable
+  keyword_table :=
+    "zero"       => ZERO
+    "suc"        => SUC
+    "nat"        => NAT
+    "🔢"         => NAT
+    "base"       => BASE
+    "loop"       => LOOP
+    "➰"         => LOOP
+    "circle"     => CIRCLE
+    "🍪"         => CIRCLE
+    "sig"        => SIG
+    "✏"         => SIG
+    "struct"     => STRUCT
+    "🍱"         => STRUCT
+    "include"    => INCLUDE
+    "renaming"   => RENAMING
+    "open"       => OPEN
+    "as"         => AS
+    "let"        => LET
+    "in"         => IN
+    "fst"        => FST
+    "snd"        => SND
+    "elim"       => ELIM
+    "generalize" => GENERALIZE
+    "def"        => DEF
+    "abstract"   => ABSTRACT
+    "📌"         => DEF
+    "axiom"      => AXIOM
+    "🛐"         => AXIOM
+    "type"       => TYPE
+    "𝕀"          => DIM
+    "dim"        => DIM
+    "𝔽"          => COF
+    "cof"        => COF
+    "sub"        => SUB
+    "ext"        => EXT
+    "coe"        => COE
+    "hcom"       => HCOM
+    "hfill"      => HFILL
+    "com"        => COM
+    "V"          => V
+    "🥦"         => V
+    "vproj"      => VPROJ
+    "cap"        => CAP
+    "with"       => WITH
+    "import"     => IMPORT
+    "unfold"     => UNFOLD
+    "📥"         => IMPORT
+    "begin"      => BEGIN
+    "▶️"         => BEGIN
+    "end"        => END
+    "⏹️"         => END
+    "equation"   => EQUATION
+    "section"    => SECTION
+    "shadowing"  => SHADOWING
+    "📦"         => SECTION
+    "view"       => VIEW
+    "👁️"         => VIEW
+    "👀"         => VIEW
+    "👓"         => VIEW
+    "🕶️"         => VIEW
+    "repack"     => REPACK
+    "🎁"         => REPACK
+    "🧧"         => REPACK
+    "export"     => EXPORT
+    "📤"         => EXPORT
+    "on"         => ON
+    "off"        => OFF
+
+-----------------------------------------------------
+-- Command Table
+-----------------------------------------------------
+
+piece CommandTable
+  command_table :=
+    "#fail"      => FAIL
+    "#normalize" => NORMALIZE
+    "#print"     => PRINT
+    "#debug"     => DEBUG
+    "#viz"       => VISUALIZE
+    "#quit"      => QUIT
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+
+piece Tests
+  -- Keywords
+  test token "nat": nat -> NAT
+  test token "🔢": 🔢 -> NAT
+  test token "circle": circle -> CIRCLE
+  test token "🍪": 🍪 -> CIRCLE
+  test token "def": def -> DEF
+  test token "📌": 📌 -> DEF
+  
+  -- Operators
+  test token "->": -> -> RIGHT_ARROW
+  test token "→": → -> RIGHT_ARROW
+  test token "=>": => -> RRIGHT_ARROW
+  test token "⇒": ⇒ -> RRIGHT_ARROW
+  test token "*": * -> TIMES
+  test token "×": × -> TIMES
+  test token "/\\": /\\ -> MEET
+  test token "∧": ∧ -> MEET
+  test token "\\/": \\/ -> JOIN
+  test token "∨": ∨ -> JOIN
+  
+  -- Holes
+  test token "?": ? -> HOLE
+  test token "?foo": ?foo -> HOLE("foo")
+  test token "?_": ?_ -> HOLE_SILENT
+  test token "?_bar": ?_bar -> HOLE_SILENT("bar")
+  
+  -- Numbers
+  test token "0": 0 -> NUMERAL(0)
+  test token "42": 42 -> NUMERAL(42)
+  test token "100": 100 -> NUMERAL(100)
+  
+  -- Identifiers
+  test token "x": x -> ATOM("x")
+  test token "foo": foo -> ATOM("foo")
+  test token "foo-bar": foo-bar -> ATOM("foo-bar")
+  test token "x'": x' -> ATOM("x'")
+  
+  -- Comments (should be skipped)
+  test skip "-- comment\n": -- comment
+  test skip "⍝ APL comment\n": ⍝ APL comment
+  test skip "📝 note\n": 📝 note
+  test skip "/- block -/": /- block comment -/
+  test skip "/- nested /- block -/ -/": /- outer /- inner -/ -/
+

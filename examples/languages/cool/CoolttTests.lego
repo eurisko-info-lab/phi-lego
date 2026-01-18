@@ -1,0 +1,447 @@
+-----------------------------------------------------
+-- CoolttTests: Comprehensive parsing tests
+--
+-- Tests derived from vendor/cooltt/test/*.cooltt
+-- to verify complete grammar coverage.
+-----------------------------------------------------
+
+import Cooltt
+import CoolttParser
+
+-----------------------------------------------------
+-- Test Category: Basic Types
+-----------------------------------------------------
+
+piece BasicTypeTests
+  -- From base-types.cooltt
+  test parse "type": type ~~> Type
+  test parse "nat": nat ~~> Nat
+  test parse "circle": circle ~~> Circle
+  test parse "dim": dim ~~> Dim
+  test parse "𝕀": 𝕀 ~~> Dim
+  test parse "cof": cof ~~> Cof
+  test parse "𝔽": 𝔽 ~~> Cof
+
+-----------------------------------------------------
+-- Test Category: Literals
+-----------------------------------------------------
+
+piece LiteralTests
+  test parse "0": 0 ~~> Lit 0
+  test parse "1": 1 ~~> Lit 1
+  test parse "42": 42 ~~> Lit 42
+  test parse "100": 100 ~~> Lit 100
+  test parse "zero": zero ~~> Lit 0
+  test parse "base": base ~~> Base
+
+-----------------------------------------------------
+-- Test Category: Variables and Paths
+-----------------------------------------------------
+
+piece VariableTests
+  test parse "x": x ~~> Var (`User ["x"])
+  test parse "foo": foo ~~> Var (`User ["foo"])
+  test parse "foo-bar": foo-bar ~~> Var (`User ["foo-bar"])
+  test parse "foo::bar": foo::bar ~~> Var (`User ["foo", "bar"])
+  test parse "a::b::c": a::b::c ~~> Var (`User ["a", "b", "c"])
+  test parse "_": _ ~~> Underscore
+
+-----------------------------------------------------
+-- Test Category: Lambda Expressions
+-----------------------------------------------------
+
+piece LambdaTests
+  test parse "x => x": x => x ~~> Lam [`User ["x"]] (Var x)
+  test parse "x y => x": x y => x ~~> Lam [`User ["x"], `User ["y"]] (Var x)
+  test parse "x y z => x": x y z => x ~~> Lam [...] (Var x)
+  test parse "_ => 0": _ => 0 ~~> Lam [`Anon] (Lit 0)
+  test parse "i => base": i => base ~~> Lam [`User ["i"]] Base
+
+-----------------------------------------------------
+-- Test Category: Application
+-----------------------------------------------------
+
+piece ApplicationTests
+  test parse "f x": f x ~~> Ap f [x]
+  test parse "f x y": f x y ~~> Ap f [x, y]
+  test parse "f x y z": f x y z ~~> Ap f [x, y, z]
+  test parse "suc n": suc n ~~> Suc n
+  test parse "suc {ih n}": suc {ih n} ~~> Suc (Ap ih [n])
+  test parse "loop i": loop i ~~> Loop i
+  test parse "loop {trans p q i}": loop {trans p q i} ~~> Loop (...)
+
+-----------------------------------------------------
+-- Test Category: Function Types
+-----------------------------------------------------
+
+piece FunctionTypeTests
+  test parse "A -> B": A -> B ~~> Pi [anon A] B
+  test parse "nat -> nat": nat -> nat ~~> Pi [anon Nat] Nat
+  test parse "(x : A) -> B": (x : A) -> B ~~> Pi [x : A] B
+  test parse "(x y : A) -> B": (x y : A) -> B ~~> Pi [x y : A] B
+  test parse "(x : A) (y : B) -> C": ... ~~> Pi [x:A] (Pi [y:B] C)
+  
+  -- Nested arrows (right associative)
+  test parse "A -> B -> C": A -> B -> C ~~> Pi [anon A] (Pi [anon B] C)
+
+-----------------------------------------------------
+-- Test Category: Sigma Types and Pairs
+-----------------------------------------------------
+
+piece SigmaTypeTests
+  test parse "A * B": A * B ~~> Sg [anon A] B
+  test parse "(x : A) * B": (x : A) * B ~~> Sg [x : A] B
+  test parse "(x y : A) * B": (x y : A) * B ~~> Sg [x y : A] B
+  test parse "[a, b]": [a, b] ~~> Pair a b
+  test parse "fst p": fst p ~~> Fst p
+  test parse "snd p": snd p ~~> Snd p
+  test parse "p.x": p.x ~~> Proj p x
+  test parse "p.foo::bar": p.foo::bar ~~> Proj p (foo::bar)
+
+-----------------------------------------------------
+-- Test Category: Let Expressions
+-----------------------------------------------------
+
+piece LetTests
+  test parse "let x := a in b": let x := a in b ~~> Let a x b
+  test parse "let x : A := a in b": let x : A := a in b ~~> Let (Ann a A) x b
+  test parse "let aux : A := a in aux": ... ~~> Let (Ann a A) aux (Var aux)
+
+-----------------------------------------------------
+-- Test Category: Cofibrations
+-----------------------------------------------------
+
+piece CofibrationTests
+  test parse "i = 0": i = 0 ~~> CofEq i 0
+  test parse "i = 1": i = 1 ~~> CofEq i 1
+  test parse "j = 0": j = 0 ~~> CofEq j 0
+  test parse "i <= j": i <= j ~~> CofLe i j
+  test parse "i ≤ j": i ≤ j ~~> CofLe i j
+  test parse "∂ i": ∂ i ~~> CofBoundary i
+  test parse "⊤": ⊤ ~~> TopC
+  test parse "true": true ~~> TopC
+  test parse "⊥": ⊥ ~~> BotC
+  test parse "false": false ~~> BotC
+  
+  -- Join and Meet
+  test parse "φ \\/ ψ": φ \/ ψ ~~> Join [φ, ψ]
+  test parse "φ ∨ ψ": φ ∨ ψ ~~> Join [φ, ψ]
+  test parse "φ /\\ ψ": φ /\ ψ ~~> Meet [φ, ψ]
+  test parse "φ ∧ ψ": φ ∧ ψ ~~> Meet [φ, ψ]
+  test parse "∂ i ∨ ∂ j": ∂ i ∨ ∂ j ~~> Join [CofBoundary i, CofBoundary j]
+  
+  -- Cofibration split
+  test parse "[| i=0 => a | i=1 => b]": [| i=0 => a | i=1 => b] 
+    ~~> CofSplit [(CofEq i 0, a), (CofEq i 1, b)]
+
+-----------------------------------------------------
+-- Test Category: Extension Types
+-----------------------------------------------------
+
+piece ExtensionTests
+  test parse "ext i => A with [i=0 => a | i=1 => b]":
+    ext i => A with [i=0 => a | i=1 => b]
+    ~~> Ext [i] A [(CofEq i 0, a), (CofEq i 1, b)]
+  
+  test parse "ext i j => A with [i=0 => a | j=1 => b]":
+    ext i j => A with [i=0 => a | j=1 => b]
+    ~~> Ext [i, j] A [(CofEq i 0, a), (CofEq j 1, b)]
+  
+  test parse "ext => nat with [⊤ => 0]":
+    ext => nat with [⊤ => 0]
+    ~~> Ext [] Nat [(TopC, Lit 0)]
+
+-----------------------------------------------------
+-- Test Category: Sub Types
+-----------------------------------------------------
+
+piece SubTypeTests
+  test parse "sub A φ a": sub A φ a ~~> Sub A φ a
+  test parse "sub nat {i=0} 5": sub nat {i=0} 5 ~~> Sub Nat (CofEq i 0) (Lit 5)
+  test parse "sub {A i} {∂ i} [x, _ => x]": ... ~~> Sub (Ap A [i]) (CofBoundary i) [...]
+
+-----------------------------------------------------
+-- Test Category: Cubical Operations
+-----------------------------------------------------
+
+piece CubicalOpTests
+  -- Coercion
+  test parse "coe A r s a": coe A r s a ~~> Coe A r s a
+  test parse "coe {i => A i} 0 1 x": coe {i => A i} 0 1 x 
+    ~~> Coe (Lam [i] (Ap A [i])) 0 1 x
+  
+  -- Homogeneous composition
+  test parse "hcom A r s φ u": hcom A r s φ u ~~> HCom A r s φ u
+  test parse "hcom A 0 1 {∂ i} u": hcom A 0 1 {∂ i} u 
+    ~~> HCom A 0 1 (CofBoundary i) u
+  
+  -- Checking form (inferred type)
+  test parse "hcom 0 1 u": hcom 0 1 u ~~> HComChk 0 1 u
+  
+  -- Fill
+  test parse "hfill A r φ u": hfill A r φ u ~~> HFill A r φ u
+  test parse "hfill 0 u": hfill 0 u ~~> HFillChk 0 u
+  
+  -- Heterogeneous composition
+  test parse "com A r s φ u": com A r s φ u ~~> Com A r s φ u
+
+-----------------------------------------------------
+-- Test Category: V Types
+-----------------------------------------------------
+
+piece VTypeTests
+  test parse "V r A B e": V r A B e ~~> V r A B e
+  test parse "🥦 r A B e": 🥦 r A B e ~~> V r A B e
+  test parse "vproj t": vproj t ~~> VProj t
+  test parse "cap t": cap t ~~> Cap t
+  
+  -- From v.cooltt
+  test parse "V 0 A A e": V 0 A A e ~~> V 0 A A e
+  test parse "[a, b]": [a, b] ~~> Pair a b  -- Used as vin in V types
+
+-----------------------------------------------------
+-- Test Category: Records
+-----------------------------------------------------
+
+piece RecordTests
+  -- Inline sig
+  test parse "sig [x : nat]": sig [x : nat] ~~> Signature [`Field (x, Nat)]
+  test parse "sig [x : nat, y : nat]": ... ~~> Signature [...]
+  
+  -- Block sig
+  test parse "sig def x : nat def y : nat end": ...
+    ~~> Signature [`Field (x, Nat), `Field (y, Nat)]
+  
+  -- Include
+  test parse "sig include A def x : B end": ...
+    ~~> Signature [`Include (A, []), `Field (x, B)]
+  
+  test parse "sig include A renaming [x -> y] end": ...
+    ~~> Signature [`Include (A, [(x, y)])]
+  
+  -- Inline struct
+  test parse "struct [x := 0]": struct [x := 0] ~~> Struct [`Field (x, Lit 0)]
+  test parse "struct [x := 0, y := 1]": ... ~~> Struct [...]
+  
+  -- Block struct  
+  test parse "struct def x := 0 def y := 1 end": ...
+    ~~> Struct [`Field (x, Lit 0), `Field (y, Lit 1)]
+  
+  -- Struct include
+  test parse "struct include r def x := a end": ...
+    ~~> Struct [`Include (r, []), `Field (x, a)]
+  
+  -- Patches
+  test parse "tp # [x := a]": tp # [x := a] ~~> Patch tp [`Patch (x, a)]
+  test parse "tp # [x := a, y := b]": ... ~~> Patch tp [...]
+  test parse "tp # [x ::= a]": tp # [x ::= a] ~~> Patch tp [`Subst (x, a)]
+
+-----------------------------------------------------
+-- Test Category: Eliminators
+-----------------------------------------------------
+
+piece EliminatorTests
+  -- Inline eliminator lambda
+  test parse "elim [| zero => z | suc {n => ih} => s]":
+    elim [| zero => z | suc {n => ih} => s]
+    ~~> LamElim [(Pat zero [], z), (Pat suc [Inductive (n, ih)], s)]
+  
+  -- With scrutinee
+  test parse "elim n [| zero => 0 | suc {m => _} => m]": ...
+    ~~> Elim {scrut: n, cases: [...]}
+  
+  -- With motive
+  test parse "elim n as mot with [| zero => z | suc k => s]": ...
+    ~~> Elim {mot: mot, scrut: n, cases: [...]}
+  
+  -- Circle patterns
+  test parse "elim [| base => b | loop i => l]":
+    elim [| base => b | loop i => l]
+    ~~> LamElim [(Pat base [], b), (Pat loop [Simple i], l)]
+
+-----------------------------------------------------
+-- Test Category: Equations
+-----------------------------------------------------
+
+piece EquationTests
+  test parse "equation nat begin x =[ p ] y end":
+    equation nat begin x =[ p ] y end
+    ~~> Equations {code: Nat, eqns: Step (Equals (x, p, Qed y))}
+  
+  test parse "equation A begin x =[ p ] y =[ q ] z end":
+    equation A begin x =[ p ] y =[ q ] z end
+    ~~> Equations {code: A, eqns: Step (Equals (x, p, Step (Equals (y, q, Qed z))))}
+  
+  -- Trivial step
+  test parse "equation A begin x =[] y end":
+    equation A begin x =[] y end
+    ~~> Equations {code: A, eqns: Step (Trivial (x, Qed y))}
+
+-----------------------------------------------------
+-- Test Category: Generalize and Unfold
+-----------------------------------------------------
+
+piece GeneralizeUnfoldTests
+  test parse "generalize x in body": generalize x in body 
+    ~~> Generalize x body
+  
+  test parse "unfold f in body": unfold f in body 
+    ~~> Unfold [f] body
+  
+  test parse "unfold f g h in body": unfold f g h in body 
+    ~~> Unfold [f, g, h] body
+  
+  test parse "abstract x <- body": abstract x <- body
+    ~~> Abstract (Some x) body
+  
+  test parse "abstract <- body": abstract <- body
+    ~~> Abstract None body
+
+-----------------------------------------------------
+-- Test Category: Open
+-----------------------------------------------------
+
+piece OpenTests
+  test parse "open r in body": open r in body
+    ~~> Open r [] body
+  
+  test parse "open r renaming [x -> y] in body": 
+    open r renaming [x -> y] in body
+    ~~> Open r [(x, y)] body
+
+-----------------------------------------------------
+-- Test Category: Declarations
+-----------------------------------------------------
+
+piece DeclarationTests
+  -- Def
+  test parse "def f : nat := 0":
+    def f : nat := 0
+    ~~> Def {name: f, args: [], def: Lit 0, tp: Nat}
+  
+  test parse "def f (x : nat) : nat := x":
+    def f (x : nat) : nat := x
+    ~~> Def {name: f, args: [Cell {names: [x], tp: Nat}], def: Var x, tp: Nat}
+  
+  -- Abstract
+  test parse "abstract def f : nat := 0":
+    abstract def f : nat := 0
+    ~~> Def {abstract: true, name: f, ...}
+  
+  -- Shadowing
+  test parse "shadowing def f : nat := 0":
+    shadowing def f : nat := 0
+    ~~> Def {shadowing: true, name: f, ...}
+  
+  -- Unfold modifier
+  test parse "unfold g def f : nat := g 0":
+    unfold g def f : nat := g 0
+    ~~> Def {unfolding: [g], name: f, ...}
+  
+  -- Axiom
+  test parse "axiom f : nat":
+    axiom f : nat
+    ~~> Axiom {name: f, tp: Nat}
+  
+  -- Import
+  test parse "import prelude":
+    import prelude
+    ~~> Import {unitpath: ["prelude"], modifier: None}
+  
+  test parse "import cooltt-lib.data.bool":
+    import cooltt-lib.data.bool
+    ~~> Import {unitpath: ["cooltt-lib", "data", "bool"]}
+  
+  -- Commands
+  test parse "#print f": #print f ~~> Print {name: f}
+  test parse "#normalize e": #normalize e ~~> NormalizeTerm {con: e}
+  test parse "#debug on": #debug on ~~> Debug true
+  test parse "#debug off": #debug off ~~> Debug false
+  test parse "#quit": #quit ~~> Quit
+  test parse "#fail def f : nat := 0": #fail def f : nat := 0 ~~> Fail (Def ...)
+
+-----------------------------------------------------
+-- Test Category: Sections
+-----------------------------------------------------
+
+piece SectionTests
+  test parse "section begin def x : nat := 0 end":
+    section begin def x : nat := 0 end
+    ~~> Section {prefix: None, decls: [...], modifier: None}
+  
+  test parse "section foo begin def x : nat := 0 end":
+    section foo begin def x : nat := 0 end
+    ~~> Section {prefix: Some ["foo"], decls: [...], modifier: None}
+  
+  test parse "section foo::bar begin end":
+    section foo::bar begin end
+    ~~> Section {prefix: Some ["foo", "bar"], decls: [], modifier: None}
+  
+  test parse "section begin end [x -> y]":
+    section begin end [x -> y]
+    ~~> Section {prefix: None, decls: [], modifier: Some (ModRename ["x"] ["y"])}
+
+-----------------------------------------------------
+-- Test Category: View/Export/Repack
+-----------------------------------------------------
+
+piece ModuleOpTests
+  test parse "view [?]": view [?] ~~> View {modifier: ModPrint hole}
+  test parse "view [::]": view [::] ~~> View {modifier: ModAll}
+  test parse "view [x]": view [x] ~~> View {modifier: ModOnly ["x"]}
+  test parse "view [!x]": view [!x] ~~> View {modifier: ModExcept ["x"]}
+  test parse "view [x -> y]": view [x -> y] ~~> View {modifier: ModRename ["x"] ["y"]}
+  
+  test parse "export [x]": export [x] ~~> Export {modifier: ModOnly ["x"]}
+  test parse "export foo::bar": export foo::bar ~~> Export {modifier: ModOnly ["foo", "bar"]}
+  
+  test parse "repack [?]": repack [?] ~~> Repack {modifier: ModPrint hole}
+
+-----------------------------------------------------
+-- Test Category: Holes
+-----------------------------------------------------
+
+piece HoleTests
+  test parse "?": ? ~~> Hole {name: None, silent: false} None
+  test parse "?foo": ?foo ~~> Hole {name: Some "foo", silent: false} None
+  test parse "?_": ?_ ~~> Hole {name: None, silent: true} None
+  test parse "?_bar": ?_bar ~~> Hole {name: Some "bar", silent: true} None
+  test parse "?; hint": ?; hint ~~> Hole {name: None} (Some hint)
+  test parse "{! !}": {! !} ~~> BoundaryHole None
+  test parse "{! t !}": {! t !} ~~> BoundaryHole (Some t)
+
+-----------------------------------------------------
+-- Test Category: Unicode
+-----------------------------------------------------
+
+piece UnicodeTests
+  test parse "🔢": 🔢 ~~> Nat
+  test parse "🍪": 🍪 ~~> Circle
+  test parse "➰ i": ➰ i ~~> Loop i
+  test parse "📌 f : nat := 0": 📌 f : nat := 0 ~~> Def {...}
+  test parse "🛐 f : nat": 🛐 f : nat ~~> Axiom {...}
+  test parse "📥 prelude": 📥 prelude ~~> Import {...}
+  test parse "▶️ ... ⏹️": section ▶️ ⏹️ ~~> Section {...}
+
+-----------------------------------------------------
+-- Summary
+-----------------------------------------------------
+
+piece Summary
+  -- All grammar constructs from Grammar.mly covered:
+  -- [x] term, atomic_term, name, path
+  -- [x] tele_cell, cell
+  -- [x] cof, cof_case
+  -- [x] case, pat, pat_arg  
+  -- [x] field, patch, field_spec
+  -- [x] decl, sign
+  -- [x] modifier, bracketed_modifier
+  -- [x] step, eqns
+  -- [x] repl_command
+  --
+  -- All token types from Lex.mll covered:
+  -- [x] NUMERAL, ATOM, HOLE
+  -- [x] All operators and delimiters
+  -- [x] All keywords with unicode alternatives
+  -- [x] All commands (#fail, #normalize, etc.)
+

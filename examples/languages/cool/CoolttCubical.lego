@@ -1,0 +1,271 @@
+-----------------------------------------------------
+-- CoolttCubical: Cubical Type Theory Foundations
+--
+-- This defines the mathematical foundations of cooltt's
+-- cartesian cubical type theory, including:
+-- - Interval operations
+-- - Cofibrations (face lattice)
+-- - Extension types
+-- - Coercion and composition
+-- - V types (univalence)
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- The Interval 𝕀
+-----------------------------------------------------
+
+piece Interval
+  -- The interval type 𝕀 has two endpoints 0 and 1
+  -- and is closed under reversal and connection operations
+  
+  dim ::= 𝕀                               -- The interval type
+  endpoint ::= 0 | 1                       -- Endpoints
+  
+  -- Reversal: 1-i
+  rev ::= i => (1 - i)
+  
+  -- In cooltt, we work with the cartesian cube category
+  -- 𝕀 is NOT a type in the usual sense - it's a "dimension"
+
+-----------------------------------------------------
+-- Cofibrations (Face Lattice)
+-----------------------------------------------------
+
+piece Cofibrations
+  -- Cofibrations are propositions built from:
+  -- - (i = 0) and (i = 1) for dimension i
+  -- - ⊤ (true) and ⊥ (false)
+  -- - ∧ (meet) and ∨ (join)
+  
+  coftype ::= 𝔽                           -- Cofibration type
+  
+  -- Basic face constraints
+  face ::= (i = 0)                         -- Left face
+         | (i = 1)                         -- Right face
+  
+  -- Boundary: ∂i = (i=0) ∨ (i=1)
+  boundary ::= ∂ i                         -- Either endpoint
+  
+  -- Lattice operations
+  meet ::= φ ∧ ψ                          -- Both conditions
+  join ::= φ ∨ ψ                          -- Either condition
+  
+  -- The face lattice is NOT Boolean:
+  -- ¬(i=0) is NOT (i=1)
+  -- Instead we have a de Morgan algebra
+
+-----------------------------------------------------
+-- Extension Types
+-----------------------------------------------------
+
+piece ExtensionTypes
+  -- The extension type [Γ, i:𝕀] A [φ ↦ u]
+  -- consists of elements a : A(i) such that a = u when φ holds
+  
+  -- Syntax: ext i => A with [φ => u]
+  ext ::= ext vars => body with bdry
+  vars ::= name+
+  bdry ::= "[" constraints "]"
+  constraints ::= ("|"? constraint)*
+  constraint ::= cofibration "=>" term
+  
+  -- Path types are a special case:
+  -- path A a b := ext i => A with [i=0 => a | i=1 => b]
+  
+  -- Dependent path:
+  -- path-p (i => A i) a b := ext i => A i with [i=0 => a | i=1 => b]
+
+-----------------------------------------------------
+-- Sub Types (Partial Elements)
+-----------------------------------------------------
+
+piece SubTypes
+  -- sub A φ a : the type of elements of A that are
+  -- definitionally equal to a when φ holds
+  
+  -- Formation: sub A φ a
+  -- This is similar to extension but "checking" form
+  
+  -- Example: (x : sub nat (i=0) 5) is a nat that equals 5 when i=0
+  
+  sub ::= sub type cofibration term
+
+-----------------------------------------------------
+-- Coercion (coe)
+-----------------------------------------------------
+
+piece Coercion
+  -- coe : (i:𝕀 → type) → (r s : 𝕀) → A(r) → A(s)
+  -- Transport along a line of types
+  
+  coe ::= coe family src tgt element
+  
+  -- Key computation rule:
+  -- coe (i => A) r r a = a  (reflexivity)
+  
+  -- Coercion through type formers:
+  
+  rule coe_pi:
+    coe (i => (x : A i) -> B i x) r s f
+      ~> λx. coe (i => B i (coe (j => A j) s i x)) r s 
+             (f (coe (i => A i) s r x))
+  
+  rule coe_sg:
+    coe (i => (x : A i) × B i x) r s (a, b)
+      ~> (coe (i => A i) r s a, 
+          coe (i => B i (coe (j => A j) r i a)) r s b)
+  
+  rule coe_path:
+    coe (i => path (A i) (a i) (b i)) r s p
+      ~> λj. com (i => A i) r s (j=0 ∨ j=1) 
+             [j=0 i => a i | j=1 i => b i | ... => p j]
+
+-----------------------------------------------------
+-- Homogeneous Composition (hcom)
+-----------------------------------------------------
+
+piece HCom
+  -- hcom : (A : type) → (r s : 𝕀) → (φ : 𝔽) → 
+  --        (u : (i:𝕀) → Partial φ A) → A
+  -- with u(s) = hcom A r s φ u  when φ holds
+  
+  hcom ::= hcom type src tgt cof tube
+  
+  -- The tube provides a partial element for each i in [r,s]
+  -- The result agrees with the tube when the cofibration holds
+  
+  -- Example: symmetry of paths uses hcom
+  -- symm p := hcom A 0 1 (∂i) [i=0 => p 0 | i=1 => p (1-i)]
+
+-----------------------------------------------------
+-- Kan Filling (hfill)
+-----------------------------------------------------
+
+piece HFill
+  -- hfill is the "open box" version of hcom
+  -- hfill A r φ u : (i:𝕀) → sub A (φ ∨ i=r) [φ => u i | i=r => u r]
+  
+  hfill ::= hfill type src cof tube
+  
+  -- Key property: hfill A r φ u 1 = hcom A r 1 φ u
+
+-----------------------------------------------------
+-- Heterogeneous Composition (com)
+-----------------------------------------------------
+
+piece Com
+  -- com : (A : 𝕀 → type) → (r s : 𝕀) → (φ : 𝔽) →
+  --       (u : (i:𝕀) → Partial φ (A i)) → A(s)
+  
+  com ::= com family src tgt cof tube
+  
+  -- Defined in terms of hcom and coe:
+  -- com A r s φ u = hcom (A s) r s φ (i => coe A i s (u i))
+
+-----------------------------------------------------
+-- V Types (Univalence)
+-----------------------------------------------------
+
+piece VTypes
+  -- V r A B e : the "glue" type for univalence
+  -- - When r=0: V 0 A B e ≃ A
+  -- - When r=1: V 1 A B e ≃ B
+  -- - e : A ≃ B is the equivalence witnessing the connection
+  
+  V ::= V dim type type equiv
+  
+  -- V type computation:
+  rule V_zero:
+    V 0 A B e ~> A
+  
+  rule V_one:
+    V 1 A B e ~> B
+  
+  -- Introduction: given a:A and b:B such that e a = b
+  vin ::= [a, b]  -- pair in V type
+  
+  -- Elimination: vproj extracts the B component
+  vproj ::= vproj term
+  
+  -- vproj [a, b] = b when r=1
+  
+  -- cap: extracts boundary info
+  cap ::= cap term
+  
+  -- Univalence: the map ua : (A ≃ B) → (A = B) is given by
+  -- ua e := i => V i A B e
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+piece DerivedOps
+  -- path : type → term → term → type
+  path ::= ext i => A with [i=0 => a | i=1 => b]
+  
+  -- path-p : (𝕀 → type) → term → term → type  
+  pathp ::= ext i => A i with [i=0 => a | i=1 => b]
+  
+  -- refl : path A a a
+  refl ::= i => a
+  
+  -- symm : path A a b → path A b a
+  symm ::= hfill A 0 (∂ i) [i=0 => p j | i=1 => p 0]
+  
+  -- trans : path A a b → path A b c → path A a c
+  trans ::= hcom A 0 1 (∂ i) [i=0 => p j | i=1 => q j]
+  
+  -- ap/cong : (f : A → B) → path A a a' → path B (f a) (f a')
+  cong ::= i => f (p i)
+  
+  -- funext : ((x:A) → path B (f x) (g x)) → path (A→B) f g
+  funext ::= i x => h x i
+  
+  -- transport : path type A B → A → B
+  transport ::= coe (i => p i) 0 1
+
+-----------------------------------------------------
+-- Kan Operations Laws
+-----------------------------------------------------
+
+piece KanLaws
+  -- Reflexivity laws (endpoints equal):
+  rule coe_refl:
+    coe A r r a ~> a
+  
+  rule hcom_refl:
+    hcom A r r φ u ~> u r
+  
+  rule com_refl:
+    com A r r φ u ~> u r
+  
+  -- Boundary conditions:
+  rule hcom_boundary:
+    hcom A r s φ u ~> u s   when φ holds
+  
+  rule com_boundary:
+    com A r s φ u ~> u s    when φ holds
+  
+  -- Connection with hfill:
+  rule hfill_endpoint:
+    hfill A r φ u 1 ~> hcom A r 1 φ u
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+
+piece Tests
+  -- Path types
+  test "path_type": ext i => A with [i=0 => a | i=1 => b]
+    ~~> ext i => A with [i=0 => a | i=1 => b]
+  
+  test "refl": i => x ~~> i => x
+  
+  -- Coercion
+  test "coe_refl": coe (i => A) 0 0 a ~~> a
+  test "coe_refl_one": coe (i => A) 1 1 a ~~> a
+  
+  -- V types
+  test "V_zero": V 0 A B e ~~> A
+  test "V_one": V 1 A B e ~~> B
+

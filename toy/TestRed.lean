@@ -38,7 +38,10 @@ def assertEq [BEq α] [Repr α] (name : String) (actual expected : α) : TestRes
 /-- Get the main token productions to try in priority order -/
 def getMainTokenProdsOrdered (tokenProds : Productions) : List String :=
   let names := tokenProds.map (·.1)
-  let priority := ["Token.comment", "Token.ws", "Token.string", "Token.ident", "Token.number", "Token.sym"]
+  -- Priority: comments/whitespace first (to skip), then longest operators first
+  -- op3 before op2 before sym to ensure longest match
+  let priority := ["Token.comment", "Token.ws", "Token.string", "Token.op3", "Token.op2",
+                   "Token.ident", "Token.number", "Token.sym"]
   priority.filter names.contains
 
 /-- Split a .red file into individual top-level declarations -/

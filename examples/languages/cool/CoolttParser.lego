@@ -1,0 +1,206 @@
+-----------------------------------------------------
+-- CoolttParser: Parser for cooltt files
+--
+-- This module provides the parser entry points for
+-- cooltt source files, combining the grammar,
+-- tokenizer, and AST specifications.
+-----------------------------------------------------
+
+import Cooltt
+import CoolttTokens
+import CoolttAST
+import CoolttCubical
+
+lang CoolttParser (Cooltt, CoolttTokens) :=
+
+-----------------------------------------------------
+-- Entry Points
+-----------------------------------------------------
+
+piece EntryPoints
+  -- Parse a signature (list of declarations)
+  entry sign: decl* -> signature
+  
+  -- Parse a REPL command
+  entry replcmd: replcmd_ -> replcmd
+  
+  -- Parse a term
+  entry term: term -> con
+  
+  -- Parse a declaration
+  entry decl: decl_ -> decl
+
+-----------------------------------------------------
+-- Grammar Composition
+-----------------------------------------------------
+
+piece GrammarComposition
+  -- The full grammar is the pushout of:
+  -- 1. Core terms (Cooltt.Terms)
+  -- 2. Types (Cooltt.BuiltinTypes)
+  -- 3. Functions (Cooltt.FunctionTypes)
+  -- 4. Pairs (Cooltt.SigmaTypes)
+  -- 5. Records (Cooltt.Records)
+  -- 6. Cofibrations (Cooltt.Cofibrations)
+  -- 7. Extension types (Cooltt.ExtensionTypes)
+  -- 8. Cubical operations (Cooltt.CubicalOps)
+  -- 9. V types (Cooltt.VTypes)
+  -- 10. Declarations (Cooltt.Declarations)
+  -- 11. Module system (Cooltt.ModuleSystem)
+  
+  grammar := Cooltt.Terms 
+           ⊕ Cooltt.BuiltinTypes
+           ⊕ Cooltt.FunctionTypes
+           ⊕ Cooltt.SigmaTypes
+           ⊕ Cooltt.Records
+           ⊕ Cooltt.Cofibrations
+           ⊕ Cooltt.ExtensionTypes
+           ⊕ Cooltt.CubicalOps
+           ⊕ Cooltt.VTypes
+           ⊕ Cooltt.Declarations
+           ⊕ Cooltt.ModuleSystem
+
+-----------------------------------------------------
+-- Tokenizer
+-----------------------------------------------------
+
+piece Tokenizer
+  -- Token stream processing
+  tokenize : String -> [Token]
+  
+  -- Skip whitespace and comments
+  skipws : [Token] -> [Token]
+  
+  -- Keyword lookup
+  keyword : String -> Token?
+
+-----------------------------------------------------
+-- Parser Combinators
+-----------------------------------------------------
+
+piece Combinators
+  -- Basic combinators
+  pure : a -> Parser a
+  fail : Parser a
+  (<|>) : Parser a -> Parser a -> Parser a
+  (>>=) : Parser a -> (a -> Parser b) -> Parser b
+  
+  -- Token matching
+  token : Token -> Parser Token
+  satisfy : (Token -> Bool) -> Parser Token
+  
+  -- Sequencing
+  many : Parser a -> Parser [a]
+  many1 : Parser a -> Parser [a]
+  sepBy : Parser a -> Parser sep -> Parser [a]
+  sepBy1 : Parser a -> Parser sep -> Parser [a]
+  
+  -- Optional
+  optional : Parser a -> Parser (Maybe a)
+  
+  -- Positioned parsing
+  located : Parser a -> Parser (Node a)
+
+-----------------------------------------------------
+-- Error Handling
+-----------------------------------------------------
+
+piece ErrorHandling
+  -- Parse error type
+  data ParseError where
+    | Unexpected Token Position
+    | Expected String Position
+    | EndOfInput Position
+    | Ambiguous [a] Position
+  
+  -- Error recovery
+  recover : Parser a -> Parser a
+  
+  -- Error messages
+  formatError : ParseError -> String
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+
+piece Tests
+  -- Basic parsing tests
+  test parse "type": parse term "type" ~~> Type
+  test parse "nat": parse term "nat" ~~> Nat
+  test parse "circle": parse term "circle" ~~> Circle
+  
+  -- Lambda parsing
+  test parse "x => x": parse term "x => x" ~~> Lam [`User ["x"]] (Var (`User ["x"]))
+  test parse "x y => x": parse term "x y => x" ~~> Lam [`User ["x"], `User ["y"]] (Var (`User ["x"]))
+  
+  -- Application parsing
+  test parse "f x": parse term "f x" ~~> Ap (Var (`User ["f"])) [Var (`User ["x"])]
+  test parse "f x y": parse term "f x y" ~~> Ap (Var (`User ["f"])) [Var (`User ["x"]), Var (`User ["y"])]
+  
+  -- Arrow parsing
+  test parse "A -> B": parse term "A -> B" ~~> Pi [Cell {names: [`Anon], tp: A}] B
+  test parse "(x : A) -> B": parse term "(x : A) -> B" ~~> Pi [Cell {names: [`User ["x"]], tp: A}] B
+  
+  -- Pair parsing
+  test parse "[a, b]": parse term "[a, b]" ~~> Pair a b
+  test parse "A * B": parse term "A * B" ~~> Sg [Cell {names: [`Anon], tp: A}] B
+  
+  -- Extension type parsing
+  test parse "ext i => A with [i=0 => a | i=1 => b]":
+    parse term "ext i => A with [i=0 => a | i=1 => b]"
+    ~~> Ext [`User ["i"]] A [(CofEq i 0, a), (CofEq i 1, b)]
+  
+  -- Cofibration parsing
+  test parse "i = 0": parse cof "i = 0" ~~> CofEq i 0
+  test parse "φ \\/ ψ": parse cof "φ \\/ ψ" ~~> Join [φ, ψ]
+  test parse "φ /\\ ψ": parse cof "φ /\\ ψ" ~~> Meet [φ, ψ]
+  test parse "∂ i": parse cof "∂ i" ~~> CofBoundary i
+  
+  -- Cubical operation parsing
+  test parse "coe A 0 1 x": parse term "coe A 0 1 x" ~~> Coe A 0 1 x
+  test parse "hcom A 0 1 φ u": parse term "hcom A 0 1 φ u" ~~> HCom A 0 1 φ u
+  
+  -- V type parsing
+  test parse "V r A B e": parse term "V r A B e" ~~> V r A B e
+  test parse "vproj t": parse term "vproj t" ~~> VProj t
+  
+  -- Eliminator parsing
+  test parse "elim [| zero => z | suc {n => ih} => s]":
+    parse term "elim [| zero => z | suc {n => ih} => s]"
+    ~~> LamElim [(Pat {lbl: ["zero"], args: []}, z),
+                 (Pat {lbl: ["suc"], args: [`Inductive (n, ih)]}, s)]
+  
+  -- Record parsing
+  test parse "sig [x : nat]":
+    parse term "sig [x : nat]"
+    ~~> Signature [`Field (`User ["x"], Nat)]
+  test parse "struct [x := 0]":
+    parse term "struct [x := 0]"
+    ~~> Struct [`Field (`User ["x"], Lit 0)]
+  
+  -- Let parsing
+  test parse "let x := a in b":
+    parse term "let x := a in b"
+    ~~> Let a (`User ["x"]) b
+  
+  -- Declaration parsing
+  test parse "def f : nat := 0":
+    parse decl "def f : nat := 0"
+    ~~> Def {abstract: false, shadowing: false, name: `User ["f"], 
+             args: [], def: Lit 0, tp: Nat, unfolding: []}
+  
+  test parse "import prelude":
+    parse decl "import prelude"
+    ~~> Import {shadowing: false, unitpath: ["prelude"], modifier: None}
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for CoolttParser
+-- =============================================================================
+-- [x] Grammar: Complete from Grammar.mly
+-- [x] Tokens: Complete from Lex.mll
+-- [x] AST: Complete from ConcreteSyntaxData.ml
+-- [ ] Parser: Entry points defined
+-- [ ] Error handling: Recovery and messages
+-- Keywords: cuts := ["piece", "rule", "test", "import", "entry"]
+-- =============================================================================
+
