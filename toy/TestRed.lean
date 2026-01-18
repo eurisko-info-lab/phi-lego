@@ -24,6 +24,7 @@ import Lego.Red.FHCom
 import Lego.Red.ExtType
 import Lego.Red.SubType
 import Lego.Red.HIT
+import Lego.Red.Signature
 import Lego.Loader
 
 open Lego
@@ -2347,6 +2348,240 @@ def hitModuleTests : List TestResult :=
     assertTrue "circleNotAgree" !not_agree
   ]
 
+/-! ## Signature Module Tests -/
+
+def signatureModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Signature in
+
+  -- Test Label creation
+  let lbl_x := Label.user "x"
+  let lbl_y := Label.user "y"
+  let lbl_anon := Label.anon 0
+  let lbl_x_str := lbl_x.toString
+  let lbl_y_str := lbl_y.toString
+  let lbl_anon_str := lbl_anon.toString
+  let label_x_ok := lbl_x_str == "x"
+  let label_y_ok := lbl_y_str == "y"
+  let label_anon_ok := lbl_anon_str == "_0"
+  let anon_check := lbl_anon.isAnon && !lbl_x.isAnon
+
+  -- Test empty telescope
+  let empty_tele := Telescope.empty
+  let empty_len := empty_tele.length
+  let empty_len_ok := empty_len == 0
+
+  -- Test telescope extension
+  let tele1 := Telescope.extend empty_tele lbl_x nat
+  let tele1_len := tele1.length
+  let tele1_len_ok := tele1_len == 1
+  let tele1_labels := tele1.labels
+  let tele1_labels_ok := tele1_labels == [lbl_x]
+
+  -- Test dependent telescope (y : Nat depends on x)
+  let tele2 := Telescope.extend tele1 lbl_y (pi nat nat)
+  let tele2_len := tele2.length
+  let tele2_len_ok := tele2_len == 2
+
+  -- Test findByLabel
+  let find_x := tele2.findByLabel lbl_x
+  let find_y := tele2.findByLabel lbl_y
+  let find_z := tele2.findByLabel (Label.user "z")
+  let find_x_ok := match find_x with
+    | some (0, _) => true
+    | _ => false
+  let find_y_ok := match find_y with
+    | some (1, _) => true
+    | _ => false
+  let find_z_ok := find_z.isNone
+
+  -- Test SignatureType
+  let sig_empty := SignatureType.empty
+  let sig_empty_len := sig_empty.numFields
+  let sig_empty_ok := sig_empty_len == 0
+
+  let sig1 := SignatureType.single lbl_x nat
+  let sig1_len := sig1.numFields
+  let sig1_ok := sig1_len == 1
+
+  let sig2 := sig1.extend lbl_y (pi nat nat)
+  let sig2_len := sig2.numFields
+  let sig2_ok := sig2_len == 2
+
+  -- Test findField
+  let idx_x := sig2.findField lbl_x
+  let idx_y := sig2.findField lbl_y
+  let idx_z := sig2.findField (Label.user "z")
+  let idx_x_ok := idx_x == some 0
+  let idx_y_ok := idx_y == some 1
+  let idx_z_ok := idx_z.isNone
+
+  -- Test toSigma conversion
+  let sig_as_sigma := sig2.toSigma
+  let sigma_ok := match sig_as_sigma with
+    | sigma .nat (pi .nat .nat) => true
+    | _ => false
+
+  -- Test Struct
+  let struct_empty := Struct.empty
+  let struct_empty_len := struct_empty.numFields
+  let struct_empty_ok := struct_empty_len == 0
+
+  let struct1 := Struct.single lbl_x zero
+  let struct1_len := struct1.numFields
+  let struct1_ok := struct1_len == 1
+
+  let struct2 := struct1.extend lbl_y (suc zero)
+  let struct2_len := struct2.numFields
+  let struct2_ok := struct2_len == 2
+
+  -- Test Struct field access
+  let field_x := struct2.getField lbl_x
+  let field_y := struct2.getField lbl_y
+  let field_z := struct2.getField (Label.user "z")
+  let field_x_ok := field_x == some zero
+  let field_y_ok := field_y == some (suc zero)
+  let field_z_ok := field_z.isNone
+
+  -- Test getAt
+  let at_0 := struct2.getAt 0
+  let at_1 := struct2.getAt 1
+  let at_2 := struct2.getAt 2
+  let at_0_ok := at_0 == some zero
+  let at_1_ok := at_1 == some (suc zero)
+  let at_2_ok := at_2.isNone
+
+  -- Test toPair conversion
+  let struct_as_pair := struct2.toPair
+  let pair_ok := struct_as_pair == pair zero (suc zero)
+
+  -- Test fromList
+  let struct_from_list := Struct.fromList [(lbl_x, zero), (lbl_y, (suc zero))]
+  let from_list_ok := struct_from_list.labels == [lbl_x, lbl_y]
+
+  -- Test mkProj
+  let proj_0 := mkProj (ix 0) lbl_x 0
+  let proj_1 := mkProj (ix 0) lbl_y 1
+  let proj_0_ok := proj_0 == fst (ix 0)
+  let proj_1_ok := proj_1 == fst (snd (ix 0))
+
+  -- Test projAt
+  let proj_at_0 := projAt (ix 0) 0
+  let proj_at_1 := projAt (ix 0) 1
+  let proj_at_2 := projAt (ix 0) 2
+  let proj_at_0_ok := proj_at_0 == fst (ix 0)
+  let proj_at_1_ok := proj_at_1 == fst (snd (ix 0))
+  let proj_at_2_ok := proj_at_2 == fst (snd (snd (ix 0)))
+
+  -- Test unpack
+  let unpacked := unpack struct2
+  let unpack_ok := unpacked == [zero, suc zero]
+
+  -- Test unpackExpr
+  let unpack_expr_2 := unpackExpr (ix 0) 2
+  let unpack_expr_ok := unpack_expr_2.length == 2
+
+  -- Test signaturesMatch
+  let sig3 := SignatureType.mk [{label := lbl_x, ty := nat}, {label := lbl_y, ty := pi nat nat}]
+  let match_ok := signaturesMatch sig2 sig3
+  let sig4 := SignatureType.single (Label.user "a") nat
+  let no_match := !signaturesMatch sig2 sig4
+
+  -- Test mkSimpleSignature
+  let simple_sig := mkSimpleSignature [("a", nat), ("b", circle)]
+  let simple_sig_ok := simple_sig.numFields == 2
+
+  -- Test mkSimpleStruct
+  let simple_struct := mkSimpleStruct [("a", zero), ("b", base)]
+  let simple_struct_ok := simple_struct.numFields == 2
+
+  -- Test isExtension
+  let sig_base := mkSimpleSignature [("x", nat)]
+  let sig_ext := mkSimpleSignature [("x", nat), ("y", circle)]
+  let is_ext := isExtension sig_base sig_ext
+  let not_ext := !isExtension sig_ext sig_base
+
+  -- Test KTelescope
+  let ktele_empty := KTelescope.empty
+  let ktele_empty_ok := ktele_empty.length == 0
+
+  let ktele1 := KTelescope.extend ktele_empty lbl_x nat
+  let ktele1_ok := ktele1.length == 1
+
+  let ktele2 := ktele1.extend lbl_y circle
+  let ktele2_ok := ktele2.length == 2
+  let ktele2_labels := ktele2.labels
+  let ktele2_labels_ok := ktele2_labels == [lbl_x, lbl_y]
+
+  -- Test toTelescope
+  let ktele_as_tele := ktele2.toTelescope
+  let ktele_as_tele_ok := ktele_as_tele.length == 2
+
+  -- Test buildMCoe (basic structure)
+  let mcoe_result := buildMCoe dim0 dim1 (pair zero base) ktele2
+  let mcoe_is_pair := match mcoe_result with
+    | pair _ _ => true
+    | _ => false
+
+  -- Test buildMCom (basic structure)
+  let mcom_result := buildMCom dim0 dim1 cof_top (pair zero base) ktele2
+  let mcom_is_pair := match mcom_result with
+    | pair _ _ => true
+    | _ => false
+
+  [
+    assertTrue "label_x" label_x_ok,
+    assertTrue "label_y" label_y_ok,
+    assertTrue "label_anon" label_anon_ok,
+    assertTrue "anon_check" anon_check,
+    assertTrue "empty_tele" empty_len_ok,
+    assertTrue "tele1_len" tele1_len_ok,
+    assertTrue "tele1_labels" tele1_labels_ok,
+    assertTrue "tele2_len" tele2_len_ok,
+    assertTrue "find_x" find_x_ok,
+    assertTrue "find_y" find_y_ok,
+    assertTrue "find_z" find_z_ok,
+    assertTrue "sig_empty" sig_empty_ok,
+    assertTrue "sig1" sig1_ok,
+    assertTrue "sig2" sig2_ok,
+    assertTrue "idx_x" idx_x_ok,
+    assertTrue "idx_y" idx_y_ok,
+    assertTrue "idx_z" idx_z_ok,
+    assertTrue "toSigma" sigma_ok,
+    assertTrue "struct_empty" struct_empty_ok,
+    assertTrue "struct1" struct1_ok,
+    assertTrue "struct2" struct2_ok,
+    assertTrue "field_x" field_x_ok,
+    assertTrue "field_y" field_y_ok,
+    assertTrue "field_z" field_z_ok,
+    assertTrue "at_0" at_0_ok,
+    assertTrue "at_1" at_1_ok,
+    assertTrue "at_2" at_2_ok,
+    assertTrue "toPair" pair_ok,
+    assertTrue "fromList" from_list_ok,
+    assertTrue "proj_0" proj_0_ok,
+    assertTrue "proj_1" proj_1_ok,
+    assertTrue "projAt_0" proj_at_0_ok,
+    assertTrue "projAt_1" proj_at_1_ok,
+    assertTrue "projAt_2" proj_at_2_ok,
+    assertTrue "unpack" unpack_ok,
+    assertTrue "unpackExpr" unpack_expr_ok,
+    assertTrue "signaturesMatch" match_ok,
+    assertTrue "signaturesNoMatch" no_match,
+    assertTrue "simpleSignature" simple_sig_ok,
+    assertTrue "simpleStruct" simple_struct_ok,
+    assertTrue "isExtension" is_ext,
+    assertTrue "notExtension" not_ext,
+    assertTrue "ktele_empty" ktele_empty_ok,
+    assertTrue "ktele1" ktele1_ok,
+    assertTrue "ktele2" ktele2_ok,
+    assertTrue "ktele2_labels" ktele2_labels_ok,
+    assertTrue "kteleToTelescope" ktele_as_tele_ok,
+    assertTrue "buildMCoe" mcoe_is_pair,
+    assertTrue "buildMCom" mcom_is_pair
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2968,6 +3203,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "HIT Module Tests" hitModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Signature Module Tests" signatureModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
