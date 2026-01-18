@@ -23,6 +23,7 @@ import Lego.Red.VType
 import Lego.Red.FHCom
 import Lego.Red.ExtType
 import Lego.Red.SubType
+import Lego.Red.HIT
 import Lego.Loader
 
 open Lego
@@ -2198,6 +2199,154 @@ def subTypeModuleTests : List TestResult :=
     assertTrue "check_subin" check_subin_ok
   ]
 
+/-! ## HIT Module Tests -/
+
+def hitModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open HIT in
+
+  -- Test HITKind detection
+  let nat_hit := isHIT? nat
+  let nat_hit_ok := nat_hit == some .nat
+
+  let circle_hit := isHIT? circle
+  let circle_hit_ok := circle_hit == some .circle
+
+  let pi_hit := isHIT? (pi nat nat)
+  let pi_hit_ok := pi_hit.isNone
+
+  -- Test isNatCanonical
+  let zero_canon := isNatCanonical zero
+  let suc_canon := isNatCanonical (suc zero)
+  let var_canon := isNatCanonical (ix 0)
+
+  -- Test isCircleCanonical
+  let base_canon := isCircleCanonical base
+  let loop_canon := isCircleCanonical (loop dim0)
+  let elim_canon := isCircleCanonical (circleElim (lit "P") base (plam base) base)
+
+  -- Test mkNatLit
+  let nat0 := mkNatLit 0
+  let nat3 := mkNatLit 3
+  let nat0_ok := nat0 == zero
+  let nat3_ok := nat3 == suc (suc (suc zero))
+
+  -- Test toNatLit?
+  let to0 := toNatLit? zero
+  let to3 := toNatLit? (suc (suc (suc zero)))
+  let to_var := toNatLit? (ix 0)
+  let to0_ok := to0 == some 0
+  let to3_ok := to3 == some 3
+  let to_var_ok := to_var.isNone
+
+  -- Test coeNat (identity)
+  let coe_nat_result := coeNat dim0 dim1 (suc zero)
+  let coe_nat_ok := coe_nat_result == suc zero
+
+  -- Test coeCircle (identity)
+  let coe_circle_result := coeCircle dim0 dim1 base
+  let coe_circle_ok := coe_circle_result == base
+
+  -- Test coeHIT
+  let coe_hit_nat := coeHIT .nat dim0 dim1 zero
+  let coe_hit_circle := coeHIT .circle dim0 dim1 (loop dim0)
+  let coe_hit_nat_ok := coe_hit_nat == zero
+  let coe_hit_circle_ok := coe_hit_circle == loop dim0
+
+  -- Test hcomNat with canonical zero
+  let hcom_nat_zero := hcomNat dim0 dim1 [] zero
+  let hcom_nat_zero_ok := hcom_nat_zero == zero
+
+  -- Test hcomCircle with canonical base
+  let hcom_circle_base := hcomCircle dim0 dim1 [] base
+  let hcom_circle_base_ok := hcom_circle_base == base
+
+  -- Test analyzeHIT
+  let info_zero := analyzeHIT zero
+  let info_zero_ok := match info_zero with
+    | some i => i.kind == .nat && i.isCanonical && i.constructorName == "zero"
+    | none => false
+
+  let info_base := analyzeHIT base
+  let info_base_ok := match info_base with
+    | some i => i.kind == .circle && i.isCanonical && i.constructorName == "base"
+    | none => false
+
+  let info_loop := analyzeHIT (loop dim1)
+  let info_loop_ok := match info_loop with
+    | some i => i.kind == .circle && i.isCanonical && i.constructorName == "loop"
+    | none => false
+
+  let info_elim := analyzeHIT (natElim (lit "P") zero (lam (lam (ix 0))) zero)
+  let info_elim_ok := match info_elim with
+    | some i => i.kind == .nat && !i.isCanonical && i.constructorName == "natElim"
+    | none => false
+
+  -- Test stepHIT
+  let step_coe_nat := stepHIT (coe dim0 dim1 (plam nat) zero)
+  let step_coe_nat_ok := step_coe_nat == some zero
+
+  let step_coe_circle := stepHIT (coe dim0 dim1 (plam circle) base)
+  let step_coe_circle_ok := step_coe_circle == some base
+
+  -- Test hitElimType
+  let nat_elim_ty := hitElimType .nat (lit "P")
+  let circle_elim_ty := hitElimType .circle (lit "P")
+  -- Check these are Pi types
+  let nat_elim_ty_ok := match nat_elim_ty with
+    | .pi .nat _ => true
+    | _ => false
+  let circle_elim_ty_ok := match circle_elim_ty with
+    | .pi .circle _ => true
+    | _ => false
+
+  -- Test loopPath
+  let lp := loopPath
+  let lp_ok := match lp with
+    | .plam (.loop (.dimVar 0)) => true
+    | _ => false
+
+  -- Test circleAgreeAtBoundary
+  let agree0 := circleAgreeAtBoundary base (loop dim0) dim0
+  let agree1 := circleAgreeAtBoundary base (loop dim1) dim1
+  let not_agree := circleAgreeAtBoundary base (loop dim0) dim1
+
+  [
+    assertTrue "nat_is_hit" nat_hit_ok,
+    assertTrue "circle_is_hit" circle_hit_ok,
+    assertTrue "pi_not_hit" pi_hit_ok,
+    assertTrue "zero_canonical" zero_canon,
+    assertTrue "suc_canonical" suc_canon,
+    assertTrue "var_not_canonical" !var_canon,
+    assertTrue "base_canonical" base_canon,
+    assertTrue "loop_canonical" loop_canon,
+    assertTrue "elim_not_canonical" !elim_canon,
+    assertTrue "mkNatLit_0" nat0_ok,
+    assertTrue "mkNatLit_3" nat3_ok,
+    assertTrue "toNatLit_0" to0_ok,
+    assertTrue "toNatLit_3" to3_ok,
+    assertTrue "toNatLit_var" to_var_ok,
+    assertTrue "coeNat_identity" coe_nat_ok,
+    assertTrue "coeCircle_identity" coe_circle_ok,
+    assertTrue "coeHIT_nat" coe_hit_nat_ok,
+    assertTrue "coeHIT_circle" coe_hit_circle_ok,
+    assertTrue "hcomNat_zero" hcom_nat_zero_ok,
+    assertTrue "hcomCircle_base" hcom_circle_base_ok,
+    assertTrue "analyzeHIT_zero" info_zero_ok,
+    assertTrue "analyzeHIT_base" info_base_ok,
+    assertTrue "analyzeHIT_loop" info_loop_ok,
+    assertTrue "analyzeHIT_elim" info_elim_ok,
+    assertTrue "stepHIT_coe_nat" step_coe_nat_ok,
+    assertTrue "stepHIT_coe_circle" step_coe_circle_ok,
+    assertTrue "hitElimType_nat" nat_elim_ty_ok,
+    assertTrue "hitElimType_circle" circle_elim_ty_ok,
+    assertTrue "loopPath_structure" lp_ok,
+    assertTrue "circleAgree_at_0" agree0,
+    assertTrue "circleAgree_at_1" agree1,
+    assertTrue "circleNotAgree" !not_agree
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2816,6 +2965,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "SubType Module Tests" subTypeModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "HIT Module Tests" hitModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
