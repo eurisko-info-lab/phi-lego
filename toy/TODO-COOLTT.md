@@ -4,24 +4,25 @@ This document tracks missing features needed for full cooltt/redtt compatibility
 
 ## Priority 1: Core Infrastructure
 
-### [ ] Conversion Module (`Conversion.lean`)
+### [x] Conversion Module (`Conversion.lean`) ✓ DONE
 Equality and subtyping checking for types and terms.
-- [ ] `equate_tp` - Type equality checking
-- [ ] `equate_con` - Term equality checking  
-- [ ] `equate_cut` - Neutral term equality
-- [ ] `equate_hd` - Head comparison
-- [ ] `equate_cof` - Cofibration equality
-- [ ] `equate_dim` - Dimension equality
-- [ ] Handle stuck/neutral terms
+- [x] `equate_tp` - Type equality checking
+- [x] `equate_con` - Term equality checking  
+- [x] `equate_cut` → `equate_neutral` - Neutral term equality
+- [x] `equate_cof` - Cofibration equality
+- [x] `equate_dim` - Dimension equality
+- [ ] Handle stuck/neutral terms (partial)
 - [ ] `approx_cof` - Cofibration approximation
 
-### [ ] RefineMonad (`RefineMonad.lean`)
+### [x] RefineMonad (`RefineMonad.lean`) ✓ DONE
 Monadic infrastructure for elaboration/refinement.
-- [ ] `RefineM` monad with state for unification
-- [ ] `RefineEnv` for tracking locals, globals, span info
-- [ ] Error handling: `expected_connective`, `refine_err`
-- [ ] Quote/eval operations within the monad
-- [ ] Span/location tracking for errors
+- [x] `RefineM` monad with state for unification
+- [x] `RefineEnv` → `LocalEnv` for tracking locals
+- [x] `GlobalEnv` for globals, holes
+- [x] Error handling: `RefineError`, `refineError`
+- [x] `abstract` for binding variables
+- [x] Span/location tracking for errors
+- [ ] Full quote/eval integration
 
 ## Priority 2: Evaluation & Building
 
@@ -35,22 +36,18 @@ Complete evaluation with Kan operations.
 - [ ] Full FHCom computation rules
 - [ ] `splice_tm` / `splice_tp` - Splicing operations
 
-### [ ] TermBuilder (`TermBuilder.lean`)
+### [x] TermBuilder (`TermBuilder.lean`) ✓ DONE
 De Bruijn-free term construction.
-- [ ] Scoped variable binding
-- [ ] `Equiv` module:
-  - [ ] `code_equiv` - Equivalence type code
-  - [ ] `equiv_fwd` - Forward map
-  - [ ] `equiv_inv` - Inverse map
-  - [ ] `equiv_inv_path` - Inverse path
-  - [ ] `code_is_contr` - Contractibility code
-  - [ ] `code_fiber` - Fiber code
-- [ ] `Kan` module:
-  - [ ] `coe_pi`, `hcom_pi` - Pi coercion/composition
-  - [ ] `coe_sg`, `hcom_sg` - Sigma coercion/composition
-  - [ ] `coe_ext`, `hcom_ext` - Extension type Kan ops
-  - [ ] `V` submodule: `hcom_v`, `coe_v`
-  - [ ] `FHCom` submodule: `hcom_fhcom`, `coe_fhcom`
+- [x] `BuildM` monad with level tracking
+- [x] `lam`, `pi`, `sigma`, `path`, `plam`, `sub` binders
+- [x] `ap`, `papp`, `fst`, `snd` eliminators
+- [x] `dim0`, `dim1`, dimension builders
+- [x] `top`, `bot`, `eq`, `cof_and`, `cof_or`, `boundary` cofibrations
+- [x] `coe`, `hcom`, `com` Kan operations
+- [x] `v`, `vIn`, `vProj` V-type constructors
+- [x] Helper combinators: `lams`, `pis`, `const`
+- [ ] `Equiv` module (equivalence type helpers)
+- [ ] `Kan` module (type-specific Kan ops)
 
 ## Priority 3: Extended Tactics
 
