@@ -28,6 +28,8 @@ import Lego.Red.Signature
 import Lego.Red.Cofibration
 import Lego.Red.Splice
 import Lego.Red.Tactic
+import Lego.Red.Glue
+import Lego.Red.Domain
 import Lego.Loader
 
 open Lego
@@ -3550,6 +3552,267 @@ def tacticModuleTests : List TestResult :=
     assertTrue "const_fn" const_fn_ok
   ]
 
+/-! ## Glue Module Tests (Enhanced) -/
+
+def glueModuleTests : List TestResult :=
+  open Lego.Core.Expr in
+  open Lego.Red.Glue in
+
+  -- Test GlueInfo construction
+  let ginfo := GlueInfo.mk nat cof_top nat (lit "id")
+  let ginfo_base := ginfo.base == nat
+  let ginfo_cof := ginfo.cof == cof_top
+  let ginfo_top := ginfo.top == nat
+  let ginfo_equiv := ginfo.equiv == lit "id"
+
+  -- Test GlueElemInfo construction
+  let geinfo := GlueElemInfo.mk (lit "partial") (lit "base")
+  let geinfo_partial := geinfo.partial_ == lit "partial"
+  let geinfo_base := geinfo.base == lit "base"
+
+  -- Test mkGlue smart constructor
+  let g := mkGlue nat cof_top circle (lit "equiv")
+  let g_is_glue := match g with
+    | glue _ _ _ _ => true
+    | nat => true  -- Could reduce
+    | circle => true  -- Could reduce
+    | _ => false
+
+  -- Test mkGlueElem smart constructor
+  let ge := mkGlueElem (lit "t") (lit "a")
+  let ge_is_glue_elem := match ge with
+    | glueElem _ _ => true
+    | _ => false
+
+  -- Test mkUnglue smart constructor
+  let ug := mkUnglue (glueElem (lit "t") (lit "a"))
+  let ug_is_unglue := match ug with
+    | unglue _ => true
+    | _ => false
+
+  -- Test reduceGlue (with trivial cof)
+  let g0 := glue nat cof_top circle (lit "e")
+  let reduced0 := reduceGlue g0
+  let g0_reduces := reduced0 == circle  -- cof_top means reduce to top (circle)
+
+  -- Test reduceGlueElem
+  let reduced_ge := reduceGlueElem cof_top (lit "t") (lit "a")
+  let ge_reduces := reduced_ge == lit "t"  -- cof_top -> partial
+
+  -- Test reduceUnglue
+  let reduced_ug := reduceUnglue (glueElem (lit "t") (lit "a"))
+  let ug_reduces := reduced_ug == lit "a"
+
+  -- Test ua function
+  let ua_result := ua (lit "A") (lit "B") (lit "equiv")
+  let ua_ok := match ua_result with
+    | plam _ => true
+    | _ => false
+
+  [
+    -- GlueInfo
+    assertTrue "ginfo_base" ginfo_base,
+    assertTrue "ginfo_cof" ginfo_cof,
+    assertTrue "ginfo_top" ginfo_top,
+    assertTrue "ginfo_equiv" ginfo_equiv,
+
+    -- GlueElemInfo
+    assertTrue "geinfo_partial" geinfo_partial,
+    assertTrue "geinfo_base" geinfo_base,
+
+    -- Smart constructors
+    assertTrue "mkGlue" g_is_glue,
+    assertTrue "mkGlueElem" ge_is_glue_elem,
+    assertTrue "mkUnglue" ug_is_unglue,
+
+    -- Reduction
+    assertTrue "reduceGlue_at_top" g0_reduces,
+    assertTrue "reduceGlueElem" ge_reduces,
+    assertTrue "reduceUnglue" ug_reduces,
+
+    -- ua
+    assertTrue "ua" ua_ok
+  ]
+
+/-! ## Domain Module Tests -/
+
+def domainModuleTests : List TestResult :=
+  open Lego.Red.Domain in
+
+  -- Test DLevel
+  let lvl0 := DLevel.zero
+  let lvl1 := DLevel.one
+  let lvl_const := DLevel.const 5
+  let lvl_suc := DLevel.suc lvl0
+  let lvl_max := DLevel.max lvl0 lvl1
+  let lvl_lvar := DLevel.lvar 0
+
+  let lvl_zero_ok := lvl0 == DLevel.const 0
+  let lvl_one_ok := lvl1 == DLevel.const 1
+  let lvl_suc_ok := lvl_suc == DLevel.suc (DLevel.const 0)
+  let lvl_max_ok := lvl_max == DLevel.max (DLevel.const 0) (DLevel.const 1)
+  let lvl_lvar_ok := lvl_lvar == DLevel.lvar 0
+
+  -- Test Dim
+  let d0 := Dim.dim0
+  let d1 := Dim.dim1
+  let dvar := Dim.dvar 0
+
+  let dim_eq_00 := Dim.eq d0 d0
+  let dim_eq_01 := !Dim.eq d0 d1
+  let dim_to_expr_0 := Dim.toExpr d0 == Lego.Core.Expr.dim0
+  let dim_to_expr_1 := Dim.toExpr d1 == Lego.Core.Expr.dim1
+
+  -- Test Cof
+  let cof_t := Cof.top
+  let cof_b := Cof.bot
+  let cof_eq := Cof.eq d0 d1
+  let cof_join := Cof.join cof_t cof_b
+  let cof_meet := Cof.meet cof_t cof_b
+
+  let cof_top_true := Cof.isTrue cof_t
+  let cof_bot_false := Cof.isFalse cof_b
+  let cof_eq_00_true := Cof.isTrue (Cof.eq d0 d0)
+  let cof_eq_01_false := Cof.isFalse (Cof.eq d0 d1)
+  let cof_join_true := Cof.isTrue (Cof.join cof_t cof_b)
+  let cof_meet_false := Cof.isFalse (Cof.meet cof_t cof_b)
+
+  let bdry := Cof.boundary (Dim.dvar 0)
+  let bdry_is_join := match bdry with
+    | Cof.join _ _ => true
+    | _ => false
+
+  -- Test Env
+  let env0 := Env.empty
+  let env1 := Env.extend env0 Con.zero
+  let env2 := Env.extend env1 Con.base
+  let env_dim := Env.extendDim env0 Dim.dim0
+
+  let env_lookup_0 := Env.lookup env2 0 == some Con.base
+  let env_lookup_1 := Env.lookup env2 1 == some Con.zero
+  let env_lookup_oob := Env.lookup env0 0 == none
+  let env_len_0 := Env.length env0 == 0
+  let env_len_2 := Env.length env2 == 2
+  let env_dim_lookup := Env.lookupDim env_dim 0 == some Dim.dim0
+
+  -- Test Con
+  let con_zero := Con.zero
+  let con_suc := Con.suc con_zero
+  let con_base := Con.base
+  let con_loop := Con.loop Dim.dim0
+  let con_refl := Con.refl con_zero
+  let con_pair := Con.pair con_zero con_base
+
+  let con_zero_not_neu := !Con.isNeutral con_zero
+  let con_suc_not_neu := !Con.isNeutral con_suc
+  let con_zero_no_cut := Con.getCut con_zero == none
+
+  -- Test Tp
+  let tp_nat := Tp.nat
+  let tp_circle := Tp.circle
+  let tp_univ := Tp.univ lvl0
+  let tp_pi := Tp.pi tp_nat (.clo env0 (Lego.Core.Expr.nat))
+  let tp_sigma := Tp.sigma tp_nat (.clo env0 (Lego.Core.Expr.nat))
+
+  let tp_nat_not_neu := !Tp.isNeutral tp_nat
+  let tp_circle_not_neu := !Tp.isNeutral tp_circle
+
+  -- Test Cut
+  let cut_var := Cut.var 0 tp_nat
+  let cut_app := Cut.app cut_var con_zero
+  let cut_fst := Cut.fst cut_var
+  let cut_snd := Cut.snd cut_var
+
+  let con_neu := Con.neu cut_var
+  let con_neu_is_neu := Con.isNeutral con_neu
+  let con_neu_has_cut := Con.getCut con_neu == some cut_var
+
+  -- Test Clo
+  let clo := Clo.clo env0 (Lego.Core.Expr.ix 0)
+  let clo_body := Clo.body clo == Lego.Core.Expr.ix 0
+  let clo_env := Clo.env clo == env0
+
+  -- Test TpClo
+  let tp_clo := TpClo.clo env0 (Lego.Core.Expr.nat)
+  let tp_clo_body := TpClo.body tp_clo == Lego.Core.Expr.nat
+  let tp_clo_env := TpClo.env tp_clo == env0
+
+  -- Test DimClo
+  let dim_clo := DimClo.clo env0 (Lego.Core.Expr.dim0)
+  let dim_clo_body := DimClo.body dim_clo == Lego.Core.Expr.dim0
+  let dim_clo_env := DimClo.env dim_clo == env0
+
+  -- Test pretty printing
+  let dim_str_0 := dimToString Dim.dim0 == "0"
+  let dim_str_1 := dimToString Dim.dim1 == "1"
+  let dim_str_var := dimToString (Dim.dvar 0) == "i0"
+  let con_str_zero := conToString Con.zero == "zero"
+  let con_str_base := conToString Con.base == "base"
+  let tp_str_nat := tpToString Tp.nat == "Nat"
+  let tp_str_circle := tpToString Tp.circle == "S¹"
+  let cut_str_var := cutToString cut_var == "x0"
+
+  [
+    -- DLevel
+    assertTrue "dlevel_zero" lvl_zero_ok,
+    assertTrue "dlevel_one" lvl_one_ok,
+    assertTrue "dlevel_suc" lvl_suc_ok,
+    assertTrue "dlevel_max" lvl_max_ok,
+    assertTrue "dlevel_lvar" lvl_lvar_ok,
+
+    -- Dim
+    assertTrue "dim_eq_00" dim_eq_00,
+    assertTrue "dim_neq_01" dim_eq_01,
+    assertTrue "dim_to_expr_0" dim_to_expr_0,
+    assertTrue "dim_to_expr_1" dim_to_expr_1,
+
+    -- Cof
+    assertTrue "cof_top_true" cof_top_true,
+    assertTrue "cof_bot_false" cof_bot_false,
+    assertTrue "cof_eq_00_true" cof_eq_00_true,
+    assertTrue "cof_eq_01_false" cof_eq_01_false,
+    assertTrue "cof_join_true" cof_join_true,
+    assertTrue "cof_meet_false" cof_meet_false,
+    assertTrue "cof_boundary" bdry_is_join,
+
+    -- Env
+    assertTrue "env_lookup_0" env_lookup_0,
+    assertTrue "env_lookup_1" env_lookup_1,
+    assertTrue "env_lookup_oob" env_lookup_oob,
+    assertTrue "env_len_0" env_len_0,
+    assertTrue "env_len_2" env_len_2,
+    assertTrue "env_dim_lookup" env_dim_lookup,
+
+    -- Con
+    assertTrue "con_zero_not_neu" con_zero_not_neu,
+    assertTrue "con_suc_not_neu" con_suc_not_neu,
+    assertTrue "con_zero_no_cut" con_zero_no_cut,
+    assertTrue "con_neu_is_neu" con_neu_is_neu,
+    assertTrue "con_neu_has_cut" con_neu_has_cut,
+
+    -- Tp
+    assertTrue "tp_nat_not_neu" tp_nat_not_neu,
+    assertTrue "tp_circle_not_neu" tp_circle_not_neu,
+
+    -- Clo
+    assertTrue "clo_body" clo_body,
+    assertTrue "clo_env" clo_env,
+    assertTrue "tp_clo_body" tp_clo_body,
+    assertTrue "tp_clo_env" tp_clo_env,
+    assertTrue "dim_clo_body" dim_clo_body,
+    assertTrue "dim_clo_env" dim_clo_env,
+
+    -- Pretty printing
+    assertTrue "dim_str_0" dim_str_0,
+    assertTrue "dim_str_1" dim_str_1,
+    assertTrue "dim_str_var" dim_str_var,
+    assertTrue "con_str_zero" con_str_zero,
+    assertTrue "con_str_base" con_str_base,
+    assertTrue "tp_str_nat" tp_str_nat,
+    assertTrue "tp_str_circle" tp_str_circle,
+    assertTrue "cut_str_var" cut_str_var
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -4074,7 +4337,8 @@ def runRedttTypeCheckTests : IO (List TestResult) := do
 def allTests : List TestResult :=
   coreIRTests ++ pathTests ++ kanTests ++
   cofibrationTests ++ natHITTests ++ circleTests ++ glueTests ++ systemTests ++ coeStabilityTests ++
-  elaborationTests ++ typecheckTests ++ elaborateAndTypecheck ++ astToIRTests ++ irToASTTests
+  elaborationTests ++ typecheckTests ++ elaborateAndTypecheck ++ astToIRTests ++ irToASTTests ++
+  glueModuleTests ++ domainModuleTests
 
 def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) := do
   IO.println s!"\n── {name} ──"
@@ -4183,6 +4447,12 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Tactic Module Tests" tacticModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Glue Module Tests" glueModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Domain Module Tests" domainModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
