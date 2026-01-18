@@ -54,25 +54,25 @@ De Bruijn-free term construction.
 
 ## Priority 3: Extended Tactics
 
-### [ ] Extend Tactic Module (`Tactic.lean`)
+### [~] Extend Tactic Module (`Tactic.lean`) ✓ PARTIAL
 Full refiner tactics matching cooltt.
 - [ ] `Univ` tactics:
   - [ ] `code_v` - V-type code formation
   - [ ] `ext` - Extension type formation
   - [ ] `hcom`, `com`, `coe` - Kan operation tactics
   - [ ] `hcom_chk` - Checking variant of hcom
-- [ ] `El`, `ElV`, `ElHCom` modules for element types
-- [ ] `Path` module: `intro`, `elim`
-- [ ] `Cof` module: `eq`, `le`, `join`, `meet`, `boundary`, `split`
-- [ ] `Prf` module for proof formation
+- [x] `El` module for element types (formation, intro/code, elim/realize)
+- [x] `Path` module: `intro`, `elim` ✓
+- [x] `Cof` module: `eq`, `le`, `join`, `meet`, `boundary`, `assertTrue`, `split` ✓
+- [x] `Prf` module for proof formation (formation, intro) ✓
 - [ ] `Telescope`, `KanTelescope` for records
-- [ ] `Structural` module:
-  - [ ] `let_`, `let_syn`
-  - [ ] `lookup_var`
-  - [ ] `generalize`
+- [x] `Structural` module ✓:
+  - [x] `let_`, `let_syn`
+  - [x] `lookupVar`
+  - [x] `generalize`
+  - [x] `abstract_`
   - [ ] `unfold`
-  - [ ] `abstract`
-- [ ] `Probe`, `Hole` modules for debugging
+- [x] `Probe`, `Hole` modules for debugging ✓
 
 ## Priority 4: Elaboration
 

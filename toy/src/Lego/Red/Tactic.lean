@@ -864,4 +864,323 @@ def runSyn (tac : SynTac) : TacResult (Expr × Expr) :=
 def runTp (tac : TpTac) : TacResult Expr :=
   Tp.run tac TpCtx.empty
 
+/-! ## Univ Tactics (Universe Type Codes)
+
+    Tactics for V-types, extension types, and Kan operations at the type level.
+    Based on cooltt's Univ module.
+-/
+
+namespace Univ
+
+/-- V-type code formation: V r A B equiv
+    When r=0 gives A, when r=1 gives B. -/
+def code_v (dimTac : ChkTac) (aTac : TpTac) (bTac : TpTac) (equivTac : ChkTac) : TpTac :=
+  Tp.rule "Univ.code_v" fun ctx => do
+    let r ← dimTac ctx (ChkGoal.simple (lit "𝕀"))
+    let a ← aTac ctx
+    let b ← bTac ctx
+    -- equiv : Equiv A B
+    let equiv ← equivTac ctx (ChkGoal.simple (lit s!"Equiv({a},{b})"))
+    TacResult.ok (Expr.vtype r a b equiv)
+
+/-- FHCom type formation: fhcom r r' cap [(φ,tube)...]
+    Fibrant homogeneous composition at type level. -/
+def code_fhcom (rTac r'Tac capTac : ChkTac) (tubes : List (ChkTac × ChkTac)) : TpTac :=
+  Tp.rule "Univ.code_fhcom" fun ctx => do
+    let r ← rTac ctx (ChkGoal.simple (lit "𝕀"))
+    let r' ← r'Tac ctx (ChkGoal.simple (lit "𝕀"))
+    let cap ← capTac ctx (ChkGoal.simple (Expr.univ 0))
+    let tubeExprs ← tubes.mapM fun (φtac, ttac) => do
+      let φ ← φtac ctx (ChkGoal.simple (lit "𝔽"))
+      let t ← ttac ctx (ChkGoal.simple (Expr.univ 0))
+      pure (φ, t)
+    TacResult.ok (Expr.fhcom r r' cap tubeExprs)
+
+/-- Extension type formation: ext n fam cof bdry
+    Types with partial boundary constraints. -/
+def ext (n : Nat) (famTac cofTac bdryTac : ChkTac) : TpTac :=
+  Tp.rule "Univ.ext" fun ctx => do
+    let fam ← famTac ctx (ChkGoal.simple (Expr.univ 0))
+    let cof ← cofTac ctx (ChkGoal.simple (lit "𝔽"))
+    let bdry ← bdryTac ctx (ChkGoal.simple fam)  -- Simplified: should match partial
+    TacResult.ok (Expr.ext n fam cof bdry)
+
+/-- HCom type code: hcom at the universe level (checking variant) -/
+def hcom_chk (rTac r'Tac tyTac capTac : ChkTac) (tubes : List (ChkTac × ChkTac)) : TpTac :=
+  Tp.rule "Univ.hcom_chk" fun ctx => do
+    let r ← rTac ctx (ChkGoal.simple (lit "𝕀"))
+    let r' ← r'Tac ctx (ChkGoal.simple (lit "𝕀"))
+    let ty ← tyTac ctx (ChkGoal.simple (Expr.univ 0))
+    let cap ← capTac ctx (ChkGoal.simple ty)
+    let tubeExprs ← tubes.mapM fun (φtac, ttac) => do
+      let φ ← φtac ctx (ChkGoal.simple (lit "𝔽"))
+      let t ← ttac ctx (ChkGoal.simple ty)
+      pure (φ, t)
+    TacResult.ok (Expr.hcomTube r r' ty tubeExprs cap)
+
+/-- Com type code: heterogeneous composition (checking variant) -/
+def com_chk (rTac r'Tac famTac capTac : ChkTac) (tubes : List (ChkTac × ChkTac)) : TpTac :=
+  Tp.rule "Univ.com_chk" fun ctx => do
+    let r ← rTac ctx (ChkGoal.simple (lit "𝕀"))
+    let r' ← r'Tac ctx (ChkGoal.simple (lit "𝕀"))
+    let fam ← famTac ctx (ChkGoal.simple (Expr.univ 0))  -- λi.A type family
+    let cap ← capTac ctx (ChkGoal.simple (Expr.univ 0))  -- Simplified
+    let tubeExprs ← tubes.mapM fun (φtac, ttac) => do
+      let φ ← φtac ctx (ChkGoal.simple (lit "𝔽"))
+      let t ← ttac ctx (ChkGoal.simple (Expr.univ 0))
+      pure (φ, t)
+    TacResult.ok (Expr.com r r' fam tubeExprs cap)
+
+/-- Coe type code: coercion (checking variant) -/
+def coe_chk (rTac r'Tac famTac termTac : ChkTac) : TpTac :=
+  Tp.rule "Univ.coe_chk" fun ctx => do
+    let r ← rTac ctx (ChkGoal.simple (lit "𝕀"))
+    let r' ← r'Tac ctx (ChkGoal.simple (lit "𝕀"))
+    let fam ← famTac ctx (ChkGoal.simple (Expr.univ 0))
+    let term ← termTac ctx (ChkGoal.simple (Expr.univ 0))
+    TacResult.ok (Expr.coe fam r r' term)
+
+/-- Sub type formation: sub A φ t
+    Cubical subtype / restriction type. -/
+def sub (aTac φTac tTac : ChkTac) : TpTac :=
+  Tp.rule "Univ.sub" fun ctx => do
+    let a ← aTac ctx (ChkGoal.simple (Expr.univ 0))
+    let φ ← φTac ctx (ChkGoal.simple (lit "𝔽"))
+    let t ← tTac ctx (ChkGoal.simple a)  -- Partial: should be under φ
+    TacResult.ok (Expr.sub a φ t)
+
+/-- Glue type formation: Glue A φ T equiv
+    For univalence (legacy, prefer V-types). -/
+def glue (aTac φTac tTac equivTac : ChkTac) : TpTac :=
+  Tp.rule "Univ.glue" fun ctx => do
+    let a ← aTac ctx (ChkGoal.simple (Expr.univ 0))
+    let φ ← φTac ctx (ChkGoal.simple (lit "𝔽"))
+    let t ← tTac ctx (ChkGoal.simple (Expr.univ 0))
+    let equiv ← equivTac ctx (ChkGoal.simple (lit s!"Equiv({t},{a})"))
+    TacResult.ok (Expr.glue a φ t equiv)
+
+end Univ
+
+/-! ## V-Type Element Tactics (ElV)
+
+    Tactics for introducing and eliminating V-type elements.
+-/
+
+namespace ElV
+
+/-- V-type element introduction: vin r a b -/
+def intro (dimTac aTac bTac : ChkTac) : ChkTac :=
+  Chk.rule "ElV.intro" fun ctx goal =>
+    match goal.tp with
+    | Expr.vtype r tyA tyB _ =>
+      do
+        let dim ← dimTac ctx (ChkGoal.simple (lit "𝕀"))
+        let a ← aTac ctx (ChkGoal.simple tyA)
+        let b ← bTac ctx (ChkGoal.simple tyB)
+        TacResult.ok (Expr.vin dim a b)
+    | _ => TacResult.error "expected V-type"
+
+/-- V-type projection: vproj r A B equiv v -/
+def proj (dimTac : ChkTac) (termTac : SynTac) : SynTac :=
+  Syn.rule "ElV.proj" fun ctx => do
+    let dim ← dimTac ctx (ChkGoal.simple (lit "𝕀"))
+    let (tm, ty) ← termTac ctx
+    match ty with
+    | Expr.vtype _r tyA tyB equiv =>
+      let result := Expr.vproj dim tyA tyB equiv tm
+      -- Result type depends on dimension
+      TacResult.ok (result, tyB)  -- Simplified: should depend on dim
+    | _ => TacResult.error "expected V-type"
+
+end ElV
+
+/-! ## Extension Type Element Tactics (ElExt)
+
+    Tactics for extension type elements.
+-/
+
+namespace ElExt
+
+/-- Extension type element introduction: extLam n body -/
+def intro (n : Nat) (bodyTac : ChkTac) : ChkTac :=
+  Chk.rule "ElExt.intro" fun ctx goal =>
+    match goal.tp with
+    | Expr.ext m fam _cof _bdry =>
+      if n == m then do
+        -- Bind n dimension variables
+        let body ← bodyTac ctx (ChkGoal.simple fam)  -- Simplified
+        TacResult.ok (Expr.extLam n body)
+      else TacResult.error s!"dimension mismatch: expected {m}, got {n}"
+    | _ => TacResult.error "expected extension type"
+
+/-- Extension type elimination: extApp e [r₁, ..., rₙ] -/
+def elim (termTac : SynTac) (dimTacs : List ChkTac) : SynTac :=
+  Syn.rule "ElExt.elim" fun ctx => do
+    let (tm, ty) ← termTac ctx
+    match ty with
+    | Expr.ext n fam _cof _bdry =>
+      if dimTacs.length == n then do
+        let dims ← dimTacs.mapM fun dtac => dtac ctx (ChkGoal.simple (lit "𝕀"))
+        let result := Expr.extApp tm dims
+        -- Result type is fam with dims substituted
+        TacResult.ok (result, fam)  -- Simplified
+      else TacResult.error s!"wrong number of dimension arguments: expected {n}"
+    | _ => TacResult.error "expected extension type"
+
+end ElExt
+
+/-! ## FHCom Element Tactics (ElFHCom)
+
+    Tactics for FHCom elements (box/cap).
+-/
+
+namespace ElFHCom
+
+/-- FHCom introduction: boxEl r r' cap [(φ,side)...] -/
+def intro (rTac r'Tac capTac : ChkTac) (sides : List (ChkTac × ChkTac)) : ChkTac :=
+  Chk.rule "ElFHCom.intro" fun ctx goal =>
+    match goal.tp with
+    | Expr.fhcom r r' cap tubes =>
+      do
+        let rVal ← rTac ctx (ChkGoal.simple (lit "𝕀"))
+        let r'Val ← r'Tac ctx (ChkGoal.simple (lit "𝕀"))
+        let capVal ← capTac ctx (ChkGoal.simple cap)
+        let sideExprs ← sides.mapM fun (φtac, stac) => do
+          let φ ← φtac ctx (ChkGoal.simple (lit "𝔽"))
+          let s ← stac ctx (ChkGoal.simple cap)  -- Simplified
+          pure (φ, s)
+        TacResult.ok (Expr.boxEl rVal r'Val capVal sideExprs)
+    | _ => TacResult.error "expected fhcom type"
+
+/-- FHCom elimination: capEl r r' ty [(φ,tube)...] box -/
+def elim (rTac r'Tac tyTac boxTac : ChkTac) (tubes : List (ChkTac × ChkTac)) : SynTac :=
+  Syn.rule "ElFHCom.elim" fun ctx => do
+    let r ← rTac ctx (ChkGoal.simple (lit "𝕀"))
+    let r' ← r'Tac ctx (ChkGoal.simple (lit "𝕀"))
+    let ty ← tyTac ctx (ChkGoal.simple (Expr.univ 0))
+    let box ← boxTac ctx (ChkGoal.simple (Expr.fhcom r r' ty []))  -- Simplified
+    let tubeExprs ← tubes.mapM fun (φtac, ttac) => do
+      let φ ← φtac ctx (ChkGoal.simple (lit "𝔽"))
+      let t ← ttac ctx (ChkGoal.simple ty)
+      pure (φ, t)
+    TacResult.ok (Expr.capEl r r' ty tubeExprs box, ty)
+
+end ElFHCom
+
+/-! ## Telescope Tactics
+
+    Tactics for working with dependent telescopes (lists of dependent types).
+    Based on cooltt's telescope infrastructure.
+-/
+
+/-- A telescope is a list of named types where each can depend on previous -/
+structure TelEntry where
+  name : String
+  tpTac : TpTac
+  deriving Inhabited
+
+/-- Telescope representation -/
+abbrev Telescope := List TelEntry
+
+namespace Telescope
+
+/-- Empty telescope -/
+def empty : Telescope := []
+
+/-- Extend telescope with a new entry -/
+def extend (tel : Telescope) (name : String) (tpTac : TpTac) : Telescope :=
+  tel ++ [TelEntry.mk name tpTac]
+
+/-- Elaborate a telescope to get a list of types -/
+def elaborate (tel : Telescope) (ctx : TpCtx) : TacResult (List Expr) :=
+  tel.foldlM (init := []) fun acc entry => do
+    let ty ← entry.tpTac ctx  -- Simplified: should thread context
+    TacResult.ok (acc ++ [ty])
+
+/-- Create a Pi type from telescope and result type -/
+def toPi (tel : Telescope) (resultTac : TpTac) : TpTac :=
+  Tp.rule "Telescope.toPi" fun ctx => do
+    let types ← elaborate tel ctx
+    let result ← resultTac ctx
+    -- Build nested Pi: (x₁ : A₁) → (x₂ : A₂) → ... → R
+    let piType := types.foldr (init := result) fun ty acc =>
+      Expr.pi ty acc
+    TacResult.ok piType
+
+/-- Create a Sigma type from telescope (dependent product) -/
+def toSigma (tel : Telescope) : TpTac :=
+  Tp.rule "Telescope.toSigma" fun ctx => do
+    let types ← elaborate tel ctx
+    match types with
+    | [] => TacResult.ok (lit "Unit")  -- Empty telescope = unit
+    | [t] => TacResult.ok t
+    | t :: ts =>
+      -- Build nested Sigma: Σ(x₁ : A₁), Σ(x₂ : A₂), ...
+      let sigmaType := ts.foldl (init := t) fun acc ty =>
+        Expr.sigma acc ty
+      TacResult.ok sigmaType
+
+/-- Apply a term to all telescope arguments -/
+def applyTo (tel : Telescope) (termTac : SynTac) (argTacs : List ChkTac) : SynTac :=
+  Syn.rule "Telescope.applyTo" fun ctx => do
+    if argTacs.length != tel.length then
+      TacResult.error s!"wrong number of arguments: expected {tel.length}, got {argTacs.length}"
+    else do
+      let types ← elaborate tel ctx
+      let args ← (argTacs.zip types).mapM fun (argTac, ty) =>
+        argTac ctx (ChkGoal.simple ty)
+      let (fn, fnTy) ← termTac ctx
+      -- Apply all arguments
+      let result := args.foldl (init := fn) Expr.app
+      -- Compute result type (simplified: just return the last codomain)
+      TacResult.ok (result, fnTy)
+
+end Telescope
+
+/-! ## Kan Telescope Tactics
+
+    Telescopes equipped with Kan structure (for paths, transport, etc.).
+-/
+
+/-- A Kan telescope has types that vary over an interval dimension -/
+structure KanTelEntry where
+  name : String
+  tpTac : ChkTac → TpTac  -- Takes dimension variable, produces type
+
+/-- Kan telescope representation -/
+abbrev KanTelescope := List KanTelEntry
+
+namespace KanTelescope
+
+/-- Empty Kan telescope -/
+def empty : KanTelescope := []
+
+/-- Extend Kan telescope -/
+def extend (ktel : KanTelescope) (name : String) (tpTac : ChkTac → TpTac) : KanTelescope :=
+  ktel ++ [KanTelEntry.mk name tpTac]
+
+/-- Evaluate Kan telescope at a dimension -/
+def atDim (ktel : KanTelescope) (dimTac : ChkTac) : Telescope :=
+  ktel.map fun entry =>
+    TelEntry.mk entry.name (entry.tpTac dimTac)
+
+/-- Create type family from Kan telescope: λi. Σ(x₁ : A₁ i), Σ(x₂ : A₂ i), ... -/
+def toFamily (ktel : KanTelescope) : TpTac :=
+  Tp.rule "KanTelescope.toFamily" fun ctx => do
+    -- Create a dimension abstraction
+    let body := Telescope.toSigma (atDim ktel (Chk.pure (ix 0)))  -- Dimension var at index 0
+    let bodyTy ← body ctx
+    TacResult.ok (Expr.plam bodyTy)
+
+/-- Transport along Kan telescope -/
+def coe (ktel : KanTelescope) (srcDim trgDim termTac : ChkTac) : ChkTac :=
+  Chk.rule "KanTelescope.coe" fun ctx goal => do
+    let src ← srcDim ctx (ChkGoal.simple (lit "𝕀"))
+    let trg ← trgDim ctx (ChkGoal.simple (lit "𝕀"))
+    let fam ← toFamily ktel ctx
+    let term ← termTac ctx (ChkGoal.simple goal.tp)  -- Simplified
+    TacResult.ok (Expr.coe fam src trg term)
+
+end KanTelescope
+
 end Lego.Red.Tactic
