@@ -15,11 +15,13 @@ import Lego.Red.TypeAttrs
 import Lego.Red.GlobalEnv
 import Lego.Red.Unify
 import Lego.Red.Quote
+import Lego.Red.Datatype
 import Lego.Loader
 
 open Lego
 open Lego.Loader
 open Lego.Red
+open Lego.Red.Datatype
 
 /-! ## Test Framework -/
 
@@ -1127,6 +1129,136 @@ def quoteTests : List TestResult :=
     assertTrue "equalByNbe_diff" eq_diff
   ]
 
+/-! ## Datatype Tests -/
+
+def datatypeTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+
+  -- Test standard datatype descriptors
+  let nat_desc := mkNatDesc
+  let nat_has_zero := nat_desc.constrs.any (·.name == "zero")
+  let nat_has_suc := nat_desc.constrs.any (·.name == "suc")
+
+  let list_desc := mkListDesc
+  let list_has_nil := list_desc.constrs.any (·.name == "nil")
+  let list_has_cons := list_desc.constrs.any (·.name == "cons")
+  let list_has_param := list_desc.params.length == 1
+
+  let bool_desc := mkBoolDesc
+  let bool_has_true := bool_desc.constrs.any (·.name == "true")
+  let bool_has_false := bool_desc.constrs.any (·.name == "false")
+
+  -- Test mkData and isData?
+  let nat_ty := mkData "Nat" []
+  let is_nat := match isData? nat_ty with
+    | some ("Nat", []) => true
+    | _ => false
+
+  let list_nat := mkData "List" [nat]
+  let is_list_nat := match isData? list_nat with
+    | some ("List", [_]) => true
+    | _ => false
+
+  -- Test mkIntro and isIntro?
+  let zero_intro := mkIntro "Nat" "zero" [] []
+  let is_zero := match isIntro? zero_intro with
+    | some ("Nat", "zero", [], []) => true
+    | _ => false
+
+  let one_intro := mkIntro "Nat" "suc" [] [zero_intro]
+  let is_one := match isIntro? one_intro with
+    | some ("Nat", "suc", [], [_]) => true
+    | _ => false
+
+  -- Test smart constructors
+  let two := mkNat 2  -- suc (suc zero)
+  let is_two := match isIntro? two with
+    | some ("Nat", "suc", [], _) => true
+    | _ => false
+
+  let true_val := mkBool true
+  let is_true := match isIntro? true_val with
+    | some ("Bool", "true", [], []) => true
+    | _ => false
+
+  let false_val := mkBool false
+  let is_false := match isIntro? false_val with
+    | some ("Bool", "false", [], []) => true
+    | _ => false
+
+  -- Test list constructors
+  let empty_list := mkList nat []
+  let is_empty := match isIntro? empty_list with
+    | some ("List", "nil", [_], []) => true
+    | _ => false
+
+  let one_list := mkList nat [zero_intro]
+  let is_one_list := match isIntro? one_list with
+    | some ("List", "cons", [_], _) => true
+    | _ => false
+
+  -- Test Maybe constructors
+  let nothing_val := mkNothing nat
+  let is_nothing := match isIntro? nothing_val with
+    | some ("Maybe", "nothing", [_], []) => true
+    | _ => false
+
+  let just_val := mkJust nat zero_intro
+  let is_just := match isIntro? just_val with
+    | some ("Maybe", "just", [_], [_]) => true
+    | _ => false
+
+  -- Test environment with standard datatypes
+  let stdEnv := stdEnvWithDatatypes
+  let has_nat := stdEnv.lookupDatatype (GName.named "Nat") |>.isSome
+  let has_list := stdEnv.lookupDatatype (GName.named "List") |>.isSome
+  let has_bool := stdEnv.lookupDatatype (GName.named "Bool") |>.isSome
+  let has_maybe := stdEnv.lookupDatatype (GName.named "Maybe") |>.isSome
+
+  -- Test type inference for datatypes
+  let nat_ty_inf := inferDataType stdEnv "Nat" []
+  let has_nat_ty := nat_ty_inf == some (univ Level.zero)
+
+  let list_nat_ty := inferDataType stdEnv "List" [nat]
+  let has_list_nat_ty := list_nat_ty == some (univ Level.zero)
+
+  -- Test intro type inference
+  let zero_ty := inferIntroType stdEnv "Nat" "zero" [] []
+  let has_zero_ty := match zero_ty with
+    | some e => match isData? e with
+      | some ("Nat", []) => true
+      | _ => false
+    | none => false
+
+  [
+    assertTrue "nat_has_zero" nat_has_zero,
+    assertTrue "nat_has_suc" nat_has_suc,
+    assertTrue "list_has_nil" list_has_nil,
+    assertTrue "list_has_cons" list_has_cons,
+    assertTrue "list_has_param" list_has_param,
+    assertTrue "bool_has_true" bool_has_true,
+    assertTrue "bool_has_false" bool_has_false,
+    assertTrue "isData_nat" is_nat,
+    assertTrue "isData_list_nat" is_list_nat,
+    assertTrue "isIntro_zero" is_zero,
+    assertTrue "isIntro_one" is_one,
+    assertTrue "mkNat_2" is_two,
+    assertTrue "mkBool_true" is_true,
+    assertTrue "mkBool_false" is_false,
+    assertTrue "mkList_empty" is_empty,
+    assertTrue "mkList_one" is_one_list,
+    assertTrue "mkNothing" is_nothing,
+    assertTrue "mkJust" is_just,
+    assertTrue "stdEnv_has_nat" has_nat,
+    assertTrue "stdEnv_has_list" has_list,
+    assertTrue "stdEnv_has_bool" has_bool,
+    assertTrue "stdEnv_has_maybe" has_maybe,
+    assertTrue "inferDataType_nat" has_nat_ty,
+    assertTrue "inferDataType_list" has_list_nat_ty,
+    assertTrue "inferIntroType_zero" has_zero_ty
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -1721,6 +1853,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Quotation (NbE) Tests" quoteTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Datatype Tests" datatypeTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
