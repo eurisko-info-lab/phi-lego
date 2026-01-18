@@ -230,7 +230,7 @@ def modifyEnv (f : GlobalEnv → GlobalEnv) : ModuleM Unit := do
   set (cache, f env)
 
 /-- Process a single declaration in a module -/
-def processDecl (decl : ModDecl) (resEnv : ResEnv) (localEnv : GlobalEnv) 
+def processDecl (decl : ModDecl) (resEnv : ResEnv) (localEnv : GlobalEnv)
     (loadImport : Selector → ModuleM ResEnv) : ModuleM (ResEnv × GlobalEnv) := do
   match decl with
   | .importMod vis importSel =>
@@ -326,7 +326,7 @@ def moduleImports (mod : Module) : List Selector :=
 def topologicalSort (modules : List Module) : Except String (List Selector) := do
   -- Build dependency map
   let deps := modules.map fun mod => (mod.name, moduleImports mod)
-  
+
   -- Simple approach: no external deps, just return in declaration order
   -- (A full implementation would do proper topo sort)
   if modules.isEmpty then

@@ -18,6 +18,7 @@ import Lego.Red.Quote
 import Lego.Red.Datatype
 import Lego.Red.Elaborate
 import Lego.Red.Module
+import Lego.Red.Kan
 import Lego.Loader
 
 open Lego
@@ -1614,6 +1615,122 @@ def moduleTests : List TestResult :=
     assertTrue "selector_filePath" filePath_ok
   ]
 
+/-! ## Kan Module Tests -/
+
+def kanModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Lego.Red.Kan in
+
+  -- Test dimension types
+  let dim_i0 := Dim.i0
+  let dim_i1 := Dim.i1
+  let dim_var := Dim.dvar 0
+  let dim_types_exist := dim_i0 != dim_i1 && dim_var == Dim.dvar 0
+
+  -- Test direction
+  let dir1 := Dir.ofExpr dim0 dim1
+  let dir_notDegen := !dir1.isDegenerate
+  let dir2 := Dir.ofExpr dim0 dim0
+  let dir_degen := dir2.isDegenerate
+
+  -- Test cofibration evaluation
+  let subst0 : Nat → Option Dim := fun _ => none
+  let cof_top_true := evalCof subst0 cof_top == true
+  let cof_bot_false := evalCof subst0 cof_bot == false
+  let cof_and_tt := evalCof subst0 (cof_and cof_top cof_top) == true
+  let cof_and_tf := evalCof subst0 (cof_and cof_top cof_bot) == false
+  let cof_or_tf := evalCof subst0 (cof_or cof_top cof_bot) == true
+  let cof_or_ff := evalCof subst0 (cof_or cof_bot cof_bot) == false
+
+  -- Test coe reduction (degenerate case)
+  let coe_degen := reduceCoe 100 dim0 dim0 (univ 0) (ix 0)
+  let coe_degen_ok := coe_degen == some (ix 0)
+
+  -- Test coe reduction (universe stable)
+  let coe_univ := reduceCoe 100 dim0 dim1 (univ 0) (ix 0)
+  let coe_univ_ok := coe_univ == some (ix 0)
+
+  -- Test hcom reduction (degenerate case)
+  let hcom_degen := reduceHCom 100 dim0 dim0 (univ 0) cof_bot (ix 0)
+  let hcom_degen_ok := hcom_degen == some (ix 0)
+
+  -- Test hcom reduction (bot cofib)
+  let hcom_bot := reduceHCom 100 dim0 dim1 (univ 0) cof_bot (ix 0)
+  let hcom_bot_ok := hcom_bot == some (ix 0)
+
+  -- Test com reduction (degenerate case)
+  let com_degen := reduceCom 100 dim0 dim0 (univ 0) [] (ix 0)
+  let com_degen_ok := com_degen == some (ix 0)
+
+  -- Test normalizeKan on simple expressions
+  let norm_ix := normalizeKan 100 (ix 0)
+  let norm_ix_ok := norm_ix == ix 0
+
+  let norm_coe_degen := normalizeKan 100 (coe dim0 dim0 (univ 0) (ix 0))
+  let norm_coe_degen_ok := norm_coe_degen == ix 0
+
+  -- Test mkTransport creates correct structure
+  let transport := mkTransport (plam (ix 0)) (ix 1)
+  let transport_is_coe := match transport with
+    | .coe _ _ _ _ => true
+    | _ => false
+
+  -- Test mkSymm creates path lambda
+  let symm := mkSymm (ix 0)
+  let symm_is_plam := match symm with
+    | .plam _ => true
+    | _ => false
+
+  -- Test mkAp creates path lambda
+  let ap := mkAp (lam (ix 0)) (ix 1)
+  let ap_is_plam := match ap with
+    | .plam _ => true
+    | _ => false
+
+  -- Test mkTrans creates hcomTube
+  let trans := mkTrans (univ 0) (ix 0) (ix 1)
+  let trans_is_hcom := match trans with
+    | .hcomTube _ _ _ _ _ => true
+    | _ => false
+
+  -- Test coe in Pi reduces to lambda
+  let coe_pi := reduceCoe 100 dim0 dim1 (pi (univ 0) (univ 0)) (lam (ix 0))
+  let coe_pi_is_lam := match coe_pi with
+    | some (.lam _) => true
+    | _ => false
+
+  -- Test coe in Sigma reduces to pair
+  let coe_sigma := reduceCoe 100 dim0 dim1 (sigma (univ 0) (univ 0)) (pair (ix 0) (ix 1))
+  let coe_sigma_is_pair := match coe_sigma with
+    | some (.pair _ _) => true
+    | _ => false
+
+  [
+    assertTrue "dim_types" dim_types_exist,
+    assertTrue "dir_notDegen" dir_notDegen,
+    assertTrue "dir_degen" dir_degen,
+    assertTrue "cof_top_true" cof_top_true,
+    assertTrue "cof_bot_false" cof_bot_false,
+    assertTrue "cof_and_tt" cof_and_tt,
+    assertTrue "cof_and_tf" cof_and_tf,
+    assertTrue "cof_or_tf" cof_or_tf,
+    assertTrue "cof_or_ff" cof_or_ff,
+    assertTrue "coe_degen" coe_degen_ok,
+    assertTrue "coe_univ" coe_univ_ok,
+    assertTrue "hcom_degen" hcom_degen_ok,
+    assertTrue "hcom_bot" hcom_bot_ok,
+    assertTrue "com_degen" com_degen_ok,
+    assertTrue "norm_ix" norm_ix_ok,
+    assertTrue "norm_coe_degen" norm_coe_degen_ok,
+    assertTrue "transport_is_coe" transport_is_coe,
+    assertTrue "symm_is_plam" symm_is_plam,
+    assertTrue "ap_is_plam" ap_is_plam,
+    assertTrue "trans_is_hcom" trans_is_hcom,
+    assertTrue "coe_pi_is_lam" coe_pi_is_lam,
+    assertTrue "coe_sigma_is_pair" coe_sigma_is_pair
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2217,6 +2334,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Module System Tests" moduleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Kan Module Tests" kanModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
