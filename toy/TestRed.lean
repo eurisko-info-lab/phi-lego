@@ -14,6 +14,7 @@ import Lego.Red.Core
 import Lego.Red.TypeAttrs
 import Lego.Red.GlobalEnv
 import Lego.Red.Unify
+import Lego.Red.Quote
 import Lego.Loader
 
 open Lego
@@ -1067,6 +1068,65 @@ def unifyTests : List TestResult :=
     assertTrue "unify_dim_spine" dim_spine_test
   ]
 
+/-! ## Quotation (NbE) Tests -/
+
+def quoteTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+
+  -- Quote simple types
+  let quote_nat := quoteClosedTy nat == nat
+  let quote_univ := quoteClosedTy (univ .zero) == (univ .zero)
+
+  -- Quote Pi type
+  let piTy := pi nat nat
+  let quote_pi := quoteClosedTy piTy == piTy
+
+  -- Quote values at type
+  let quote_zero := quoteClosed nat zero == zero
+  let quote_suc := quoteClosed nat (suc zero) == (suc zero)
+
+  -- NbE: normalize beta-redex
+  let id_app := app (lam (ix 0)) zero  -- (λx.x) 0
+  let nbe_beta := nbe nat id_app == zero
+
+  -- NbE: normalize under lambda (η-expansion)
+  -- For closed terms like (λx.x) at Nat → Nat, we get λx. x
+  let id_fn := lam (ix 0)  -- λx. x
+  let nbe_eta := match nbe (pi nat nat) id_fn with
+    | lam (ix 0) => true  -- λx. x stays as is
+    | _ => false
+
+  -- Quote path type
+  let pathTy := path nat zero zero
+  let quote_path_ty := quoteClosedTy pathTy == pathTy
+
+  -- Quote refl at path type
+  let refl_zero := refl zero
+  let nbe_refl := match nbe pathTy refl_zero with
+    | plam _ => true  -- Should η-expand to λi. 0
+    | _ => false
+
+  -- equalByNbe: definitional equality check
+  let eq_same := equalByNbe nat zero zero
+  let eq_beta := equalByNbe nat (app (lam (ix 0)) zero) zero
+  let eq_diff := !equalByNbe nat zero (suc zero)
+
+  [
+    assertTrue "quote_nat" quote_nat,
+    assertTrue "quote_univ" quote_univ,
+    assertTrue "quote_pi" quote_pi,
+    assertTrue "quote_zero" quote_zero,
+    assertTrue "quote_suc" quote_suc,
+    assertTrue "nbe_beta" nbe_beta,
+    assertTrue "nbe_eta" nbe_eta,
+    assertTrue "quote_path_ty" quote_path_ty,
+    assertTrue "nbe_refl" nbe_refl,
+    assertTrue "equalByNbe_same" eq_same,
+    assertTrue "equalByNbe_beta" eq_beta,
+    assertTrue "equalByNbe_diff" eq_diff
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -1658,6 +1718,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Unification Tests" unifyTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Quotation (NbE) Tests" quoteTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
