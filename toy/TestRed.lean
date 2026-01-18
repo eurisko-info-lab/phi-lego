@@ -12,10 +12,13 @@ import Lego.AttrEval
 import Lego.Bootstrap
 import Lego.Red.Core
 import Lego.Red.TypeAttrs
+import Lego.Red.GlobalEnv
+import Lego.Red.Unify
 import Lego.Loader
 
 open Lego
 open Lego.Loader
+open Lego.Red
 
 /-! ## Test Framework -/
 
@@ -789,6 +792,281 @@ def irToASTTests : List TestResult :=
       { name := s!"ir2ast_{name}", passed := false,
         message := s!"✗ got {repr result}, expected {repr expected}" }
 
+/-! ## Global Environment Tests -/
+
+def globalEnvTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Lego.Red in
+
+  -- Basic operations
+  let env0 := GlobalEnv.empty
+  let env0_empty := !env0.isDefined (GName.named "foo")
+
+  -- Define a parameter
+  let env1 := env0.declareParam (GName.named "Nat") (univ .zero)
+  let env1_defined := env1.isDefined (GName.named "Nat")
+  let env1_lookup := match env1.lookupType (GName.named "Nat") with
+    | some (Expr.univ l) => Level.levelEq l .zero
+    | _ => false
+
+  -- Define a term
+  let idTy := pi (univ .zero) (pi (ix 0) (ix 1))
+  let idTm := lam (lam (ix 0))
+  let env2 := env1.define (GName.named "id") idTy idTm
+  let env2_defined := env2.isDefined (GName.named "id")
+  let env2_type := match env2.lookupType (GName.named "id") with
+    | some ty => conv ty idTy
+    | _ => false
+  let env2_value := match env2.lookupWithValue (GName.named "id") with
+    | some (_, some tm) => conv tm idTm
+    | _ => false
+
+  -- Dimension variables
+  let env3 := env2.declareDim (GName.named "i")
+  let env3_defined := env3.isDefined (GName.named "i")
+  let env3_dims := env3.getDimVars.length == 1
+
+  -- Meta-variables
+  let env4 := env3.createMeta (GName.named "?m") nat
+  let env4_unsolved := env4.getUnsolvedMetas.length == 1
+  let env5 := env4.solveMeta (GName.named "?m") zero
+  let env5_solved := env5.getUnsolvedMetas.length == 0
+  let env5_value := match env5.lookupWithValue (GName.named "?m") with
+    | some (_, some tm) => conv tm zero
+    | _ => false
+
+  -- Standard library
+  let stdlib := standardLib
+  let stdlib_type := stdlib.isDefined (GName.named "Type")
+  let stdlib_id := stdlib.isDefined (GName.named "id")
+  let stdlib_const := stdlib.isDefined (GName.named "const")
+
+  -- Global unfolding
+  let unfold_id := match unfoldGlobal stdlib (GName.named "id") with
+    | some _ => true
+    | none => false
+  let unfold_missing := match unfoldGlobal stdlib (GName.named "missing") with
+    | some _ => false
+    | none => true
+
+  -- Evaluation with globals: (id Nat 0) should reduce to 0
+  let id_nat_zero := app (app (lit "id") nat) zero
+  let eval_result := evalWithGlobals stdlib id_nat_zero
+  let eval_ok := conv eval_result zero
+
+  -- TypingCtx operations
+  let tctx0 := TypingCtx.withGlobal stdlib
+  let tctx1 := tctx0.extendLocal nat
+  let tctx1_depth := tctx1.depth == 1
+  let tctx1_lookup := match tctx1.lookupLocal 0 with
+    | some ty => conv ty nat
+    | _ => false
+
+  -- Type inference with global env
+  let inferIdType := inferG tctx0 (lit "id")
+  let inferIdOk := match inferIdType with
+    | .ok ty => conv ty idTy
+    | _ => false
+
+  [
+    assertTrue "genv_empty" env0_empty,
+    assertTrue "genv_param_defined" env1_defined,
+    assertTrue "genv_param_lookup" env1_lookup,
+    assertTrue "genv_def_defined" env2_defined,
+    assertTrue "genv_def_type" env2_type,
+    assertTrue "genv_def_value" env2_value,
+    assertTrue "genv_dim_defined" env3_defined,
+    assertTrue "genv_dim_list" env3_dims,
+    assertTrue "genv_meta_unsolved" env4_unsolved,
+    assertTrue "genv_meta_solved" env5_solved,
+    assertTrue "genv_meta_value" env5_value,
+    assertTrue "genv_stdlib_type" stdlib_type,
+    assertTrue "genv_stdlib_id" stdlib_id,
+    assertTrue "genv_stdlib_const" stdlib_const,
+    assertTrue "genv_unfold_id" unfold_id,
+    assertTrue "genv_unfold_missing" unfold_missing,
+    assertTrue "genv_eval_id_nat_zero" eval_ok,
+    assertTrue "genv_typingctx_depth" tctx1_depth,
+    assertTrue "genv_typingctx_lookup" tctx1_lookup,
+    assertTrue "genv_inferG_id" inferIdOk
+  ]
+
+/-! ## Unification Tests -/
+
+def unifyTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+
+  -- Basic state operations
+  let st0 := UnifyState.empty
+  let (st1, m1) := st0.freshMeta [] nat
+  let st1_has_meta := st1.lookupMeta m1 |>.isSome
+
+  let (st2, m2) := st1.freshMeta [nat] (pi nat nat)
+  let st2_two_metas := st2.metas.length == 2
+
+  -- Solve a meta
+  let st3 := st2.solveMeta m1 zero
+  let st3_solved := st3.isSolved m1
+  let st3_unsolved := !st3.isSolved m2
+
+  -- Occurs check
+  let occurs_simple := occurs m1 (lit m1.name)
+  let occurs_in_app := occurs m1 (app (lit m1.name) zero)
+  let occurs_not := !occurs m1 zero
+
+  -- Unify identical terms
+  let unify_same := match unify st0 nat nat with
+    | .success _ => true
+    | _ => false
+
+  let unify_zero := match unify st0 zero zero with
+    | .success _ => true
+    | _ => false
+
+  -- Unify different terms (should fail)
+  let unify_diff := match unify st0 zero (suc zero) with
+    | .failure _ => true
+    | _ => false
+
+  -- Unify pi types
+  let unify_pi := match unify st0 (pi nat nat) (pi nat nat) with
+    | .success _ => true
+    | _ => false
+
+  let unify_pi_diff := match unify st0 (pi nat nat) (pi nat (univ .zero)) with
+    | .failure _ => true
+    | _ => false
+
+  -- Unify with meta (flex-rigid)
+  let (st4, meta1) := UnifyState.empty.freshMeta [] nat
+  let meta1_expr := lit meta1.name
+  let unify_meta := match unify st4 meta1_expr zero with
+    | .success st' => st'.isSolved meta1
+    | _ => false
+
+  -- Apply metas
+  let (st5, meta2) := UnifyState.empty.freshMeta [] nat
+  let st5' := st5.solveMeta meta2 (suc zero)
+  let applied := applyMetas st5' (lit meta2.name)
+  let apply_ok := conv applied (suc zero)
+
+  -- Complex: unify ?α with (suc zero)
+  let (st6, meta3) := UnifyState.empty.freshMeta [] nat
+  let st6_result := match unify st6 (lit meta3.name) (suc zero) with
+    | .success st' =>
+      let applied := applyMetas st' (lit meta3.name)
+      conv applied (suc zero)
+    | _ => false
+
+  -- Hole creation
+  let (st7, hole1) := hole UnifyState.empty [] nat
+  let hole_is_meta := match hole1 with
+    | .lit n => n.startsWith "?"
+    | _ => false
+
+  -- All solved check
+  let st8_all_solved := allSolved (UnifyState.empty.solveMeta m1 zero)
+  let st8_not_all := !allSolved st2  -- st2 has unsolved metas
+
+  -- Miller pattern: ?α x y = f x y should solve with λa.λb. f a b
+  -- Here we test ?α = (suc (ix 0)) with spine [ix 0]
+  let (st9, m9) := UnifyState.empty.freshMeta [nat] nat
+  let m9_term := app (lit m9.name) (ix 0)  -- ?α (ix 0)
+  let target9 := suc (ix 0)                 -- suc (ix 0)
+  let miller_basic := match unify st9 m9_term target9 with
+    | .success st' =>
+      match st'.lookupMeta m9 with
+      | some { solution := some sol, .. } =>
+        -- Solution should be λx. suc x
+        match sol with
+        | .lam (.suc (.ix 0)) => true
+        | _ => false
+      | _ => false
+    | _ => false
+
+  -- Scope escape: ?α x = y should fail (y not in spine)
+  let (st10, m10) := UnifyState.empty.freshMeta [nat] nat
+  let m10_term := app (lit m10.name) (ix 0)  -- ?α (ix 0)
+  let target10 := ix 1                        -- (ix 1) not in spine
+  let scope_escape := match unify st10 m10_term target10 with
+    | .stuck _ => true  -- Should postpone due to scope escape
+    | _ => false
+
+  -- Flex-flex same: ?α x y = ?α x y trivially succeeds
+  let (st11, m11) := UnifyState.empty.freshMeta [nat, nat] nat
+  let ff_term1 := app (app (lit m11.name) (ix 0)) (ix 1)
+  let ff_term2 := app (app (lit m11.name) (ix 0)) (ix 1)
+  let flex_flex_same_ok := match unify st11 ff_term1 ff_term2 with
+    | .success _ => true
+    | _ => false
+
+  -- Postponed constraints tracking
+  let (st12, m12) := UnifyState.empty.freshMeta [] nat
+  let postpone_test := match unify st12 (app (lit m12.name) (suc zero)) zero with
+    | .stuck st' => st'.postponed.length > 0  -- Non-pattern spine, should postpone
+    | _ => false
+
+  -- Flex-flex different metas with subset: ?α x y = ?β y
+  -- vars2 = [1] ⊆ vars1 = [0, 1], so β := λy. ?α _ y
+  let (st13, m13a) := UnifyState.empty.freshMeta [nat, nat] nat
+  let (st13b, m13b) := st13.freshMeta [nat] nat
+  let ff_diff_term1 := app (app (lit m13a.name) (ix 0)) (ix 1)  -- ?α x y
+  let ff_diff_term2 := app (lit m13b.name) (ix 1)                -- ?β y
+  let flex_flex_diff := match unify st13b ff_diff_term1 ff_diff_term2 with
+    | .success st' =>
+      -- Should solve one meta in terms of the other
+      st'.metas.any fun info => info.solution.isSome
+    | .stuck st' =>
+      -- Or postpone if not directly solvable
+      st'.postponed.length > 0
+    | _ => false
+
+  -- Constraint solving loop: unifyAndSolve processes postponed constraints
+  let (st14, m14) := UnifyState.empty.freshMeta [nat] nat
+  let solve_term := app (lit m14.name) (ix 0)  -- ?α x
+  let solve_test := match unifyAndSolve st14 solve_term zero with
+    | some st' =>
+      -- After solving, ?α should have solution λx.0
+      match st'.lookupMeta m14 with
+      | some { solution := some (.lam .zero), .. } => true
+      | _ => false
+    | _ => false
+
+  -- Spine with dimension variables (cubical)
+  let (st15, m15) := UnifyState.empty.freshMeta [] nat
+  let dim_spine_term := papp (lit m15.name) (dimVar 0)  -- ?α @i
+  let dim_spine_test := isPatternSpine [dimVar 0]  -- Dim vars should be pattern
+
+  [
+    assertTrue "unify_fresh_meta" st1_has_meta,
+    assertTrue "unify_two_metas" st2_two_metas,
+    assertTrue "unify_solve_meta" st3_solved,
+    assertTrue "unify_unsolved_meta" st3_unsolved,
+    assertTrue "unify_occurs_simple" occurs_simple,
+    assertTrue "unify_occurs_in_app" occurs_in_app,
+    assertTrue "unify_occurs_not" occurs_not,
+    assertTrue "unify_same" unify_same,
+    assertTrue "unify_zero" unify_zero,
+    assertTrue "unify_diff_fail" unify_diff,
+    assertTrue "unify_pi" unify_pi,
+    assertTrue "unify_pi_diff_fail" unify_pi_diff,
+    assertTrue "unify_flex_rigid" unify_meta,
+    assertTrue "unify_apply_metas" apply_ok,
+    assertTrue "unify_complex" st6_result,
+    assertTrue "unify_hole_is_meta" hole_is_meta,
+    assertTrue "unify_all_solved" st8_all_solved,
+    assertTrue "unify_not_all_solved" st8_not_all,
+    assertTrue "unify_miller_basic" miller_basic,
+    assertTrue "unify_scope_escape" scope_escape,
+    assertTrue "unify_flex_flex_same" flex_flex_same_ok,
+    assertTrue "unify_postponed" postpone_test,
+    assertTrue "unify_flex_flex_diff" flex_flex_diff,
+    assertTrue "unify_solve_loop" solve_test,
+    assertTrue "unify_dim_spine" dim_spine_test
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -1374,6 +1652,12 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "IR→AST Conversion Tests" irToASTTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Global Environment Tests" globalEnvTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Unification Tests" unifyTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
