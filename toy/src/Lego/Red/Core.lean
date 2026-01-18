@@ -192,6 +192,16 @@ inductive Expr where
   -- extApp e [r₁, ..., rₙ] : fam[r₁/i₁, ..., rₙ/iₙ]
   -- Applies e to n dimension arguments
   | extApp  : Expr → List Expr → Expr          -- extApp e [r₁, ..., rₙ]
+  -- Sub types (cubical subtypes / restriction types)
+  -- sub A φ t : Type where A : Type, φ : Cof, t : [φ] → A
+  -- Elements of sub A φ t are elements of A that equal t when φ is true
+  | sub     : Expr → Expr → Expr → Expr        -- sub A φ (λ _. t)
+  -- subIn: introduction for Sub types
+  -- subIn e : sub A φ t when e : A and e = t[prf/x] when φ
+  | subIn   : Expr → Expr                      -- subIn e
+  -- subOut: elimination for Sub types
+  -- subOut e : A when e : sub A φ t
+  | subOut  : Expr → Expr                      -- subOut e
   deriving Repr, BEq, Inhabited
 
 namespace Expr
@@ -349,6 +359,12 @@ partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
           (shiftAbove (cutoff + n) delta bdry)   -- bdry binds n dims
   | extLam n body => extLam n (shiftAbove (cutoff + n) delta body)  -- binds n dims
   | extApp e dims => extApp (shiftAbove cutoff delta e) (dims.map (shiftAbove cutoff delta))
+  -- Sub types
+  | sub ty cof bdry => sub (shiftAbove cutoff delta ty)
+                           (shiftAbove cutoff delta cof)
+                           (shiftAbove (cutoff + 1) delta bdry)  -- bdry binds 1 (prf of cof)
+  | subIn e => subIn (shiftAbove cutoff delta e)
+  | subOut e => subOut (shiftAbove cutoff delta e)
 
 /-- Shift all free variables by 1 (standard weakening) -/
 def shift (e : Expr) : Expr := shiftAbove 0 1 e
@@ -511,12 +527,21 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
     extLam n (subst (idx + n) (shiftN n val) body)
   | extApp e dims =>
     extApp (subst idx val e) (dims.map (subst idx val))
+  -- Sub types
+  | sub ty cof bdry =>
+    sub (subst idx val ty)
+        (subst idx val cof)
+        (subst (idx + 1) (shift val) bdry)  -- bdry binds 1
+  | subIn e => subIn (subst idx val e)
+  | subOut e => subOut (subst idx val e)
 
 /-- Substitute at index 0 (most common case: β-reduction) -/
 def subst0 (val : Expr) (body : Expr) : Expr := subst 0 val body
 
 /-! ## Free Variable Checking -/
 
+-- Large pattern match requires more time to elaborate
+set_option maxHeartbeats 200000 in
 /-- Check if index n is free in expression -/
 partial def freeIn (n : Nat) : Expr → Bool
   | ix m => m == n
@@ -602,6 +627,10 @@ partial def freeIn (n : Nat) : Expr → Bool
   | ext m fam cof bdry => freeIn (n + m) fam || freeIn (n + m) cof || freeIn (n + m) bdry
   | extLam m body => freeIn (n + m) body
   | extApp e dims => freeIn n e || dims.any (freeIn n)
+  -- Sub types
+  | sub ty cof bdry => freeIn n ty || freeIn n cof || freeIn (n + 1) bdry
+  | subIn e => freeIn n e
+  | subOut e => freeIn n e
 
 /-- Check if variable 0 is free (for eta-expansion detection) -/
 def freeIn0 (e : Expr) : Bool := freeIn 0 e
@@ -609,7 +638,7 @@ def freeIn0 (e : Expr) : Bool := freeIn 0 e
 /-! ## β-Reduction -/
 
 -- Large pattern match requires more time to elaborate
-set_option maxHeartbeats 400000 in
+set_option maxHeartbeats 600000 in
 /-- Single-step reduction (outermost first) -/
 partial def step : Expr → Option Expr
   -- β-reduction: (λ. body) x → body[0 := x]
@@ -1161,6 +1190,10 @@ partial def toString : Expr → String
   | extApp e dims =>
     let dimStrs := dims.map toString
     s!"(extApp {toString e} [{String.intercalate ", " dimStrs}])"
+  -- Sub types
+  | sub ty cof bdry => s!"(sub {toString ty} {toString cof} {toString bdry})"
+  | subIn e => s!"(subIn {toString e})"
+  | subOut e => s!"(subOut {toString e})"
 
 instance : ToString Expr := ⟨toString⟩
 
@@ -1379,6 +1412,12 @@ partial def conv (a b : Expr) : Bool :=
   | .sys bs1, .sys bs2 =>
     bs1.length == bs2.length &&
     (bs1.zip bs2).all fun ((φ1, t1), (φ2, t2)) => conv φ1 φ2 && conv t1 t2
+
+  -- ===== Sub types =====
+  | .sub ty1 cof1 bdry1, .sub ty2 cof2 bdry2 =>
+    conv ty1 ty2 && conv cof1 cof2 && conv bdry1 bdry2
+  | .subIn e1, .subIn e2 => conv e1 e2
+  | .subOut e1, .subOut e2 => conv e1 e2
 
   -- ===== Variables and literals =====
   | .ix n1, .ix n2 => n1 == n2
@@ -1638,6 +1677,20 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   | .glueElem _ a => infer ctx a
   | .unglue g => infer ctx g
 
+  -- Sub types
+  -- sub A φ t : Type (when A : Type, φ : Cof, t : [φ] → A)
+  | .sub _ _ _ => .ok (.univ .zero)  -- Sub type formation is a type
+
+  -- subIn: cannot infer, needs type annotation (element could have many sub types)
+  | e@(.subIn _) => .error (.cannotInfer e)
+
+  -- subOut e : A when e : sub A φ t
+  | .subOut e => do
+    let eTy ← infer ctx e
+    match Expr.eval eTy with
+    | .sub ty _ _ => .ok ty
+    | _ => .error (.cannotInfer (.subOut e))
+
   -- Systems
   | .sys ((_, tm) :: _) => infer ctx tm
   | .sys [] => .error (.cannotInfer (.sys []))
@@ -1689,6 +1742,19 @@ partial def check (ctx : Ctx) (e : Expr) (expected : Expr) : TCResult Unit := do
         .ok ()
       else
         .error (.mismatch e expected (.ext n fam cof bdry))
+    | _ => .error (.cannotInfer e)
+
+  -- SubIn introduction: check against sub type
+  | .subIn elem =>
+    match Expr.eval expected with
+    | .sub ty cof bdry =>
+      -- elem should have type ty
+      let _ ← check ctx elem ty
+      -- TODO: verify that when cof holds, elem agrees with bdry[prf/x]
+      -- For now, simplified: just check the element has the base type
+      -- The boundary condition would be: conv (eval elem) (subst0 prf bdry) when cof is true
+      let _ := (cof, bdry)  -- silence unused warning
+      .ok ()
     | _ => .error (.cannotInfer e)
 
   -- Fallback: infer and compare

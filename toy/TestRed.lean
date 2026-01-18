@@ -22,6 +22,7 @@ import Lego.Red.Kan
 import Lego.Red.VType
 import Lego.Red.FHCom
 import Lego.Red.ExtType
+import Lego.Red.SubType
 import Lego.Loader
 
 open Lego
@@ -2066,6 +2067,137 @@ def extTypeModuleTests : List TestResult :=
     assertTrue "normalize_ext" norm1_ok
   ]
 
+/-! ## SubType Module Tests -/
+
+def subTypeModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open SubType in
+
+  -- Basic sub type construction
+  let sub1 := sub (univ .zero) cof_top (ix 0)  -- sub Type ⊤ (λ_. x) = Type
+  let info1 := SubInfo.fromExpr? sub1
+  let info1_ok := match info1 with
+    | some i => i.baseType == univ .zero
+    | none => false
+
+  -- Sub type with bottom cofibration
+  let sub_bot := sub nat cof_bot (lit "⊥-elim")
+  let info_bot := SubInfo.fromExpr? sub_bot
+  let info_bot_impossible := match info_bot with
+    | some i => i.isImpossible
+    | none => false
+
+  -- Sub type with trivial cofibration
+  let sub_top := sub nat cof_top zero
+  let info_top := SubInfo.fromExpr? sub_top
+  let info_top_trivial := match info_top with
+    | some i => i.isTrivial
+    | none => false
+
+  -- SubIn/SubOut construction
+  let elem := suc zero
+  let subin := subIn elem
+  let subout := subOut subin
+  let subin_ok := match subin with
+    | .subIn e => e == elem
+    | _ => false
+  let subout_ok := match subout with
+    | .subOut (.subIn e) => e == elem
+    | _ => false
+
+  -- Smart constructor mkSubOut (β-reduction)
+  let mk_subout := mkSubOut (subIn zero)
+  let mk_subout_beta := mk_subout == zero
+
+  -- mkSubOut without reduction
+  let mk_subout_no := mkSubOut (ix 0)
+  let mk_subout_no_ok := match mk_subout_no with
+    | .subOut _ => true
+    | _ => false
+
+  -- Reduction: subOut (subIn e) → e
+  let reduce1 := reduceSubOut (subOut (subIn (suc zero)))
+  let reduce1_ok := reduce1 == some (suc zero)
+
+  -- No reduction for non-canonical
+  let reduce_none := reduceSubOut (subOut (ix 0))
+  let reduce_none_ok := reduce_none.isNone
+
+  -- reduceSubExpr
+  let reduce2 := reduceSubExpr (subOut (subIn (pair zero zero)))
+  let reduce2_ok := reduce2 == some (pair zero zero)
+
+  -- Normalization
+  let norm1 := normalizeSub 10 (subOut (subIn nat))
+  let norm1_ok := norm1 == nat
+
+  -- Nested normalization
+  let nested := subOut (subIn (subOut (subIn zero)))
+  let norm_nested := normalizeSub 10 nested
+  let norm_nested_ok := norm_nested == zero
+
+  -- SubInfo methods
+  let sub_with_bdry := sub nat (cof_eq dim0 dim1) (suc (ix 0))
+  let info_bdry := SubInfo.fromExpr? sub_with_bdry
+  let eval_bdry := match info_bdry with
+    | some i => i.evalBoundary (lit "prf")
+    | none => zero
+  -- bdry = suc (ix 0), substitute ix 0 → prf
+  let eval_bdry_ok := eval_bdry == suc (lit "prf")
+
+  -- getBaseType
+  let base_type := match info_bdry with
+    | some i => i.getBaseType
+    | none => zero
+  let base_type_ok := base_type == nat
+
+  -- subTypeEquiv
+  let sub_a := { baseType := nat, cof := cof_top, boundary := zero : SubInfo }
+  let sub_b := { baseType := nat, cof := cof_top, boundary := zero : SubInfo }
+  let sub_c := { baseType := nat, cof := cof_bot, boundary := zero : SubInfo }
+  let equiv_same := subTypeEquiv sub_a sub_b
+  let equiv_diff := subTypeEquiv sub_a sub_c
+
+  -- Infer sub type
+  let sub_infer := infer [] (sub (univ .zero) cof_top zero)
+  let sub_infer_ok := match sub_infer with
+    | .ok (.univ _) => true
+    | _ => false
+
+  -- Infer subOut
+  let subout_expr := subOut (subIn nat)
+  let subout_ctx := [sub nat cof_top zero]  -- Pretend the subIn has sub type in context
+  -- Actually, let's test with a constructed sub term
+  -- subOut can only infer if its argument has sub type
+
+  -- Check subIn against sub type
+  let check_subin := check [] (subIn zero) (sub nat cof_top zero)
+  let check_subin_ok := match check_subin with
+    | .ok () => true
+    | _ => false
+
+  [
+    assertTrue "subinfo_basic" info1_ok,
+    assertTrue "subinfo_impossible" info_bot_impossible,
+    assertTrue "subinfo_trivial" info_top_trivial,
+    assertTrue "subin_construction" subin_ok,
+    assertTrue "subout_construction" subout_ok,
+    assertTrue "mk_subout_beta" mk_subout_beta,
+    assertTrue "mk_subout_no_reduction" mk_subout_no_ok,
+    assertTrue "reduce_subout" reduce1_ok,
+    assertTrue "reduce_none" reduce_none_ok,
+    assertTrue "reduce_subexpr" reduce2_ok,
+    assertTrue "normalize_sub" norm1_ok,
+    assertTrue "normalize_nested" norm_nested_ok,
+    assertTrue "eval_boundary" eval_bdry_ok,
+    assertTrue "get_base_type" base_type_ok,
+    assertTrue "subtype_equiv_same" equiv_same,
+    assertTrue "subtype_equiv_diff" !equiv_diff,
+    assertTrue "sub_infer_type" sub_infer_ok,
+    assertTrue "check_subin" check_subin_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2681,6 +2813,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "ExtType Module Tests" extTypeModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "SubType Module Tests" subTypeModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests

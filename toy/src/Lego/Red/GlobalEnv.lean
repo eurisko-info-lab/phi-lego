@@ -504,6 +504,15 @@ partial def inferG (ctx : TypingCtx) : Expr → TCResultG Expr
         .error (.cannotInfer (.extApp e dims))
     | _ => .error (.cannotInfer (.extApp e dims))
 
+  -- Sub types
+  | .sub _ _ _ => .ok (.univ .zero)  -- sub A φ t : Type
+  | e@(.subIn _) => .error (.cannotInfer e)  -- needs annotation
+  | .subOut e => do
+    let eTy ← inferG ctx e
+    match evalWithGlobals ctx.global eTy with
+    | .sub ty _ _ => .ok ty
+    | _ => .error (.cannotInfer (.subOut e))
+
   -- V-types
   | .vtype _ _ _ _ => .ok (.univ .zero)
   | .vin _ _ b => inferG ctx b
@@ -557,6 +566,13 @@ partial def checkG (ctx : TypingCtx) (e : Expr) (expected : Expr) : TCResultG Un
         .ok ()
       else
         .error (.mismatch e expected (.ext n _fam _cof _bdry))
+    | _ => .error (.cannotInfer e)
+
+  | .subIn elem =>
+    match evalWithGlobals ctx.global expected with
+    | .sub ty _cof _bdry =>
+      -- Check element has base type
+      checkG ctx elem ty
     | _ => .error (.cannotInfer e)
 
   | _ => do
