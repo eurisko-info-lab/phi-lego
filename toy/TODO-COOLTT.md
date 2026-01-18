@@ -26,15 +26,18 @@ Monadic infrastructure for elaboration/refinement.
 
 ## Priority 2: Evaluation & Building
 
-### [ ] Full Semantics (`Semantics.lean`)
+### [x] Full Semantics (`Semantics.lean`) ✓ DONE (partial)
 Complete evaluation with Kan operations.
-- [ ] `do_rigid_coe` - Rigid coercion computation
-- [ ] `do_rigid_hcom` - Rigid hcom computation  
-- [ ] `dispatch_rigid_coe` - Determine coe reduction strategy
-- [ ] `dispatch_rigid_hcom` - Determine hcom reduction strategy
-- [ ] Full V-type computation rules
-- [ ] Full FHCom computation rules
-- [ ] `splice_tm` / `splice_tp` - Splicing operations
+- [x] `eval` - Core evaluation to WHNF
+- [x] `doRigidCoe` - Rigid coercion dispatch and computation
+- [x] `doRigidHCom` - Rigid hcom dispatch and computation
+- [x] `doAp`, `doFst`, `doSnd`, `doPApp` - Semantic operations
+- [x] `doEl` - Universe decoding
+- [x] `doRigidCap` - Cap extraction
+- [x] `doRigidVProj` - V projection
+- [x] Splicing operations (basic)
+- [ ] Full type-specific coe/hcom (Pi, Sigma, Path rules)
+- [ ] `dispatch_rigid_coe` / `dispatch_rigid_hcom` (full)
 
 ### [x] TermBuilder (`TermBuilder.lean`) ✓ DONE
 De Bruijn-free term construction.
