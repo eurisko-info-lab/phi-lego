@@ -176,6 +176,22 @@ inductive Expr where
   | base   : Expr                          -- base : S¹
   | loop   : Expr → Expr                   -- loop r : S¹ (at dimension r)
   | circleElim : Expr → Expr → Expr → Expr → Expr  -- circleElim P b ℓ x
+  -- Extension types (partial elements with boundary constraints)
+  -- ext n fam cof bdry : Type
+  -- Represents types of the form (i₁ ... iₙ : 𝕀) → A with partial boundary
+  -- - n: number of dimension variables bound
+  -- - fam: the family (λ i₁...iₙ. A)
+  -- - cof: the cofibration under which boundary is specified (λ i₁...iₙ. φ)
+  -- - bdry: the boundary term (λ i₁...iₙ. partial element)
+  | ext     : Nat → Expr → Expr → Expr → Expr  -- ext n fam cof bdry
+  -- extLam: introduction for extension types
+  -- extLam n body : ext n fam cof bdry
+  -- Binds n dimension variables in body
+  | extLam  : Nat → Expr → Expr                -- extLam n body
+  -- extApp: elimination for extension types
+  -- extApp e [r₁, ..., rₙ] : fam[r₁/i₁, ..., rₙ/iₙ]
+  -- Applies e to n dimension arguments
+  | extApp  : Expr → List Expr → Expr          -- extApp e [r₁, ..., rₙ]
   deriving Repr, BEq, Inhabited
 
 namespace Expr
@@ -326,6 +342,13 @@ partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
                                      (shiftAbove cutoff delta b)
                                      (shiftAbove (cutoff + 1) delta l)  -- l binds dim
                                      (shiftAbove cutoff delta x)
+  -- Extension types
+  | ext n fam cof bdry =>
+    ext n (shiftAbove (cutoff + n) delta fam)    -- fam binds n dims
+          (shiftAbove (cutoff + n) delta cof)    -- cof binds n dims
+          (shiftAbove (cutoff + n) delta bdry)   -- bdry binds n dims
+  | extLam n body => extLam n (shiftAbove (cutoff + n) delta body)  -- binds n dims
+  | extApp e dims => extApp (shiftAbove cutoff delta e) (dims.map (shiftAbove cutoff delta))
 
 /-- Shift all free variables by 1 (standard weakening) -/
 def shift (e : Expr) : Expr := shiftAbove 0 1 e
@@ -478,6 +501,16 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
                (subst idx val b)
                (subst (idx + 1) (shift val) l)  -- l binds dim
                (subst idx val x)
+  -- Extension types
+  | ext n fam cof bdry =>
+    let val' := shiftN n val  -- shift val under n binders
+    ext n (subst (idx + n) val' fam)
+          (subst (idx + n) val' cof)
+          (subst (idx + n) val' bdry)
+  | extLam n body =>
+    extLam n (subst (idx + n) (shiftN n val) body)
+  | extApp e dims =>
+    extApp (subst idx val e) (dims.map (subst idx val))
 
 /-- Substitute at index 0 (most common case: β-reduction) -/
 def subst0 (val : Expr) (body : Expr) : Expr := subst 0 val body
@@ -565,6 +598,10 @@ partial def freeIn (n : Nat) : Expr → Bool
   | base => false
   | loop r => freeIn n r
   | circleElim p b l x => freeIn n p || freeIn n b || freeIn (n + 1) l || freeIn n x
+  -- Extension types
+  | ext m fam cof bdry => freeIn (n + m) fam || freeIn (n + m) cof || freeIn (n + m) bdry
+  | extLam m body => freeIn (n + m) body
+  | extApp e dims => freeIn n e || dims.any (freeIn n)
 
 /-- Check if variable 0 is free (for eta-expansion detection) -/
 def freeIn0 (e : Expr) : Bool := freeIn 0 e
@@ -1118,6 +1155,12 @@ partial def toString : Expr → String
   | base => "base"
   | loop r => s!"(loop {toString r})"
   | circleElim p b l x => s!"(S¹-elim {toString p} {toString b} {toString l} {toString x})"
+  -- Extension types
+  | ext n fam cof bdry => s!"(ext {n} {toString fam} {toString cof} {toString bdry})"
+  | extLam n body => s!"(extLam {n} {toString body})"
+  | extApp e dims =>
+    let dimStrs := dims.map toString
+    s!"(extApp {toString e} [{String.intercalate ", " dimStrs}])"
 
 instance : ToString Expr := ⟨toString⟩
 
@@ -1308,6 +1351,15 @@ partial def conv (a b : Expr) : Bool :=
   | .loop r1, .loop r2 => conv r1 r2
   | .circleElim p1 b1 l1 x1, .circleElim p2 b2 l2 x2 =>
     conv p1 p2 && conv b1 b2 && conv l1 l2 && conv x1 x2
+
+  -- ===== Extension types =====
+  | .ext n1 fam1 cof1 bdry1, .ext n2 fam2 cof2 bdry2 =>
+    n1 == n2 && conv fam1 fam2 && conv cof1 cof2 && conv bdry1 bdry2
+  | .extLam n1 body1, .extLam n2 body2 =>
+    n1 == n2 && conv body1 body2
+  | .extApp e1 dims1, .extApp e2 dims2 =>
+    conv e1 e2 && dims1.length == dims2.length &&
+    (dims1.zip dims2).all fun (d1, d2) => conv d1 d2
 
   -- ===== Glue types =====
   | .glue a1 φ1 t1 e1, .glue a2 φ2 t2 e2 =>
@@ -1547,6 +1599,27 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   | .natElim p _ _ n => .ok (.app p n)
   | .circleElim p _ _ x => .ok (.app p x)
 
+  -- Extension types
+  -- ext n fam cof bdry : Type
+  | .ext _ _ _ _ => .ok (.univ .zero)  -- Extension type formation is a type
+
+  -- extLam: cannot infer without annotation
+  | e@(.extLam _ _) => .error (.cannotInfer e)
+
+  -- extApp: apply extension element to dimensions
+  -- extApp e [r₁, ..., rₙ] : fam[r₁/i₁, ..., rₙ/iₙ]
+  | .extApp e dims => do
+    let eTy ← infer ctx e
+    match Expr.eval eTy with
+    | .ext n fam _ _ =>
+      -- fam binds n dimensions, substitute each dimension
+      if dims.length == n then
+        let result := dims.foldl (init := fam) fun acc dim => Expr.subst0 dim acc
+        .ok result
+      else
+        .error (.cannotInfer (.extApp e dims))
+    | _ => .error (.cannotInfer (.extApp e dims))
+
   -- V-types
   -- V r A B equiv : Type (when equiv : A → B is an equivalence at r=0)
   | .vtype _ _ _ _ => .ok (.univ .zero)  -- Simplified: assumes small types
@@ -1603,6 +1676,20 @@ partial def check (ctx : Ctx) (e : Expr) (expected : Expr) : TCResult Unit := do
       else
         .ok ()
     | _ => .error (.notPath e expected)
+
+  -- ExtLam introduction: check against extension type
+  | .extLam n body =>
+    match Expr.eval expected with
+    | .ext m fam cof bdry =>
+      if n == m then
+        -- Body should have type fam (with n dimension variables in scope)
+        -- Simplified: just infer body type, proper checking would verify boundary
+        let _ ← infer ctx body
+        -- TODO: verify that when cof holds, body agrees with bdry
+        .ok ()
+      else
+        .error (.mismatch e expected (.ext n fam cof bdry))
+    | _ => .error (.cannotInfer e)
 
   -- Fallback: infer and compare
   | _ => do

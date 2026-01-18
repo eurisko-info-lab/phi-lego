@@ -21,6 +21,7 @@ import Lego.Red.Module
 import Lego.Red.Kan
 import Lego.Red.VType
 import Lego.Red.FHCom
+import Lego.Red.ExtType
 import Lego.Loader
 
 open Lego
@@ -1946,6 +1947,125 @@ def fhcomModuleTests : List TestResult :=
     assertTrue "normalize_cap" norm_cap_ok
   ]
 
+/-! ## Extension Types Tests -/
+
+def extTypeModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open ExtType in
+
+  -- Basic ExtInfo creation
+  let ext1 := ext 1 (univ .zero) cof_bot zero
+  let info1 := ExtInfo.fromExpr? ext1
+  let info1_ok := match info1 with
+    | some i => i.arity == 1
+    | none => false
+
+  let ext2 := ext 2 (ix 0) (cof_eq (ix 0) dim0) (ix 1)
+  let info2 := ExtInfo.fromExpr? ext2
+  let info2_ok := match info2 with
+    | some i => i.arity == 2 && !i.hasTrivialBoundary
+    | none => false
+
+  -- Nullary extension type
+  let ext0 := ext 0 (univ .zero) cof_top zero
+  let info0 := ExtInfo.fromExpr? ext0
+  let info0_nullary := match info0 with
+    | some i => i.isNullary
+    | none => false
+
+  -- Extension with trivial boundary
+  let ext_triv := ext 1 (univ .zero) cof_bot zero
+  let info_triv := ExtInfo.fromExpr? ext_triv
+  let triv_boundary := match info_triv with
+    | some i => i.hasTrivialBoundary
+    | none => false
+
+  -- ExtLam construction
+  let elam := extLam 1 (ix 0)
+  let elam_ok := match elam with
+    | .extLam n _ => n == 1
+    | _ => false
+
+  -- ExtApp construction
+  let eapp := extApp (ix 0) [dim0, dim1]
+  let eapp_ok := match eapp with
+    | .extApp _ dims => dims.length == 2
+    | _ => false
+
+  -- Smart constructor mkExtLam
+  let mk_elam := mkExtLam 2 (ix 1)
+  let mk_elam_ok := match mk_elam with
+    | .extLam n _ => n == 2
+    | _ => false
+
+  -- Smart constructor mkExtApp (β-reduction)
+  let mk_eapp := mkExtApp (extLam 1 (ix 0)) [dim1]
+  let mk_eapp_beta := mk_eapp == dim1
+
+  -- mkExtApp with wrong arity (no reduction)
+  let mk_eapp_wrong := mkExtApp (extLam 2 (ix 0)) [dim1]
+  let mk_eapp_wrong_ok := match mk_eapp_wrong with
+    | .extApp _ _ => true
+    | _ => false
+
+  -- Reduction
+  let reduce1 := reduceExtExpr (extApp (extLam 1 (ix 0)) [dim0])
+  let reduce1_ok := reduce1 == some dim0
+
+  -- For extLam 2, index 0 = most recent (2nd) binder, index 1 = 1st binder
+  -- So (pair (ix 0) (ix 1)) applied to [dim0, dim1] should give (pair dim1 dim0)
+  -- because ix 0 → dim1, ix 1 → dim0
+  let reduce2 := reduceExtExpr (extApp (extLam 2 (pair (ix 0) (ix 1))) [dim0, dim1])
+  let reduce2_ok := match reduce2 with
+    | some (pair a b) => a == dim1 && b == dim0  -- ix 0 → dim1, ix 1 → dim0
+    | _ => false
+
+  let reduce_none := reduceExtExpr (ix 0)
+  let reduce_none_ok := reduce_none.isNone
+
+  -- Path to extension
+  let p2e := pathToExt (univ .zero) zero zero
+  let p2e_ok := match ExtInfo.fromExpr? p2e with
+    | some i => i.arity == 1
+    | none => false
+
+  -- isPathLike check
+  let pathlike := match ExtInfo.fromExpr? p2e with
+    | some i => isPathLike i
+    | none => false
+
+  -- Apply dimensions to family
+  let ext_fam := ext 1 (pi (ix 0) (univ .zero)) cof_bot zero
+  let info_fam := ExtInfo.fromExpr? ext_fam
+  let apply_fam := match info_fam with
+    | some i => i.applyFamily [dim0]
+    | none => univ .zero
+  let apply_fam_ok := apply_fam == (pi dim0 (univ .zero))
+
+  -- Normalization
+  let norm1 := normalizeExt 10 (extApp (extLam 1 (ix 0)) [dim1])
+  let norm1_ok := norm1 == dim1
+
+  [
+    assertTrue "extinfo1_arity" info1_ok,
+    assertTrue "extinfo2_arity_and_boundary" info2_ok,
+    assertTrue "extinfo0_nullary" info0_nullary,
+    assertTrue "extinfo_trivial_boundary" triv_boundary,
+    assertTrue "extlam_construction" elam_ok,
+    assertTrue "extapp_construction" eapp_ok,
+    assertTrue "mk_extlam" mk_elam_ok,
+    assertTrue "mk_extapp_beta" mk_eapp_beta,
+    assertTrue "mk_extapp_wrong_arity" mk_eapp_wrong_ok,
+    assertTrue "reduce_extapp_basic" reduce1_ok,
+    assertTrue "reduce_extapp_pair" reduce2_ok,
+    assertTrue "reduce_no_match" reduce_none_ok,
+    assertTrue "path_to_ext" p2e_ok,
+    assertTrue "path_like" pathlike,
+    assertTrue "apply_family" apply_fam_ok,
+    assertTrue "normalize_ext" norm1_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2558,6 +2678,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "FHCom Module Tests" fhcomModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "ExtType Module Tests" extTypeModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests

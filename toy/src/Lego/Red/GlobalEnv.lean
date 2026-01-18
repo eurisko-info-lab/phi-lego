@@ -489,6 +489,21 @@ partial def inferG (ctx : TypingCtx) : Expr → TCResultG Expr
   | .natElim p _ _ n => .ok (.app p n)
   | .circleElim p _ _ x => .ok (.app p x)
 
+  -- Extension types
+  | .ext _ _ _ _ => .ok (.univ .zero)  -- ext n fam cof bdry : Type
+  | e@(.extLam _ _) => .error (.cannotInfer e)  -- needs annotation
+  | .extApp e dims => do
+    let eTy ← inferG ctx e
+    match evalWithGlobals ctx.global eTy with
+    | .ext n fam _ _ =>
+      if dims.length == n then
+        -- Substitute dimensions into family
+        let result := dims.foldl (init := fam) fun acc dim => Expr.subst0 dim acc
+        .ok result
+      else
+        .error (.cannotInfer (.extApp e dims))
+    | _ => .error (.cannotInfer (.extApp e dims))
+
   -- V-types
   | .vtype _ _ _ _ => .ok (.univ .zero)
   | .vin _ _ b => inferG ctx b
@@ -532,6 +547,17 @@ partial def checkG (ctx : TypingCtx) (e : Expr) (expected : Expr) : TCResultG Un
       else
         .ok ()
     | _ => .error (.notPath e expected)
+
+  | .extLam n body =>
+    match evalWithGlobals ctx.global expected with
+    | .ext m _fam _cof _bdry =>
+      if n == m then
+        -- Check body (simplified: just infer type)
+        let _ ← inferG ctx body
+        .ok ()
+      else
+        .error (.mismatch e expected (.ext n _fam _cof _bdry))
+    | _ => .error (.cannotInfer e)
 
   | _ => do
     let inferred ← inferG ctx e
