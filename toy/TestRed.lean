@@ -26,6 +26,7 @@ import Lego.Red.SubType
 import Lego.Red.HIT
 import Lego.Red.Signature
 import Lego.Red.Cofibration
+import Lego.Red.Splice
 import Lego.Loader
 
 open Lego
@@ -2902,6 +2903,280 @@ def cofibrationModuleTests : List TestResult :=
     assertTrue "forall_top" forall_top
   ]
 
+/-! ## Splice Module Tests -/
+
+def spliceModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Splice in
+
+  -- Test SpliceEnv
+  let env_empty := SpliceEnv.empty
+  let env_empty_ok := env_empty.conEnv.isEmpty && env_empty.tpEnv.isEmpty
+  let env_con_level := env_empty.conLevel == 0
+  let env_tp_level := env_empty.tpLevel == 0
+
+  let env1 := env_empty.addCon zero
+  let env1_con_level := env1.conLevel == 1
+  let env1_has_con := env1.conEnv.length == 1
+
+  let env2 := env1.addCon (suc zero)
+  let env2_con_level := env2.conLevel == 2
+
+  let env_tp := env_empty.addTp nat
+  let env_tp_level_1 := env_tp.tpLevel == 1
+
+  -- Test Splice.run
+  let simple_splice := Splice.run (Splice.pure nat)
+  let simple_result := simple_splice.1 == nat
+  let simple_env_empty := simple_splice.2.conEnv.isEmpty
+
+  -- Test Splice.eval
+  let eval_result := Splice.eval (Splice.pure circle)
+  let eval_ok := eval_result == circle
+
+  -- Test foreign
+  let foreign_splice := foreign zero fun v =>
+    term (suc v)
+  let (foreign_result, foreign_env) := Splice.run foreign_splice
+  let foreign_env_has_val := foreign_env.conEnv.length == 1
+  -- Result should be (suc (ix 0)) since the foreign value becomes ix 0
+  let foreign_is_suc := match foreign_result with
+    | suc _ => true
+    | _ => false
+
+  -- Test foreignList
+  let list_splice := foreignList [zero, suc zero, nat] fun vs =>
+    term (if vs.length == 3 then circle else nat)
+  let (list_result, list_env) := Splice.run list_splice
+  let list_ok := list_result == circle
+  let list_env_len := list_env.conEnv.length == 3
+
+  -- Test foreignDim
+  let dim_splice := foreignDim dim0 fun d =>
+    term (cof_eq d dim1)
+  let dim_result := Splice.eval dim_splice
+  let dim_is_eq := match dim_result with
+    | cof_eq _ .dim1 => true
+    | _ => false
+
+  -- Test foreignCof
+  let cof_splice := foreignCof cof_top fun φ =>
+    term (cof_and φ cof_bot)
+  let cof_result := Splice.eval cof_splice
+  let cof_is_and := match cof_result with
+    | cof_and _ _ => true
+    | _ => false
+
+  -- Test term
+  let term_splice := term (pair zero (suc zero))
+  let term_result := Splice.eval term_splice
+  let term_ok := term_result == pair zero (suc zero)
+
+  -- Test mkLam
+  let lam_splice := mkLam fun x => term (suc x)
+  let lam_result := Splice.eval lam_splice
+  let lam_is_lam := match lam_result with
+    | lam _ => true
+    | _ => false
+
+  -- Test mkPlam
+  let plam_splice := mkPlam fun r => term (cof_eq r dim0)
+  let plam_result := Splice.eval plam_splice
+  let plam_is_plam := match plam_result with
+    | plam _ => true
+    | _ => false
+
+  -- Test mkApp
+  let app_splice := do
+    let fn ← term (lam (ix 0))
+    let arg ← term zero
+    mkApp fn arg
+  let app_result := Splice.eval app_splice
+  let app_is_app := match app_result with
+    | app _ _ => true
+    | _ => false
+
+  -- Test mkApps
+  let apps_splice := mkApps (ix 0) [zero, suc zero, nat]
+  let apps_result := Splice.eval apps_splice
+  -- Should be (((ix 0) zero) (suc zero)) nat
+  let apps_is_nested := match apps_result with
+    | app (app (app _ _) _) _ => true
+    | _ => false
+
+  -- Test mkPapp
+  let papp_splice := mkPapp (ix 0) dim0
+  let papp_result := Splice.eval papp_splice
+  let papp_ok := papp_result == papp (ix 0) dim0
+
+  -- Test mkCofSplit
+  let split_splice := mkCofSplit [(cof_eq (dimVar 0) dim0, zero),
+                                   (cof_eq (dimVar 0) dim1, suc zero)]
+  let split_result := Splice.eval split_splice
+  let split_is_sys := match split_result with
+    | sys _ => true
+    | _ => false
+
+  -- Test mkSplit2
+  let split2_splice := mkSplit2 cof_top zero cof_bot (suc zero)
+  let split2_result := Splice.eval split2_splice
+  let split2_is_sys := match split2_result with
+    | sys branches => branches.length == 2
+    | _ => false
+
+  -- Test compile
+  let compile_splice := foreign nat fun t =>
+    term (pi t t)
+  let (compile_env, compile_term) := compile compile_splice
+  let compile_env_ok := compile_env.conEnv.length == 1
+  let compile_term_is_pi := match compile_term with
+    | pi _ _ => true
+    | _ => false
+
+  -- Test compileToTerm
+  let compile_term_only := compileToTerm (term (sigma nat circle))
+  let compile_term_ok := compile_term_only == sigma nat circle
+
+  -- Test nested foreign
+  let nested_splice := foreign zero fun x =>
+    foreign (suc zero) fun y =>
+    term (pair x y)
+  let (nested_result, nested_env) := Splice.run nested_splice
+  let nested_env_len := nested_env.conEnv.length == 2
+  let nested_is_pair := match nested_result with
+    | pair _ _ => true
+    | _ => false
+
+  -- Test F namespace
+  let f_con_splice := F.con zero fun v => term (suc v)
+  let f_con_ok := match Splice.eval f_con_splice with
+    | suc _ => true
+    | _ => false
+
+  let f_dim_splice := F.dim dim1 fun d => term (cof_eq dim0 d)
+  let f_dim_ok := match Splice.eval f_dim_splice with
+    | cof_eq _ _ => true
+    | _ => false
+
+  let f_cof_splice := F.cof cof_bot fun φ => term (cof_or cof_top φ)
+  let f_cof_ok := match Splice.eval f_cof_splice with
+    | cof_or _ _ => true
+    | _ => false
+
+  -- Test Macro.vin
+  let vin_splice := Macro.vin (dimVar 0) (ix 1) (ix 2)
+  let vin_result := Splice.eval vin_splice
+  let vin_is_sys := match vin_result with
+    | sys branches => branches.length == 2
+    | _ => false
+
+  -- Test Bdry.vinBdry
+  let vin_bdry := Bdry.vinBdry (dimVar 0)
+  let vin_bdry_is_or := match vin_bdry with
+    | cof_or _ _ => true
+    | _ => false
+
+  -- Test Bdry.vprojBdry
+  let vproj_bdry := Bdry.vprojBdry (dimVar 1)
+  let vproj_bdry_is_or := match vproj_bdry with
+    | cof_or _ _ => true
+    | _ => false
+
+  -- Test buildEvalEnv
+  let build_env := SpliceEnv.empty.addCon zero |>.addCon (suc zero)
+  let eval_env := buildEvalEnv build_env
+  -- After addCon zero then addCon (suc zero), list is [suc zero, zero]
+  -- reverse gives [zero, suc zero]
+  let eval_env_reversed := eval_env == [zero, suc zero]
+
+  -- Test spliceAndEval with simple term
+  let splice_eval_simple := spliceAndEval (term nat)
+  let splice_eval_simple_ok := splice_eval_simple == nat
+
+  [
+    -- SpliceEnv
+    assertTrue "env_empty" env_empty_ok,
+    assertTrue "env_con_level_0" env_con_level,
+    assertTrue "env_tp_level_0" env_tp_level,
+    assertTrue "env1_con_level" env1_con_level,
+    assertTrue "env1_has_con" env1_has_con,
+    assertTrue "env2_con_level" env2_con_level,
+    assertTrue "env_tp_level_1" env_tp_level_1,
+
+    -- Splice basics
+    assertTrue "simple_result" simple_result,
+    assertTrue "simple_env_empty" simple_env_empty,
+    assertTrue "eval_ok" eval_ok,
+
+    -- foreign
+    assertTrue "foreign_env_has_val" foreign_env_has_val,
+    assertTrue "foreign_is_suc" foreign_is_suc,
+
+    -- foreignList
+    assertTrue "list_ok" list_ok,
+    assertTrue "list_env_len" list_env_len,
+
+    -- foreignDim
+    assertTrue "dim_is_eq" dim_is_eq,
+
+    -- foreignCof
+    assertTrue "cof_is_and" cof_is_and,
+
+    -- term
+    assertTrue "term_ok" term_ok,
+
+    -- mkLam
+    assertTrue "lam_is_lam" lam_is_lam,
+
+    -- mkPlam
+    assertTrue "plam_is_plam" plam_is_plam,
+
+    -- mkApp
+    assertTrue "app_is_app" app_is_app,
+
+    -- mkApps
+    assertTrue "apps_is_nested" apps_is_nested,
+
+    -- mkPapp
+    assertTrue "papp_ok" papp_ok,
+
+    -- mkCofSplit
+    assertTrue "split_is_sys" split_is_sys,
+
+    -- mkSplit2
+    assertTrue "split2_is_sys" split2_is_sys,
+
+    -- compile
+    assertTrue "compile_env_ok" compile_env_ok,
+    assertTrue "compile_term_is_pi" compile_term_is_pi,
+
+    -- compileToTerm
+    assertTrue "compile_term_ok" compile_term_ok,
+
+    -- nested foreign
+    assertTrue "nested_env_len" nested_env_len,
+    assertTrue "nested_is_pair" nested_is_pair,
+
+    -- F namespace
+    assertTrue "f_con" f_con_ok,
+    assertTrue "f_dim" f_dim_ok,
+    assertTrue "f_cof" f_cof_ok,
+
+    -- Macros
+    assertTrue "vin_is_sys" vin_is_sys,
+
+    -- Bdry
+    assertTrue "vin_bdry_is_or" vin_bdry_is_or,
+    assertTrue "vproj_bdry_is_or" vproj_bdry_is_or,
+
+    -- buildEvalEnv
+    assertTrue "eval_env_reversed" eval_env_reversed,
+
+    -- spliceAndEval
+    assertTrue "splice_eval_simple" splice_eval_simple_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -3529,6 +3804,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Cofibration Module Tests" cofibrationModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Splice Module Tests" spliceModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
