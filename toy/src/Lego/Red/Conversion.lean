@@ -39,7 +39,7 @@ inductive ConvResult where
   | ok : ConvResult
   | fail : String → ConvResult
   | blocked : Nat → ConvResult  -- Blocked on meta variable
-  deriving Repr, BEq
+  deriving Repr, BEq, Inhabited
 
 namespace ConvResult
 
@@ -52,13 +52,6 @@ def andThen (r1 : ConvResult) (r2 : Unit → ConvResult) : ConvResult :=
   | ok => r2 ()
   | fail msg => fail msg
   | blocked n => blocked n
-
-instance : Monad (fun α => ConvResult) where
-  pure _ := ok
-  bind r f := match r with
-    | ok => f ()
-    | fail msg => fail msg
-    | blocked n => blocked n
 
 end ConvResult
 
@@ -76,13 +69,13 @@ structure ConvCtx where
 
 namespace ConvCtx
 
-def empty : ConvCtx := { size := 0, cof := Expr.top }
+def empty : ConvCtx := { size := 0, cof := Expr.cof_top }
 
 def extend (ctx : ConvCtx) : ConvCtx :=
   { ctx with size := ctx.size + 1 }
 
 def assume (ctx : ConvCtx) (φ : Expr) : ConvCtx :=
-  { ctx with cof := Expr.and ctx.cof φ }
+  { ctx with cof := Expr.cof_and ctx.cof φ }
 
 end ConvCtx
 
@@ -160,42 +153,42 @@ def equate_dim (ctx : ConvCtx) (r1 r2 : Expr) : ConvResult :=
                         else ConvResult.fail s!"dimensions differ: {n1} vs {n2}"
     | _, _ => ConvResult.fail s!"dimensions not equal: {repr r1'} vs {repr r2'}"
 
-/-! ## Cofibration Equality
+/-! ## Type, Term, Cofibration, and Neutral Equality
 
+    Types are equal if they have the same structure after normalization.
+    Terms are equal if they have the same normal form at a given type.
     Cofibrations are equal if they are logically equivalent.
+    Note: equate_tp, equate_con, equate_cof and equate_neutral are mutually recursive.
 -/
 
+mutual
+
 /-- Check if two cofibrations are equal -/
-def equate_cof (ctx : ConvCtx) (φ1 φ2 : Expr) : ConvResult :=
+partial def equate_cof (ctx : ConvCtx) (φ1 φ2 : Expr) : ConvResult :=
   let φ1' := whnf defaultFuel φ1
   let φ2' := whnf defaultFuel φ2
   if φ1' == φ2' then ConvResult.ok
   else
     -- Structural comparison
     match φ1', φ2' with
-    | .top, .top => ConvResult.ok
-    | .bot, .bot => ConvResult.ok
-    | .eq r1 s1, .eq r2 s2 =>
+    | .cof_top, .cof_top => ConvResult.ok
+    | .cof_bot, .cof_bot => ConvResult.ok
+    | .cof_eq r1 s1, .cof_eq r2 s2 =>
       match equate_dim ctx r1 r2, equate_dim ctx s1 s2 with
       | .ok, .ok => ConvResult.ok
       | .fail msg, _ => ConvResult.fail msg
       | _, .fail msg => ConvResult.fail msg
       | .blocked n, _ => ConvResult.blocked n
       | _, .blocked n => ConvResult.blocked n
-    | .and φ1a φ1b, .and φ2a φ2b =>
+    | .cof_and φ1a φ1b, .cof_and φ2a φ2b =>
       match equate_cof ctx φ1a φ2a with
       | .ok => equate_cof ctx φ1b φ2b
       | r => r
-    | .or φ1a φ1b, .or φ2a φ2b =>
+    | .cof_or φ1a φ1b, .cof_or φ2a φ2b =>
       match equate_cof ctx φ1a φ2a with
       | .ok => equate_cof ctx φ1b φ2b
       | r => r
     | _, _ => ConvResult.fail s!"cofibrations not equal: {repr φ1'} vs {repr φ2'}"
-
-/-! ## Type Equality
-
-    Types are equal if they have the same structure after normalization.
--/
 
 /-- Check if two types are equal -/
 partial def equate_tp (ctx : ConvCtx) (tp1 tp2 : Expr) : ConvResult :=
@@ -251,7 +244,7 @@ partial def equate_tp (ctx : ConvCtx) (tp1 tp2 : Expr) : ConvResult :=
       | r => r
 
     -- V types
-    | .v r1 a1 b1 e1, .v r2 a2 b2 e2 =>
+    | .vtype r1 a1 b1 e1, .vtype r2 a2 b2 e2 =>
       match equate_dim ctx r1 r2 with
       | .ok =>
         match equate_tp ctx a1 a2 with
@@ -268,11 +261,6 @@ partial def equate_tp (ctx : ConvCtx) (tp1 tp2 : Expr) : ConvResult :=
 
     | _, _ => ConvResult.fail s!"types not equal: {repr tp1'} vs {repr tp2'}"
 
-/-! ## Term Equality
-
-    Terms are equal if they have the same normal form at a given type.
--/
-
 /-- Check if two terms are equal at a type -/
 partial def equate_con (ctx : ConvCtx) (tp : Expr) (t1 t2 : Expr) : ConvResult :=
   let t1' := whnf defaultFuel t1
@@ -285,8 +273,8 @@ partial def equate_con (ctx : ConvCtx) (tp : Expr) (t1 t2 : Expr) : ConvResult :
     | .pi dom cod =>
       let ctx' := ctx.extend
       let var := Expr.ix 0
-      let app1 := Expr.app (shift 0 t1') var
-      let app2 := Expr.app (shift 0 t2') var
+      let app1 := Expr.app (shift t1') var
+      let app2 := Expr.app (shift t2') var
       equate_con ctx' cod app1 app2
 
     -- Sigma types: compare components
@@ -305,8 +293,8 @@ partial def equate_con (ctx : ConvCtx) (tp : Expr) (t1 t2 : Expr) : ConvResult :
     | .path a _ _ =>
       let ctx' := ctx.extend
       let var := Expr.ix 0
-      let papp1 := Expr.papp (shift 0 t1') var
-      let papp2 := Expr.papp (shift 0 t2') var
+      let papp1 := Expr.papp (shift t1') var
+      let papp2 := Expr.papp (shift t2') var
       equate_con ctx' a papp1 papp2
 
     -- Sub types: compare base
@@ -340,11 +328,6 @@ partial def equate_con (ctx : ConvCtx) (tp : Expr) (t1 t2 : Expr) : ConvResult :
 
     -- Default: neutral comparison
     | _ => equate_neutral ctx t1' t2'
-
-/-! ## Neutral Term Equality
-
-    Neutral terms (variables, applications of neutrals) are compared structurally.
--/
 
 /-- Check if two neutral terms are equal -/
 partial def equate_neutral (ctx : ConvCtx) (t1 t2 : Expr) : ConvResult :=
@@ -401,6 +384,8 @@ partial def equate_neutral (ctx : ConvCtx) (t1 t2 : Expr) : ConvResult :=
                         else ConvResult.fail s!"literals differ: {s1} vs {s2}"
 
   | _, _ => ConvResult.fail s!"neutral terms not equal: {repr t1} vs {repr t2}"
+
+end  -- mutual
 
 /-! ## Top-level Conversion Functions -/
 

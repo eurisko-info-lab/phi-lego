@@ -130,41 +130,41 @@ def dim1 : BuildM Expr := fun _ => .dim1
 /-! ## Cofibration Builders -/
 
 /-- Top cofibration (true) -/
-def top : BuildM Expr := fun _ => .top
+def top : BuildM Expr := fun _ => .cof_top
 
 /-- Bottom cofibration (false) -/
-def bot : BuildM Expr := fun _ => .bot
+def bot : BuildM Expr := fun _ => .cof_bot
 
 /-- Dimension equality -/
 def eq (r s : BuildM Expr) : BuildM Expr := fun ctx =>
-  .eq (r ctx) (s ctx)
+  .cof_eq (r ctx) (s ctx)
 
 /-- Conjunction of cofibrations -/
 def cof_and (φ ψ : BuildM Expr) : BuildM Expr := fun ctx =>
-  .and (φ ctx) (ψ ctx)
+  .cof_and (φ ctx) (ψ ctx)
 
 /-- Disjunction of cofibrations -/
 def cof_or (φ ψ : BuildM Expr) : BuildM Expr := fun ctx =>
-  .or (φ ctx) (ψ ctx)
+  .cof_or (φ ctx) (ψ ctx)
 
 /-- Join (big disjunction) -/
 def cof_join (cofs : List (BuildM Expr)) : BuildM Expr := fun ctx =>
   match cofs with
-  | [] => .bot
+  | [] => .cof_bot
   | [φ] => φ ctx
-  | φ :: rest => cofs.foldl (fun acc c => .or acc (c ctx)) .bot
+  | φ :: rest => cofs.foldl (fun acc c => .cof_or acc (c ctx)) .cof_bot
 
 /-- Meet (big conjunction) -/
 def cof_meet (cofs : List (BuildM Expr)) : BuildM Expr := fun ctx =>
   match cofs with
-  | [] => .top
+  | [] => .cof_top
   | [φ] => φ ctx
-  | _ => cofs.foldl (fun acc c => .and acc (c ctx)) .top
+  | _ => cofs.foldl (fun acc c => .cof_and acc (c ctx)) .cof_top
 
 /-- Boundary cofibration: r=0 ∨ r=1 -/
 def boundary (r : BuildM Expr) : BuildM Expr := fun ctx =>
   let rv := r ctx
-  .or (.eq rv .dim0) (.eq rv .dim1)
+  .cof_or (.cof_eq rv .dim0) (.cof_eq rv .dim1)
 
 /-! ## Type Builders -/
 
@@ -192,7 +192,7 @@ def zero : BuildM Expr := fun _ => .zero
 def suc (n : BuildM Expr) : BuildM Expr := fun ctx => .suc (n ctx)
 
 /-- Natural number literal -/
-def nat_lit (n : Nat) : BuildM Expr := fun _ =>
+def natLit (n : Nat) : BuildM Expr := fun _ =>
   let rec go : Nat → Expr
     | 0 => .zero
     | n + 1 => .suc (go n)
@@ -253,15 +253,15 @@ def cof_split (branches : List (BuildM Expr × BuildM Expr)) : BuildM Expr := fu
 
 /-- V type introduction -/
 def v (r : BuildM Expr) (a b : BuildM Expr) (e : BuildM Expr) : BuildM Expr := fun ctx =>
-  .v (r ctx) (a ctx) (b ctx) (e ctx)
+  .vtype (r ctx) (a ctx) (b ctx) (e ctx)
 
 /-- Vin constructor -/
 def vIn (r : BuildM Expr) (part : BuildM Expr) (tot : BuildM Expr) : BuildM Expr := fun ctx =>
-  .vIn (r ctx) (part ctx) (tot ctx)
+  .vin (r ctx) (part ctx) (tot ctx)
 
 /-- Vproj elimination -/
-def vProj (r : BuildM Expr) (e : BuildM Expr) : BuildM Expr := fun ctx =>
-  .vProj (r ctx) (e ctx)
+def vProj (r : BuildM Expr) (a b : BuildM Expr) (e : BuildM Expr) (v : BuildM Expr) : BuildM Expr := fun ctx =>
+  .vproj (r ctx) (a ctx) (b ctx) (e ctx) (v ctx)
 
 /-! ## El (Universe Decode) -/
 

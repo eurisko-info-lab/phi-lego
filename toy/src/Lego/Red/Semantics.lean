@@ -84,7 +84,7 @@ def isStableCode : Expr → Bool
 
 /-- Check if a code is an unstable V type -/
 def isVCode : Expr → Bool
-  | .v _ _ _ _ => true
+  | .vtype _ _ _ _ => true
   | _ => false
 
 /-- Check if a code is an unstable HCom type -/
@@ -152,11 +152,11 @@ partial def eval (ctx : EvalCtx) (e : Expr) : Expr :=
   -- Dimensions and cofibrations
   | .dim0 => e
   | .dim1 => e
-  | .top => e
-  | .bot => e
-  | .eq r s => .eq (eval ctx' r) (eval ctx' s)
-  | .and φ ψ => .and (eval ctx' φ) (eval ctx' ψ)
-  | .or φ ψ => .or (eval ctx' φ) (eval ctx' ψ)
+  | .cof_top => e
+  | .cof_bot => e
+  | .cof_eq r s => .cof_eq (eval ctx' r) (eval ctx' s)
+  | .cof_and φ ψ => .cof_and (eval ctx' φ) (eval ctx' ψ)
+  | .cof_or φ ψ => .cof_or (eval ctx' φ) (eval ctx' ψ)
 
   -- Types (already in WHNF)
   | .pi dom cod => .pi (eval ctx' dom) cod  -- Don't eval under binders
@@ -168,9 +168,9 @@ partial def eval (ctx : EvalCtx) (e : Expr) : Expr :=
   | .sub a φ t => .sub (eval ctx' a) (eval ctx' φ) t
 
   -- V types
-  | .v r a b equiv => .v (eval ctx' r) (eval ctx' a) (eval ctx' b) (eval ctx' equiv)
-  | .vIn r p t => .vIn (eval ctx' r) (eval ctx' p) (eval ctx' t)
-  | .vProj r v => .vProj (eval ctx' r) (eval ctx' v)
+  | .vtype r a b equiv => .vtype (eval ctx' r) (eval ctx' a) (eval ctx' b) (eval ctx' equiv)
+  | .vin r p t => .vin (eval ctx' r) (eval ctx' p) (eval ctx' t)
+  | .vproj r _ _ _ v => .vproj (eval ctx' r) (lit "A") (lit "B") (lit "equiv") (eval ctx' v)
 
   -- Kan operations
   | .coe line r s t =>
@@ -190,11 +190,8 @@ partial def eval (ctx : EvalCtx) (e : Expr) : Expr :=
 
   -- Default
   | _ => e
-
-/-! ## Dimension and Cofibration Helpers -/
-
-/-- Check if two dimensions are definitionally equal -/
 where
+  /-- Check if two dimensions are definitionally equal -/
   dimEq (r s : Expr) : Bool :=
     match r, s with
     | .dim0, .dim0 => true
@@ -202,25 +199,15 @@ where
     | .ix n, .ix m => n == m
     | _, _ => false
 
-/-- Check if a cofibration is trivially true -/
+  /-- Check if a cofibration is trivially true -/
   cofTrue (φ : Expr) : Bool :=
     match φ with
-    | .top => true
-    | .eq r s => dimEq r s
-    | .or φ ψ => cofTrue φ || cofTrue ψ
+    | .cof_top => true
+    | .cof_eq r s => dimEq r s
+    | .cof_or φ ψ => cofTrue φ || cofTrue ψ
     | _ => false
 
-/-! ## Rigid Coe Computation
-
-    Coercion along a line of types. The key insight is that coe
-    reduces differently for each type constructor:
-    - Nat, Circle, Univ: Identity (degenerate)
-    - Pi: Contravariantly in domain, covariantly in codomain
-    - Sigma: Component-wise
-    - Path: Squeeze construction
--/
-
-/-- Compute rigid coercion -/
+  /-- Compute rigid coercion -/
   doRigidCoe (ctx : EvalCtx) (line : Expr) (r s : Expr) (con : Expr) : Expr :=
     if ctx.fuel == 0 then .coe line r s con else
     let ctx' := ctx.decFuel
@@ -249,19 +236,13 @@ where
       .coe line r s con
 
     -- V type: needs special handling
-    | .v vr _ _ _ =>
+    | .vtype vr _ _ _ =>
       .coe line r s con
 
     -- Default: stuck
     | _ => .coe line r s con
 
-/-! ## Rigid HCom Computation
-
-    Homogeneous composition. Like coe, hcom reduces differently
-    for each type constructor.
--/
-
-/-- Compute rigid hcom -/
+  /-- Compute rigid hcom -/
   doRigidHCom (ctx : EvalCtx) (code : Expr) (r s : Expr) (φ : Expr) (bdy : Expr) : Expr :=
     if ctx.fuel == 0 then .hcom code r s φ bdy else
     let ctx' := ctx.decFuel
@@ -269,13 +250,13 @@ where
     -- Pi type: hcom (Π A B) r s φ u = λx. hcom (B x) r s φ (λi p. u i p x)
     | .pi _dom cod =>
       .lam (.hcom cod r s φ
-        (.lam (.lam (.app (.app (.app (shift 0 (shift 0 bdy)) (.ix 1)) (.ix 0)) (.ix 2)))))
+        (.lam (.lam (.app (.app (.app (shift (shift bdy)) (.ix 1)) (.ix 0)) (.ix 2)))))
 
     -- Sigma type: component-wise
     | .sigma a _b =>
-      let fstLine := .lam (.hcom a r (.ix 0) φ
-        (.lam (.lam (.fst (.app (.app (shift 0 (shift 0 bdy)) (.ix 1)) (.ix 0))))))
-      let fst_s := .app fstLine s
+      let fstLine := Expr.lam (.hcom a r (.ix 0) φ
+        (Expr.lam (Expr.lam (Expr.fst (Expr.app (Expr.app (shift (shift bdy)) (.ix 1)) (.ix 0))))))
+      let _fst_s := Expr.app fstLine s
       -- Simplified: just return hcom for now
       .hcom code r s φ bdy
 
@@ -296,7 +277,7 @@ where
       .hcom code r s φ bdy
 
     -- V type: hcom-v rule
-    | .v _ _ _ _ =>
+    | .vtype _ _ _ _ =>
       .hcom code r s φ bdy
 
     -- Default: stuck
@@ -338,8 +319,8 @@ def spliceDim (ctx : SpliceCtx) (d : Expr) (k : SpliceCtx → Expr → Expr) : E
 /-- Splice a cofibration value into a term -/
 def spliceCof (ctx : SpliceCtx) (φ : Expr) (k : SpliceCtx → Expr → Expr) : Expr :=
   match φ with
-  | .top => k ctx .top
-  | .bot => k ctx .bot
+  | .cof_top => k ctx .cof_top
+  | .cof_bot => k ctx .cof_bot
   | _ =>
     let (ctx', var) := ctx.bind "φ" φ
     k ctx' var
@@ -398,8 +379,8 @@ def doRigidCap (ctx : EvalCtx) (r s : Expr) (φ : Expr) (code : Expr) (box : Exp
 def doRigidVProj (ctx : EvalCtx) (r : Expr) (pcode code pequiv : Expr) (v : Expr) : Expr :=
   let vv := eval ctx v
   match vv with
-  | .vIn _ _ base => base
-  | _ => .vProj r vv
+  | .vin _ _ baseVal => baseVal
+  | _ => .vproj r pcode code pequiv vv
 
 /-! ## Top-level Evaluation -/
 

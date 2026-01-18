@@ -79,12 +79,12 @@ structure Cell where
 /-- Local environment for bound variables -/
 structure LocalEnv where
   cells : Array Cell := #[]
-  cofCtx : Expr := .top  -- Current cofibration assumptions
+  cofCtx : Expr := .cof_top  -- Current cofibration assumptions
   deriving Repr
 
 namespace LocalEnv
 
-def empty : LocalEnv := {}
+def empty : LocalEnv := { cells := #[], cofCtx := .cof_top }
 
 def size (env : LocalEnv) : Nat := env.cells.size
 
@@ -114,7 +114,7 @@ def resolve (env : LocalEnv) (name : String) : Option Nat :=
   go 0
 
 def assume (env : LocalEnv) (φ : Expr) : LocalEnv :=
-  { env with cofCtx := .and env.cofCtx φ }
+  { env with cofCtx := .cof_and env.cofCtx φ }
 
 end LocalEnv
 
@@ -256,24 +256,29 @@ def getLocalTp (ix : Nat) : RefineM Expr := do
   | none => throw (.unboundVariable s!"index {ix}")
 
 /-- Resolve a name to a local or global binding -/
-def resolve (name : String) : RefineM (Sum Nat GlobalDef) := do
+def resolveName (name : String) : RefineM (Sum Nat GlobalDef) := do
   let localEnv ← getLocalEnv
-  match localEnv.resolve name with
-  | some ix => pure (.inl ix)
-  | none =>
+  let localResult := localEnv.resolve name
+  if h : localResult.isSome then
+    return Sum.inl (localResult.get h)
+  else
     let globalEnv ← getGlobalEnv
-    match globalEnv.lookupDef name with
-    | some def => pure (.inr def)
-    | none => throw (.unboundVariable name)
+    let globalResult := globalEnv.lookupDef name
+    if h2 : globalResult.isSome then
+      return Sum.inr (globalResult.get h2)
+    else
+      throw (.unboundVariable name)
 
 /-! ## Hole Operations -/
 
-/-- Create a new hole -/
+/-- Create a new hole.
+    Returns (holeId, placeholder expression).
+    The placeholder is a literal "?{id}" since Expr has no hole constructor. -/
 def freshHole (tp : Expr) : RefineM (Nat × Expr) := do
   let env ← getGlobalEnv
   let (env', id) := env.addHole tp
   modifyGlobalEnv (fun _ => env')
-  pure (id, .hole id)
+  pure (id, .lit s!"?{id}")
 
 /-- Create a fresh metavariable -/
 def freshMeta : RefineM Nat := do

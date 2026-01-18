@@ -30,12 +30,17 @@ import Lego.Red.Splice
 import Lego.Red.Tactic
 import Lego.Red.Glue
 import Lego.Red.Domain
+import Lego.Red.Conversion
+import Lego.Red.RefineMonad
+import Lego.Red.TermBuilder
+import Lego.Red.Semantics
 import Lego.Loader
 
 open Lego
 open Lego.Loader
 open Lego.Red
 open Lego.Red.Datatype
+open Lego.Core
 -- Don't open Elaborate fully to avoid conflicts with Core.infer/check/conv
 -- Use qualified names: Elaborate.Surface, Elaborate.elaborate, etc.
 
@@ -3813,6 +3818,651 @@ def domainModuleTests : List TestResult :=
     assertTrue "cut_str_var" cut_str_var
   ]
 
+/-! ## Conversion Module Tests (Priority 1) -/
+
+def conversionModuleTests : List TestResult :=
+  open Lego.Core.Expr in
+  open Lego.Red.Conversion in
+
+  -- Test ConvResult
+  let result_ok := ConvResult.ok
+  let result_ok_is_ok := result_ok.isOk
+
+  let result_fail := ConvResult.fail "test error"
+  let result_fail_not_ok := !result_fail.isOk
+
+  let result_blocked := ConvResult.blocked 5
+  let result_blocked_not_ok := !result_blocked.isOk
+
+  -- Test andThen
+  let and_ok_ok := ConvResult.andThen .ok (fun _ => .ok)
+  let and_ok_ok_is_ok := and_ok_ok.isOk
+
+  let and_ok_fail := ConvResult.andThen .ok (fun _ => .fail "error")
+  let and_ok_fail_not_ok := !and_ok_fail.isOk
+
+  let and_fail_ok := ConvResult.andThen (.fail "error") (fun _ => .ok)
+  let and_fail_ok_not_ok := !and_fail_ok.isOk
+
+  -- Test ConvCtx
+  let ctx_empty := ConvCtx.empty
+  let ctx_empty_size := ctx_empty.size == 0
+  let ctx_empty_cof := ctx_empty.cof == .cof_top
+
+  let ctx_extended := ctx_empty.extend
+  let ctx_extended_size := ctx_extended.size == 1
+
+  let ctx_assumed := ctx_empty.assume (cof_eq dim0 dim1)
+  let ctx_assumed_cof_changed := ctx_assumed.cof != .cof_top
+
+  -- Test isWhnf
+  let whnf_lam := isWhnf (lam (ix 0))
+  let whnf_app_lam := !isWhnf (app (lam (ix 0)) zero)  -- Beta redex
+  let whnf_fst_pair := !isWhnf (fst (pair zero (suc zero)))  -- Redex
+  let whnf_var := isWhnf (ix 0)
+  let whnf_nat := isWhnf nat
+
+  -- Test step
+  let step_beta := Conversion.step (app (lam (ix 0)) zero)
+  let step_beta_ok := step_beta == some zero
+
+  let step_fst := Conversion.step (fst (pair zero (suc zero)))
+  let step_fst_ok := step_fst == some zero
+
+  let step_snd := Conversion.step (snd (pair zero (suc zero)))
+  let step_snd_ok := step_snd == some (suc zero)
+
+  let step_papp := Conversion.step (papp (plam (ix 0)) dim0)
+  let step_papp_ok := step_papp == some dim0
+
+  let step_subout := Conversion.step (subOut (subIn zero))
+  let step_subout_ok := step_subout == some zero
+
+  let step_none := Conversion.step (ix 0)
+  let step_none_ok := step_none == none
+
+  -- Test whnf
+  let whnf_nested := whnf Conversion.defaultFuel (app (lam (app (lam (ix 0)) (ix 0))) zero)
+  let whnf_nested_ok := whnf_nested == zero
+
+  -- Test equate_dim
+  let ctx := ConvCtx.empty
+  let dim_eq_00 := equate_dim ctx dim0 dim0
+  let dim_eq_00_ok := dim_eq_00.isOk
+
+  let dim_eq_11 := equate_dim ctx dim1 dim1
+  let dim_eq_11_ok := dim_eq_11.isOk
+
+  let dim_eq_01 := equate_dim ctx dim0 dim1
+  let dim_eq_01_fail := !dim_eq_01.isOk
+
+  let dim_eq_var := equate_dim ctx (dimVar 0) (dimVar 0)
+  let dim_eq_var_ok := dim_eq_var.isOk
+
+  let dim_eq_var_diff := equate_dim ctx (dimVar 0) (dimVar 1)
+  let dim_eq_var_diff_fail := !dim_eq_var_diff.isOk
+
+  -- Test equate_cof
+  let cof_eq_top := equate_cof ctx cof_top cof_top
+  let cof_eq_top_ok := cof_eq_top.isOk
+
+  let cof_eq_bot := equate_cof ctx cof_bot cof_bot
+  let cof_eq_bot_ok := cof_eq_bot.isOk
+
+  let cof_eq_tb := equate_cof ctx cof_top cof_bot
+  let cof_eq_tb_fail := !cof_eq_tb.isOk
+
+  let cof_eq_eq := equate_cof ctx (cof_eq dim0 dim0) (cof_eq dim0 dim0)
+  let cof_eq_eq_ok := cof_eq_eq.isOk
+
+  let cof_eq_and := equate_cof ctx (cof_and cof_top cof_bot) (cof_and cof_top cof_bot)
+  let cof_eq_and_ok := cof_eq_and.isOk
+
+  let cof_eq_or := equate_cof ctx (cof_or cof_top cof_bot) (cof_or cof_top cof_bot)
+  let cof_eq_or_ok := cof_eq_or.isOk
+
+  [
+    -- ConvResult
+    assertTrue "conv_result_ok" result_ok_is_ok,
+    assertTrue "conv_result_fail" result_fail_not_ok,
+    assertTrue "conv_result_blocked" result_blocked_not_ok,
+
+    -- andThen
+    assertTrue "conv_and_ok_ok" and_ok_ok_is_ok,
+    assertTrue "conv_and_ok_fail" and_ok_fail_not_ok,
+    assertTrue "conv_and_fail_ok" and_fail_ok_not_ok,
+
+    -- ConvCtx
+    assertTrue "conv_ctx_empty_size" ctx_empty_size,
+    assertTrue "conv_ctx_empty_cof" ctx_empty_cof,
+    assertTrue "conv_ctx_extended" ctx_extended_size,
+    assertTrue "conv_ctx_assumed" ctx_assumed_cof_changed,
+
+    -- isWhnf
+    assertTrue "isWhnf_lam" whnf_lam,
+    assertTrue "isWhnf_app_lam" whnf_app_lam,
+    assertTrue "isWhnf_fst_pair" whnf_fst_pair,
+    assertTrue "isWhnf_var" whnf_var,
+    assertTrue "isWhnf_nat" whnf_nat,
+
+    -- step
+    assertTrue "step_beta" step_beta_ok,
+    assertTrue "step_fst" step_fst_ok,
+    assertTrue "step_snd" step_snd_ok,
+    assertTrue "step_papp" step_papp_ok,
+    assertTrue "step_subout" step_subout_ok,
+    assertTrue "step_none" step_none_ok,
+
+    -- whnf
+    assertTrue "whnf_nested" whnf_nested_ok,
+
+    -- equate_dim
+    assertTrue "equate_dim_00" dim_eq_00_ok,
+    assertTrue "equate_dim_11" dim_eq_11_ok,
+    assertTrue "equate_dim_01_fail" dim_eq_01_fail,
+    assertTrue "equate_dim_var" dim_eq_var_ok,
+    assertTrue "equate_dim_var_diff" dim_eq_var_diff_fail,
+
+    -- equate_cof
+    assertTrue "equate_cof_top" cof_eq_top_ok,
+    assertTrue "equate_cof_bot" cof_eq_bot_ok,
+    assertTrue "equate_cof_tb" cof_eq_tb_fail,
+    assertTrue "equate_cof_eq" cof_eq_eq_ok,
+    assertTrue "equate_cof_and" cof_eq_and_ok,
+    assertTrue "equate_cof_or" cof_eq_or_ok
+  ]
+
+/-! ## RefineMonad Module Tests (Priority 1) -/
+
+def refineMonadModuleTests : List TestResult :=
+  open Lego.Core.Expr in
+  open Lego.Red.RefineMonad in
+
+  -- Test Ident
+  let ident_anon := Ident.anon
+  let ident_user := Ident.user "x"
+  let ident_machine := Ident.machine "meta_0"
+
+  let ident_anon_name := ident_anon.name == none
+  let ident_user_name := ident_user.name == some "x"
+  let ident_machine_name := ident_machine.name == some "meta_0"
+
+  let ident_anon_str := ident_anon.toString == "_"
+  let ident_user_str := ident_user.toString == "x"
+  let ident_machine_str := ident_machine.toString == "meta_0"
+
+  -- Test Cell
+  let cell := Cell.mk ident_user nat (some zero)
+  let cell_ident := cell.ident == ident_user
+  let cell_tp := cell.tp == nat
+  let cell_value := cell.value == some zero
+
+  -- Test LocalEnv
+  let lenv_empty := LocalEnv.empty
+  let lenv_empty_size := lenv_empty.size == 0
+
+  let lenv1 := lenv_empty.extend ident_user nat none
+  let lenv1_size := lenv1.size == 1
+
+  let lenv2 := lenv1.extend (Ident.user "y") circle (some .base)
+  let lenv2_size := lenv2.size == 2
+
+  let lenv_get_0 := lenv2.getLocal 0
+  let lenv_get_0_ok := match lenv_get_0 with
+    | some c => c.ident == Ident.user "y"
+    | none => false
+
+  let lenv_get_1 := lenv2.getLocal 1
+  let lenv_get_1_ok := match lenv_get_1 with
+    | some c => c.ident == ident_user
+    | none => false
+
+  let lenv_get_oob := lenv2.getLocal 5
+  let lenv_get_oob_none := lenv_get_oob.isNone
+
+  let lenv_tp_0 := lenv2.getLocalTp 0
+  let lenv_tp_0_ok := lenv_tp_0 == some circle
+
+  let lenv_tp_1 := lenv2.getLocalTp 1
+  let lenv_tp_1_ok := lenv_tp_1 == some nat
+
+  let lenv_resolve := lenv2.resolve "x"
+  let lenv_resolve_ok := lenv_resolve == some 1
+
+  let lenv_resolve_y := lenv2.resolve "y"
+  let lenv_resolve_y_ok := lenv_resolve_y == some 0
+
+  let lenv_resolve_missing := lenv2.resolve "z"
+  let lenv_resolve_missing_none := lenv_resolve_missing == none
+
+  let lenv_assumed := lenv_empty.assume cof_top
+  let lenv_assumed_ok := lenv_assumed.cofCtx == Expr.cof_and Expr.cof_top Expr.cof_top
+
+  -- Test GlobalEnv (from RefineMonad)
+  let genv_empty : RefineMonad.GlobalEnv := RefineMonad.GlobalEnv.empty
+  let genv_empty_defs := genv_empty.defs.size == 0
+
+  let genv1 := genv_empty.addDef "id" (pi nat nat) (some (lam (ix 0)))
+  let genv1_defs := genv1.defs.size == 1
+
+  let genv_lookup := genv1.lookupDef "id"
+  let genv_lookup_ok := match genv_lookup with
+    | some d => d.name == "id"
+    | none => false
+
+  let genv_lookup_missing := genv1.lookupDef "foo"
+  let genv_lookup_missing_none := genv_lookup_missing.isNone
+
+  let (genv2, hole_id) := genv1.addHole nat
+  let genv2_hole_id := hole_id == 0
+  let genv2_next_hole := genv2.nextHoleId == 1
+
+  let (genv3, meta_id) := genv2.freshMeta
+  let genv3_meta_id := meta_id == 0
+  let genv3_next_meta := genv3.nextMetaId == 1
+
+  let genv4 := genv3.solveHole 0 zero
+  let genv4_solution := genv4.getHoleSolution 0
+  let genv4_solution_ok := genv4_solution == some zero
+
+  -- Test RefineError
+  let err_unbound := RefineError.unboundVariable "x"
+  let err_expected := RefineError.expectedType nat
+  let err_mismatch := RefineError.typeMismatch nat circle
+  let err_other := RefineError.other "test"
+
+  -- RefineError equality
+  let err_unbound_ok := err_unbound == RefineError.unboundVariable "x"
+  let err_other_ok := err_other == RefineError.other "test"
+
+  [
+    -- Ident
+    assertTrue "ident_anon_name" ident_anon_name,
+    assertTrue "ident_user_name" ident_user_name,
+    assertTrue "ident_machine_name" ident_machine_name,
+    assertTrue "ident_anon_str" ident_anon_str,
+    assertTrue "ident_user_str" ident_user_str,
+    assertTrue "ident_machine_str" ident_machine_str,
+
+    -- Cell
+    assertTrue "cell_ident" cell_ident,
+    assertTrue "cell_tp" cell_tp,
+    assertTrue "cell_value" cell_value,
+
+    -- LocalEnv
+    assertTrue "lenv_empty_size" lenv_empty_size,
+    assertTrue "lenv1_size" lenv1_size,
+    assertTrue "lenv2_size" lenv2_size,
+    assertTrue "lenv_get_0" lenv_get_0_ok,
+    assertTrue "lenv_get_1" lenv_get_1_ok,
+    assertTrue "lenv_get_oob" lenv_get_oob_none,
+    assertTrue "lenv_tp_0" lenv_tp_0_ok,
+    assertTrue "lenv_tp_1" lenv_tp_1_ok,
+    assertTrue "lenv_resolve_x" lenv_resolve_ok,
+    assertTrue "lenv_resolve_y" lenv_resolve_y_ok,
+    assertTrue "lenv_resolve_missing" lenv_resolve_missing_none,
+    assertTrue "lenv_assumed" lenv_assumed_ok,
+
+    -- GlobalEnv
+    assertTrue "genv_empty_defs" genv_empty_defs,
+    assertTrue "genv1_defs" genv1_defs,
+    assertTrue "genv_lookup" genv_lookup_ok,
+    assertTrue "genv_lookup_missing" genv_lookup_missing_none,
+    assertTrue "genv2_hole_id" genv2_hole_id,
+    assertTrue "genv2_next_hole" genv2_next_hole,
+    assertTrue "genv3_meta_id" genv3_meta_id,
+    assertTrue "genv3_next_meta" genv3_next_meta,
+    assertTrue "genv4_solution" genv4_solution_ok,
+
+    -- RefineError
+    assertTrue "err_unbound" err_unbound_ok,
+    assertTrue "err_other" err_other_ok
+  ]
+
+/-! ## TermBuilder Module Tests (Priority 2) -/
+
+def termBuilderModuleTests : List TestResult :=
+  open Lego.Core.Expr in
+  open Lego.Red.TermBuilder in
+
+  -- Test BuildCtx
+  let ctx_empty := BuildCtx.empty
+  let ctx_empty_level := ctx_empty.level == 0
+
+  let ctx_next := ctx_empty.next
+  let ctx_next_level := ctx_next.level == 1
+
+  let ctx_fresh := ctx_empty.freshVar
+  let ctx_fresh_ok := ctx_fresh == .ix 0
+
+  -- Test BuildM basic operations
+  let pure_val := BuildM.run (BuildM.pure 42)
+  let pure_ok := pure_val == 42
+
+  let get_level := BuildM.run BuildM.getLevel
+  let get_level_ok := get_level == 0
+
+  -- Test lam builder
+  let lam_id := BuildM.run (lam fun x => BuildM.pure x)
+  let lam_id_ok := lam_id == Expr.lam (ix 0)
+
+  let lam_const := BuildM.run (lam fun _ => BuildM.pure zero)
+  let lam_const_ok := lam_const == Expr.lam zero
+
+  -- Test pi builder
+  let pi_arrow := BuildM.run (pi nat (fun _ => BuildM.pure nat))
+  let pi_arrow_ok := pi_arrow == Expr.pi nat nat
+
+  -- Test sigma builder
+  let sigma_pair := BuildM.run (sigma nat (fun _ => BuildM.pure circle))
+  let sigma_pair_ok := sigma_pair == Expr.sigma nat circle
+
+  -- Test path builder
+  let path_nat := BuildM.run (path nat (BuildM.pure zero) (BuildM.pure zero))
+  let path_nat_ok := path_nat == Expr.path nat zero zero
+
+  -- Test plam builder
+  let plam_const := BuildM.run (plam fun _ => BuildM.pure .base)
+  let plam_const_ok := plam_const == Expr.plam .base
+
+  -- Test ap builder
+  let ap_single := BuildM.run (ap (BuildM.pure (lam (ix 0))) [BuildM.pure zero])
+  let ap_single_ok := ap_single == Expr.app (Expr.lam (ix 0)) zero
+
+  -- Test papp builder
+  let papp_test := BuildM.run (papp (BuildM.pure (plam (ix 0))) dim0)
+  let papp_test_ok := papp_test == Expr.papp (Expr.plam (ix 0)) Expr.dim0
+
+  -- Test fst/snd builders
+  let fst_test := BuildM.run (fst (BuildM.pure (pair zero .base)))
+  let fst_test_ok := fst_test == Expr.fst (pair zero .base)
+
+  let snd_test := BuildM.run (snd (BuildM.pure (pair zero .base)))
+  let snd_test_ok := snd_test == Expr.snd (pair zero .base)
+
+  -- Test dimension builders
+  let dim0_test := BuildM.run dim0
+  let dim0_ok := dim0_test == Expr.dim0
+
+  let dim1_test := BuildM.run dim1
+  let dim1_ok := dim1_test == Expr.dim1
+
+  -- Test cofibration builders
+  let top_test := BuildM.run top
+  let top_ok := top_test == Expr.cof_top
+
+  let bot_test := BuildM.run bot
+  let bot_ok := bot_test == Expr.cof_bot
+
+  let eq_test := BuildM.run (eq dim0 dim1)
+  let eq_ok := eq_test == Expr.cof_eq Expr.dim0 Expr.dim1
+
+  let cof_and_test := BuildM.run (cof_and top bot)
+  let cof_and_ok := cof_and_test == Expr.cof_and Expr.cof_top Expr.cof_bot
+
+  let cof_or_test := BuildM.run (cof_or top bot)
+  let cof_or_ok := cof_or_test == Expr.cof_or Expr.cof_top Expr.cof_bot
+
+  let boundary_test := BuildM.run (boundary dim0)
+  let boundary_ok := match boundary_test with
+    | Expr.cof_or _ _ => true
+    | _ => false
+
+  -- Test type builders
+  let univ_test := BuildM.run univ
+  let univ_ok := univ_test == Expr.univ 0
+
+  let nat_test := BuildM.run nat
+  let nat_builder_ok := nat_test == Expr.nat
+
+  let circle_test := BuildM.run circle
+  let circle_ok := circle_test == Expr.circle
+
+  -- Test value builders
+  let zero_test := BuildM.run zero
+  let zero_ok := zero_test == Expr.zero
+
+  let suc_test := BuildM.run (suc zero)
+  let suc_ok := suc_test == Expr.suc Expr.zero
+
+  let nat_lit_test := BuildM.run (natLit 3)
+  let nat_lit_ok := nat_lit_test == Expr.suc (Expr.suc (Expr.suc Expr.zero))
+
+  [
+    -- BuildCtx
+    assertTrue "build_ctx_empty" ctx_empty_level,
+    assertTrue "build_ctx_next" ctx_next_level,
+    assertTrue "build_ctx_fresh" ctx_fresh_ok,
+
+    -- BuildM
+    assertTrue "build_pure" pure_ok,
+    assertTrue "build_get_level" get_level_ok,
+
+    -- Term builders
+    assertTrue "build_lam_id" lam_id_ok,
+    assertTrue "build_lam_const" lam_const_ok,
+    assertTrue "build_pi" pi_arrow_ok,
+    assertTrue "build_sigma" sigma_pair_ok,
+    assertTrue "build_path" path_nat_ok,
+    assertTrue "build_plam" plam_const_ok,
+
+    -- Application builders
+    assertTrue "build_ap" ap_single_ok,
+    assertTrue "build_papp" papp_test_ok,
+    assertTrue "build_fst" fst_test_ok,
+    assertTrue "build_snd" snd_test_ok,
+
+    -- Dimension builders
+    assertTrue "build_dim0" dim0_ok,
+    assertTrue "build_dim1" dim1_ok,
+
+    -- Cofibration builders
+    assertTrue "build_top" top_ok,
+    assertTrue "build_bot" bot_ok,
+    assertTrue "build_eq" eq_ok,
+    assertTrue "build_cof_and" cof_and_ok,
+    assertTrue "build_cof_or" cof_or_ok,
+    assertTrue "build_boundary" boundary_ok,
+
+    -- Type builders
+    assertTrue "build_univ" univ_ok,
+    assertTrue "build_nat" nat_builder_ok,
+    assertTrue "build_circle" circle_ok,
+
+    -- Value builders
+    assertTrue "build_zero" zero_ok,
+    assertTrue "build_suc" suc_ok,
+    assertTrue "build_nat_lit" nat_lit_ok
+  ]
+
+/-! ## Semantics Module Tests (Priority 2) -/
+
+def semanticsModuleTests : List TestResult :=
+  open Lego.Core.Expr in
+  open Lego.Red.Semantics in
+
+  -- Test EvalCtx
+  let ctx_empty := EvalCtx.empty
+  let ctx_empty_env := ctx_empty.env.size == 0
+  let ctx_empty_fuel := ctx_empty.fuel == 1000
+
+  let ctx_extended := ctx_empty.extend zero
+  let ctx_extended_env := ctx_extended.env.size == 1
+
+  let ctx_lookup_0 := ctx_extended.lookup 0
+  let ctx_lookup_0_ok := ctx_lookup_0 == some zero
+
+  let ctx_lookup_oob := ctx_empty.lookup 0
+  let ctx_lookup_oob_none := ctx_lookup_oob == none
+
+  let ctx_dec_fuel := ctx_empty.decFuel
+  let ctx_dec_fuel_ok := ctx_dec_fuel.fuel == 999
+
+  -- Test isStableCode
+  let stable_pi := isStableCode (pi nat nat)
+  let stable_sigma := isStableCode (sigma nat nat)
+  let stable_path := isStableCode (path nat zero zero)
+  let stable_nat := isStableCode nat
+  let stable_circle := isStableCode circle
+  let stable_univ := isStableCode (univ 0)
+  let stable_sub := isStableCode (sub nat cof_top zero)
+
+  let unstable_v := !isStableCode (vtype dim0 nat nat (lit "e"))
+  let unstable_lit := !isStableCode (lit "test")
+
+  -- Test isVCode
+  let v_code := isVCode (vtype dim0 nat nat (lit "e"))
+  let not_v_code := !isVCode nat
+
+  -- Test isHComCode
+  let hcom_code := isHComCode (hcom nat dim0 dim1 cof_top (lit "cap"))
+  let not_hcom_code := !isHComCode nat
+
+  -- Test eval - basic values
+  let eval_zero := eval ctx_empty zero
+  let eval_zero_ok := eval_zero == zero
+
+  let eval_base := eval ctx_empty .base
+  let eval_base_ok := eval_base == .base
+
+  let eval_nat := eval ctx_empty nat
+  let eval_nat_ok := eval_nat == nat
+
+  -- Test eval - lambda and application
+  let eval_lam := eval ctx_empty (lam (ix 0))
+  let eval_lam_ok := eval_lam == lam (ix 0)
+
+  let eval_app_beta := eval ctx_empty (app (lam (ix 0)) zero)
+  let eval_app_beta_ok := eval_app_beta == zero
+
+  let eval_app_nested := eval ctx_empty (app (lam (suc (ix 0))) zero)
+  let eval_app_nested_ok := eval_app_nested == suc zero
+
+  -- Test eval - pairs and projections
+  let eval_pair := eval ctx_empty (pair zero .base)
+  let eval_pair_ok := eval_pair == pair zero .base
+
+  let eval_fst := eval ctx_empty (fst (pair zero .base))
+  let eval_fst_ok := eval_fst == zero
+
+  let eval_snd := eval ctx_empty (snd (pair zero .base))
+  let eval_snd_ok := eval_snd == .base
+
+  -- Test eval - paths
+  let eval_plam := eval ctx_empty (plam (ix 0))
+  let eval_plam_ok := eval_plam == plam (ix 0)
+
+  let eval_papp := eval ctx_empty (papp (plam dim0) dim1)
+  let eval_papp_ok := eval_papp == dim0
+
+  -- Test eval - subtypes
+  let eval_subin := eval ctx_empty (subIn zero)
+  let eval_subin_ok := eval_subin == subIn zero
+
+  let eval_subout := eval ctx_empty (subOut (subIn zero))
+  let eval_subout_ok := eval_subout == zero
+
+  -- Test eval - natural numbers
+  let eval_suc := eval ctx_empty (suc zero)
+  let eval_suc_ok := eval_suc == suc zero
+
+  -- Test eval - circle
+  let eval_loop := eval ctx_empty (loop dim0)
+  let eval_loop_ok := eval_loop == loop dim0
+
+  -- Test eval - dimensions
+  let eval_dim0 := eval ctx_empty dim0
+  let eval_dim0_ok := eval_dim0 == dim0
+
+  let eval_dim1 := eval ctx_empty dim1
+  let eval_dim1_ok := eval_dim1 == dim1
+
+  -- Test eval - cofibrations
+  let eval_top := eval ctx_empty cof_top
+  let eval_top_ok := eval_top == cof_top
+
+  let eval_bot := eval ctx_empty cof_bot
+  let eval_bot_ok := eval_bot == cof_bot
+
+  let eval_eq := eval ctx_empty (cof_eq dim0 dim1)
+  let eval_eq_ok := eval_eq == cof_eq dim0 dim1
+
+  -- Test eval - with environment
+  let ctx_with_x := ctx_empty.extend (suc zero)
+  let eval_var := eval ctx_with_x (ix 0)
+  let eval_var_ok := eval_var == suc zero
+
+  -- Test eval - coe reflexivity (r = r)
+  let eval_coe_refl := eval ctx_empty (coe (plam nat) dim0 dim0 zero)
+  let eval_coe_refl_ok := eval_coe_refl == zero
+
+  [
+    -- EvalCtx
+    assertTrue "eval_ctx_empty_env" ctx_empty_env,
+    assertTrue "eval_ctx_empty_fuel" ctx_empty_fuel,
+    assertTrue "eval_ctx_extended" ctx_extended_env,
+    assertTrue "eval_ctx_lookup_0" ctx_lookup_0_ok,
+    assertTrue "eval_ctx_lookup_oob" ctx_lookup_oob_none,
+    assertTrue "eval_ctx_dec_fuel" ctx_dec_fuel_ok,
+
+    -- isStableCode
+    assertTrue "stable_pi" stable_pi,
+    assertTrue "stable_sigma" stable_sigma,
+    assertTrue "stable_path" stable_path,
+    assertTrue "stable_nat" stable_nat,
+    assertTrue "stable_circle" stable_circle,
+    assertTrue "stable_univ" stable_univ,
+    assertTrue "stable_sub" stable_sub,
+    assertTrue "unstable_v" unstable_v,
+    assertTrue "unstable_lit" unstable_lit,
+
+    -- isVCode/isHComCode
+    assertTrue "is_v_code" v_code,
+    assertTrue "not_v_code" not_v_code,
+    assertTrue "is_hcom_code" hcom_code,
+    assertTrue "not_hcom_code" not_hcom_code,
+
+    -- eval basic
+    assertTrue "eval_zero" eval_zero_ok,
+    assertTrue "eval_base" eval_base_ok,
+    assertTrue "eval_nat" eval_nat_ok,
+
+    -- eval lambda/app
+    assertTrue "eval_lam" eval_lam_ok,
+    assertTrue "eval_app_beta" eval_app_beta_ok,
+    assertTrue "eval_app_nested" eval_app_nested_ok,
+
+    -- eval pairs
+    assertTrue "eval_pair" eval_pair_ok,
+    assertTrue "eval_fst" eval_fst_ok,
+    assertTrue "eval_snd" eval_snd_ok,
+
+    -- eval paths
+    assertTrue "eval_plam" eval_plam_ok,
+    assertTrue "eval_papp" eval_papp_ok,
+
+    -- eval subtypes
+    assertTrue "eval_subin" eval_subin_ok,
+    assertTrue "eval_subout" eval_subout_ok,
+
+    -- eval nat/circle
+    assertTrue "eval_suc" eval_suc_ok,
+    assertTrue "eval_loop" eval_loop_ok,
+
+    -- eval dimensions/cof
+    assertTrue "eval_dim0" eval_dim0_ok,
+    assertTrue "eval_dim1" eval_dim1_ok,
+    assertTrue "eval_top" eval_top_ok,
+    assertTrue "eval_bot" eval_bot_ok,
+    assertTrue "eval_eq" eval_eq_ok,
+
+    -- eval with environment
+    assertTrue "eval_var" eval_var_ok,
+
+    -- eval coe reflexivity
+    assertTrue "eval_coe_refl" eval_coe_refl_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -4338,7 +4988,8 @@ def allTests : List TestResult :=
   coreIRTests ++ pathTests ++ kanTests ++
   cofibrationTests ++ natHITTests ++ circleTests ++ glueTests ++ systemTests ++ coeStabilityTests ++
   elaborationTests ++ typecheckTests ++ elaborateAndTypecheck ++ astToIRTests ++ irToASTTests ++
-  glueModuleTests ++ domainModuleTests
+  glueModuleTests ++ domainModuleTests ++ conversionModuleTests ++ refineMonadModuleTests ++
+  termBuilderModuleTests ++ semanticsModuleTests
 
 def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) := do
   IO.println s!"\n── {name} ──"
@@ -4348,6 +4999,8 @@ def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) :
     IO.println s!"  {t.message} {t.name}"
     if t.passed then passed := passed + 1 else failed := failed + 1
   pure (passed, failed)
+
+set_option maxRecDepth 1024
 
 def main (args : List String) : IO Unit := do
   IO.println "═══════════════════════════════════════════════════════════════"
@@ -4453,6 +5106,18 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Domain Module Tests" domainModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Conversion Module Tests" conversionModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "RefineMonad Module Tests" refineMonadModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "TermBuilder Module Tests" termBuilderModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Semantics Module Tests" semanticsModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
