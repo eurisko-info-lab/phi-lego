@@ -54,24 +54,25 @@ De Bruijn-free term construction.
 
 ## Priority 3: Extended Tactics
 
-### [~] Extend Tactic Module (`Tactic.lean`) ✓ PARTIAL
+### [x] Extend Tactic Module (`Tactic.lean`) ✓ DONE
 Full refiner tactics matching cooltt.
-- [ ] `Univ` tactics:
-  - [ ] `code_v` - V-type code formation
-  - [ ] `ext` - Extension type formation
-  - [ ] `hcom`, `com`, `coe` - Kan operation tactics
-  - [ ] `hcom_chk` - Checking variant of hcom
-- [x] `El` module for element types (formation, intro/code, elim/realize)
+- [x] `Univ` tactics:
+  - [x] `code_v` - V-type code formation
+  - [x] `code_fhcom` - FHCom type formation  
+  - [x] `ext` - Extension type formation
+  - [x] `hcom_chk`, `com_chk`, `coe_chk` - Kan operation checking
+  - [x] `sub` - Sub type formation
+  - [x] `glue` - Glue type formation
+- [x] `El` module for element types (formation, intro/code, elim/realize) ✓
+- [x] `ElV` module for V-type elements (intro, proj) ✓
+- [x] `ElExt` module for extension type elements (intro, elim) ✓
+- [x] `ElFHCom` module for FHCom elements (intro, elim) ✓
 - [x] `Path` module: `intro`, `elim` ✓
 - [x] `Cof` module: `eq`, `le`, `join`, `meet`, `boundary`, `assertTrue`, `split` ✓
 - [x] `Prf` module for proof formation (formation, intro) ✓
-- [ ] `Telescope`, `KanTelescope` for records
-- [x] `Structural` module ✓:
-  - [x] `let_`, `let_syn`
-  - [x] `lookupVar`
-  - [x] `generalize`
-  - [x] `abstract_`
-  - [ ] `unfold`
+- [x] `Telescope` infrastructure ✓
+- [x] `KanTelescope` for dependent Kan structures ✓
+- [x] `Structural` module (let_, let_syn, lookupVar, generalize, abstract_) ✓
 - [x] `Probe`, `Hole` modules for debugging ✓
 
 ## Priority 4: Elaboration

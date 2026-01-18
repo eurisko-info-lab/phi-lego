@@ -404,6 +404,259 @@ def elaborateInfer (env : GlobalEnv) (s : Surface) : Except String (Expr × Expr
   let (result, _) ← runElab ctx (infer s)
   return result
 
+/-! ## Type Elaboration (chk_tp)
+
+    Check that a surface term is a valid type.
+    Returns the elaborated type and its universe level.
+-/
+
+/-- Check that a surface term is a valid type -/
+def checkType (s : Surface) : ElabM (Expr × Level) := do
+  let (tyCore, tyTy) ← infer s
+  match tyTy with
+  | .univ level => return (tyCore, level)
+  | _ => elabError s!"Expected a type, got {tyTy}"
+
+/-- Check type with expected universe level -/
+def checkTypeAtLevel (s : Surface) (expected : Level) : ElabM Expr := do
+  let (tyCore, level) ← checkType s
+  -- Check universe level compatibility
+  if Level.leq level expected then
+    return tyCore
+  else
+    elabError s!"Universe level mismatch: expected ≤ {expected}, got {level}"
+
+/-! ## Telescopic Elaboration (chk_tp_in_tele)
+
+    Elaborate types inside a telescope, threading context through.
+-/
+
+/-- Telescope entry for elaboration -/
+structure TeleEntry where
+  name : String
+  surface : Surface
+  deriving Repr, Inhabited
+
+/-- Elaborate a telescope of types -/
+def checkTelescope (entries : List TeleEntry) : ElabM (List (String × Expr)) := do
+  entries.foldlM (init := []) fun acc entry => do
+    let (tyCore, _) ← checkType entry.surface
+    let result := acc ++ [(entry.name, tyCore)]
+    -- Extend context for subsequent entries
+    modifyCtx (·.extend entry.name tyCore)
+    return result
+
+/-- Elaborate a type in a telescope context -/
+def checkTypeInTele (tele : List TeleEntry) (s : Surface) : ElabM (List (String × Expr) × Expr) := do
+  let teleCore ← checkTelescope tele
+  let (tyCore, _) ← checkType s
+  return (teleCore, tyCore)
+
+/-- Build Pi type from telescope -/
+def teleToPi (tele : List (String × Expr)) (cod : Expr) : Expr :=
+  tele.foldr (fun (_, dom) acc => .pi dom acc) cod
+
+/-! ## Extended Surface Syntax (Cubical)
+
+    Additional surface constructors for cubical features.
+-/
+
+/-- Extended surface syntax with full cubical constructs -/
+inductive SurfaceExt where
+  | base     : Surface → SurfaceExt                    -- Embed basic surface
+  -- Cofibrations
+  | cof_eq   : SurfaceExt → SurfaceExt → SurfaceExt    -- r = s
+  | cof_and  : SurfaceExt → SurfaceExt → SurfaceExt    -- φ ∧ ψ
+  | cof_or   : SurfaceExt → SurfaceExt → SurfaceExt    -- φ ∨ ψ
+  | cof_top  : SurfaceExt                              -- ⊤
+  | cof_bot  : SurfaceExt                              -- ⊥
+  | boundary : SurfaceExt → SurfaceExt                 -- ∂r = (r = 0) ∨ (r = 1)
+  -- Kan operations
+  | coe      : SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt  -- coe r r' (λi.A) a
+  | hcom     : SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt  -- hcom r r' A φ cap
+  | com      : SurfaceExt → SurfaceExt → SurfaceExt → List (SurfaceExt × SurfaceExt) → SurfaceExt → SurfaceExt  -- com r r' (λi.A) sys cap
+  -- V-types
+  | vtype    : SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt  -- V r A B equiv
+  | vin      : SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt               -- vin r a b
+  | vproj    : SurfaceExt → SurfaceExt → SurfaceExt                            -- vproj r v
+  -- Extension types
+  | ext      : Nat → SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt          -- ext n fam cof bdry
+  | extLam   : Nat → SurfaceExt → SurfaceExt                                    -- extLam n body
+  | extApp   : SurfaceExt → List SurfaceExt → SurfaceExt                        -- extApp e dims
+  -- Sub types
+  | sub      : SurfaceExt → SurfaceExt → SurfaceExt → SurfaceExt               -- sub A φ t
+  | subIn    : SurfaceExt → SurfaceExt                                         -- subIn e
+  | subOut   : SurfaceExt → SurfaceExt                                         -- subOut e
+  deriving Repr, Inhabited
+
+mutual
+/-- Convert extended surface to core expression (checking mode) -/
+partial def checkExt (s : SurfaceExt) (expected : Expr) : ElabM Expr := do
+  match s with
+  | .base surf => check surf expected
+
+  | .cof_eq r s => do
+    let rCore ← checkExt r (.lit "𝕀")
+    let sCore ← checkExt s (.lit "𝕀")
+    return .cof_eq rCore sCore
+
+  | .cof_and φ ψ => do
+    let φCore ← checkExt φ (.lit "𝔽")
+    let ψCore ← checkExt ψ (.lit "𝔽")
+    return .cof_and φCore ψCore
+
+  | .cof_or φ ψ => do
+    let φCore ← checkExt φ (.lit "𝔽")
+    let ψCore ← checkExt ψ (.lit "𝔽")
+    return .cof_or φCore ψCore
+
+  | .cof_top => return .cof_top
+  | .cof_bot => return .cof_bot
+
+  | .boundary r => do
+    let rCore ← checkExt r (.lit "𝕀")
+    return .cof_or (.cof_eq rCore .dim0) (.cof_eq rCore .dim1)
+
+  | .coe rS r'S famS aS => do
+    let rCore ← checkExt rS (.lit "𝕀")
+    let r'Core ← checkExt r'S (.lit "𝕀")
+    let (famCore, _) ← inferExt famS  -- λi. A, produces type family
+    let aCore ← checkExt aS expected  -- Simplified: should be fam @ r
+    return .coe famCore rCore r'Core aCore
+
+  | .hcom rS r'S tyS φS capS => do
+    let rCore ← checkExt rS (.lit "𝕀")
+    let r'Core ← checkExt r'S (.lit "𝕀")
+    let tyCore ← checkExt tyS (.univ 0)
+    let φCore ← checkExt φS (.lit "𝔽")
+    let capCore ← checkExt capS tyCore
+    return .hcom rCore r'Core tyCore φCore capCore
+
+  | .com rS r'S famS sysS capS => do
+    let rCore ← checkExt rS (.lit "𝕀")
+    let r'Core ← checkExt r'S (.lit "𝕀")
+    let (famCore, _) ← inferExt famS
+    let sysCore ← sysS.mapM fun (φ, t) => do
+      let φCore ← checkExt φ (.lit "𝔽")
+      let (tCore, _) ← inferExt t
+      pure (φCore, tCore)
+    let (capCore, _) ← inferExt capS
+    return .com rCore r'Core famCore sysCore capCore
+
+  | .vtype rS aS bS equivS => do
+    let rCore ← checkExt rS (.lit "𝕀")
+    let aCore ← checkExt aS (.univ 0)
+    let bCore ← checkExt bS (.univ 0)
+    let (equivCore, _) ← inferExt equivS
+    return Expr.vtype rCore aCore bCore equivCore
+
+  | .vin rS aS bS =>
+    match expected with
+    | .vtype _ tyA tyB _ => do
+      let rCore ← checkExt rS (.lit "𝕀")
+      let aCore ← checkExt aS tyA
+      let bCore ← checkExt bS tyB
+      return .vin rCore aCore bCore
+    | _ => elabError "Expected V-type for vin"
+
+  | .vproj rS vS => do
+    let rCore ← checkExt rS (.lit "𝕀")
+    let (vCore, vTy) ← inferExt vS
+    match vTy with
+    | .vtype _ tyA tyB equiv =>
+      return .vproj rCore tyA tyB equiv vCore
+    | _ => elabError "Expected V-type for vproj"
+
+  | .ext n famS cofS bdryS => do
+    let (famCore, _) ← inferExt famS
+    let cofCore ← checkExt cofS (.lit "𝔽")
+    let (bdryCore, _) ← inferExt bdryS
+    return Expr.ext n famCore cofCore bdryCore
+
+  | .extLam n bodyS =>
+    match expected with
+    | .ext m fam _cof _bdry =>
+      if n == m then do
+        let bodyCore ← checkExt bodyS fam
+        return .extLam n bodyCore
+      else elabError s!"Dimension mismatch: expected {m}, got {n}"
+    | _ => elabError "Expected extension type for extLam"
+
+  | .extApp eS dimsS => do
+    let (eCore, eTy) ← inferExt eS
+    match eTy with
+    | .ext n fam _cof _bdry =>
+      if dimsS.length == n then do
+        let dimsCore ← dimsS.mapM fun d => checkExt d (.lit "𝕀")
+        return .extApp eCore dimsCore
+      else elabError s!"Wrong number of dimension arguments"
+    | _ => elabError "Expected extension type for extApp"
+
+  | .sub aS φS tS => do
+    let aCore ← checkExt aS (.univ 0)
+    let φCore ← checkExt φS (.lit "𝔽")
+    let tCore ← checkExt tS aCore
+    return Expr.sub aCore φCore tCore
+
+  | .subIn eS =>
+    match expected with
+    | .sub a _φ _t => do
+      let eCore ← checkExt eS a
+      return .subIn eCore
+    | _ => elabError "Expected sub type for subIn"
+
+  | .subOut eS => do
+    let (eCore, eTy) ← inferExt eS
+    match eTy with
+    | .sub _a _φ _t => return .subOut eCore
+    | _ => elabError "Expected sub type for subOut"
+
+/-- Infer mode for extended surface -/
+partial def inferExt (s : SurfaceExt) : ElabM (Expr × Expr) := do
+  match s with
+  | .base surf => infer surf
+  | .cof_top => return (.cof_top, .lit "𝔽")
+  | .cof_bot => return (.cof_bot, .lit "𝔽")
+  | .cof_eq r s' => do
+    let rCore ← checkExt r (.lit "𝕀")
+    let sCore ← checkExt s' (.lit "𝕀")
+    return (.cof_eq rCore sCore, .lit "𝔽")
+  | .cof_and φ ψ => do
+    let φCore ← checkExt φ (.lit "𝔽")
+    let ψCore ← checkExt ψ (.lit "𝔽")
+    return (.cof_and φCore ψCore, .lit "𝔽")
+  | .cof_or φ ψ => do
+    let φCore ← checkExt φ (.lit "𝔽")
+    let ψCore ← checkExt ψ (.lit "𝔽")
+    return (.cof_or φCore ψCore, .lit "𝔽")
+  | .boundary r => do
+    let rCore ← checkExt r (.lit "𝕀")
+    return (.cof_or (.cof_eq rCore .dim0) (.cof_eq rCore .dim1), .lit "𝔽")
+  | .vtype rS aS bS equivS => do
+    let rCore ← checkExt rS (.lit "𝕀")
+    let (aCore, aTy) ← inferExt aS
+    let (bCore, _) ← inferExt bS
+    let (equivCore, _) ← inferExt equivS
+    let level := match aTy with
+      | .univ l => l
+      | _ => Level.zero
+    return (Expr.vtype rCore aCore bCore equivCore, .univ level)
+  | .ext n famS cofS bdryS => do
+    let (famCore, famTy) ← inferExt famS
+    let cofCore ← checkExt cofS (.lit "𝔽")
+    let (bdryCore, _) ← inferExt bdryS
+    let level := match famTy with
+      | .univ l => l
+      | _ => Level.zero
+    return (Expr.ext n famCore cofCore bdryCore, .univ level)
+  | .sub aS φS tS => do
+    let (aCore, aTy) ← inferExt aS
+    let φCore ← checkExt φS (.lit "𝔽")
+    let tCore ← checkExt tS aCore
+    return (Expr.sub aCore φCore tCore, aTy)
+  | _ => elabError s!"Cannot infer type for extended surface term"
+end
+
 /-! ## Convenience: Parse-like Surface Constructors -/
 
 /-- Build a function type from a list of bindings -/
