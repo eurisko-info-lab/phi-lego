@@ -25,6 +25,7 @@ import Lego.Red.ExtType
 import Lego.Red.SubType
 import Lego.Red.HIT
 import Lego.Red.Signature
+import Lego.Red.Cofibration
 import Lego.Loader
 
 open Lego
@@ -2582,6 +2583,325 @@ def signatureModuleTests : List TestResult :=
     assertTrue "buildMCom" mcom_is_pair
   ]
 
+/-! ## Cofibration Module Tests -/
+
+def cofibrationModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Cofibration in
+
+  -- Test dimension predicates
+  let dim0_is_0 := isDim0 dim0
+  let dim1_is_1 := isDim1 dim1
+  let dim0_not_1 := !isDim1 dim0
+  let dim1_not_0 := !isDim0 dim1
+  let var_not_0 := !isDim0 (dimVar 0)
+
+  -- Test dimEq
+  let dim0_eq_dim0 := dimEq dim0 dim0
+  let dim1_eq_dim1 := dimEq dim1 dim1
+  let dim0_neq_dim1 := !dimEq dim0 dim1
+  let var_eq_var := dimEq (dimVar 0) (dimVar 0)
+  let var_neq_var := !dimEq (dimVar 0) (dimVar 1)
+
+  -- Test isCof
+  let top_is_cof := isCof cof_top
+  let bot_is_cof := isCof cof_bot
+  let eq_is_cof := isCof (cof_eq dim0 dim1)
+  let and_is_cof := isCof (cof_and cof_top cof_bot)
+  let or_is_cof := isCof (cof_or cof_top cof_bot)
+  let nat_not_cof := !isCof nat
+
+  -- Test top and bot constructors
+  let top_is_top := top == cof_top
+  let bot_is_bot := bot == cof_bot
+
+  -- Test eq constructor with optimization
+  let eq_same := eq dim0 dim0  -- Should be ⊤
+  let eq_same_is_top := eq_same == cof_top
+  let eq_diff := eq dim0 dim1  -- Should be ⊥
+  let eq_diff_is_bot := eq_diff == cof_bot
+  let eq_vars := eq (dimVar 0) (dimVar 1)  -- Should be cof_eq
+  let eq_vars_ok := match eq_vars with
+    | cof_eq _ _ => true
+    | _ => false
+
+  -- Test le (less-than-or-equal)
+  let le_r_s := le (dimVar 0) (dimVar 1)
+  let le_is_or := match le_r_s with
+    | cof_or _ _ => true
+    | _ => false
+
+  -- Test meet (conjunction) with optimization
+  let meet_top_x := meet cof_top (cof_eq (dimVar 0) dim0)
+  let meet_top_x_ok := meet_top_x == cof_eq (dimVar 0) dim0
+  let meet_x_top := meet (cof_eq (dimVar 0) dim0) cof_top
+  let meet_x_top_ok := meet_x_top == cof_eq (dimVar 0) dim0
+  let meet_bot_x := meet cof_bot (cof_eq (dimVar 0) dim0)
+  let meet_bot_x_ok := meet_bot_x == cof_bot
+  let meet_x_bot := meet (cof_eq (dimVar 0) dim0) cof_bot
+  let meet_x_bot_ok := meet_x_bot == cof_bot
+  let meet_x_x := meet (cof_eq (dimVar 0) dim0) (cof_eq (dimVar 0) dim0)
+  let meet_x_x_ok := meet_x_x == cof_eq (dimVar 0) dim0
+
+  -- Test join (disjunction) with optimization
+  let join_bot_x := join cof_bot (cof_eq (dimVar 0) dim0)
+  let join_bot_x_ok := join_bot_x == cof_eq (dimVar 0) dim0
+  let join_x_bot := join (cof_eq (dimVar 0) dim0) cof_bot
+  let join_x_bot_ok := join_x_bot == cof_eq (dimVar 0) dim0
+  let join_top_x := join cof_top (cof_eq (dimVar 0) dim0)
+  let join_top_x_ok := join_top_x == cof_top
+  let join_x_top := join (cof_eq (dimVar 0) dim0) cof_top
+  let join_x_top_ok := join_x_top == cof_top
+  let join_x_x := join (cof_eq (dimVar 0) dim0) (cof_eq (dimVar 0) dim0)
+  let join_x_x_ok := join_x_x == cof_eq (dimVar 0) dim0
+
+  -- Test meetAll and joinAll
+  let meet_list := meetAll [cof_top, cof_eq (dimVar 0) dim0, cof_top]
+  let meet_list_ok := meet_list == cof_eq (dimVar 0) dim0
+  let join_list := joinAll [cof_bot, cof_eq (dimVar 0) dim0, cof_bot]
+  let join_list_ok := join_list == cof_eq (dimVar 0) dim0
+  let meet_empty := meetAll []
+  let meet_empty_ok := meet_empty == cof_top
+  let join_empty := joinAll []
+  let join_empty_ok := join_empty == cof_bot
+
+  -- Test boundary
+  let bdry_r := boundary (dimVar 0)
+  let bdry_is_or := match bdry_r with
+    | cof_or _ _ => true
+    | _ => false
+  let bdry_0 := boundary dim0  -- (0=0) ∨ (0=1) = ⊤ ∨ ⊥ = ⊤
+  let bdry_0_ok := bdry_0 == cof_top
+  let bdry_1 := boundary dim1  -- (1=0) ∨ (1=1) = ⊥ ∨ ⊤ = ⊤
+  let bdry_1_ok := bdry_1 == cof_top
+
+  -- Test eq0 and eq1
+  let eq0_r := eq0 (dimVar 0)
+  let eq0_r_ok := eq0_r == cof_eq (dimVar 0) dim0
+  let eq1_r := eq1 (dimVar 0)
+  let eq1_r_ok := eq1_r == cof_eq (dimVar 0) dim1
+
+  -- Test isTop
+  let is_top_top := isTop cof_top
+  let is_top_eq_same := isTop (cof_eq dim0 dim0)
+  let is_top_or_left := isTop (cof_or cof_top cof_bot)
+  let not_top_bot := !isTop cof_bot
+  let not_top_eq_diff := !isTop (cof_eq dim0 dim1)
+
+  -- Test isBot
+  let is_bot_bot := isBot cof_bot
+  let is_bot_eq_01 := isBot (cof_eq dim0 dim1)
+  let is_bot_eq_10 := isBot (cof_eq dim1 dim0)
+  let is_bot_and_left := isBot (cof_and cof_bot cof_top)
+  let not_bot_top := !isBot cof_top
+
+  -- Test isConsistent
+  let consistent_top := isConsistent cof_top
+  let consistent_eq := isConsistent (cof_eq (dimVar 0) dim0)
+  let inconsistent_bot := !isConsistent cof_bot
+  let inconsistent_eq := !isConsistent (cof_eq dim0 dim1)
+
+  -- Test areDisjoint
+  let disjoint_eq_01 := areDisjoint (eq0 (dimVar 0)) (eq1 (dimVar 0))
+  -- Note: syntactic check, so need explicit contradiction
+
+  -- Test normalize
+  let norm_top := normalize cof_top == cof_top
+  let norm_bot := normalize cof_bot == cof_bot
+  let norm_and_top := normalize (cof_and cof_top (cof_eq (dimVar 0) dim0)) ==
+                      cof_eq (dimVar 0) dim0
+  let norm_or_bot := normalize (cof_or cof_bot (cof_eq (dimVar 0) dim0)) ==
+                     cof_eq (dimVar 0) dim0
+
+  -- Test CofContext
+  let ctx_empty := CofContext.empty
+  let ctx_empty_ok := ctx_empty.assumptions.isEmpty
+
+  let ctx1 := ctx_empty.assume (eq0 (dimVar 0))
+  let ctx1_has_one := ctx1.assumptions.length == 1
+
+  let ctx2 := ctx1.assume (eq1 (dimVar 1))
+  let ctx2_has_two := ctx2.assumptions.length == 2
+
+  let ctx_consistent := ctx1.isConsistent
+
+  -- Test CofContext.entails
+  let ctx_entails_self := ctx1.entails (eq0 (dimVar 0))
+  let ctx_entails_top := ctx1.entails cof_top
+
+  -- Test CofContext.combined
+  let ctx_combined := ctx2.combined
+  let combined_is_and := match ctx_combined with
+    | cof_and _ _ => true
+    | _ => false
+
+  -- Test restrictExpr
+  let expr_with_var := cof_eq (dimVar 0) (dimVar 1)
+  let restricted := restrictExpr (eq0 (dimVar 0)) expr_with_var
+  let restricted_ok := restricted == cof_eq dim0 (dimVar 1)
+
+  -- Test CofBuilder namespace
+  let cb_top := CofBuilder.top == cof_top
+  let cb_bot := CofBuilder.bot == cof_bot
+  let cb_eq := CofBuilder.eq dim0 dim0 == cof_top
+  let cb_eq0 := CofBuilder.eq0 (dimVar 0) == eq0 (dimVar 0)
+  let cb_eq1 := CofBuilder.eq1 (dimVar 0) == eq1 (dimVar 0)
+  let cb_boundary := match CofBuilder.boundary (dimVar 0) with
+    | cof_or _ _ => true
+    | _ => false
+
+  -- Test mkSplit
+  let split := mkSplit [(eq0 (dimVar 0), zero), (eq1 (dimVar 0), suc zero)]
+  let split_is_sys := match split with
+    | sys _ => true
+    | _ => false
+
+  -- Test splitCovers
+  let full_cover := splitCovers CofContext.empty
+                     [(cof_top, zero)]
+  let partial_cover := splitCovers (CofContext.empty.assume (eq0 (dimVar 0)))
+                        [(eq0 (dimVar 0), zero)]
+
+  -- Test BoundaryData
+  let bdry_data := BoundaryData.mk (eq0 (dimVar 0)) zero
+  let bdry_cof_ok := bdry_data.cof == eq0 (dimVar 0)
+  let bdry_val_ok := bdry_data.value == zero
+
+  -- Test checkBoundarySat
+  let sat_trivial := checkBoundarySat zero nat cof_bot zero
+  let sat_trivial_ok := sat_trivial == BoundarySat.sat
+
+  -- Test cofToString
+  let str_top := cofToString cof_top == "⊤"
+  let str_bot := cofToString cof_bot == "⊥"
+
+  -- Test forallDim (for the constant case)
+  let forall_top := forallDim 0 cof_top
+  -- ∀i. ⊤ should be true
+
+  [
+    -- Dimension predicates
+    assertTrue "isDim0" dim0_is_0,
+    assertTrue "isDim1" dim1_is_1,
+    assertTrue "dim0_not_1" dim0_not_1,
+    assertTrue "dim1_not_0" dim1_not_0,
+    assertTrue "var_not_0" var_not_0,
+
+    -- dimEq
+    assertTrue "dim0_eq_dim0" dim0_eq_dim0,
+    assertTrue "dim1_eq_dim1" dim1_eq_dim1,
+    assertTrue "dim0_neq_dim1" dim0_neq_dim1,
+    assertTrue "var_eq_var" var_eq_var,
+    assertTrue "var_neq_var" var_neq_var,
+
+    -- isCof
+    assertTrue "top_is_cof" top_is_cof,
+    assertTrue "bot_is_cof" bot_is_cof,
+    assertTrue "eq_is_cof" eq_is_cof,
+    assertTrue "and_is_cof" and_is_cof,
+    assertTrue "or_is_cof" or_is_cof,
+    assertTrue "nat_not_cof" nat_not_cof,
+
+    -- Constructors
+    assertTrue "top_is_top" top_is_top,
+    assertTrue "bot_is_bot" bot_is_bot,
+    assertTrue "eq_same_is_top" eq_same_is_top,
+    assertTrue "eq_diff_is_bot" eq_diff_is_bot,
+    assertTrue "eq_vars_ok" eq_vars_ok,
+    assertTrue "le_is_or" le_is_or,
+
+    -- meet
+    assertTrue "meet_top_x" meet_top_x_ok,
+    assertTrue "meet_x_top" meet_x_top_ok,
+    assertTrue "meet_bot_x" meet_bot_x_ok,
+    assertTrue "meet_x_bot" meet_x_bot_ok,
+    assertTrue "meet_x_x" meet_x_x_ok,
+
+    -- join
+    assertTrue "join_bot_x" join_bot_x_ok,
+    assertTrue "join_x_bot" join_x_bot_ok,
+    assertTrue "join_top_x" join_top_x_ok,
+    assertTrue "join_x_top" join_x_top_ok,
+    assertTrue "join_x_x" join_x_x_ok,
+
+    -- meetAll/joinAll
+    assertTrue "meet_list" meet_list_ok,
+    assertTrue "join_list" join_list_ok,
+    assertTrue "meet_empty" meet_empty_ok,
+    assertTrue "join_empty" join_empty_ok,
+
+    -- boundary
+    assertTrue "bdry_is_or" bdry_is_or,
+    assertTrue "bdry_0" bdry_0_ok,
+    assertTrue "bdry_1" bdry_1_ok,
+    assertTrue "eq0_r" eq0_r_ok,
+    assertTrue "eq1_r" eq1_r_ok,
+
+    -- isTop
+    assertTrue "is_top_top" is_top_top,
+    assertTrue "is_top_eq_same" is_top_eq_same,
+    assertTrue "is_top_or_left" is_top_or_left,
+    assertTrue "not_top_bot" not_top_bot,
+    assertTrue "not_top_eq_diff" not_top_eq_diff,
+
+    -- isBot
+    assertTrue "is_bot_bot" is_bot_bot,
+    assertTrue "is_bot_eq_01" is_bot_eq_01,
+    assertTrue "is_bot_eq_10" is_bot_eq_10,
+    assertTrue "is_bot_and_left" is_bot_and_left,
+    assertTrue "not_bot_top" not_bot_top,
+
+    -- isConsistent
+    assertTrue "consistent_top" consistent_top,
+    assertTrue "consistent_eq" consistent_eq,
+    assertTrue "inconsistent_bot" inconsistent_bot,
+    assertTrue "inconsistent_eq" inconsistent_eq,
+
+    -- normalize
+    assertTrue "norm_top" norm_top,
+    assertTrue "norm_bot" norm_bot,
+    assertTrue "norm_and_top" norm_and_top,
+    assertTrue "norm_or_bot" norm_or_bot,
+
+    -- CofContext
+    assertTrue "ctx_empty" ctx_empty_ok,
+    assertTrue "ctx1_has_one" ctx1_has_one,
+    assertTrue "ctx2_has_two" ctx2_has_two,
+    assertTrue "ctx_consistent" ctx_consistent,
+    assertTrue "ctx_entails_self" ctx_entails_self,
+    assertTrue "ctx_entails_top" ctx_entails_top,
+    assertTrue "combined_is_and" combined_is_and,
+
+    -- restrictExpr
+    assertTrue "restrictExpr" restricted_ok,
+
+    -- CofBuilder
+    assertTrue "cb_top" cb_top,
+    assertTrue "cb_bot" cb_bot,
+    assertTrue "cb_eq" cb_eq,
+    assertTrue "cb_eq0" cb_eq0,
+    assertTrue "cb_eq1" cb_eq1,
+    assertTrue "cb_boundary" cb_boundary,
+
+    -- mkSplit
+    assertTrue "split_is_sys" split_is_sys,
+    assertTrue "full_cover" full_cover,
+    assertTrue "partial_cover" partial_cover,
+
+    -- BoundaryData
+    assertTrue "bdry_cof_ok" bdry_cof_ok,
+    assertTrue "bdry_val_ok" bdry_val_ok,
+    assertTrue "sat_trivial" sat_trivial_ok,
+
+    -- Pretty printing
+    assertTrue "str_top" str_top,
+    assertTrue "str_bot" str_bot,
+
+    -- forallDim
+    assertTrue "forall_top" forall_top
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -3206,6 +3526,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Signature Module Tests" signatureModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Cofibration Module Tests" cofibrationModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
