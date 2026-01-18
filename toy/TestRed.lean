@@ -17,6 +17,7 @@ import Lego.Red.Unify
 import Lego.Red.Quote
 import Lego.Red.Datatype
 import Lego.Red.Elaborate
+import Lego.Red.Module
 import Lego.Loader
 
 open Lego
@@ -1515,6 +1516,104 @@ def surfaceElabTests : List TestResult :=
     assertTrue "elab_idType" idType_test
   ]
 
+/-! ## Module System Tests -/
+
+def moduleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Lego.Red.Module in
+
+  -- Test Selector utilities
+  let sel := ["prelude", "path"]
+  let sel_toPath := selectorToPath sel == "prelude.path"
+  let sel_fromPath := selectorFromPath "prelude.path" == sel
+
+  -- Test ResEnv
+  let resEnv1 := ResEnv.empty
+  let gname1 := GName.named "test"
+  let resEnv2 := resEnv1.addNative .pub gname1
+  let resEnv_hasGlobal := match resEnv2.get "test" with
+    | some (.globalRes _) => true
+    | _ => false
+
+  -- Test local binding
+  let resEnv3 := resEnv2.bind "x"
+  let resEnv_hasLocal := match resEnv3.get "x" with
+    | some (.ix 0) => true
+    | _ => false
+
+  -- Test multiple locals (de Bruijn ordering)
+  let resEnv4 := resEnv3.bind "y"
+  let resEnv_debruijn := match (resEnv4.get "y", resEnv4.get "x") with
+    | (some (.ix 0), some (.ix 1)) => true
+    | _ => false
+
+  -- Test visibility
+  let gname2 := GName.named "private_def"
+  let resEnv5 := resEnv4.addNative .priv gname2
+  let resEnv_private := match resEnv5.get "private_def" with
+    | some (.globalRes _) => true
+    | _ => false
+
+  -- Test exports (only public)
+  let exports := resEnv5.exports
+  let exports_only_public := exports.length == 1 && exports.contains gname1
+
+  -- Test ModuleCache
+  let cache1 := ModuleCache.empty
+  let cache_notLoaded := !cache1.isLoaded sel
+  let cache2 := cache1.startLoading sel
+  let cache_isCyclic := cache2.isCyclic sel
+  let cache3 := cache2.store sel resEnv2 GlobalEnv.empty
+  let cache_isLoaded := cache3.isLoaded sel
+
+  -- Test Module structure
+  let mod1 := preludePathModule
+  let mod_hasDecls := mod1.decls.length > 0
+  let mod_hasName := mod1.name == ["prelude", "path"]
+
+  -- Test moduleImports
+  let imports := moduleImports mainModule
+  let imports_correct := imports.length == 2
+
+  -- Test topologicalSort with simple modules
+  let sortResult := topologicalSort [preludePathModule, preludeNatModule]
+  let sort_ok := match sortResult with
+    | .ok sorted => sorted.length == 2
+    | .error _ => false
+
+  -- Test ModDecl constructors
+  let _importDecl := ModDecl.importMod .pub ["prelude", "path"]
+  let _defineDecl := ModDecl.define .pub "foo" (univ 0) (lit "foo")
+  let decls_exist := true  -- Just checking they compile
+
+  -- Test Visibility
+  let vis_eq := Visibility.pub != Visibility.priv
+
+  -- Test selector file path
+  let filePath := selectorToFilePath "/base" ["prelude", "path"]
+  let filePath_ok := filePath.endsWith "prelude/path.lego"
+
+  [
+    assertTrue "selector_toPath" sel_toPath,
+    assertTrue "selector_fromPath" sel_fromPath,
+    assertTrue "resEnv_hasGlobal" resEnv_hasGlobal,
+    assertTrue "resEnv_hasLocal" resEnv_hasLocal,
+    assertTrue "resEnv_debruijn" resEnv_debruijn,
+    assertTrue "resEnv_private" resEnv_private,
+    assertTrue "exports_only_public" exports_only_public,
+    assertTrue "cache_notLoaded" cache_notLoaded,
+    assertTrue "cache_isCyclic" cache_isCyclic,
+    assertTrue "cache_isLoaded" cache_isLoaded,
+    assertTrue "mod_hasDecls" mod_hasDecls,
+    assertTrue "mod_hasName" mod_hasName,
+    assertTrue "moduleImports" imports_correct,
+    assertTrue "topologicalSort" sort_ok,
+    assertTrue "decls_exist" decls_exist,
+    assertTrue "visibility_eq" vis_eq,
+    assertTrue "selector_filePath" filePath_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2115,6 +2214,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Surface Elaboration Tests" surfaceElabTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "Module System Tests" moduleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests
