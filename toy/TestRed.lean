@@ -20,6 +20,7 @@ import Lego.Red.Elaborate
 import Lego.Red.Module
 import Lego.Red.Kan
 import Lego.Red.VType
+import Lego.Red.FHCom
 import Lego.Loader
 
 open Lego
@@ -1842,6 +1843,109 @@ def vtypeModuleTests : List TestResult :=
     assertTrue "coeV_degenerate" coe_v_degen_ok
   ]
 
+/-! ## FHCom Module Tests -/
+
+def fhcomModuleTests : List TestResult :=
+  open Lego.Core in
+  open Lego.Core.Expr in
+  open Lego.Red.FHCom in
+  open Lego.Red.Kan in
+
+  -- FHComInfo tests
+  let fhinfo1 : FHComInfo := { r := dim0, r' := dim0, cap := ix 0, sys := [] }
+  let fhinfo1_degen := fhinfo1.isDegenerate
+
+  let fhinfo2 : FHComInfo := { r := dim0, r' := dim1, cap := ix 0, sys := [] }
+  let fhinfo2_not_degen := !fhinfo2.isDegenerate
+
+  let fhinfo1_reduce := fhinfo1.reduce
+  let fhinfo1_reduce_ok := fhinfo1_reduce == some (ix 0)
+
+  -- BoxInfo tests
+  let boxinfo1 : BoxInfo := { r := dim0, r' := dim0, cap := ix 5, sys := [] }
+  let boxinfo1_degen := boxinfo1.isDegenerate
+
+  let boxinfo1_reduce := boxinfo1.reduce
+  let boxinfo1_reduce_ok := boxinfo1_reduce == some (ix 5)
+
+  let boxinfo2 : BoxInfo := { r := dim0, r' := dim1, cap := ix 5, sys := [] }
+  let boxinfo2_not_degen := !boxinfo2.isDegenerate
+
+  -- CapInfo tests
+  let capinfo1 : CapInfo := { r := dim0, r' := dim0, ty := ix 0, sys := [], el := ix 5 }
+  let capinfo1_reduce := capinfo1.reduce
+  let capinfo1_reduce_ok := capinfo1_reduce == some (ix 5)
+
+  let capinfo2 : CapInfo := { r := dim0, r' := dim1, ty := ix 0, sys := [], el := .boxEl dim0 dim1 (ix 10) [] }
+  let capinfo2_reduce := capinfo2.reduce
+  let capinfo2_reduce_ok := capinfo2_reduce == some (ix 10)
+
+  -- Smart constructors
+  let fh_degen := mkFHCom dim0 dim0 (ix 1) []
+  let fh_degen_ok := fh_degen == ix 1
+
+  let fh_nondegen := mkFHCom dim0 dim1 (ix 1) []
+  let fh_nondegen_ok := match fh_nondegen with
+    | .fhcom _ _ _ _ => true
+    | _ => false
+
+  let box_degen := mkBox dim0 dim0 (ix 5) []
+  let box_degen_ok := box_degen == ix 5
+
+  let box_nondegen := mkBox dim0 dim1 (ix 5) []
+  let box_nondegen_ok := match box_nondegen with
+    | .boxEl _ _ _ _ => true
+    | _ => false
+
+  let cap_degen := mkCap dim0 dim0 (ix 0) [] (ix 5)
+  let cap_degen_ok := cap_degen == ix 5
+
+  let cap_beta := mkCap dim0 dim1 (ix 0) [] (.boxEl dim0 dim1 (ix 10) [])
+  let cap_beta_ok := cap_beta == ix 10
+
+  -- Reduction
+  let reduce_fhcom_degen := reduceFHComExpr (fhcom dim0 dim0 (ix 0) [])
+  let reduce_fhcom_degen_ok := reduce_fhcom_degen == some (ix 0)
+
+  let reduce_box_degen := reduceFHComExpr (.boxEl dim0 dim0 (ix 5) [])
+  let reduce_box_degen_ok := reduce_box_degen == some (ix 5)
+
+  let reduce_cap_beta := reduceFHComExpr (.capEl dim0 dim1 (ix 0) [] (.boxEl dim0 dim1 (ix 10) []))
+  let reduce_cap_beta_ok := reduce_cap_beta == some (ix 10)
+
+  -- Normalization
+  let norm_fhcom := normalizeFHCom 10 (fhcom dim0 dim0 (ix 0) [])
+  let norm_fhcom_ok := norm_fhcom == ix 0
+
+  let norm_box := normalizeFHCom 10 (.boxEl dim0 dim0 (ix 5) [])
+  let norm_box_ok := norm_box == ix 5
+
+  let norm_cap := normalizeFHCom 10 (.capEl dim0 dim1 (ix 0) [] (.boxEl dim0 dim1 (ix 10) []))
+  let norm_cap_ok := norm_cap == ix 10
+
+  [
+    assertTrue "fhinfo1_degenerate" fhinfo1_degen,
+    assertTrue "fhinfo2_not_degenerate" fhinfo2_not_degen,
+    assertTrue "fhinfo1_reduce" fhinfo1_reduce_ok,
+    assertTrue "boxinfo1_degenerate" boxinfo1_degen,
+    assertTrue "boxinfo1_reduce" boxinfo1_reduce_ok,
+    assertTrue "boxinfo2_not_degenerate" boxinfo2_not_degen,
+    assertTrue "capinfo1_reduce" capinfo1_reduce_ok,
+    assertTrue "capinfo2_beta_reduce" capinfo2_reduce_ok,
+    assertTrue "mkFHCom_degenerate" fh_degen_ok,
+    assertTrue "mkFHCom_nondegenerate" fh_nondegen_ok,
+    assertTrue "mkBox_degenerate" box_degen_ok,
+    assertTrue "mkBox_nondegenerate" box_nondegen_ok,
+    assertTrue "mkCap_degenerate" cap_degen_ok,
+    assertTrue "mkCap_beta" cap_beta_ok,
+    assertTrue "reduce_fhcom_degen" reduce_fhcom_degen_ok,
+    assertTrue "reduce_box_degen" reduce_box_degen_ok,
+    assertTrue "reduce_cap_beta" reduce_cap_beta_ok,
+    assertTrue "normalize_fhcom" norm_fhcom_ok,
+    assertTrue "normalize_box" norm_box_ok,
+    assertTrue "normalize_cap" norm_cap_ok
+  ]
+
 /-! ## End-to-End: Elaboration + Type Checking Tests -/
 
 def elaborateAndTypecheck : List TestResult :=
@@ -2451,6 +2555,9 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "VType Module Tests" vtypeModuleTests
+  totalPassed := totalPassed + p; totalFailed := totalFailed + f
+
+  let (p, f) ← printTestGroup "FHCom Module Tests" fhcomModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let redttCoreTests ← runRedttCoreTypeCheckTests

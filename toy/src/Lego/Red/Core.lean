@@ -144,6 +144,17 @@ inductive Expr where
   -- This is the key operation for transport in dependent types.
   -- com = coe + hcom: coerce the cap and system, then compose homogeneously.
   | com   : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- com r r' (λi.A) [(φ,tube)...] cap
+  -- Generalized homogeneous composition (ghcom): expands hcom when type doesn't have strict Kan structure
+  | ghcom : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- ghcom r r' A [(φ,tube)...] cap
+  -- Generalized heterogeneous composition (gcom): ghcom with varying type
+  | gcom  : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- gcom r r' (λi.A) [(φ,tube)...] cap
+  -- FHCom: fibrant homogeneous composition (types as Kan-filled values)
+  -- fhcom r r' cap sys : Type (when used at type level)
+  | fhcom : Expr → Expr → Expr → List (Expr × Expr) → Expr  -- fhcom r r' cap [(φ,tube)...]
+  -- Box: introduction for FHCom types
+  | boxEl : Expr → Expr → Expr → List (Expr × Expr) → Expr  -- box r r' cap [(φ,side)...]
+  -- Cap: elimination for FHCom types (extract the cap from a box)
+  | capEl : Expr → Expr → Expr → List (Expr × Expr) → Expr → Expr  -- cap r r' ty [(φ,tube)...] box
   -- Systems (partial elements): list of (cof, term) branches
   | sys   : List (Expr × Expr) → Expr      -- [(φ₁, t₁), (φ₂, t₂), ...]
   -- V-types (Glue types for univalence)
@@ -243,6 +254,39 @@ partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
         (shiftAbove (cutoff + 1) delta ty)  -- ty binds dimension
         (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))  -- tube binds dim
         (shiftAbove cutoff delta cap)
+  -- ghcom: generalized hcom
+  | ghcom r r' ty tubes cap =>
+    ghcom (shiftAbove cutoff delta r)
+          (shiftAbove cutoff delta r')
+          (shiftAbove cutoff delta ty)
+          (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))
+          (shiftAbove cutoff delta cap)
+  -- gcom: generalized com (heterogeneous)
+  | gcom r r' ty tubes cap =>
+    gcom (shiftAbove cutoff delta r)
+         (shiftAbove cutoff delta r')
+         (shiftAbove (cutoff + 1) delta ty)  -- ty binds dimension
+         (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))
+         (shiftAbove cutoff delta cap)
+  -- fhcom: fibrant hcom (for types)
+  | fhcom r r' cap tubes =>
+    fhcom (shiftAbove cutoff delta r)
+          (shiftAbove cutoff delta r')
+          (shiftAbove cutoff delta cap)
+          (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))
+  -- box: introduction for fhcom types
+  | boxEl r r' cap sysList =>
+    boxEl (shiftAbove cutoff delta r)
+        (shiftAbove cutoff delta r')
+        (shiftAbove cutoff delta cap)
+        (sysList.map fun (φ, side) => (shiftAbove cutoff delta φ, shiftAbove cutoff delta side))
+  -- cap: elimination for fhcom types
+  | capEl r r' ty tubes e =>
+    capEl (shiftAbove cutoff delta r)
+        (shiftAbove cutoff delta r')
+        (shiftAbove cutoff delta ty)
+        (tubes.map fun (φ, tube) => (shiftAbove cutoff delta φ, shiftAbove (cutoff + 1) delta tube))
+        (shiftAbove cutoff delta e)
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (shiftAbove cutoff delta cof, shiftAbove cutoff delta tm))
@@ -368,6 +412,39 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
         (subst (idx + 1) (shift val) ty)  -- ty binds dimension
         (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))  -- tube binds dim
         (subst idx val cap)
+  -- ghcom: generalized hcom
+  | ghcom r r' ty tubes cap =>
+    ghcom (subst idx val r)
+          (subst idx val r')
+          (subst idx val ty)
+          (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))
+          (subst idx val cap)
+  -- gcom: generalized com
+  | gcom r r' ty tubes cap =>
+    gcom (subst idx val r)
+         (subst idx val r')
+         (subst (idx + 1) (shift val) ty)
+         (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))
+         (subst idx val cap)
+  -- fhcom
+  | fhcom r r' cap tubes =>
+    fhcom (subst idx val r)
+          (subst idx val r')
+          (subst idx val cap)
+          (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))
+  -- box
+  | boxEl r r' cap sysList =>
+    boxEl (subst idx val r)
+        (subst idx val r')
+        (subst idx val cap)
+        (sysList.map fun (φ, side) => (subst idx val φ, subst idx val side))
+  -- cap
+  | capEl r r' ty tubes e =>
+    capEl (subst idx val r)
+        (subst idx val r')
+        (subst idx val ty)
+        (tubes.map fun (φ, tube) => (subst idx val φ, subst (idx + 1) (shift val) tube))
+        (subst idx val e)
   -- Systems
   | sys branches => sys (branches.map fun (cof, tm) =>
       (subst idx val cof, subst idx val tm))
@@ -445,6 +522,29 @@ partial def freeIn (n : Nat) : Expr → Bool
     freeIn n r || freeIn n r' || freeIn (n + 1) ty ||  -- ty is a type line (binds dimension)
     tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||  -- tube binds dim
     freeIn n cap
+  -- ghcom
+  | ghcom r r' ty tubes cap =>
+    freeIn n r || freeIn n r' || freeIn n ty ||
+    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||
+    freeIn n cap
+  -- gcom
+  | gcom r r' ty tubes cap =>
+    freeIn n r || freeIn n r' || freeIn (n + 1) ty ||
+    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||
+    freeIn n cap
+  -- fhcom
+  | fhcom r r' cap tubes =>
+    freeIn n r || freeIn n r' || freeIn n cap ||
+    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube)
+  -- box
+  | boxEl r r' cap sysList =>
+    freeIn n r || freeIn n r' || freeIn n cap ||
+    sysList.any (fun (φ, side) => freeIn n φ || freeIn n side)
+  -- cap
+  | capEl r r' ty tubes e =>
+    freeIn n r || freeIn n r' || freeIn n ty ||
+    tubes.any (fun (φ, tube) => freeIn n φ || freeIn (n + 1) tube) ||
+    freeIn n e
   -- Systems
   | sys branches => branches.any fun (cof, tm) => freeIn n cof || freeIn n tm
   -- V-types
@@ -978,6 +1078,23 @@ partial def toString : Expr → String
   | com r r' ty tubes cap =>
     let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
     s!"(com {toString r} {toString r'} {toString ty} [{String.intercalate ", " tubeStrs}] {toString cap})"
+  -- ghcom and gcom
+  | ghcom r r' ty tubes cap =>
+    let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
+    s!"(ghcom {toString r} {toString r'} {toString ty} [{String.intercalate ", " tubeStrs}] {toString cap})"
+  | gcom r r' ty tubes cap =>
+    let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
+    s!"(gcom {toString r} {toString r'} {toString ty} [{String.intercalate ", " tubeStrs}] {toString cap})"
+  -- FHCom, Box, Cap
+  | fhcom r r' cap tubes =>
+    let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
+    s!"(fhcom {toString r} {toString r'} {toString cap} [{String.intercalate ", " tubeStrs}])"
+  | boxEl r r' cap sysList =>
+    let sideStrs := sysList.map fun (φ, side) => s!"{toString φ} ↦ {toString side}"
+    s!"(box {toString r} {toString r'} {toString cap} [{String.intercalate ", " sideStrs}])"
+  | capEl r r' ty tubes el =>
+    let tubeStrs := tubes.map fun (φ, tube) => s!"{toString φ} ↦ {toString tube}"
+    s!"(cap {toString r} {toString r'} {toString ty} [{String.intercalate ", " tubeStrs}] {toString el})"
   -- Systems
   | sys branches =>
     let branchStrs := branches.map fun (cof, tm) => s!"{toString cof} ↦ {toString tm}"
@@ -1400,6 +1517,32 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
     let _ ← infer ctx cap  -- simplified: just infer cap type
     -- The result type is A[r'] - substitute r' for the bound dimension in ty
     .ok (Expr.subst0 r' ty)
+
+  -- GHCom (generalized homogeneous composition)
+  -- ghcom r r' A [(φ₁, tube₁), ...] cap : A
+  | .ghcom _ _ ty _ cap => do
+    let _ ← check ctx cap ty
+    .ok ty
+
+  -- GCom (generalized heterogeneous composition)
+  -- gcom r r' (λi.A) [(φ₁, tube₁), ...] cap : A[r']
+  | .gcom _ r' ty _ cap => do
+    let _ ← infer ctx cap
+    .ok (Expr.subst0 r' ty)
+
+  -- FHCom (fibrant hcom - for types)
+  -- fhcom r r' cap sys : Type
+  | .fhcom _ _ _ _ => .ok (.univ .zero)  -- Simplified: FHCom produces a type
+
+  -- Box (introduction for FHCom types)
+  -- box r r' cap sys : fhcom r r' cap sys
+  | .boxEl r r' cap sysList => .ok (.fhcom r r' cap sysList)
+
+  -- Cap (elimination for FHCom types)
+  -- cap r r' ty sys el : ty
+  | .capEl _ _ ty _ el => do
+    let _ ← infer ctx el
+    .ok ty
 
   | .natElim p _ _ n => .ok (.app p n)
   | .circleElim p _ _ x => .ok (.app p x)

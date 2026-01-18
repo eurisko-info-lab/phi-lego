@@ -465,6 +465,26 @@ partial def inferG (ctx : TypingCtx) : Expr → TCResultG Expr
   | .com _ r' ty _ _ =>
     .ok (Expr.subst0 r' ty)
 
+  -- GHCom
+  | .ghcom _ _ ty _ cap => do
+    let _ ← checkG ctx cap ty
+    .ok ty
+
+  -- GCom
+  | .gcom _ r' ty _ _ =>
+    .ok (Expr.subst0 r' ty)
+
+  -- FHCom
+  | .fhcom _ _ _ _ => .ok (.univ .zero)
+
+  -- Box
+  | .boxEl r r' cap sysList => .ok (.fhcom r r' cap sysList)
+
+  -- Cap
+  | .capEl _ _ ty _ el => do
+    let _ ← inferG ctx el
+    .ok ty
+
   -- Nat/Circle eliminators
   | .natElim p _ _ n => .ok (.app p n)
   | .circleElim p _ _ x => .ok (.app p x)
