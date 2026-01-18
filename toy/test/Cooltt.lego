@@ -45,14 +45,15 @@ token Token
   -- Double-struck letters for type theory
   mathbb ::= '𝕀' | '𝔽' | '𝕊' ;
   -- Math symbols
-  mathsym ::= '≈' | '≅' | '≤' | '≥' | '∘' | '⊗' | '⊙' | '∧' | '∨' | '∂' ;
-  alpha  ::= lower | upper | greek | mathbb | mathsym | '_' ;
+  mathsym ::= '≈' | '≅' | '≤' | '≥' | '∘' | '⊗' | '⊙' | '∧' | '∨' | '∂' | '∷' 
+            | '≡' | '⋆' | '¯' | '¹' | '₀' | '₁' | '₂' | '₃' | '₄' | '₅' | '₆' | '₇' | '₈' | '₉' ;
+  alpha  ::= lower | upper | greek | mathbb | mathsym | '_' | '+' ;
   symch  ::= '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>'
            | ':' | ';' | ',' | '.' | '|' | '!' | '?' | '@'
-           | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '-'
+           | '#' | '$' | '%' | '^' | '&' | '*' | '-'
            | '=' | '~' | '/' | '\\' | '→' | '←' | '↔' | '⊕'
            | '⊢' | '×' | 'λ' | '∀' | '∃' | '★' | '☆'
-           | '⦉' | '⦊' | '«' | '»' | '`' ;
+           | '⦉' | '⦊' | '«' | '»' | '`' | '⊤' | '⊥' ;
 
   -- Cooltt-specific token patterns
   -- '/' allowed in identifiers for hierarchical names (e.g., trans/filler)
@@ -72,15 +73,23 @@ token Token
 
   -- Multi-character operators (must be checked BEFORE single sym)
   -- These are ordered longest-first for proper tokenization
-  op3     ::= ':' ':' '=' ;        -- ::= (assignment with type)
+  op10    ::= '#' 'n' 'o' 'r' 'm' 'a' 'l' 'i' 'z' 'e' ;  -- #normalize
+  op7     ::= '#' 'p' 'r' 'i' 'n' 't'                    -- #print
+            | '#' 'd' 'e' 'b' 'u' 'g' ;                  -- #debug
+  op5     ::= '#' 'f' 'a' 'i' 'l'                        -- #fail
+            | '#' 'q' 'u' 'i' 't' ;                      -- #quit
+  op3     ::= ':' ':' '='          -- ::= (assignment with type)
+            | '=' '[' ']' ;        -- =[] (equation step, empty)
   op2     ::= ':' '='              -- := (assignment)
             | ':' ':'              -- :: (qualified name separator)
             | '-' '>'              -- -> (arrow)
             | '<' '-'              -- <- (back arrow)
+            | '<' '='              -- <= (less than or equal)
             | '=' '>'              -- => (fat arrow)
             | '{' '!'              -- {! (hole start)
             | '!' '}'              -- !} (hole end)
-            | '?' '_' ;            -- ?_ (hole)
+            | '?' '_'              -- ?_ (hole)
+            | '=' '[' ;            -- =[ (equation step start)
 
   -- Single symbol (fallback)
   sym     ::= symch ;
@@ -100,8 +109,12 @@ piece File
 piece Imports
   importdecl ::= "import" modulepath bracketmod? ;
   modulepath ::= name ("." name)* ;
-  name       ::= ident | "def" | "import" | "with" | "let" | "in" | "elim" | "type" 
-               | "nat" | "circle" | "sig" | "struct" | "begin" | "end" | "+" | "-" ;
+  -- NOTE: "in" and "with" are NOT valid names - they're delimiters!
+  -- NOTE: "def" is NOT a valid name - it's a keyword that starts definitions!
+  -- NOTE: "sig" and "struct" are NOT valid names - they start signature/struct types!
+  name       ::= ident | "import" | "let" | "elim" | "type" 
+               | "nat" | "circle" | "+" | "-" | "set" | "tp"
+               | "path" | "path-p" | "empty" | "trans" ;
 
 -----------------------------------------------------
 -- Definitions: def name (args) : type := body
@@ -112,18 +125,22 @@ piece Definitions
   opname     ::= "+" | "-" | "*" ;
   path       ::= name ("::" name)* ;
   telecells  ::= telecell+ ;
-  telecell   ::= "(" names ":" expr ")" ;
+  telecell   ::= "(" plainnames ":" expr ")" ;
+  -- plainnames allows qualified names and underscore in parameter position
+  plainnames ::= plainname+ ;
+  plainname  ::= path | "_" ;
   names      ::= name+ ;
   
   modifiers  ::= modifier+ ;
-  modifier   ::= "shadowing" | "abstract" | unfoldspec ;
+  -- "!" is shorthand for "shadowing" in cooltt
+  modifier   ::= "shadowing" | "!" | "abstract" | unfoldspec ;
   -- unfoldspec uses unfoldnames; keywords become sym tokens via vocab
   -- so ident will NOT match "abstract", "def", etc.
   unfoldspec ::= "unfold" unfoldnames ;
   unfoldnames ::= unfoldname+ ;
   -- unfoldname matches identifiers (but not keywords which are sym tokens)
   -- and operators like + -
-  unfoldname ::= ident | "+" | "-" | ident "::" unfoldname ;
+  unfoldname ::= ident "::" unfoldname | ident | "+" | "-" ;
   
   -- Standalone modifiers (appear as separate "declarations")
   abstractmod ::= "abstract" ;
@@ -139,7 +156,7 @@ piece Axioms
 -- Commands
 -----------------------------------------------------
 piece Commands
-  printcmd   ::= "#print" name ;
+  printcmd   ::= "#print" plainname ;
   normcmd    ::= "#normalize" expr ;
   failcmd    ::= "#fail" topdecl ;
   debugcmd   ::= "#debug" flag ;
@@ -150,17 +167,36 @@ piece Commands
 -- Module System: section, view, export, repack
 -----------------------------------------------------
 piece ModuleSystem
-  sectiondecl ::= modifiers "section" path? "begin" topdecl* "end" bracketmod? ;
-  viewdecl    ::= modifiers "view" bracketmod ;
-  exportdecl  ::= modifiers "export" bracketmod
-                | modifiers "export" path ;
-  repackdecl  ::= modifiers "repack" bracketmod ;
+  sectiondecl ::= modifiers? "section" path? "begin" topdecl* "end" bracketmod? ;
+  viewdecl    ::= modifiers? "view" bracketmod ;
+  exportdecl  ::= modifiers? "export" bracketmod
+                | modifiers? "export" path ;
+  repackdecl  ::= modifiers? "repack" bracketmod ;
   
-  bracketmod  ::= "[" moditems "]" | "{" moditems "}" ;
-  moditems    ::= moditem? | moditem (";" moditem)* | moditem ("," moditem)* ;
-  moditem     ::= "::" | path "::" atomicmod | path ("->" | "→") path? | ("->" | "→") path 
-                | "!" path? | path | atomicmod ;
-  atomicmod   ::= bracketmod | "!" "::"? | hole ;
+  bracketmod  ::= "[" moditems? "]" | "{" moditems? "}" ;
+  -- moditems uses ; or , as separators. Single item also valid.
+  moditems    ::= moditem ((";" | ",") moditem)* ;
+  -- moditem Grammar.mly reference:
+  --   :: alone                    → ModAll
+  --   path :: atomicmod           → ModInSubtree
+  --   -> alone                    → ModRename([], [])
+  --   path -> ::?                 → ModRename(path, [])
+  --   ::? -> path                 → ModRename([], path)  ← this needs explicit :: option
+  --   path -> path                → ModRename(path1, path2)
+  --   path alone                  → ModOnly
+  --   !path                       → removal
+  --   atomicmod                   → passthrough
+  -- CRITICAL ORDERING: More specific patterns before less specific!
+  --   ":: -> path" BEFORE "::" (else :: matches and leaves -> path)
+  --   "-> path" BEFORE "->" alone
+  --   "! path" BEFORE "!" alone (which handles !)
+  moditem     ::= "::" ("->" | "→") path | "::" | path "::" atomicmod | path ("->" | "→") path? 
+                | ("->" | "→") path | ("->" | "→") 
+                | "!" path | atomicmod | path ;
+  -- atomicmod: what can appear after "path ::" or nested in brackets
+  -- Grammar.mly: bracketed | ! ::? | ! path | hole
+  -- ORDERING: "! path" before "! ::?" (else ! matches and leaves path)
+  atomicmod   ::= bracketmod | "!" path | "!" "::"? | hole ;
 
 -----------------------------------------------------
 -- Expressions (priority: low to high)
@@ -176,6 +212,7 @@ piece Expr
                | unfoldexpr    -- starts with "unfold"
                | abstractexpr  -- starts with "abstract"
                | elimexpr      -- starts with "elim"
+               | equationexpr  -- starts with "equation"
                | piexpr        -- starts with "("
                | sigmaexpr     -- starts with "("
                | lambda        -- starts with name followed by "=>"
@@ -185,7 +222,7 @@ piece Expr
 -- Lambda and Eliminators
 -----------------------------------------------------
 piece Lambda
-  lambda     ::= names "=>" expr ;
+  lambda     ::= plainnames "=>" expr ;
   elimexpr   ::= "elim" atomicexpr? motive? "with"? cases
                | "elim" cases ;
   motive     ::= "as" atomicexpr ;
@@ -194,8 +231,9 @@ piece Lambda
   case       ::= pattern "=>" expr ;
   pattern    ::= patlabel patargs? ;
   patlabel   ::= "zero" | "suc" | "base" | "loop" | path ;
-  patargs    ::= patarg* ;
-  patarg     ::= name | "{" name "=>" name "}" ;
+  patargs    ::= patarg+ ;
+  -- patarg: underscore, inductive pattern {n => ih}, or single name 
+  patarg     ::= "{" name "=>" name "}" | "_" | name ;
 
 -----------------------------------------------------
 -- Let, Open, Generalize, Unfold, Abstract
@@ -206,7 +244,10 @@ piece Binding
   openexpr   ::= "open" expr renaming? "in" expr ;
   generalize ::= "generalize" name "in" expr ;
   unfoldexpr ::= "unfold" names "in" expr ;
-  abstractexpr ::= "abstract" name? "<-" expr ;
+  -- Accept both ASCII and Unicode arrows for abstract
+  -- Name can be qualified (e.g., abs-test::foo)
+  abstractexpr ::= "abstract" qname? ("<-" | "←") expr ;
+  qname      ::= ident "::" qname | ident ;
   renaming   ::= "renaming" "[" renamelist "]" ;
   renamelist ::= renamepair (";" renamepair)* ;
   renamepair ::= path ("->" | "→") path ;
@@ -225,13 +266,22 @@ piece Types
 -- Application
 -----------------------------------------------------
 piece Application
-  appexpr    ::= atomicexpr atomicexpr*
+  -- Grammar.mly: t = term; DOT; lbl = plain_name; spine = list(atomic_term)
+  -- Projection with optional arguments: expr.field args...
+  -- Patch postfix: expr # [patches]
+  appexpr    ::= projexpr
+               | baseexpr postfix?
                | "suc" atomicexpr
                | "loop" atomicexpr
                | "fst" atomicexpr
                | "snd" atomicexpr
                | "vproj" atomicexpr
                | "cap" atomicexpr ;
+  -- Projection: base.fieldname args* (fieldname can be qualified like foo::x)
+  -- Chained projections: a.x.y.z = ((a.x).y).z
+  projexpr   ::= baseexpr ("." plainname atomicexpr*)+ ;
+  baseexpr   ::= atomicexpr atomicexpr* ;
+  postfix    ::= "#" "[" patches "]" ;   -- patch only (projection moved to projexpr)
 
 -----------------------------------------------------
 -- Atomic Expressions
@@ -241,21 +291,22 @@ piece Atomic
                | bangbracket | hole | underscore | builtin
                | sigtype | structexpr | extexpr | subexpr
                | coeexpr | hcomexpr | hfillexpr | comexpr | vexpr
-               | equationexpr | patchexpr | projexpr ;
+               | equationexpr ;
   
   var        ::= path ;
   underscore ::= "_" ;
   literal    ::= number ;
   parenexpr  ::= "(" expr ")" ;
   bracketexpr ::= "[" bracketcontent "]" ;
-  braceexpr  ::= "{" expr "}" ;
+  braceexpr  ::= "{" coforterm "}" ;
   bangbracket ::= "{!" expr? "!}" ;
   
   bracketcontent ::= pairexpr | cofsplit | prfexpr ;
   pairexpr   ::= expr "," expr ;
   cofsplit   ::= "|"? cofcase ("|" cofcase)* ;
-  cofcase    ::= cof "=" ">" expr ;
-  prfexpr    ::= expr ;
+  cofcase    ::= cof "=>" expr ;
+  -- prfexpr handles both expressions AND cofibrations (like [i=0 ∨ φ])
+  prfexpr    ::= cofexceptterm | expr ;
 
 -----------------------------------------------------
 -- Holes
@@ -277,24 +328,33 @@ piece Builtins
 
 -----------------------------------------------------
 -- Cofibrations
+-- Key insight from Grammar.mly: separate "cofibration-only" constructs
+-- from "could be either cof or term". This allows unified parsing.
 -----------------------------------------------------
 piece Cofibrations
-  cof        ::= atomiccof | joincof | meetcof ;
+  -- cof that is NOT a plain term (has explicit cof syntax)
+  -- Order: joincof/meetcof first because cofeq can match their prefix
+  cofexceptterm ::= joincof | meetcof | cofeq | cofle | cofbdry ;
+  -- unified: try cof-specific syntax first, then fall back to expr
+  -- Order matters! cofexceptterm first because expr can match prefix of cof
+  coforterm  ::= cofexceptterm | expr ;
+  
+  cof        ::= joincof | meetcof | atomiccof ;
   atomiccof  ::= cofeq | cofle | cofbdry | atomicexpr ;
   cofeq      ::= atomicexpr "=" atomicexpr ;
   cofle      ::= atomicexpr "<=" atomicexpr
                | atomicexpr "≤" atomicexpr ;
   cofbdry    ::= "∂" atomicexpr ;
-  joincof    ::= atomiccof ("\\/" | "∨") atomiccof+ ;
-  meetcof    ::= atomiccof ("/\\" | "∧") atomiccof+ ;
+  joincof    ::= atomiccof (("\\/" | "∨") atomiccof)+ ;
+  meetcof    ::= atomiccof (("/\\" | "∧") atomiccof)+ ;
 
 -----------------------------------------------------
 -- Extension Types
 -----------------------------------------------------
 piece ExtTypes
-  extexpr    ::= "ext" names? "=" ">" expr "with" extbdy ;
-  extbdy     ::= "[" "|"? extcase ("|" extcase)* "]" ;
-  extcase    ::= cof "=" ">" expr ;
+  extexpr    ::= "ext" names? "=>" expr "with" extbdy ;
+  extbdy     ::= "[" "]" | "[" "|"? extcase ("|" extcase)* "]" ;
+  extcase    ::= cof "=>" expr ;
 
 -----------------------------------------------------
 -- Sub Types
@@ -337,11 +397,8 @@ piece Records
   barefield  ::= path ":=" expr ;
   barefields ::= barefield ("," barefield)* ;
   
-  patchexpr  ::= expr "#" "[" patches "]" ;
   patches    ::= patch ("," patch)* ;
   patch      ::= path ":=" expr | path "::=" expr ;
-  
-  projexpr   ::= expr "." name ;
 
 -----------------------------------------------------
 -- Equations (Stepped Proofs)
@@ -349,7 +406,8 @@ piece Records
 piece Equations
   equationexpr ::= "equation" expr "begin" eqnsteps "end" ;
   eqnsteps   ::= eqnstep* eqnfinal ;
-  eqnstep    ::= expr "=[" expr "]" | expr "=[]" ;
+  -- eqnstep handles both =[ expr ] and =[] (empty/trivial)
+  eqnstep    ::= expr ("=[]" | "=[" expr? "]") ;
   eqnfinal   ::= expr ;
 
 -----------------------------------------------------
@@ -357,5 +415,5 @@ piece Equations
 -----------------------------------------------------
 piece Constraints
   constraints ::= "[" "|"? constraint ("|" constraint)* "]" ;
-  constraint  ::= cof "=" ">" expr ;
+  constraint  ::= cof "=>" expr ;
 

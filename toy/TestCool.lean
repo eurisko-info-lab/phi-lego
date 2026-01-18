@@ -24,18 +24,47 @@ def assertTrue (name : String) (cond : Bool) : TestResult :=
 
 /-! ## CoolTT Parsing Utilities -/
 
+-- Add containsSubstr helper
+def String.containsSubstr (s sub : String) : Bool :=
+  (s.splitOn sub).length > 1
+
 /-- Get the main token productions to try in priority order -/
 def getMainTokenProdsOrdered (tokenProds : Productions) : List String :=
   let names := tokenProds.map (·.1)
   -- Priority: comments/whitespace first (to skip), then longest operators first
-  -- op3 before op2 before sym to ensure longest match
-  let priority := ["Token.comment", "Token.ws", "Token.string", "Token.op3", "Token.op2",
+  -- op10 before op7 before op5 before op3 before op2 before sym to ensure longest match
+  let priority := ["Token.comment", "Token.ws", "Token.string",
+                   "Token.op10", "Token.op7", "Token.op5", "Token.op3", "Token.op2",
                    "Token.ident", "Token.number", "Token.sym"]
   priority.filter names.contains
 
+/-- Remove block comments /-...-/ from content (handles nesting) -/
+def stripBlockComments (content : String) : String := Id.run do
+  let mut result := ""
+  let mut depth := 0
+  let chars := content.toList
+  let mut i := 0
+  while i < chars.length do
+    let c := chars[i]!
+    let nextC := if i + 1 < chars.length then chars[i + 1]! else ' '
+    if c == '/' && nextC == '-' then
+      depth := depth + 1
+      i := i + 2
+    else if c == '-' && nextC == '/' then
+      depth := max 0 (depth - 1)
+      i := i + 2
+    else if depth == 0 then
+      result := result.push c
+      i := i + 1
+    else
+      i := i + 1
+  result
+
 /-- Split a .cooltt file into individual top-level declarations -/
 def splitCoolttDecls (content : String) : List String := Id.run do
-  let noComments := content.splitOn "\n"
+  -- First strip block comments
+  let noBlockComments := stripBlockComments content
+  let noComments := noBlockComments.splitOn "\n"
     |>.map (fun line =>
       match line.splitOn "--" with
       | [] => ""
@@ -44,34 +73,93 @@ def splitCoolttDecls (content : String) : List String := Id.run do
   let lines := noComments.splitOn "\n"
   let mut decls : List String := []
   let mut current := ""
+  let mut bracketDepth := 0  -- Track [ ] depth
+  let mut braceDepth := 0    -- Track { } depth
+  let mut beginEndDepth := 0 -- Track begin/end and sig/struct depth
   for line in lines do
     let trimmed := line.trimLeft
+    -- Reset and recalculate depths from current content
+    bracketDepth := 0
+    braceDepth := 0
+    beginEndDepth := 0
+    -- Count brackets and braces
+    for c in current.toList do
+      if c == '[' then bracketDepth := bracketDepth + 1
+      else if c == ']' then bracketDepth := bracketDepth - 1
+      else if c == '{' then braceDepth := braceDepth + 1
+      else if c == '}' then braceDepth := braceDepth - 1
+    -- Count begin/end and sig/struct blocks (word-based)
+    -- sig/struct that start multiline blocks (not [...]) are followed by 'end'
+    -- Properly tokenize by replacing all whitespace with spaces, then splitting
+    let normalizedWs := current.toList.map (fun c => if c == '\n' || c == '\t' then ' ' else c)
+      |> String.mk
+    let words := normalizedWs.splitOn " " |>.filter (·.length > 0)
+    for w in words do
+      let wt := w.trim
+      if wt == "begin" || wt == "sig" || wt == "struct" then beginEndDepth := beginEndDepth + 1
+      else if wt == "end" then beginEndDepth := max 0 (beginEndDepth - 1)
+    -- Adjust for inline forms: sig [...] and struct [...] don't need end
+    -- Each "sig [" or "struct [" pattern decreases effective depth
+    let sigBracketCount := (current.splitOn "sig [").length - 1
+    let structBracketCount := (current.splitOn "struct [").length - 1
+    beginEndDepth := if beginEndDepth > sigBracketCount + structBracketCount
+                    then beginEndDepth - sigBracketCount - structBracketCount
+                    else 0
+    -- Check if current declaration has a body (contains :=) AND is complete
+    let currentHasBody := current.containsSubstr ":="
+    let bodyComplete := currentHasBody && bracketDepth <= 0 && braceDepth <= 0 && beginEndDepth <= 0
+    -- Only treat as top-level declaration start if we're not inside a block
+    let insideBlock := beginEndDepth > 0 || bracketDepth > 0 || braceDepth > 0
+    -- More precisely: check if trimmed contains " in " or ends with " in"
+    let looksLikeUnfoldExpr := trimmed.startsWith "unfold " &&
+                               (trimmed.containsSubstr " in " || trimmed.endsWith " in")
     -- CoolTT top-level declarations start with these keywords
-    let isDeclStart := trimmed.startsWith "import " || trimmed.startsWith "def " ||
+    -- But NOT if we're inside a sig/struct/begin block!
+    let isDeclStart := !insideBlock && (trimmed.startsWith "import " || trimmed.startsWith "def " ||
        trimmed.startsWith "axiom " || trimmed.startsWith "#print " ||
        trimmed.startsWith "#normalize " || trimmed.startsWith "#fail " ||
        trimmed.startsWith "#debug " || trimmed.startsWith "#quit" ||
        trimmed.startsWith "section " || trimmed.startsWith "view " ||
        trimmed.startsWith "export " || trimmed.startsWith "repack " ||
+       -- Handle !export, !view, !repack (shorthand for shadowing)
+       trimmed.startsWith "!export " || trimmed.startsWith "!view " ||
+       trimmed.startsWith "!repack " ||
        -- Handle modifier + decl on same line
        trimmed.startsWith "shadowing def " || trimmed.startsWith "abstract def " ||
-       trimmed.startsWith "shadowing axiom " || trimmed.startsWith "abstract axiom "
-    -- Standalone modifiers: "abstract" alone or "unfold X" without ":="
-    let hasAssign := (trimmed.splitOn ":=").length > 1
-    let isModifierOnly := trimmed == "abstract" ||
-                          (trimmed.startsWith "unfold " && !hasAssign)
+       trimmed.startsWith "shadowing axiom " || trimmed.startsWith "abstract axiom " ||
+       trimmed.startsWith "shadowing export " || trimmed.startsWith "shadowing view " ||
+       trimmed.startsWith "shadowing repack " || trimmed.startsWith "shadowing section " ||
+       -- unfold without "in" at top level is a declaration (unfoldmod) or modifier
+       -- Only treat as decl start if body is complete (balanced brackets)
+       (trimmed.startsWith "unfold " && !looksLikeUnfoldExpr && (bodyComplete || !currentHasBody)))
+    -- Standalone modifiers: "abstract" alone - only at top level
+    let isModifierOnly := !insideBlock && (bodyComplete || !currentHasBody) && trimmed == "abstract"
     -- Helper to check if a string is just modifiers
     let isJustModifiers := fun (s : String) =>
       let lns := s.splitOn "\n"
       lns.all fun l =>
         let t := l.trimLeft
-        t.isEmpty || t == "abstract" ||
-        (t.startsWith "unfold " && (t.splitOn ":=").length <= 1)
+        t.isEmpty || t == "abstract"
+        -- Note: "unfold X" is NOT just a modifier - it can be a standalone command
+        -- We only combine it when followed by def/axiom (handled below)
+    -- Check if this line starts a def/axiom (the things modifiers modify)
+    let isDefOrAxiomStart := trimmed.startsWith "def " || trimmed.startsWith "axiom " ||
+       trimmed.startsWith "shadowing def " || trimmed.startsWith "abstract def " ||
+       trimmed.startsWith "shadowing axiom " || trimmed.startsWith "abstract axiom "
+    -- Check if current is just unfold (potential modifier OR standalone)
+    let isJustUnfold := fun (s : String) =>
+      let lns := s.splitOn "\n"
+      lns.all fun l =>
+        let t := l.trimLeft
+        t.isEmpty || (t.startsWith "unfold " && !t.containsSubstr " in ")
     if isDeclStart then
       if !current.isEmpty then
         let currentTrim := current.trim
-        -- If current is just modifiers, combine with this decl
-        if isJustModifiers currentTrim then
+        -- If current is just pure modifiers (abstract), combine with any decl
+        -- If current is just unfold, only combine with def/axiom (otherwise unfold is standalone)
+        let shouldCombine := isJustModifiers currentTrim ||
+                            (isJustUnfold currentTrim && isDefOrAxiomStart)
+        if shouldCombine then
           current := current ++ "\n" ++ line
         else
           decls := decls ++ [currentTrim]
@@ -79,7 +167,7 @@ def splitCoolttDecls (content : String) : List String := Id.run do
       else
         current := line
     else if isModifierOnly then
-      -- Modifier line
+      -- Modifier line (abstract alone)
       if current.isEmpty then
         current := line
       else
@@ -99,7 +187,7 @@ def splitCoolttDecls (content : String) : List String := Id.run do
 
 /-- Fuel for CoolTT parsing - lower than defaultFuel to avoid stack overflow
     The CoolTT grammar has deep recursion; 10000 is enough for most declarations -/
-def coolttFuel : Nat := 10000
+def coolttFuel : Nat := 50000
 
 /-- Debug parsing for a single CoolTT declaration, returning details -/
 def debugCoolttParse (decl : String) : IO Unit := do
@@ -113,7 +201,8 @@ def debugCoolttParse (decl : String) : IO Unit := do
       let coolttKeywords := ["abstract", "shadowing", "def", "axiom", "import",
                              "let", "in", "elim", "with", "section", "view", "export", "repack",
                              "begin", "end", "as", "sig", "struct", "open", "renaming",
-                             "generalize", "unfold", "ext", "sub", "coe", "com", "hcom", "hfill"]
+                             "generalize", "unfold", "ext", "sub", "coe", "com", "hcom", "hfill",
+                             "∨", "\\/", "∧", "/\\"]
       let keywords := (extractKeywords coolttProds ++ coolttKeywords).eraseDups
       let mainProds := getMainTokenProdsOrdered tokenProds
       let tokens := tokenizeWithGrammar coolttFuel tokenProds mainProds decl keywords
@@ -219,7 +308,8 @@ def runCoolttParsingTests : IO (List TestResult) := do
     let coolttKeywords := ["abstract", "shadowing", "def", "axiom", "import",
                            "let", "in", "elim", "with", "section", "view", "export", "repack",
                            "begin", "end", "as", "sig", "struct", "open", "renaming",
-                           "generalize", "unfold", "ext", "sub", "coe", "com", "hcom", "hfill"]
+                           "generalize", "unfold", "ext", "sub", "coe", "com", "hcom", "hfill",
+                           "∨", "\\/", "∧", "/\\"]
     let keywords := (extractKeywords coolttProds ++ coolttKeywords).eraseDups
 
     let testPath := "../vendor/cooltt/test"
@@ -230,13 +320,13 @@ def runCoolttParsingTests : IO (List TestResult) := do
     let mut totalDecls := 0
 
     let mut failCount := 0
-    IO.println "  Parsing failures (first 10):"
+    IO.println "  Parsing failures (first 100):"
     for filePath in sortedFiles do
       let (parsed, total, failures) ← parseCoolttFileVerbose coolttProds tokenProds keywords filePath
       totalParsed := totalParsed + parsed
       totalDecls := totalDecls + total
       for failure in failures do
-        if failCount < 10 then
+        if failCount < 100 then
           IO.println s!"  FAIL [{filePath}]: {failure.take 120}..."
           failCount := failCount + 1
 

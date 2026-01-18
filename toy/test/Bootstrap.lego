@@ -34,7 +34,9 @@ token Token
   -- Double-struck (blackboard bold) letters used in type theory (𝕀 for interval, etc)
   mathbb ::= '𝕀' | '𝔽' | '𝕊' ;
   -- Math symbols used in type theory
-  mathsym ::= '≈' | '≅' | '≤' | '≥' | '∘' | '⊗' | '⊙' | '∧' | '∨' ;
+  mathsym ::= '≈' | '≅' | '≤' | '≥' | '∘' | '⊗' | '⊙' | '∧' | '∨' | '∷' 
+            | '≡' | '⋆' | '¯' | '⊤' | '⊥' | '¹' | '₀' | '₁' | '₂' | '₃' 
+            | '₄' | '₅' | '₆' | '₇' | '₈' | '₉' ;
   alpha  ::= lower | upper | greek | mathbb | mathsym | '_' ;
   symch  ::= '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>'
            | ':' | ';' | ',' | '.' | '|' | '!' | '?' | '@'
