@@ -17,89 +17,89 @@ import CubicalTT
 lang Red (CubicalTT) :=
 
 -----------------------------------------------------
--- PIECE 14: ExtType
+-- ExtType
 -- Extension types: Ext_x.A [φ ↦ u]
 -----------------------------------------------------
 
 piece ExtType
-  term ::= "Ext" <ident> "." term system  $ Ext
-         | "extLam" <ident> "." term      $ extLam
-         | "extApp" term dim              $ extApp
+  term ::= "Ext" <ident> "." term system  → Ext
+         | "extLam" <ident> "." term      → extLam
+         | "extApp" term dim              → extApp ;
 
-  rule extBeta: (extApp (extLam $x . $body) $r) ~> [$x := $r] $body
+  rule extBeta: (extApp (extLam $x . $body) $r) ~> [$x := $r] $body ;
 
   type ExtForm: (Ext $x . $A [$φ ↦ $u]) : U
-    when [$x : I] $A : U
+    when [$x : I] $A : U ;
 
-  test "ext-beta": (extApp (extLam i . (f i)) 0) ~~> (f 0)
+  test "ext-beta": (extApp (extLam i . (f i)) 0) ~~> (f 0) ;
 
 -----------------------------------------------------
--- PIECE 15: GCom
+-- GCom
 -- Generalized composition (ghcom, gcom)
 -----------------------------------------------------
 
 piece GCom
-  term ::= "ghcom" dim "~>" dim term system term  $ ghcom
-         | "gcom" dim "~>" dim "(" <ident> "." term ")" system term  $ gcom
+  term ::= "ghcom" dim "~>" dim term system term  → ghcom
+         | "gcom" dim "~>" dim "(" <ident> "." term ")" system term  → gcom ;
 
-  rule ghcomRefl: (ghcom $r ~> $r $A $sys $a) ~> $a
-  rule gcomRefl: (gcom $r ~> $r ($i . $A) $sys $a) ~> $a
+  rule ghcomRefl: (ghcom $r ~> $r $A $sys $a) ~> $a ;
+  rule gcomRefl: (gcom $r ~> $r ($i . $A) $sys $a) ~> $a ;
 
 -----------------------------------------------------
--- PIECE 16: Data
+-- Data
 -- User-defined data types (HITs)
 -----------------------------------------------------
 
 piece Data
-  decl ::= "data" <ident> params "where" constrs  $ data
-  params ::= "(" <ident> ":" term ")"*             $ params
-  constrs ::= constr*                              $ constrs
-  constr ::= "|" <ident> ":" term bounds?          $ constr
-  bounds ::= "[" bound* "]"                        $ bounds
-  bound ::= cof "↦" term                           $ bound
+  decl ::= "data" <ident> params "where" constrs  → data ;
+  params ::= "(" <ident> ":" term ")"*             → params ;
+  constrs ::= constr*                              → constrs ;
+  constr ::= "|" <ident> ":" term bounds?          → constr ;
+  bounds ::= "[" bound* "]"                        → bounds ;
+  bound ::= cof "↦" term                           → bound ;
 
-  rule introElim: (elim $e ($C $ms) (intro $c $as)) ~> (($ms $c) $as)
+  rule introElim: (elim $e ($C $ms) (intro $c $as)) ~> (($ms $c) $as) ;
 
 -----------------------------------------------------
--- PIECE 17: Twin
+-- Twin
 -- Twin variables for boundary coherence
 -----------------------------------------------------
 
 piece Twin
-  term ::= "twin" <ident> <ident> dim term  $ twin
+  term ::= "twin" <ident> <ident> dim term  → twin ;
 
-  rule twin0: (twin $x $y 0 $a) ~> [$y := $x] $a
-  rule twin1: (twin $x $y 1 $a) ~> $a
+  rule twin0: (twin $x $y 0 $a) ~> [$y := $x] $a ;
+  rule twin1: (twin $x $y 1 $a) ~> $a ;
 
 -----------------------------------------------------
--- PIECE 18: Restrict
+-- Restrict
 -- Restriction types: A ↾ φ
 -----------------------------------------------------
 
 piece Restrict
-  term ::= term "↾" cof                $ restrict
+  term ::= term "↾" cof                → restrict ;
 
   type restrictForm: ($A ↾ $φ) : U
-    when $A : U
+    when $A : U ;
 
 -----------------------------------------------------
--- PIECE 19: FHcom
+-- FHcom
 -- Fibrant homogeneous composition
 -----------------------------------------------------
 
 piece FHcom
-  term ::= "fhcom" dim "~>" dim term system term  $ fhcom
+  term ::= "fhcom" dim "~>" dim term system term  → fhcom ;
 
-  rule fhcomRefl: (fhcom $r ~> $r $A $sys $a) ~> $a
+  rule fhcomRefl: (fhcom $r ~> $r $A $sys $a) ~> $a ;
 
 -----------------------------------------------------
--- PIECE 20: Box/Cap
+-- Box/Cap
 -- Box-cap structure for fhcom
 -----------------------------------------------------
 
 piece BoxCap
-  term ::= "box" dim "~>" dim system term  $ box
-         | "cap" dim "~>" dim system term  $ cap
+  term ::= "box" dim "~>" dim system term  → box
+         | "cap" dim "~>" dim system term  → cap ;
 
   rule capBox: (cap $r ~> $s $sys (box $r ~> $s $sys' $a)) ~> $a
-    when $r = $s
+    when $r = $s ;

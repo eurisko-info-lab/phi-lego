@@ -46,7 +46,7 @@ def termPiece : Piece := {
 def patternPiece : Piece := {
   name := "Pattern"
   grammar := [
-    ("Pattern.pattern", ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "con" ((((lit "(").seq (ref "Term.conname")).seq ((ref "Pattern.pattern").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt (node "con" (ref "Atom.ident"))))))
+    ("Pattern.pattern", ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "con" ((((lit "(").seq (ref "Term.conname")).seq ((ref "Pattern.pattern").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" (ref "Atom.ident")))))))
   ]
   rules := []
 }
@@ -55,7 +55,7 @@ def patternPiece : Piece := {
 def templatePiece : Piece := {
   name := "Template"
   grammar := [
-    ("Template.template", ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "con" ((((lit "(").seq (ref "Atom.ident")).seq ((ref "Template.template").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt (node "con" (ref "Atom.ident"))))))
+    ("Template.template", ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "con" ((((lit "(").seq (ref "Atom.ident")).seq ((ref "Template.template").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" (ref "Atom.ident")))))))
   ]
   rules := []
 }
@@ -85,8 +85,10 @@ def filePiece : Piece := {
     ("File.imports", (node "DImports" ((((lit "(").seq (ref "Atom.ident")).seq (((lit ",").seq (ref "Atom.ident")).star)).seq (lit ")")))),
     ("File.langBody", ((ref "File.innerDecl").star)),
     ("File.innerDecl", ((ref "File.tokenDecl").alt ((ref "File.pieceDecl").alt ((ref "File.ruleDecl").alt ((ref "File.typeDecl").alt ((ref "File.testDecl").alt (ref "File.attrsDecl"))))))),
-    ("File.tokenDecl", (node "DToken" (((lit "token").seq (ref "Atom.ident")).seq ((ref "File.prodDecl").seq ((ref "File.prodDecl").star))))),
-    ("File.pieceDecl", (node "DPiece" (((lit "piece").seq (ref "Atom.ident")).seq ((ref "File.prodDecl").seq ((ref "File.prodDecl").star))))),
+    ("File.tokenDecl", (node "DToken" (((lit "token").seq (ref "Atom.ident")).seq ((ref "File.tokenItem").seq ((ref "File.tokenItem").star))))),
+    ("File.tokenItem", (ref "File.prodDecl")),
+    ("File.pieceDecl", (node "DPiece" (((lit "piece").seq (ref "Atom.ident")).seq ((ref "File.pieceItem").seq ((ref "File.pieceItem").star))))),
+    ("File.pieceItem", ((ref "File.prodDecl").alt ((ref "File.ruleDecl").alt ((ref "File.typeDecl").alt (ref "File.testDecl"))))),
     ("File.prodDecl", (node "DGrammar" ((((ref "Atom.ident").seq (lit "::=")).seq (ref "GrammarExpr.expr")).seq (lit ";")))),
     ("File.ruleDecl", (node "DRule" (((((((lit "rule").seq (ref "Atom.ident")).seq (lit ":")).seq (ref "Pattern.pattern")).seq (lit "~>")).seq (ref "Template.template")).seq (lit ";")))),
     ("File.typeDecl", (node "DType" ((((((((lit "type").seq (ref "Atom.ident")).seq (lit ":")).seq (ref "Term.term")).seq (lit ":")).seq (ref "Term.term")).seq ((ref "File.whenClause").alt empty)).seq (lit ";")))),
@@ -113,3 +115,4 @@ def allProductions : Productions :=
   allPieces.foldl (fun acc p => acc ++ p.grammar) []
 
 end Lego.Generated.Bootstrap
+

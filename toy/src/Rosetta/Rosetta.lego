@@ -1,0 +1,108 @@
+-----------------------------------------------------
+-- Rosetta: Abstract Implementation Language for Type Theory Specs
+--
+-- This is a high-level "Rosetta Stone" language designed in Lego format.
+-- It abstracts over implementation details like variable representation
+-- (e.g., named vs. de Bruijn), evaluation strategy (e.g., call-by-value vs. need),
+-- and data structures (e.g., lists vs. vectors for systems).
+-- The goal is to translate original Lego specs (e.g., CubicalTT, Red, Cool)
+-- into this intermediate form, which is declarative and focuses on:
+-- - ADT definitions for terms (syntax).
+-- - Rewrite rules as pattern-matching functions.
+-- - Judgment forms for typing (formation, introduction, elimination).
+-- - Tests as equivalence assertions.
+-- - Primitives for substitution, binding, and abstraction to avoid low-level impl.
+--
+-- From Rosetta, target-specific translations can choose concrete reps:
+-- - Haskell: Use GADTs for terms, pattern-matching for rules.
+-- - Rust: Use enums for terms, match arms for rules.
+-- - Lean: Use inductive types for terms, reducible defs for rules.
+--
+-- Key Abstractions:
+-- - Variables: Abstracted as 'var' with binders; impl can choose indexing.
+-- - Substitution: Primitive 'subst' operation; impl handles capture-avoidance.
+-- - Patterns: For rules, use abstract patterns with wildcards ($var).
+-- - Judgments: Declarative 'judge' for types, with 'when' conditions.
+-- - Modules: 'module' for pieces, allowing composition.
+-----------------------------------------------------
+lang Rosetta :=
+-----------------------------------------------------
+-- Core Primitives
+-- Abstract basics: universe, variables, application, pairs (non-dependent).
+-----------------------------------------------------
+piece CorePrimitives
+  term ::= "Univ" → univ  -- Abstract universe (impl: Type in Haskell/Lean)
+         | "Var" <ident> → var   -- Abstract variable (impl: String or Index)
+         | "App" term term → app  -- Application (impl: function call)
+         | "Pair" term term → pair  -- Non-dependent pair
+         | "Fst" term → fst
+         | "Snd" term → snd
+         | "Subst" <ident> term term → subst  -- subst x t body (abstract; impl handles)
+         ;
+  rule fstPair: (Fst (Pair $a $b)) ~> $a ;
+  rule sndPair: (Snd (Pair $a $b)) ~> $b ;
+  judge univForm: Univ : Univ ;  -- Univ is a type
+  judge varType: (Var $x) : $T  when bound $x : $T ;  -- Contextual
+  test "subst-id": (Subst x (Var x) (Var x)) ~~> (Var x) ;
+-----------------------------------------------------
+-- Binders
+-- Abstract lambda and dimension binders; impl can choose closure reps.
+-----------------------------------------------------
+piece Binders
+  term ::= "Lam" <ident> "." term → lam  -- Term binder
+         | "DLam" <ident> "." term → dlam  -- Dimension binder
+         | "DApp" term term → dapp  -- Dimension app (abstract over I)
+         ;
+  rule beta: (App (Lam $x . $body) $arg) ~> (Subst $x $arg $body) ;
+  rule dbeta: (DApp (DLam $i . $body) $r) ~> (Subst $i $r $body) ;
+  judge lamForm: (Lam $x . $body) : (Pi $x : $A $B)
+    when [$x : $A] $body : $B ;
+-----------------------------------------------------
+-- ADT Definition
+-- Meta-construct for defining term ADTs (syntax).
+-- 'adt' defines constructors; impl generates enums/inductives.
+-----------------------------------------------------
+piece ADTDef
+  decl ::= "adt" <ident> "{" constr* "}" → adtDef ;
+  constr ::= <ident> ":" type → constr ;
+  -- Example usage: adt Term { App : Term → Term → Term ; ... }
+  judge adtForm: (adtDef $name $constrs) : Univ ;
+-----------------------------------------------------
+-- Rewrite Rules
+-- Abstract rules as functions: pattern ~> template.
+-- Impl: Generate match cases or rewrite engines.
+-----------------------------------------------------
+piece RewriteRules
+  decl ::= "rewrite" <ident> ":" pattern "~>" term → rewriteRule ;
+  pattern ::= term  -- With $vars as wildcards
+            | "_" → wildcard ;
+  -- Appliers are implicit; impl generates 'applyRules' function.
+  test "example-rule": rewrite join0L: (Join (Const 0) $r) ~> $r ;
+-----------------------------------------------------
+-- Judgment Forms
+-- Abstract typing judgments: formation, intro, elim.
+-- 'judge' with 'when' for premises.
+-----------------------------------------------------
+piece Judgments
+  decl ::= "judge" <ident> ":" term ":" term "when" cond* → judgeDecl ;
+  cond ::= term ":" term → cond
+         | "[" bind* "]" term ":" term → ctxCond ;
+  bind ::= <ident> ":" term → bind ;
+  -- Impl: Generate inference/checking functions.
+  judge examplePi: (Pi $x : $A $B) : Univ
+    when $A : Univ, [$x : $A] $B : Univ ;
+-----------------------------------------------------
+-- Tests
+-- Equivalence assertions after normalization.
+-----------------------------------------------------
+piece Tests
+  decl ::= "test" <string> ":" term "~~>" term → testDecl ;
+  -- Impl: Generate unit tests or properties.
+-----------------------------------------------------
+-- Modules
+-- For composition, like original 'piece'.
+-----------------------------------------------------
+piece Modules
+  decl ::= "module" <ident> "{" decl* "}" → moduleDecl
+         | "import" <ident> → importDecl ;
+  -- Impl: Namespaces or modules in target lang.

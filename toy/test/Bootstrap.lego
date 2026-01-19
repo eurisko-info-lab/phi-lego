@@ -108,6 +108,7 @@ piece Pattern
   pattern ::= "$" ident → var
             | "(" conname pattern* ")" → con
             | string → lit
+            | number → num
             | ident → con ;
 
 -----------------------------------------------------
@@ -119,6 +120,7 @@ piece Template
   template ::= "$" ident → var
              | "(" ident template* ")" → con
              | string → lit
+             | number → num
              | ident → con ;
 
 -----------------------------------------------------
@@ -156,8 +158,10 @@ piece File
   imports    ::= "(" ident ("," ident)* ")" → DImports ;
   langBody   ::= innerDecl* ;
   innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl ;
-  tokenDecl  ::= "token" ident prodDecl+ → DToken ;
-  pieceDecl  ::= "piece" ident prodDecl+ → DPiece ;
+  tokenDecl  ::= "token" ident tokenItem+ → DToken ;
+  tokenItem  ::= prodDecl ;
+  pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
+  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":" pattern "~>" template ";" → DRule ;
   typeDecl   ::= "type" ident ":" term ":" term whenClause? ";" → DType ;

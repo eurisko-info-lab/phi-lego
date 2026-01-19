@@ -16,129 +16,129 @@ import CubicalTT
 lang Cool (CubicalTT) :=
 
 -----------------------------------------------------
--- PIECE 14: Nat
+-- Nat
 -- Natural numbers as HIT
 -----------------------------------------------------
 
 piece Nat
-  term ::= "Nat"                       $ Nat
-         | "zero"                      $ zero
-         | "suc" term                  $ suc
-         | "natElim" term term term term  $ natElim
+  term ::= "Nat"                       → Nat
+         | "zero"                      → zero
+         | "suc" term                  → suc
+         | "natElim" term term term term  → natElim ;
 
-  rule natElimZero: (natElim $P $z $s zero) ~> $z
-  rule natElimSuc: (natElim $P $z $s (suc $n)) ~> ($s $n (natElim $P $z $s $n))
+  rule natElimZero: (natElim $P $z $s zero) ~> $z ;
+  rule natElimSuc: (natElim $P $z $s (suc $n)) ~> ($s $n (natElim $P $z $s $n)) ;
 
-  type NatForm: Nat : U
-  type zeroType: zero : Nat
-  type sucType: (suc $n) : Nat when $n : Nat
+  type NatForm: Nat : U ;
+  type zeroType: zero : Nat ;
+  type sucType: (suc $n) : Nat when $n : Nat ;
   type natElimType: (natElim $P $z $s $n) : ($P $n)
-    when $P : Nat → U, $z : ($P zero), $s : Π(k:Nat).($P k) → ($P (suc k)), $n : Nat
+    when $P : Nat → U, $z : ($P zero), $s : Π(k:Nat).($P k) → ($P (suc k)), $n : Nat ;
 
-  test "natElim-zero": (natElim P z s zero) ~~> z
-  test "natElim-suc": (natElim P z s (suc n)) ~~> (s n (natElim P z s n))
+  test "natElim-zero": (natElim P z s zero) ~~> z ;
+  test "natElim-suc": (natElim P z s (suc n)) ~~> (s n (natElim P z s n)) ;
 
 -----------------------------------------------------
--- PIECE 15: Circle
+-- Circle
 -- Circle S¹ as HIT
 -----------------------------------------------------
 
 piece Circle
-  term ::= "S¹"                        $ S1
-         | "base"                      $ base
-         | "loop" dim                  $ loop
-         | "S¹Elim" term term term term  $ S1Elim
+  term ::= "S¹"                        → S1
+         | "base"                      → base
+         | "loop" dim                  → loop
+         | "S¹Elim" term term term term  → S1Elim ;
 
-  rule loopBase0: (loop 0) ~> base
-  rule loopBase1: (loop 1) ~> base
-  rule S1ElimBase: (S¹Elim $P $b $l base) ~> $b
-  rule S1ElimLoop: (S¹Elim $P $b $l (loop $i)) ~> ($l @ $i)
+  rule loopBase0: (loop 0) ~> base ;
+  rule loopBase1: (loop 1) ~> base ;
+  rule S1ElimBase: (S¹Elim $P $b $l base) ~> $b ;
+  rule S1ElimLoop: (S¹Elim $P $b $l (loop $i)) ~> ($l @ $i) ;
 
-  type S1Form: S¹ : U
-  type baseType: base : S¹
-  type loopType: (loop $i) : S¹ when $i : I
+  type S1Form: S¹ : U ;
+  type baseType: base : S¹ ;
+  type loopType: (loop $i) : S¹ when $i : I ;
   type S1ElimType: (S¹Elim $P $b $l $x) : ($P $x)
-    when $P : S¹ → U, $b : ($P base), $l : PathD (λᵢ i . ($P (loop i))) $b $b, $x : S¹
+    when $P : S¹ → U, $b : ($P base), $l : PathD (λᵢ i . ($P (loop i))) $b $b, $x : S¹ ;
 
-  test "loop-0": (loop 0) ~~> base
-  test "loop-1": (loop 1) ~~> base
-  test "S1Elim-base": (S¹Elim P b l base) ~~> b
+  test "loop-0": (loop 0) ~~> base ;
+  test "loop-1": (loop 1) ~~> base ;
+  test "S1Elim-base": (S¹Elim P b l base) ~~> b ;
 
 -----------------------------------------------------
--- PIECE 16: Signature
+-- Signature
 -- Signatures (record types)
 -----------------------------------------------------
 
 piece Signature
-  term ::= "sig" "{" fields "}"        $ sig
-         | "struct" "{" assigns "}"    $ struct
-         | term "." <ident>            $ proj
-  fields ::= field*                    $ fields
-  field ::= <ident> ":" term           $ field
-  assigns ::= assign*                  $ assigns
-  assign ::= <ident> ":=" term         $ assign
+  term ::= "sig" "{" fields "}"        → sig
+         | "struct" "{" assigns "}"    → struct
+         | term "." <ident>            → proj ;
+  fields ::= field*                    → fields ;
+  field ::= <ident> ":" term           → field ;
+  assigns ::= assign*                  → assigns ;
+  assign ::= <ident> ":=" term         → assign ;
 
-  rule projStruct: ((struct { $x := $a $rest }) . $x) ~> $a
+  rule projStruct: ((struct { $x := $a $rest }) . $x) ~> $a ;
 
   type sigForm: (sig { $fs }) : U
-    when $fs valid
+    when $fs valid ;
 
-  test "proj": ((struct { x := a }) . x) ~~> a
+  test "proj": ((struct { x := a }) . x) ~~> a ;
 
 -----------------------------------------------------
--- PIECE 17: El
+-- El
 -- Universe decoding: El A
 -----------------------------------------------------
 
 piece El
-  term ::= "El" term                   $ El
-         | "code" term                 $ code
+  term ::= "El" term                   → El
+         | "code" term                 → code ;
 
-  rule ElCode: (El (code $A)) ~> $A
+  rule ElCode: (El (code $A)) ~> $A ;
 
   type ElForm: (El $a) : U
-    when $a : U
+    when $a : U ;
 
-  test "El-code": (El (code A)) ~~> A
+  test "El-code": (El (code A)) ~~> A ;
 
 -----------------------------------------------------
--- PIECE 18: CofExt
+-- CofExt
 -- Extended cofibration operations
 -----------------------------------------------------
 
 piece CofExt
-  cof ::= "∂" dim                      $ boundary
-        | "strict" cof                 $ strict
+  cof ::= "∂" dim                      → boundary
+        | "strict" cof                 → strict ;
 
-  rule boundary0: (∂ 0) ~> ⊥
-  rule boundary1: (∂ 1) ~> ⊥
-  rule boundaryVar: (∂ $i) ~> (($i = 0) ∨ ($i = 1))
+  rule boundary0: (∂ 0) ~> cof0 ;
+  rule boundary1: (∂ 1) ~> cof0 ;
+  rule boundaryVar: (∂ $i) ~> (($i = 0) ∨ ($i = 1)) ;
 
-  test "boundary-0": (∂ 0) ~~> ⊥
-  test "boundary-var": (∂ i) ~~> ((i = 0) ∨ (i = 1))
+  test "boundary-0": (∂ 0) ~~> cof0 ;
+  test "boundary-var": (∂ i) ~~> ((i = 0) ∨ (i = 1)) ;
 
 -----------------------------------------------------
--- PIECE 19: Gel
+-- Gel
 -- Gel types (generalized extension)
 -----------------------------------------------------
 
 piece Gel
-  term ::= "Gel" dim term term term    $ Gel
-         | "gel" dim term              $ gel
-         | "ungel" dim term            $ ungel
+  term ::= "Gel" dim term term term    → Gel
+         | "gel" dim term              → gel
+         | "ungel" dim term            → ungel ;
 
-  rule gel0: (gel 0 $a) ~> ($a .fst)
-  rule gel1: (gel 1 $a) ~> ($a .snd)
-  rule ungel0: (ungel 0 $g) ~> (($g .equiv) ($g .val))
-  rule ungel1: (ungel 1 $g) ~> ($g .val)
+  rule gel0: (gel 0 $a) ~> (fst $a) ;
+  rule gel1: (gel 1 $a) ~> (snd $a) ;
+  rule ungel0: (ungel 0 $g) ~> (($g .equiv) ($g .val)) ;
+  rule ungel1: (ungel 1 $g) ~> ($g .val) ;
 
 -----------------------------------------------------
--- PIECE 20: LockedCof
+-- LockedCof
 -- Locked cofibrations for modalities
 -----------------------------------------------------
 
 piece LockedCof
-  term ::= "lock" cof term             $ lock
-         | "unlock" cof term           $ unlock
+  term ::= "lock" cof term             → lock
+         | "unlock" cof term           → unlock ;
 
-  rule unlockLock: (unlock $φ (lock $φ $a)) ~> $a when $φ
+  rule unlockLock: (unlock $φ (lock $φ $a)) ~> $a when $φ ;
