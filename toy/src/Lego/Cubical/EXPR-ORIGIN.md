@@ -2,14 +2,29 @@
 
 This document tracks which `Expr` constructors come from **redtt**, which from **cooltt**, and which are **shared** between both implementations.
 
+## Lego Language Files
+
+The shared and language-specific constructs are defined as `.lego` files with **pieces** (each having grammar, rules, tests):
+
+| File | Pieces | Description |
+|------|--------|-------------|
+| [CubicalTT.lego](CubicalTT.lego) | 13 | Dimension, Cofibration, Core, Lambda, Pi, Sigma, Path, System, Coe, Hcom, Com, VType, Sub |
+| [Red.lego](Red.lego) | 7 | ExtType, GCom, Data, Twin, Restrict, FHcom, BoxCap |
+| [Cool.lego](Cool.lego) | 7 | Nat, Circle, Signature, El, CofExt, Gel, LockedCof |
+
+Each **piece** encapsulates:
+- Grammar productions (`piece X ::= ...`)
+- Reduction rules (`rule name: ... ~> ...`)
+- Typing rules (`type name: ... : ...`)
+- Tests (`test "name": ... ~~> ...`)
+
 ## Summary
 
-| Category | Count | Description |
-|----------|-------|-------------|
-| **Shared** | 23 | Core cubical type theory |
-| **redtt-only** | 8 | Twins, Data types, Restrict |
-| **cooltt-only** | 6 | Signatures, Circle, Nat with eliminators |
-| **Lego-only** | 6 | Our additions (path sugar, systems, etc.) |
+| Category | Pieces | Description |
+|----------|--------|-------------|
+| **Shared (CubicalTT)** | 13 | Core cubical type theory |
+| **redtt-only (Red)** | 7 | Twins, Data types, Extension types |
+| **cooltt-only (Cool)** | 7 | HITs, Signatures, El types |
 
 ---
 

@@ -1,0 +1,209 @@
+-----------------------------------------------------
+-- CubicalTT: Shared Cubical Type Theory Foundation
+-- 
+-- Core CCHM cubical type theory shared by redtt and cooltt.
+-- Red.lego and Cool.lego import this as their base.
+--
+-- Mathematical Foundation: Cartesian Cubical Type Theory
+-- - Interval I: De Morgan algebra
+-- - Cofibrations φ: distributive lattice  
+-- - Kan operations: computational univalence
+-----------------------------------------------------
+
+lang CubicalTT :=
+
+-----------------------------------------------------
+-- PIECE 1: Dimension
+-- The interval I with De Morgan algebra structure
+-----------------------------------------------------
+
+piece Dimension
+  dim ::= "0"                          $ i0
+        | "1"                          $ i1
+        | <ident>                      $ ivar
+        | dim "∨" dim                  $ join
+        | dim "∧" dim                  $ meet
+        | "~" dim                      $ inv
+
+  rule join0L: (0 ∨ $r) ~> $r
+  rule join0R: ($r ∨ 0) ~> $r  
+  rule join1L: (1 ∨ $r) ~> 1
+  rule join1R: ($r ∨ 1) ~> 1
+  rule meet0L: (0 ∧ $r) ~> 0
+  rule meet0R: ($r ∧ 0) ~> 0
+  rule meet1L: (1 ∧ $r) ~> $r
+  rule meet1R: ($r ∧ 1) ~> $r
+  rule inv0: (~ 0) ~> 1
+  rule inv1: (~ 1) ~> 0
+  rule invInv: (~ (~ $r)) ~> $r
+
+  test "join-id": (0 ∨ i) ~~> i
+  test "meet-zero": (0 ∧ i) ~~> 0
+  test "involution": (~ (~ i)) ~~> i
+
+-----------------------------------------------------
+-- PIECE 2: Cofibration
+-- Cofibrations φ : 𝔽 (face lattice)
+-----------------------------------------------------
+
+piece Cofibration
+  cof ::= "⊥"                          $ cof0
+        | "⊤"                          $ cof1
+        | dim "=" dim                  $ eq
+        | cof "∨" cof                  $ cofOr
+        | cof "∧" cof                  $ cofAnd
+        
+  rule cof0Or: (⊥ ∨ $φ) ~> $φ
+  rule cof1And: (⊤ ∧ $φ) ~> $φ
+
+-----------------------------------------------------
+-- PIECE 3: Core
+-- Universe, variables, basic terms
+-----------------------------------------------------
+
+piece Core
+  term ::= "U"                         $ U
+         | <ident>                     $ var
+         | "(" term term ")"           $ app
+         | "(" term "," term ")"       $ pair
+         | term ".fst"                 $ fst
+         | term ".snd"                 $ snd
+
+  rule fstPair: (($a , $b) .fst) ~> $a
+  rule sndPair: (($a , $b) .snd) ~> $b
+    
+  test "fst": ((a , b) .fst) ~~> a
+  test "snd": ((a , b) .snd) ~~> b
+
+-----------------------------------------------------
+-- PIECE 4: Lambda
+-- Lambda abstraction and dimension abstraction
+-----------------------------------------------------
+
+piece Lambda
+  term ::= "λ" <ident> "." term        $ lam
+         | "λᵢ" <ident> "." term       $ dlam
+         | term "@" dim                $ dapp
+
+  rule beta: ((λ $x . $body) $arg) ~> [x := $arg] $body
+  rule dbeta: ((λᵢ $i . $body) @ $r) ~> [i := $r] $body
+    
+  test "beta": ((λ x . x) y) ~~> y
+  test "dbeta": ((λᵢ i . (f @ i)) @ 0) ~~> (f @ 0)
+
+-----------------------------------------------------
+-- PIECE 5: Pi
+-- Dependent function types
+-----------------------------------------------------
+
+piece Pi
+  term ::= "Π" "(" <ident> ":" term ")" term  $ Pi
+         | term "→" term                       $ arr
+
+  type PiForm: (Π ($x : $A) $B) : U
+    when $A : U, [$x : $A] $B : U
+
+-----------------------------------------------------
+-- PIECE 6: Sigma  
+-- Dependent pair types
+-----------------------------------------------------
+
+piece Sigma
+  term ::= "Σ" "(" <ident> ":" term ")" term  $ Sigma
+         | term "×" term                       $ prod
+
+  type SigmaForm: (Σ ($x : $A) $B) : U
+    when $A : U, [$x : $A] $B : U
+
+-----------------------------------------------------
+-- PIECE 7: Path
+-- Path types: Path A a b
+-----------------------------------------------------
+
+piece Path
+  term ::= "Path" term term term       $ Path
+
+  type PathForm: (Path $A $a $b) : U
+    when $A : U, $a : $A, $b : $A
+    
+  test "refl": (λᵢ i . a) : (Path A a a)
+
+-----------------------------------------------------
+-- PIECE 8: System
+-- Partial elements [φ ↦ u]
+-----------------------------------------------------
+
+piece System
+  system ::= "[" sysbranch* "]"        $ sys
+  sysbranch ::= cof "↦" term           $ branch
+
+-----------------------------------------------------
+-- PIECE 9: Coe
+-- Coercion: coe r~>s (i.A) a
+-----------------------------------------------------
+
+piece Coe
+  term ::= "coe" dim "~>" dim "(" <ident> "." term ")" term  $ coe
+
+  rule coeRefl: (coe $r ~> $r ($i . $A) $a) ~> $a
+    
+  type coeType: (coe $r ~> $s ($i . $A) $a) : [$i := $s] $A
+    when $a : [$i := $r] $A
+      
+  test "coe-refl": (coe 0 ~> 0 (i . A) a) ~~> a
+
+-----------------------------------------------------
+-- PIECE 10: Hcom
+-- Homogeneous composition: hcom r~>s A [φ ↦ u] a
+-----------------------------------------------------
+
+piece Hcom
+  term ::= "hcom" dim "~>" dim term system term  $ hcom
+
+  rule hcomRefl: (hcom $r ~> $r $A $sys $a) ~> $a
+    
+  type hcomType: (hcom $r ~> $s $A [$φ ↦ $u] $a) : $A
+    when $a : $A, [$φ] $u : I → $A
+
+-----------------------------------------------------
+-- PIECE 11: Com
+-- Heterogeneous composition: com r~>s (i.A) [φ ↦ u] a
+-----------------------------------------------------
+
+piece Com
+  term ::= "com" dim "~>" dim "(" <ident> "." term ")" system term  $ com
+
+  rule comRefl: (com $r ~> $r ($i . $A) $sys $a) ~> $a
+
+-----------------------------------------------------
+-- PIECE 12: VType
+-- V-types for univalence: V r A B e
+-----------------------------------------------------
+
+piece VType
+  term ::= "V" dim term term term      $ V
+         | "Vin" dim term              $ Vin
+         | "Vproj" dim term term       $ Vproj
+
+  rule Vin0: (Vin 0 $a) ~> ($a .fst)
+  rule Vin1: (Vin 1 $a) ~> $a
+  rule Vproj0: (Vproj 0 $v $e) ~> ($e ($v .snd))
+  rule Vproj1: (Vproj 1 $v $e) ~> $v
+    
+  type VForm: (V $r $A $B $e) : U
+    when $A : U, $B : U, $e : Equiv $A $B
+
+-----------------------------------------------------
+-- PIECE 13: Sub
+-- Subtypes: Sub A φ u
+-----------------------------------------------------
+
+piece Sub
+  term ::= "Sub" term cof term         $ Sub
+         | "inS" term                  $ inS
+         | "outS" term                 $ outS
+
+  rule outInS: (outS (inS $a)) ~> $a
+    
+  type SubForm: (Sub $A $φ $u) : U
+    when $A : U, [$φ] $u : $A
