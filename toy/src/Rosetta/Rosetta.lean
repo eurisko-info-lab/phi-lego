@@ -95,26 +95,72 @@ def extractTest (test : Term) : Option TestInfo := do
     some { name := name, input := input, expected := expected }
   | _ => none
 
-/-- Extract piece from AST -/
+/-- Safe list indexing -/
+def listGet? (xs : List α) (i : Nat) : Option α :=
+  match xs, i with
+  | [], _ => none
+  | x :: _, 0 => some x
+  | _ :: xs, n+1 => listGet? xs n
+
+/-- Extract ident string from AST node -/
+def getIdent : Term → Option String
+  | .con "ident" [.var s] => some s
+  | .var s => some s
+  | _ => none
+
+/-- Extract rule from DRule AST node -/
+def extractDRule (rule : Term) : Option RuleInfo := do
+  match rule with
+  | .con "DRule" args =>
+    -- DRule: [lit "rule", ident name, lit ":", pattern, lit "~>", template, ...]
+    let name ← listGet? args 1 >>= getIdent
+    let pattern ← listGet? args 3
+    let template ← listGet? args 5
+    some { name := name, pattern := pattern, template := template }
+  | _ => none
+
+/-- Extract test from DTest AST node -/
+def extractDTest (test : Term) : Option TestInfo := do
+  match test with
+  | .con "DTest" args =>
+    -- DTest: [lit "test", string name, lit ":", input, lit "~~>", expected, ...]
+    match listGet? args 1 with
+    | some (.con "string" [.lit name]) =>
+      let input ← listGet? args 3
+      let expected ← listGet? args 5
+      some { name := name, input := input, expected := expected }
+    | _ => none
+  | _ => none
+
+/-- Extract piece from DPiece AST node -/
 partial def extractPiece (piece : Term) : Option PieceInfo := do
   match piece with
-  | .con "piece" args =>
-    let name ← args.head?.bind getString
-    let constrs := args.filterMap extractConstr
-    let rules := args.filterMap extractRule
-    let tests := args.filterMap extractTest
-    some { name := name, constrs := constrs, rules := rules, tests := tests }
+  | .con "DPiece" args =>
+    -- DPiece: [lit "piece", ident name, ...items...]
+    let name ← listGet? args 1 >>= getIdent
+    let items := args.drop 2  -- Skip "piece" and name
+    let rules := items.filterMap extractDRule
+    let tests := items.filterMap extractDTest
+    -- TODO: extract constrs from DGrammar
+    some { name := name, constrs := [], rules := rules, tests := tests }
   | _ => none
 
 /-- Extract all pieces from language AST -/
 partial def extractLang (ast : Term) : Option LangInfo := do
   match ast with
-  | .con "lang" args =>
-    let name ← args.head?.bind getString
-    let pieces := args.filterMap extractPiece
+  | .con "DLang" args =>
+    -- DLang: [lit "lang", ident name, imports, lit ":=", ...pieces...]
+    let name ← listGet? args 1 >>= getIdent
+    let items := args.drop 4  -- Skip "lang", name, imports, ":="
+    let pieces := items.filterMap extractPiece
     some { name := name, pieces := pieces }
+  | .con "seq" args =>
+    -- Top level is often wrapped in seq
+    for arg in args do
+      if let some info := extractLang arg then
+        return info
+    none
   | .con "file" args =>
-    -- Try to find lang inside file
     for arg in args do
       if let some info := extractLang arg then
         return info
@@ -129,9 +175,43 @@ def capitalize (s : String) : String :=
   | [] => s
   | c :: cs => String.mk (c.toUpper :: cs)
 
-/-- Generate Lean term from Lego Term -/
+/-- Check if string is a metavariable (starts with $) -/
+def isMetavar (s : String) : Bool :=
+  s.startsWith "$"
+
+/-- Convert Lego pattern to clean Lean pattern -/
+partial def patternToLean : Term → String
+  -- Metavariable: $x → x (pattern var)
+  | .con "var" [.lit "$", .con "ident" [.var s]] => s
+  | .con "var" [.con "ident" [.var s]] => s
+  | .var s => if isMetavar s then s.drop 1 else s
+  -- Constructor application: (f a b) → .f a b
+  | .con "con" args =>
+    match args.filter (· != .lit "(") |>.filter (· != .lit ")") with
+    | .con "ident" [.var name] :: rest =>
+      let argsStr := rest.map patternToLean |>.intersperse " " |> String.join
+      if rest.isEmpty then s!".{name}" else s!"(.{name} {argsStr})"
+    | _ => "_"
+  -- Identifier
+  | .con "ident" [.var s] => s!".{s}"
+  | .lit s => s!"\"{s}\""
+  | _ => "_"
+
+/-- Convert Lego term to clean Lean expression -/
 partial def termToLean : Term → String
-  | .var s => s
+  -- Metavariable: $x → x
+  | .con "var" [.lit "$", .con "ident" [.var s]] => s
+  | .con "var" [.con "ident" [.var s]] => s
+  | .var s => if isMetavar s then s.drop 1 else s
+  -- Constructor application: (f a b) → f a b
+  | .con "con" args =>
+    match args.filter (· != .lit "(") |>.filter (· != .lit ")") with
+    | .con "ident" [.var name] :: rest =>
+      let argsStr := rest.map termToLean |>.intersperse " " |> String.join
+      if rest.isEmpty then s!".{name}" else s!"(.{name} {argsStr})"
+    | _ => "_unknown_"
+  -- Identifier
+  | .con "ident" [.var s] => s
   | .lit s => s!"\"{s}\""
   | .con name [] => capitalize name
   | .con name args =>
@@ -140,7 +220,7 @@ partial def termToLean : Term → String
 
 /-- Generate rule as Lean match case -/
 def ruleToLean (rule : RuleInfo) : String :=
-  s!"  -- {rule.name}\n  | {termToLean rule.pattern} => some {termToLean rule.template}"
+  s!"  -- {rule.name}\n  | {patternToLean rule.pattern} => some {termToLean rule.template}"
 
 /-- Generate test as Lean example -/
 def testToLean (test : TestInfo) : String :=
