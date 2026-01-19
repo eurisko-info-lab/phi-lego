@@ -324,6 +324,20 @@ def Rule.apply (r : Rule) (t : Term) : Option Term :=
 def Rule.unapply (r : Rule) (t : Term) : Option Term :=
   r.toIso.backward t
 
+/-! ## Type Rule Algebra -/
+
+/-- A typing rule: term : type when conditions -/
+structure TypeRule where
+  name       : String
+  subject    : Term       -- the term being typed (pattern)
+  type       : Term       -- its type
+  conditions : List Term  -- premises (when clauses)
+  deriving Repr, BEq
+
+/-- Check if a type rule applies to a term (pattern match subject) -/
+def TypeRule.matches (tr : TypeRule) (t : Term) : Option (List (String × Term)) :=
+  matchPattern tr.subject t
+
 /-! ## Language: Composition of Pieces -/
 
 /-- Piece level: what kind of stream does this piece operate on? -/
@@ -332,13 +346,14 @@ inductive PieceLevel where
   | syntax : PieceLevel  -- TokenStream → Term (parser)
   deriving Repr, BEq
 
-/-- A Piece: grammar fragment + rules.
+/-- A Piece: grammar fragment + rules + type rules.
     Each piece is a self-contained language fragment with its own interpreter. -/
 structure Piece where
   name       : String
   level      : PieceLevel := .syntax  -- default to syntax-level
   grammar    : List (String × GrammarExpr)
   rules      : List Rule
+  typeRules  : List TypeRule := []
   deriving Repr
 
 /-- A Language: composition of pieces via pushout.
@@ -361,6 +376,10 @@ def tokenGrammar (lang : Language) : List (String × GrammarExpr) :=
 /-- Get all rules -/
 def allRules (lang : Language) : List Rule :=
   lang.pieces.flatMap (·.rules)
+
+/-- Get all type rules -/
+def allTypeRules (lang : Language) : List TypeRule :=
+  lang.pieces.flatMap (·.typeRules)
 
 /-- Combine rules into a single Iso that tries each rule -/
 def combineRules (rules : List Rule) : Iso Term Term :=

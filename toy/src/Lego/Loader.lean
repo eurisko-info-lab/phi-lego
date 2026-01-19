@@ -801,6 +801,54 @@ where
     | .con _ ts => ts.flatMap go
     | _ => []
 
+/-! ## Type Rule Extraction -/
+
+/-- Extract a TypeRule from a DType AST node
+    Format: type name: subject : type when cond1, cond2, ... ;
+    AST: (DType "type" (ident name) ":" subject ":" type whenClause? ";")
+-/
+def extractTypeRule (typeDecl : Term) : Option TypeRule :=
+  match typeDecl with
+  | .con "DType" args =>
+    -- Filter out keywords and punctuation
+    let filtered := args.filter fun t =>
+      t != .lit "type" && t != .lit ":" && t != .lit ";" && t != .con "unit" []
+    match filtered with
+    | [.con "ident" [.var name], subject, typ] =>
+      some {
+        name := name
+        subject := patternAstToTerm subject
+        type := templateAstToTerm typ
+        conditions := []
+      }
+    | [.con "ident" [.var name], subject, typ, .con "when" conds] =>
+      -- Filter out "when" and "," from conditions
+      let cleanConds := conds.filter fun t =>
+        t != .lit "when" && t != .lit ","
+      some {
+        name := name
+        subject := patternAstToTerm subject
+        type := templateAstToTerm typ
+        conditions := cleanConds.map templateAstToTerm
+      }
+    | _ => none
+  | _ => none
+
+/-- Extract all type rules from a parsed .lego file AST -/
+partial def extractTypeRules (ast : Term) : List TypeRule :=
+  go ast
+where
+  go (t : Term) : List TypeRule :=
+    match t with
+    | .con "DType" _ =>
+      match extractTypeRule t with
+      | some tr => [tr]
+      | none => []
+    | .con "DLang" ts => ts.flatMap go
+    | .con "seq" ts => ts.flatMap go
+    | .con _ ts => ts.flatMap go
+    | _ => []
+
 /-! ## Attribute Grammar Extraction -/
 
 /-- Parse an AttrFlow from AST -/
