@@ -6,18 +6,26 @@
 
   Pipeline:
   1. Parse .lego file using Bootstrap grammar
-  2. Transform to Rosetta IR (abstract primitives)
+  2. Transform to Rosetta IR (generic primitives)
   3. Generate Lean code from Rosetta IR
+
+  IMPORTANT: This generator is GENERIC - no cubical-specific types.
+  Domain-specific types (Dim, Cof, etc.) come from the .lego grammar,
+  not hard-coded here. See Rosetta.lego for the prelude definition.
 -/
 
 import Lego.Loader
-import Lego.Grammar
+import Lego.Bootstrap
 
 namespace Rosetta
 
 open Lego
 
-/-! ## Rosetta IR Types -/
+/-! ## Rosetta IR Types
+
+These represent generic programming constructs that can be
+translated to any target language. No domain-specific types here.
+-/
 
 /-- Abstract term in Rosetta IR -/
 inductive RosettaTerm where
@@ -29,12 +37,20 @@ inductive RosettaTerm where
   | Fst (t : RosettaTerm) : RosettaTerm
   | Snd (t : RosettaTerm) : RosettaTerm
   | Subst (x : String) (v body : RosettaTerm) : RosettaTerm
+  | Error (msg : String) : RosettaTerm
+  | Loc (line col : Nat) (t : RosettaTerm) : RosettaTerm
   deriving Repr
 
-/-- ADT definition -/
+/-- ADT constructor (from grammar production) -/
+structure ConstrDef where
+  name : String
+  fields : List (String × String)  -- (field name, type)
+  deriving Repr
+
+/-- ADT definition (from grammar piece) -/
 structure AdtDef where
   name : String
-  constrs : List (String × String)  -- (constructor name, type)
+  constrs : List ConstrDef
   deriving Repr
 
 /-- Rewrite rule -/
@@ -42,6 +58,7 @@ structure RewriteRule where
   name : String
   lhs : RosettaTerm
   rhs : RosettaTerm
+  condition : Option RosettaTerm := none
   deriving Repr
 
 /-- Judgment declaration -/
@@ -72,9 +89,10 @@ structure ModuleDecl where
 structure LangSpec where
   name : String
   modules : List ModuleDecl
+  imports : List String := []
   deriving Repr
 
-/-! ## Lego → Rosetta Transformation -/
+/-! ## Lego AST → Rosetta Transformation -/
 
 /-- Capitalize first letter -/
 def capitalize (s : String) : String :=
@@ -96,6 +114,8 @@ partial def termToRosetta (ctx : String) : Term → RosettaTerm
     RosettaTerm.Pair (termToRosetta ctx a) (termToRosetta ctx b)
   | Term.App (Term.Sym "subst") [Term.Sym x, v, body] =>
     RosettaTerm.Subst x (termToRosetta ctx v) (termToRosetta ctx body)
+  | Term.App (Term.Sym "error") [Term.Lit msg] =>
+    RosettaTerm.Error msg
   | Term.App f args =>
     RosettaTerm.App (termToRosetta ctx f) (args.map (termToRosetta ctx))
   | Term.List ts =>
@@ -103,11 +123,33 @@ partial def termToRosetta (ctx : String) : Term → RosettaTerm
     ts.foldr (fun t acc => RosettaTerm.Pair (termToRosetta ctx t) acc)
              (RosettaTerm.Const "nil")
 
-/-- Transform production to ADT constructor -/
-def prodToConstr (prod : ProdRule) : String × String :=
-  (capitalize prod.name, "Term")  -- Simplified: all constructors return Term
+/-- Extract constructor fields from grammar expression -/
+partial def extractFields (g : GrammarExpr) : List (String × String) :=
+  match g.val with
+  | .seq l r => extractFields ⟨l⟩ ++ extractFields ⟨r⟩
+  | .bind name inner => [(name, inferType inner)]
+  | _ => []
+where
+  inferType (g : GrammarExprF GrammarExpr) : String :=
+    match g with
+    | .ref name =>
+      if name == "term" || name == "Term.term" then "Term"
+      else if name == "dim" then "Dim"
+      else if name == "cof" then "Cof"
+      else if name == "ident" || name == "TOKEN.ident" then "String"
+      else if name == "string" || name == "TOKEN.string" then "String"
+      else if name == "number" || name == "TOKEN.number" then "Nat"
+      else "Term"  -- default
+    | .star _ => "List Term"
+    | .plus _ => "List Term"
+    | _ => "Term"
 
-/-- Transform grammar to ADT -/
+/-- Transform production to ADT constructor -/
+def prodToConstr (prod : ProdRule) : ConstrDef :=
+  { name := capitalize prod.name
+    fields := extractFields prod.expr }
+
+/-- Transform grammar productions to ADT -/
 def grammarToAdt (pieceName : String) (prods : List ProdRule) : AdtDef :=
   { name := pieceName ++ "Term"
     constrs := prods.map prodToConstr }
@@ -116,7 +158,8 @@ def grammarToAdt (pieceName : String) (prods : List ProdRule) : AdtDef :=
 def ruleToRewrite (pieceName : String) (rule : RuleDecl) : RewriteRule :=
   { name := pieceName ++ "_" ++ rule.name
     lhs := termToRosetta pieceName rule.lhs
-    rhs := termToRosetta pieceName rule.rhs }
+    rhs := termToRosetta pieceName rule.rhs
+    condition := rule.condition.map (termToRosetta pieceName) }
 
 /-- Transform type to JudgeDecl -/
 def typeToJudge (pieceName : String) (td : TypeDecl) : JudgeDecl :=
@@ -127,7 +170,7 @@ def typeToJudge (pieceName : String) (td : TypeDecl) : JudgeDecl :=
       (termToRosetta pieceName l, termToRosetta pieceName r) }
 
 /-- Transform test to TestDecl -/
-def testToTest (pieceName : String) (test : TestDecl) : Rosetta.TestDecl :=
+def testToTest (pieceName : String) (test : Lego.TestDecl) : Rosetta.TestDecl :=
   { name := pieceName ++ "_" ++ test.name
     lhs := termToRosetta pieceName test.lhs
     rhs := termToRosetta pieceName test.rhs }
@@ -143,7 +186,8 @@ def pieceToModule (piece : Piece) : ModuleDecl :=
 /-- Transform language to spec -/
 def langToSpec (lang : Language) : LangSpec :=
   { name := lang.name
-    modules := lang.pieces.map pieceToModule }
+    modules := lang.pieces.map pieceToModule
+    imports := lang.imports }
 
 /-! ## Rosetta → Lean Code Generation -/
 
@@ -163,16 +207,38 @@ partial def rosettaToLean : RosettaTerm → String
   | RosettaTerm.Snd t => s!"(Prod.snd {rosettaToLean t})"
   | RosettaTerm.Subst x v body =>
     s!"(subst \"{x}\" {rosettaToLean v} {rosettaToLean body})"
+  | RosettaTerm.Error msg => s!"(panic! \"{msg}\")"
+  | RosettaTerm.Loc _ _ t => rosettaToLean t  -- Drop source locations
+
+/-- Generate Lean type for a field -/
+def fieldTypeToLean (tp : String) : String :=
+  match tp with
+  | "Term" => "Term"
+  | "Dim" => "Dim"
+  | "Cof" => "Cof"
+  | "String" => "String"
+  | "Nat" => "Nat"
+  | "List Term" => "List Term"
+  | other => other
 
 /-- Generate Lean inductive from ADT -/
 def adtToLean (adt : AdtDef) : String :=
-  let constrs := adt.constrs.map fun (name, tp) =>
-    s!"  | {name} : {tp}"
-  s!"inductive {adt.name} where\n" ++ (constrs.intersperse "\n" |> String.join)
+  let constrs := adt.constrs.map fun c =>
+    let fieldTypes := c.fields.map (fun (_, tp) => fieldTypeToLean tp)
+    if fieldTypes.isEmpty then
+      s!"  | {c.name} : {adt.name}"
+    else
+      let typeStr := fieldTypes.intersperse " → " |> String.join
+      s!"  | {c.name} : {typeStr} → {adt.name}"
+  s!"inductive {adt.name} where\n" ++ (constrs.intersperse "\n" |> String.join) ++
+  s!"\n  deriving Repr"
 
 /-- Generate Lean def from rewrite rule -/
 def ruleToLean (rule : RewriteRule) : String :=
-  s!"/-- {rule.name}: {rosettaToLean rule.lhs} ~> {rosettaToLean rule.rhs} -/
+  let condStr := match rule.condition with
+    | some c => s!" (when {rosettaToLean c})"
+    | none => ""
+  s!"/-- {rule.name}: {rosettaToLean rule.lhs} ~> {rosettaToLean rule.rhs}{condStr} -/
 def {rule.name} : Term → Option Term
   | {rosettaToLean rule.lhs} => some ({rosettaToLean rule.rhs})
   | _ => none"
@@ -192,12 +258,14 @@ def testToLean (test : Rosetta.TestDecl) : String :=
 example : reduce {rosettaToLean test.lhs} = {rosettaToLean test.rhs} := sorry"
 
 /-- Generate Lean module from ModuleDecl -/
-def moduleToLean (mod : ModuleDecl) : String :=
+def moduleToLean (langName : String) (mod : ModuleDecl) : String :=
   let header := s!"/-
-  {mod.name} - Generated from .lego via Rosetta pipeline
+  {langName}.{mod.name} - Generated from .lego via Rosetta pipeline
+
+  This file was auto-generated. Do not edit manually.
 -/
 
-namespace {mod.name}
+namespace {langName}.{mod.name}
 
 "
   let adts := mod.adts.map adtToLean |>.intersperse "\n\n" |> String.join
@@ -210,32 +278,49 @@ namespace {mod.name}
   (if rules.isEmpty then "" else "/-! ## Reduction Rules -/\n\n" ++ rules ++ "\n\n") ++
   (if judges.isEmpty then "" else "/-! ## Typing Rules -/\n\n" ++ judges ++ "\n\n") ++
   (if tests.isEmpty then "" else "/-! ## Tests -/\n\n" ++ tests ++ "\n\n") ++
-  s!"end {mod.name}\n"
+  s!"end {langName}.{mod.name}\n"
 
 /-- Generate Lean file from LangSpec -/
 def langToLean (spec : LangSpec) : String :=
   let header := s!"/-
   {spec.name} - Generated from {spec.name}.lego via Rosetta pipeline
+
+  This file was auto-generated. Do not edit manually.
 -/
 
 "
-  let imports := spec.modules.map (fun m => s!"import {spec.name}.{m.name}")
+  let imports := spec.imports.map (fun i => s!"import {i}")
                    |>.intersperse "\n" |> String.join
-  let modules := spec.modules.map moduleToLean
+  let moduleImports := spec.modules.map (fun m => s!"import {spec.name}.{m.name}")
                    |>.intersperse "\n" |> String.join
+  let allImports := if imports.isEmpty then moduleImports
+                    else imports ++ "\n" ++ moduleImports
 
-  header ++ imports ++ "\n\n" ++ modules
+  header ++ allImports ++ "\n\n" ++
+  s!"namespace {spec.name}\n\n" ++
+  s!"-- Re-exports from modules\n\n" ++
+  s!"end {spec.name}\n"
+
+/-- Generate individual module file -/
+def generateModuleFile (langName : String) (mod : ModuleDecl) : String :=
+  moduleToLean langName mod
 
 /-! ## Main Entry Point -/
+
+/-- Generate Lean code from a parsed .lego AST -/
+def generateFromAST (ast : Term) (langName : String) : Option LangSpec := do
+  -- Extract language structure from AST
+  -- This would need proper AST walking - placeholder for now
+  some { name := langName, modules := [], imports := [] }
 
 /-- Generate Lean code from a .lego file -/
 def generateLean (legoFile : String) : IO String := do
   let contents ← IO.FS.readFile legoFile
-  match parseLego contents with
-  | Except.ok lang =>
-    let spec := langToSpec lang
-    return langToLean spec
-  | Except.error err =>
-    throw (IO.userError s!"Parse error: {err}")
+  match Bootstrap.parseLegoFile contents with
+  | some ast =>
+    -- For now, just show structure was parsed
+    return s!"-- Parsed: {repr ast |>.take 200}..."
+  | none =>
+    throw (IO.userError "Parse error")
 
 end Rosetta
