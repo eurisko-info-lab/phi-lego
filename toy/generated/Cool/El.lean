@@ -8,21 +8,20 @@ namespace Cool.El
 /-! ## Syntax -/
 
 /-- El and code operations -/
-inductive Term
+inductive Term : Type where
   | El (a : Term) : Term
   | code (A : Term) : Term
+  | var (name : String) : Term
+  deriving Repr
 
 /-! ## Reduction Rules -/
 
 /-- ElCode: (El (code A)) ~> A -/
 def ElCode (A : Term) : Term := A
 
-/-! ## Typing Rules -/
+/-! ## Typing Rules (axiomatized) -/
 
-/-- ElForm: (El a) : U when a : U -/
-structure ElForm where
-  a : Term
-  a_type : True  -- placeholder for a : U
+axiom ElForm : True
 
 /-! ## Reducer -/
 
@@ -32,7 +31,6 @@ def reduce : Term → Term
 
 /-! ## Tests -/
 
-example : reduce (Term.El (Term.code (Term.El Term.code))) =
-          Term.El Term.code := rfl
+example : reduce (Term.El (Term.code (Term.var "A"))) = Term.var "A" := rfl
 
 end Cool.El

@@ -3,38 +3,47 @@
   Generated from Cool.lego via Rosetta pipeline
 -/
 
-import Lego.Cubical.Core
-
 namespace Cool.CofExt
+
+/-! ## Core Types -/
+
+inductive Dim where
+  | zero : Dim
+  | one : Dim
+  | var (name : String) : Dim
+  deriving Repr, BEq
 
 /-! ## Syntax -/
 
 /-- Extended cofibration operations -/
-inductive Cof
+inductive Cof : Type where
   | boundary (i : Dim) : Cof    -- ∂ i
   | strict (φ : Cof) : Cof      -- strict φ
+  | top : Cof
+  | bot : Cof
+  | eq (i j : Dim) : Cof
+  | join (φ ψ : Cof) : Cof
+  | meet (φ ψ : Cof) : Cof
+  deriving Repr, BEq
 
 /-! ## Reduction Rules -/
 
-/-- boundary0: (∂ 0) ~> cof0 -/
-def boundary0 : Cof := Cof.boundary Dim.zero
-
-/-- boundary1: (∂ 1) ~> cof0 -/
-def boundary1 : Cof := Cof.boundary Dim.one
-
 /-- boundaryVar: (∂ i) ~> ((i = 0) ∨ (i = 1)) -/
-def boundaryVar (i : Dim) : Cof :=
-  Cof.boundary i  -- represents (i = 0) ∨ (i = 1)
+def boundaryExpand (i : Dim) : Cof :=
+  Cof.join (Cof.eq i Dim.zero) (Cof.eq i Dim.one)
 
 /-! ## Reducer -/
 
-def reduceBoundary : Dim → Cof
-  | Dim.zero => Cof.boundary Dim.zero  -- cof0
-  | Dim.one => Cof.boundary Dim.one    -- cof0
-  | i => Cof.boundary i                 -- (i = 0) ∨ (i = 1)
+def reduce : Cof → Cof
+  | Cof.boundary i =>
+    match i with
+    | Dim.zero => Cof.bot  -- boundary at 0 is false
+    | Dim.one => Cof.bot   -- boundary at 1 is false
+    | _ => boundaryExpand i
+  | c => c
 
 /-! ## Tests -/
 
-example : reduceBoundary Dim.zero = Cof.boundary Dim.zero := rfl
+example : reduce (Cof.boundary Dim.zero) = Cof.bot := rfl
 
 end Cool.CofExt

@@ -31,6 +31,15 @@ lean_lib «LegoGenerated» where
   srcDir := "generated"
   roots := #[`BootstrapGrammar, `BootstrapTokenizer, `BootstrapRules]
 
+-- Generated Rosetta output (from Red.lego and Cool.lego)
+lean_lib «RedGenerated» where
+  srcDir := "generated"
+  globs := #[.submodules `Red]
+
+lean_lib «CoolGenerated» where
+  srcDir := "generated"
+  globs := #[.submodules `Cool]
+
 @[default_target]
 lean_exe «lego» where
   root := `Main

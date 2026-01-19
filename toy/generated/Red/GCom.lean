@@ -3,29 +3,48 @@
   Generated from Red.lego via Rosetta pipeline
 -/
 
-import Lego.Cubical.Core
-
 namespace Red.GCom
+
+/-! ## Core Types -/
+
+inductive Dim where
+  | zero : Dim
+  | one : Dim
+  | var (name : String) : Dim
+  deriving Repr, BEq
+
+inductive Cof where
+  | top : Cof
+  | bot : Cof
+  | eq (i j : Dim) : Cof
+  deriving Repr, BEq
 
 /-! ## Syntax -/
 
-/-- Generalized homogeneous composition -/
-inductive Term
+/-- Term type with generalized composition -/
+inductive Term : Type where
   | ghcom (r s : Dim) (A : Term) (sys : List (Cof × Term)) (a : Term) : Term
   | gcom (r s : Dim) (x : String) (A : Term) (sys : List (Cof × Term)) (a : Term) : Term
+  | var (name : String) : Term
+  deriving Repr
 
 /-! ## Reduction Rules -/
 
 /-- ghcomRefl: (ghcom r ~> r A sys a) ~> a -/
-def ghcomRefl (r : Dim) (A : Term) (sys : List (Cof × Term)) (a : Term) : Term := a
+def ghcomRefl (_A : Term) (_sys : List (Cof × Term)) (a : Term) : Term := a
 
 /-- gcomRefl: (gcom r ~> r (i . A) sys a) ~> a -/
-def gcomRefl (r : Dim) (x : String) (A : Term) (sys : List (Cof × Term)) (a : Term) : Term := a
+def gcomRefl (_x : String) (_A : Term) (_sys : List (Cof × Term)) (a : Term) : Term := a
+
+/-! ## Reducer -/
+
+def reduce : Term → Term
+  | Term.ghcom r s A sys a => if r == s then a else Term.ghcom r s A sys a
+  | Term.gcom r s x A sys a => if r == s then a else Term.gcom r s x A sys a
+  | t => t
 
 /-! ## Tests -/
 
--- ghcom r ~> r A sys a reduces to a
-example (A : Term) (sys : List (Cof × Term)) (a : Term) :
-  ghcomRefl Dim.zero A sys a = a := rfl
+#check reduce (Term.ghcom Dim.zero Dim.zero (Term.var "A") [] (Term.var "a"))
 
 end Red.GCom

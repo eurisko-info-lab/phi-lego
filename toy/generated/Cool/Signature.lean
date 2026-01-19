@@ -7,34 +7,23 @@ namespace Cool.Signature
 
 /-! ## Syntax -/
 
-/-- Field in a signature -/
-structure Field where
-  name : String
-  tp : Term
-
-/-- Assignment in a struct -/
-structure Assign where
-  name : String
-  val : Term
-
-/-- Signature and struct terms -/
-inductive Term
-  | sig (fields : List Field) : Term
-  | struct (assigns : List Assign) : Term
+/-- Generic term placeholder -/
+inductive Term : Type where
+  | var (name : String) : Term
+  | sig (fields : List (String × Term)) : Term
+  | struct (assigns : List (String × Term)) : Term
   | proj (t : Term) (field : String) : Term
+  deriving Repr
 
 /-! ## Reduction Rules -/
 
 /-- projStruct: ((struct { x := a rest }) . x) ~> a -/
-def projStruct (assigns : List Assign) (x : String) : Option Term :=
-  assigns.find? (fun a => a.name == x) |>.map Assign.val
+def projStruct (assigns : List (String × Term)) (x : String) : Option Term :=
+  assigns.find? (fun (name, _) => name == x) |>.map (·.2)
 
-/-! ## Typing Rules -/
+/-! ## Typing Rules (axiomatized) -/
 
-/-- sigForm: (sig { fs }) : U when fs valid -/
-structure SigForm where
-  fields : List Field
-  fields_valid : True  -- placeholder
+axiom sigForm : True
 
 /-! ## Reducer -/
 
@@ -47,6 +36,6 @@ def reduce : Term → Term
 
 /-! ## Tests -/
 
-example : projStruct [⟨"x", Term.sig []⟩] "x" = some (Term.sig []) := rfl
+example : projStruct [("x", Term.var "a")] "x" = some (Term.var "a") := rfl
 
 end Cool.Signature

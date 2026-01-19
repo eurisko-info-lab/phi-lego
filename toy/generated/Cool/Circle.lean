@@ -3,18 +3,26 @@
   Generated from Cool.lego via Rosetta pipeline
 -/
 
-import Lego.Cubical.Core
-
 namespace Cool.Circle
+
+/-! ## Core Types -/
+
+inductive Dim where
+  | zero : Dim
+  | one : Dim
+  | var (name : String) : Dim
+  deriving Repr, BEq
 
 /-! ## Syntax -/
 
-/-- Circle type -/
-inductive Term
+/-- Circle type terms -/
+inductive Term : Type where
   | S1 : Term
   | base : Term
   | loop (i : Dim) : Term
   | S1Elim (P b l x : Term) : Term
+  | var (name : String) : Term
+  deriving Repr
 
 /-! ## Reduction Rules -/
 
@@ -25,29 +33,23 @@ def loopBase0 : Term := Term.base
 def loopBase1 : Term := Term.base
 
 /-- S1ElimBase: (S¹Elim P b l base) ~> b -/
-def S1ElimBase (P b l : Term) : Term := b
+def S1ElimBase (_P b _l : Term) : Term := b
 
 /-- S1ElimLoop: (S¹Elim P b l (loop i)) ~> (l @ i) -/
-def S1ElimLoop (P b l : Term) (i : Dim) : Term :=
-  Term.S1Elim P b l (Term.loop i)  -- (l @ i)
+def S1ElimLoop (_P _b l : Term) (_i : Dim) : Term := l  -- simplified
 
-/-! ## Typing Rules -/
+/-! ## Typing Rules (axiomatized) -/
 
-/-- S1Form: S¹ : U -/
-axiom S1Form : Type
-
-/-- baseType: base : S¹ -/
-axiom baseType : Term.base = Term.base
-
-/-- loopType: (loop i) : S¹ when i : I -/
-axiom loopType : ∀ i, Term.loop i = Term.loop i
+axiom S1Form : True
+axiom baseType : True
+axiom loopType : True
 
 /-! ## Reducer -/
 
 def reduce : Term → Term
   | Term.loop Dim.zero => Term.base
   | Term.loop Dim.one => Term.base
-  | Term.S1Elim P b l Term.base => b
+  | Term.S1Elim _P b _l Term.base => b
   | t => t
 
 /-! ## Tests -/

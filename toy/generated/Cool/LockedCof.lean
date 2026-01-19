@@ -3,16 +3,24 @@
   Generated from Cool.lego via Rosetta pipeline
 -/
 
-import Lego.Cubical.Core
-
 namespace Cool.LockedCof
+
+/-! ## Core Types -/
+
+inductive Cof where
+  | top : Cof
+  | bot : Cof
+  | var (name : String) : Cof
+  deriving Repr, BEq
 
 /-! ## Syntax -/
 
 /-- Locked cofibration operations -/
-inductive Term
+inductive Term : Type where
   | lock (φ : Cof) (a : Term) : Term
   | unlock (φ : Cof) (a : Term) : Term
+  | var (name : String) : Term
+  deriving Repr
 
 /-! ## Reduction Rules -/
 
