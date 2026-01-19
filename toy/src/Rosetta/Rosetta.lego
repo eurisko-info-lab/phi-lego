@@ -1,108 +1,185 @@
 -----------------------------------------------------
--- Rosetta: Abstract Implementation Language for Type Theory Specs
+-- Rosetta: Generic Code Generation Prelude
 --
--- This is a high-level "Rosetta Stone" language designed in Lego format.
--- It abstracts over implementation details like variable representation
--- (e.g., named vs. de Bruijn), evaluation strategy (e.g., call-by-value vs. need),
--- and data structures (e.g., lists vs. vectors for systems).
--- The goal is to translate original Lego specs (e.g., CubicalTT, Red, Cool)
--- into this intermediate form, which is declarative and focuses on:
--- - ADT definitions for terms (syntax).
--- - Rewrite rules as pattern-matching functions.
--- - Judgment forms for typing (formation, introduction, elimination).
--- - Tests as equivalence assertions.
--- - Primitives for substitution, binding, and abstraction to avoid low-level impl.
+-- This is a target-agnostic intermediate language for code generation.
+-- It abstracts over implementation details like:
+-- - Variable representation (named vs. de Bruijn)
+-- - Evaluation strategy (call-by-value vs. call-by-need)
+-- - Data structures (lists vs. vectors)
 --
--- From Rosetta, target-specific translations can choose concrete reps:
--- - Haskell: Use GADTs for terms, pattern-matching for rules.
--- - Rust: Use enums for terms, match arms for rules.
--- - Lean: Use inductive types for terms, reducible defs for rules.
+-- IMPORTANT: This is GENERIC - no cubical/dimension/cofibration specifics.
+-- Domain-specific constructs (dimensions, paths, etc.) belong in
+-- the .lego specs (CubicalTT.lego, Red.lego, Cool.lego).
+--
+-- From Rosetta, target-specific translations choose concrete reps:
+-- - Lean: inductive types, reducible defs, theorems
+-- - Haskell: GADTs, pattern matching
+-- - Rust: enums, match arms
 --
 -- Key Abstractions:
--- - Variables: Abstracted as 'var' with binders; impl can choose indexing.
--- - Substitution: Primitive 'subst' operation; impl handles capture-avoidance.
--- - Patterns: For rules, use abstract patterns with wildcards ($var).
--- - Judgments: Declarative 'judge' for types, with 'when' conditions.
--- - Modules: 'module' for pieces, allowing composition.
+-- - Variables: 'Var' with abstract binding; impl chooses indexing
+-- - Substitution: 'Subst' primitive; impl handles capture-avoidance
+-- - Patterns: Abstract patterns with $var wildcards
+-- - Judgments: Declarative 'judge' with 'when' conditions
+-- - Modules: 'module' for composition
 -----------------------------------------------------
+
 lang Rosetta :=
+
 -----------------------------------------------------
 -- Core Primitives
--- Abstract basics: universe, variables, application, pairs (non-dependent).
+-- Abstract basics: universe, variables, application
+-- These are universal to any typed language
 -----------------------------------------------------
+
 piece CorePrimitives
-  term ::= "Univ" → univ  -- Abstract universe (impl: Type in Haskell/Lean)
-         | "Var" <ident> → var   -- Abstract variable (impl: String or Index)
-         | "App" term term → app  -- Application (impl: function call)
-         | "Pair" term term → pair  -- Non-dependent pair
-         | "Fst" term → fst
-         | "Snd" term → snd
-         | "Subst" <ident> term term → subst  -- subst x t body (abstract; impl handles)
-         ;
-  rule fstPair: (Fst (Pair $a $b)) ~> $a ;
-  rule sndPair: (Snd (Pair $a $b)) ~> $b ;
-  judge univForm: Univ : Univ ;  -- Univ is a type
-  judge varType: (Var $x) : $T  when bound $x : $T ;  -- Contextual
-  test "subst-id": (Subst x (Var x) (Var x)) ~~> (Var x) ;
+  term ::= "Univ"                      → univ     -- Universe (Type in Lean/Haskell)
+         | "Var" <ident>               → var      -- Variable (String or Index)
+         | "App" term term             → app      -- Application
+         | "Subst" <ident> term term   → subst ;  -- subst x t body
+
+  rule appSubst: (App (Subst $x $s $f) $a) ~> (Subst $x $s (App $f $a)) ;
+  
+  judge univForm: Univ : Univ ;
+  judge varType: (Var $x) : $T when bound $x : $T ;
+
 -----------------------------------------------------
 -- Binders
--- Abstract lambda and dimension binders; impl can choose closure reps.
+-- Generic term binders - lambda abstraction
+-- NO dimension binders here - those are cubical-specific
 -----------------------------------------------------
+
 piece Binders
-  term ::= "Lam" <ident> "." term → lam  -- Term binder
-         | "DLam" <ident> "." term → dlam  -- Dimension binder
-         | "DApp" term term → dapp  -- Dimension app (abstract over I)
-         ;
+  term ::= "Lam" <ident> "." term      → lam ;    -- BINDER: $x scopes $body
+
   rule beta: (App (Lam $x . $body) $arg) ~> (Subst $x $arg $body) ;
-  rule dbeta: (DApp (DLam $i . $body) $r) ~> (Subst $i $r $body) ;
-  judge lamForm: (Lam $x . $body) : (Pi $x : $A $B)
+
+  judge lamForm: (Lam $x . $body) : (Arrow $A $B)
     when [$x : $A] $body : $B ;
+
+-----------------------------------------------------
+-- Products
+-- Non-dependent pairs (generic)
+-----------------------------------------------------
+
+piece Products
+  term ::= "Pair" term term            → pair
+         | "Fst" term                  → fst
+         | "Snd" term                  → snd ;
+
+  rule fstPair: (Fst (Pair $a $b)) ~> $a ;
+  rule sndPair: (Snd (Pair $a $b)) ~> $b ;
+  rule pairEta: (Pair (Fst $p) (Snd $p)) ~> $p ;
+
+  judge pairType: (Pair $a $b) : (Prod $A $B)
+    when $a : $A, $b : $B ;
+  judge fstType: (Fst $p) : $A when $p : (Prod $A $B) ;
+  judge sndType: (Snd $p) : $B when $p : (Prod $A $B) ;
+
 -----------------------------------------------------
 -- ADT Definition
--- Meta-construct for defining term ADTs (syntax).
--- 'adt' defines constructors; impl generates enums/inductives.
+-- Meta-construct for generating term syntax
+-- 'adt' defines constructors → enums/inductives
 -----------------------------------------------------
+
 piece ADTDef
   decl ::= "adt" <ident> "{" constr* "}" → adtDef ;
-  constr ::= <ident> ":" type → constr ;
-  -- Example usage: adt Term { App : Term → Term → Term ; ... }
+  constr ::= <ident> ":" type            → constr ;
+
+  -- Example: adt Term { App : Term → Term → Term }
   judge adtForm: (adtDef $name $constrs) : Univ ;
+
 -----------------------------------------------------
 -- Rewrite Rules
--- Abstract rules as functions: pattern ~> template.
--- Impl: Generate match cases or rewrite engines.
+-- Abstract pattern → template rules
+-- Impl generates match cases or rewrite engines
 -----------------------------------------------------
+
 piece RewriteRules
   decl ::= "rewrite" <ident> ":" pattern "~>" term → rewriteRule ;
-  pattern ::= term  -- With $vars as wildcards
-            | "_" → wildcard ;
-  -- Appliers are implicit; impl generates 'applyRules' function.
-  test "example-rule": rewrite join0L: (Join (Const 0) $r) ~> $r ;
+  pattern ::= term                       → termPat
+            | "_"                        → wildcard ;
+
+  -- Impl generates 'step' or 'normalize' functions
+
 -----------------------------------------------------
 -- Judgment Forms
--- Abstract typing judgments: formation, intro, elim.
--- 'judge' with 'when' for premises.
+-- Abstract typing judgments: formation, intro, elim
+-- 'judge' with 'when' for premises
 -----------------------------------------------------
+
 piece Judgments
-  decl ::= "judge" <ident> ":" term ":" term "when" cond* → judgeDecl ;
-  cond ::= term ":" term → cond
-         | "[" bind* "]" term ":" term → ctxCond ;
-  bind ::= <ident> ":" term → bind ;
-  -- Impl: Generate inference/checking functions.
-  judge examplePi: (Pi $x : $A $B) : Univ
-    when $A : Univ, [$x : $A] $B : Univ ;
+  decl ::= "judge" <ident> ":" term ":" term conds? → judgeDecl ;
+  conds ::= "when" cond ("," cond)*     → conds ;
+  cond ::= term ":" term                → cond
+         | "[" bind* "]" term ":" term  → ctxCond ;
+  bind ::= <ident> ":" term             → bind ;
+
+  -- Impl generates infer/check functions
+
 -----------------------------------------------------
 -- Tests
--- Equivalence assertions after normalization.
+-- Equivalence assertions (normalized equality)
 -----------------------------------------------------
+
 piece Tests
   decl ::= "test" <string> ":" term "~~>" term → testDecl ;
-  -- Impl: Generate unit tests or properties.
+
+  -- Impl generates unit tests or QuickCheck properties
+
 -----------------------------------------------------
 -- Modules
--- For composition, like original 'piece'.
+-- Namespacing and composition
 -----------------------------------------------------
+
 piece Modules
   decl ::= "module" <ident> "{" decl* "}" → moduleDecl
-         | "import" <ident> → importDecl ;
-  -- Impl: Namespaces or modules in target lang.
+         | "import" <ident>               → importDecl ;
+
+-----------------------------------------------------
+-- Errors
+-- Error handling and recovery
+-----------------------------------------------------
+
+piece Errors
+  term ::= "Error" <string>            → error
+         | "Stuck" term                → stuck ;
+
+  -- Error propagates
+  rule appError: (App (Error $msg) $a) ~> (Error $msg) ;
+  rule fstError: (Fst (Error $msg)) ~> (Error $msg) ;
+
+-----------------------------------------------------
+-- Annotations
+-- Source location and metadata
+-----------------------------------------------------
+
+piece Annotations
+  term ::= "Ann" term term             → ann      -- Ann t T : annotated term
+         | "Loc" <int> <int> term      → loc ;    -- Loc line col t : positioned
+
+  rule annErase: (Ann $t $T) ~> $t ;  -- For evaluation
+
+-----------------------------------------------------
+-- Builtins
+-- Common primitives across targets
+-----------------------------------------------------
+
+piece Builtins
+  term ::= "Bool"                      → boolTy
+         | "true"                      → true
+         | "false"                     → false
+         | "if" term term term         → ifThenElse
+         | "Nat"                       → natTy
+         | "zero"                      → zero
+         | "succ" term                 → succ ;
+
+  rule ifTrue: (if true $t $f) ~> $t ;
+  rule ifFalse: (if false $t $f) ~> $f ;
+
+  judge boolForm: Bool : Univ ;
+  judge trueType: true : Bool ;
+  judge falseType: false : Bool ;
+  judge natForm: Nat : Univ ;
+  judge zeroType: zero : Nat ;
+  judge succType: (succ $n) : Nat when $n : Nat ;
