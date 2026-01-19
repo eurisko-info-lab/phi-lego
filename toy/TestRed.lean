@@ -3862,23 +3862,23 @@ def conversionModuleTests : List TestResult :=
   let whnf_var := isWhnf (ix 0)
   let whnf_nat := isWhnf nat
 
-  -- Test step
-  let step_beta := Conversion.step (app (lam (ix 0)) zero)
+  -- Test whnfStep (replaces step)
+  let step_beta := (app (lam (ix 0)) zero).whnfStep Expr.subst (fun d body => Expr.subst 0 d body)
   let step_beta_ok := step_beta == some zero
 
-  let step_fst := Conversion.step (fst (pair zero (suc zero)))
+  let step_fst := (fst (pair zero (suc zero))).whnfStep Expr.subst (fun d body => Expr.subst 0 d body)
   let step_fst_ok := step_fst == some zero
 
-  let step_snd := Conversion.step (snd (pair zero (suc zero)))
+  let step_snd := (snd (pair zero (suc zero))).whnfStep Expr.subst (fun d body => Expr.subst 0 d body)
   let step_snd_ok := step_snd == some (suc zero)
 
-  let step_papp := Conversion.step (papp (plam (ix 0)) dim0)
+  let step_papp := (papp (plam (ix 0)) dim0).whnfStep Expr.subst (fun d body => Expr.subst 0 d body)
   let step_papp_ok := step_papp == some dim0
 
-  let step_subout := Conversion.step (subOut (subIn zero))
+  let step_subout := (subOut (subIn zero)).whnfStep Expr.subst (fun d body => Expr.subst 0 d body)
   let step_subout_ok := step_subout == some zero
 
-  let step_none := Conversion.step (ix 0)
+  let step_none := (ix 0).whnfStep Expr.subst (fun d body => Expr.subst 0 d body)
   let step_none_ok := step_none == none
 
   -- Test whnf
