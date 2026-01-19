@@ -36,6 +36,8 @@ import Lego.Cubical.TermBuilder
 import Lego.Cubical.Semantics
 import Lego.Loader
 
+set_option linter.unusedVariables false
+
 open Lego
 open Lego.Loader
 open Lego.Cubical

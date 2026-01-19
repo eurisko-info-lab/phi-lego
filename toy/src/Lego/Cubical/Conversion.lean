@@ -103,7 +103,7 @@ def defaultFuel : Nat := 1000
 -/
 
 /-- Check if two dimensions are equal -/
-def equate_dim (ctx : ConvCtx) (r1 r2 : Expr) : ConvResult :=
+def equate_dim (_ctx : ConvCtx) (r1 r2 : Expr) : ConvResult :=
   let r1' := whnf defaultFuel r1
   let r2' := whnf defaultFuel r2
   if r1' == r2' then ConvResult.ok
@@ -233,7 +233,7 @@ partial def equate_con (ctx : ConvCtx) (tp : Expr) (t1 t2 : Expr) : ConvResult :
     let tp' := whnf defaultFuel tp
     match tp' with
     -- Pi types: compare under abstraction
-    | .pi dom cod =>
+    | .pi _dom cod =>
       let ctx' := ctx.extend
       let var := Expr.ix 0
       let app1 := Expr.app (shift t1') var

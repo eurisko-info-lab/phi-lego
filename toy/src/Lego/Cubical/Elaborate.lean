@@ -268,7 +268,7 @@ partial def infer (s : Surface) : ElabM (Expr × Expr) := do
   | .papp p r => do
     let (pCore, pTy) ← infer p
     match pTy with
-    | .path tyLine a b =>
+    | .path tyLine _a __b =>
       let (rCore, _) ← infer r
       -- At endpoints: r=0 → a, r=1 → b
       return (.papp pCore rCore, tyLine)
@@ -279,7 +279,7 @@ partial def infer (s : Surface) : ElabM (Expr × Expr) := do
     let pathTy := Expr.path aTy aCore aCore
     return (.refl aCore, pathTy)
 
-  | .hole name => do
+  | .hole _name => do
     -- Create a meta for the type, then the term
     let typeMeta ← freshMeta (.univ .zero)
     let termMeta ← freshMeta typeMeta
@@ -349,17 +349,17 @@ partial def check (s : Surface) (expected : Expr) : ElabM Expr := do
     freshMeta expected
 
   -- Refl checks against Path
-  | .refl a, .path _ lhs rhs => do
+  | .refl a, .path _ lhs _rhs => do
     let aCore ← check a lhs
     -- TODO: check that lhs ≡ rhs ≡ aCore
     return .refl aCore
 
   -- Elim checks by inferring scrutinee
-  | .elim scrut mot clauses, expected => do
+  | .elim scrut mot clauses, _expected => do
     let (scrutCore, scrutTy) ← infer scrut
     let (motCore, _) ← infer mot
     -- Build clauses
-    let clausesCore ← clauses.mapM fun (clbl, binders, body) => do
+    let clausesCore ← clauses.mapM fun (clbl, _binders, body) => do
       -- TODO: extend context with binders
       let (bodyCore, _) ← infer body
       return { clbl := clbl, body := bodyCore : ElimClause }
@@ -585,7 +585,7 @@ partial def checkExt (s : SurfaceExt) (expected : Expr) : ElabM Expr := do
   | .extApp eS dimsS => do
     let (eCore, eTy) ← inferExt eS
     match eTy with
-    | .ext n fam _cof _bdry =>
+    | .ext n _fam _cof _bdry =>
       if dimsS.length == n then do
         let dimsCore ← dimsS.mapM fun d => checkExt d (.lit "𝕀")
         return .extApp eCore dimsCore

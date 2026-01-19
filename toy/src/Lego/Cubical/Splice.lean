@@ -183,7 +183,7 @@ def mkPi (domain : Expr) (body : Expr → Splice Expr) : Splice Expr := fun env 
   (pi domain codomainExpr, env'')
 
 /-- Build a sigma type -/
-def mkSigma (base : Expr) (body : Expr → Splice Expr) : Splice Expr := fun env =>
+def mkSigma (_base : Expr) (body : Expr → Splice Expr) : Splice Expr := fun env =>
   let lvl := env.conEnv.length
   let env' := env.addCon (ix lvl)
   let (familyExpr, env'') := body (ix lvl) env'
@@ -256,7 +256,7 @@ def cap (r r' : Expr) (φ : Expr) (code : Expr) (boxExpr : Expr) : Splice Expr :
     ]
 
 /-- Build vproj boundary: [r=0 → fwd pequiv v; r=1 → v] -/
-def vproj (r : Expr) (pcode code pequiv v : Expr) : Splice Expr :=
+def vproj (r : Expr) (_pcode _code pequiv v : Expr) : Splice Expr :=
   term <|
     sys [
       (CofBuilder.eq r dim0, app (app pequiv (lit "prf")) v),

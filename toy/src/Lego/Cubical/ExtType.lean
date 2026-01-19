@@ -199,7 +199,7 @@ def hcomExt (r r' : Expr) (extTy : Expr) (phi : Expr) (cap : Expr) : Expr :=
 -/
 
 /-- Check if boundary is satisfied (simplified) -/
-def boundaryCheck (info : ExtInfo) (el : Expr) : Bool :=
+def boundaryCheck (_info : ExtInfo) (_el : Expr) : Bool :=
   -- Simplified: always return true
   -- Full implementation would verify boundary agreement
   true

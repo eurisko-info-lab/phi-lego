@@ -152,7 +152,7 @@ def cof_join (cofs : List (BuildM Expr)) : BuildM Expr := fun ctx =>
   match cofs with
   | [] => .cof_bot
   | [φ] => φ ctx
-  | φ :: rest => cofs.foldl (fun acc c => .cof_or acc (c ctx)) .cof_bot
+  | _φ :: _rest => cofs.foldl (fun acc c => .cof_or acc (c ctx)) .cof_bot
 
 /-- Meet (big conjunction) -/
 def cof_meet (cofs : List (BuildM Expr)) : BuildM Expr := fun ctx =>

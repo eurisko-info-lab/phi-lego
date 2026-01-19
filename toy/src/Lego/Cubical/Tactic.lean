@@ -155,7 +155,7 @@ abbrev TpTac := TpCtx → TacResult Expr
 namespace Tp
 
 /-- Create a tactic from a computation -/
-def rule (name : String) (m : TpCtx → TacResult Expr) : TpTac := m
+def rule (_name : String) (m : TpCtx → TacResult Expr) : TpTac := m
 
 /-- Run a type tactic -/
 def run (tac : TpTac) (ctx : TpCtx) : TacResult Expr := tac ctx
@@ -259,10 +259,10 @@ def isSub (e : Expr) : Option (Expr × Expr × Expr) :=
 namespace Chk
 
 /-- Create a checking tactic from a computation -/
-def rule (name : String) (m : TpCtx → ChkGoal → TacResult Expr) : ChkTac := m
+def rule (_name : String) (m : TpCtx → ChkGoal → TacResult Expr) : ChkTac := m
 
 /-- Create a boundary-aware checking tactic -/
-def brule (name : String) (m : TpCtx → Expr → Expr → Expr → TacResult Expr) : ChkTac :=
+def brule (_name : String) (m : TpCtx → Expr → Expr → Expr → TacResult Expr) : ChkTac :=
   fun ctx goal => m ctx goal.tp goal.cof goal.boundary
 
 /-- Run a checking tactic -/
@@ -277,7 +277,7 @@ def brun (tac : ChkTac) (ctx : TpCtx) (tp : Expr) (φ : Expr) (bdry : Expr) : Ta
 def pure (e : Expr) : ChkTac := fun _ _ => TacResult.ok e
 
 /-- Zero introduction -/
-def zero : ChkTac := rule "Nat.zero" fun ctx goal =>
+def zero : ChkTac := rule "Nat.zero" fun _ctx goal =>
   if isNat goal.tp then TacResult.ok Expr.zero
   else TacResult.error "expected Nat"
 
@@ -308,7 +308,7 @@ def pair (fstTac : ChkTac) (sndTac : ChkTac) : ChkTac := rule "Sg.intro" fun ctx
   let sigResult := isSigma goal.tp
   if h : sigResult.isSome then
     let p := sigResult.get h
-    let base := p.1
+    let _base := p.1
     let fam := p.2
     match fstTac ctx (ChkGoal.simple base) with
     | TacResult.ok fstVal =>
@@ -354,7 +354,7 @@ def subIn (tac : ChkTac) : ChkTac := rule "Sub.intro" fun ctx goal =>
   else TacResult.error "expected Sub type"
 
 /-- Convert synthesis tactic to checking tactic -/
-def syn (synTac : TpCtx → TacResult (Expr × Expr)) : ChkTac := rule "Syn.to.Chk" fun ctx goal => do
+def syn (synTac : TpCtx → TacResult (Expr × Expr)) : ChkTac := rule "Syn.to.Chk" fun ctx _goal => do
   let (tm, _inferredTy) ← synTac ctx
   -- Should check that inferredTy converts to goal.tp
   TacResult.ok tm
@@ -378,7 +378,7 @@ abbrev SynTac := TpCtx → TacResult (Expr × Expr)
 namespace Syn
 
 /-- Create a synthesis tactic from a computation -/
-def rule (name : String) (m : TpCtx → TacResult (Expr × Expr)) : SynTac := m
+def rule (_name : String) (m : TpCtx → TacResult (Expr × Expr)) : SynTac := m
 
 /-- Run a synthesis tactic -/
 def run (tac : SynTac) (ctx : TpCtx) : TacResult (Expr × Expr) := tac ctx
@@ -685,7 +685,7 @@ def formation (φTac : ChkTac) : TpTac :=
 
 /-- Proof introduction (when cofibration is true) -/
 def intro : ChkTac :=
-  Chk.rule "Prf.intro" fun ctx goal =>
+  Chk.rule "Prf.intro" fun _ctx goal =>
     match goal.tp with
     | Expr.lit s =>
       if s.startsWith "Prf(" then
@@ -824,7 +824,7 @@ namespace Hole
 
 /-- Create a hole (metavariable) -/
 def hole (name : Option String) : ChkTac :=
-  Chk.rule s!"Hole[{name.getD "?"}]" fun _ctx goal =>
+  Chk.rule s!"Hole[{name.getD "?"}]" fun _ctx _goal =>
     TacResult.ok (Expr.lit s!"?{name.getD "hole"}")  -- Placeholder for hole
 
 /-- Silent hole (no output) -/
@@ -972,7 +972,7 @@ namespace ElV
 def intro (dimTac aTac bTac : ChkTac) : ChkTac :=
   Chk.rule "ElV.intro" fun ctx goal =>
     match goal.tp with
-    | Expr.vtype r tyA tyB _ =>
+    | Expr.vtype _r tyA tyB _ =>
       do
         let dim ← dimTac ctx (ChkGoal.simple (lit "𝕀"))
         let a ← aTac ctx (ChkGoal.simple tyA)
@@ -1040,7 +1040,7 @@ namespace ElFHCom
 def intro (rTac r'Tac capTac : ChkTac) (sides : List (ChkTac × ChkTac)) : ChkTac :=
   Chk.rule "ElFHCom.intro" fun ctx goal =>
     match goal.tp with
-    | Expr.fhcom r r' cap tubes =>
+    | Expr.fhcom _r _r' cap _tubes =>
       do
         let rVal ← rTac ctx (ChkGoal.simple (lit "𝕀"))
         let r'Val ← r'Tac ctx (ChkGoal.simple (lit "𝕀"))

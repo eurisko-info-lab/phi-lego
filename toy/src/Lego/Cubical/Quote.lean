@@ -235,7 +235,7 @@ partial def quote (env : QuoteEnv) (ty : Expr) : Expr → Expr
     match ty', e' with
     -- Introduction forms: quote structurally based on type
 
-    | Expr.pi dom cod, f =>
+    | Expr.pi _dom cod, f =>
       -- η-expand: λx. f x
       let var := generic env
       let env' := env.succ

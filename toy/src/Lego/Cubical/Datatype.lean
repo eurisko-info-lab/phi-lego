@@ -428,7 +428,7 @@ def inferDataType (env : GlobalEnv) (dlbl : String) (params : List Expr) : Optio
   some (.univ desc.level)
 
 /-- Infer the type of a constructor application -/
-def inferIntroType (env : GlobalEnv) (dlbl : String) (clbl : String)
+def inferIntroType (env : GlobalEnv) (dlbl : String) (_clbl : String)
                     (params : List Expr) (_args : List Expr) : Option Expr := do
   let _desc ← env.lookupDatatype (GName.named dlbl)
   -- Result type is the datatype applied to params

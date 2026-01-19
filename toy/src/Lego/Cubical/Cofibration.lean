@@ -275,7 +275,7 @@ def applyRestrictions (ctx : CofContext) (e : Expr) : Expr :=
 -/
 
 /-- Check if ∀i. φ(i) holds (φ must hold for i=0 and i=1) -/
-def forallDim (n : Nat) (φ : Expr) : Bool :=
+def forallDim (_n : Nat) (φ : Expr) : Bool :=
   let φ0 := normalize (subst0 dim0 φ)
   let φ1 := normalize (subst0 dim1 φ)
   isTop φ0 && isTop φ1
@@ -307,7 +307,7 @@ def checkBoundary (expr : Expr) (bdry : BoundaryData) : Bool :=
 
 /-- Build boundary constraint: x : A | φ → u
     Meaning: x equals u when φ is true -/
-def mkBoundaryConstraint (x u : Expr) (φ : Expr) : Expr :=
+def mkBoundaryConstraint (_x u : Expr) (φ : Expr) : Expr :=
   -- Represents the constraint that x = u under φ
   -- In types, this is Sub A φ (λ_. u)
   sub (lit "type") φ (lam u)
@@ -368,7 +368,7 @@ inductive BoundarySat
   deriving Repr, BEq
 
 /-- Check if term satisfies its boundary constraint -/
-def checkBoundarySat (term : Expr) (ty : Expr) (φ : Expr) (bdry : Expr) : BoundarySat :=
+def checkBoundarySat (term : Expr) (_ty : Expr) (φ : Expr) (bdry : Expr) : BoundarySat :=
   if isBot φ then .sat  -- Vacuously true
   else
     -- Under φ, term should equal bdry

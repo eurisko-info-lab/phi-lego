@@ -712,7 +712,7 @@ partial def step : Expr → Option Expr
   | hcom (dimVar n) (dimVar m) _ _ cap => if n == m then some cap else none
 
   -- hcom through Pi: hcom r r' (Π A. B) φ f → λ a. hcom r r' (B a) φ (f a)
-  | hcom r r' (pi dom cod) phi f =>
+  | hcom r r' (pi _dom cod) phi f =>
     some <|
       lam <|  -- λ a.
         let arg := ix 0
@@ -1577,7 +1577,7 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   -- HCom with tube agreement checking
   -- hcom r r' A φ cap : A
   -- Requirement: when φ holds, tube values must agree with cap at r
-  | .hcom r r' ty phi cap => do
+  | .hcom _r _r' ty phi cap => do
     -- Check cap has type ty
     let _ ← check ctx cap ty
     -- Check phi is a cofibration (simplified: just infer it)
@@ -1591,7 +1591,7 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   -- 1. cap : A
   -- 2. For each (φᵢ, tubeᵢ): tubeᵢ : (j : 𝕀) → A  (tube binds dimension j)
   -- 3. TUBE AGREEMENT: tubeᵢ(r) ≡ cap when φᵢ holds
-  | .hcomTube r r' ty tubes cap => do
+  | .hcomTube r _r' ty tubes cap => do
     -- Check cap has type ty
     let _ ← check ctx cap ty
     -- Check each tube and verify agreement
@@ -1663,7 +1663,7 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   -- V r A B equiv : Type (when equiv : A → B is an equivalence at r=0)
   | .vtype _ _ _ _ => .ok (.univ .zero)  -- Simplified: assumes small types
   -- vin r a b : V r A B equiv (when a : A and b : B)
-  | .vin r a b => do
+  | .vin _r a b => do
     let _ ← infer ctx a  -- a : A
     let tyB ← infer ctx b  -- b : B
     .ok tyB  -- Result is in B (simplified)

@@ -260,10 +260,10 @@ def getCodomain (ty : Term) : Option Term :=
   | _ => none
 
 /-- Substitute in codomain -/
-def substCodomain (ty : Term) (arg : Term) : Term :=
+def substCodomain (ty : Term) (_arg : Term) : Term :=
   -- TODO: implement proper substitution
   match ty with
-  | .con "Pi" [name, _, cod] => cod  -- Should substitute name with arg
+  | .con "Pi" [_name, _, cod] => cod  -- Should substitute name with arg
   | .con "Arrow" [_, cod] => cod
   | _ => ty
 

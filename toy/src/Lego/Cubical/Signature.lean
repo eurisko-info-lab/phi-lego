@@ -190,7 +190,7 @@ def fieldType (sig : SignatureType) (idx : Nat) : Option Expr :=
 
 /-- Convert to nested sigma type -/
 def toSigma (sig : SignatureType) : Expr :=
-  match h : sig.telescope with
+  match _h : sig.telescope with
   | [] => univ 0  -- Empty signature ~ Unit
   | [cell] => cell.ty
   | cell :: rest =>
@@ -256,7 +256,7 @@ def getAt (s : Struct) (idx : Nat) : Option Expr :=
 
 /-- Convert to nested pair -/
 def toPair (s : Struct) : Expr :=
-  match h : s.fields with
+  match _h : s.fields with
   | [] => lit "unit"  -- Empty struct ~ ()
   | [f] => f.value
   | f :: rest =>
@@ -288,7 +288,7 @@ def projAt (e : Expr) (idx : Nat) : Expr :=
   | n + 1 => projAt (snd e) n
 
 /-- Build projection expression -/
-def mkProj (struct : Expr) (lbl : Label) (idx : Nat) : Expr :=
+def mkProj (struct : Expr) (_lbl : Label) (idx : Nat) : Expr :=
   -- For now, represent as nested fst/snd
   -- In cooltt, there's a dedicated Proj constructor
   projAt struct idx

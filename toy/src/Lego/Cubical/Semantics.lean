@@ -186,7 +186,7 @@ where
       .coe line r s con
 
     -- V type: needs special handling
-    | .vtype vr _ _ _ =>
+    | .vtype _vr _ _ _ =>
       .coe line r s con
 
     -- Default: stuck
@@ -195,7 +195,7 @@ where
   /-- Compute rigid hcom -/
   doRigidHCom (ctx : EvalCtx) (code : Expr) (r s : Expr) (φ : Expr) (bdy : Expr) : Expr :=
     if ctx.fuel == 0 then .hcom code r s φ bdy else
-    let ctx' := ctx.decFuel
+    let _ctx' := ctx.decFuel
     match code with
     -- Pi type: hcom (Π A B) r s φ u = λx. hcom (B x) r s φ (λi p. u i p x)
     | .pi _dom cod =>

@@ -146,7 +146,7 @@ def ResEnv.importGlobal (vis : Visibility) (gname : GName) (fromMod : Selector) 
 
 /-- Import all public names from another ResEnv -/
 def ResEnv.importPublic (vis : Visibility) (other : ResEnv) (fromMod : Selector) (env : ResEnv) : ResEnv :=
-  other.globals.fold (init := env) fun acc s info =>
+  other.globals.fold (init := env) fun acc _s info =>
     if info.visibility == Visibility.pub then
       acc.importGlobal vis info.name fromMod
     else
@@ -325,7 +325,7 @@ def moduleImports (mod : Module) : List Selector :=
 /-- Topological sort of modules for build order (simple iterative approach) -/
 def topologicalSort (modules : List Module) : Except String (List Selector) := do
   -- Build dependency map
-  let deps := modules.map fun mod => (mod.name, moduleImports mod)
+  let _deps := modules.map fun mod => (mod.name, moduleImports mod)
 
   -- Simple approach: no external deps, just return in declaration order
   -- (A full implementation would do proper topo sort)

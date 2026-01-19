@@ -217,7 +217,7 @@ def reduceVTypeExpr : Expr → Option Expr
   | .vin r tm0 tm1 =>
     let info : VInInfo := { dimExpr := r, tm0 := tm0, tm1 := tm1 }
     info.reduce
-  | .vproj r ty0 ty1 equiv el =>
+  | .vproj r _ty0 _ty1 equiv el =>
     -- Check for simple reduction cases
     match r with
     | .dim0 => some (app (equivFunc equiv) el)

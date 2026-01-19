@@ -113,14 +113,14 @@ end GlueElemInfo
 -/
 
 /-- Create a Glue type with reduction -/
-def mkGlue (base cof top equiv : Expr) : Expr :=
+def mkGlue (_base cof top equiv : Expr) : Expr :=
   let info : GlueInfo := ⟨base, cof, top, equiv⟩
   match info.reduce with
   | some reduced => reduced
   | none => info.toExpr
 
 /-- Create a glue element -/
-def mkGlueElem (partial_ base : Expr) : Expr :=
+def mkGlueElem (partial_ _base : Expr) : Expr :=
   .glueElem partial_ base
 
 /-- Create an unglue elimination -/
@@ -150,7 +150,7 @@ def coeGlue (r r' : Expr) (info : GlueInfo) (g : Expr) : Expr :=
 
     Compose using the base type's hcom and adjust with equivalence.
 -/
-def hcomGlue (r r' : Expr) (info : GlueInfo) (cof : Expr) (tube : Expr) (cap : Expr) : Expr :=
+def hcomGlue (r r' : Expr) (info : GlueInfo) (cof : Expr) (_tube : Expr) (cap : Expr) : Expr :=
   -- Simplified: hcom in base type
   let baseHcom := Expr.hcom r r' info.base cof (mkUnglue cap)
   baseHcom
@@ -219,7 +219,7 @@ def reduceGlue (e : Expr) : Expr :=
   | none => e
 
 /-- Reduce a glue element when cofibration is known -/
-def reduceGlueElem (cof partial_ base : Expr) : Expr :=
+def reduceGlueElem (cof partial_ _base : Expr) : Expr :=
   if Cofibration.isTop cof then
     partial_  -- When φ = ⊤, glue t a reduces to t
   else if Cofibration.isBot cof then
