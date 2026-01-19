@@ -57,6 +57,10 @@ lean_exe «lego-test-cool» where
   root := `TestCool
   moreLinkArgs := #["-lInit"]
 
+lean_exe «lego-test-runtime» where
+  root := `TestRuntime
+  moreLinkArgs := #["-lInit"]
+
 -- Tools
 lean_lib «Cubical» where
   srcDir := "tools"

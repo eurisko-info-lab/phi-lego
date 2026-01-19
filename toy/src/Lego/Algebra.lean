@@ -193,6 +193,17 @@ inductive Token where
   | number : String → Token
   deriving Repr, BEq, Inhabited
 
+namespace Token
+
+/-- Convert token back to source text -/
+def toString : Token → String
+  | .ident s  => s
+  | .lit s    => s
+  | .sym s    => s
+  | .number s => s
+
+end Token
+
 /-- A stream of tokens with position tracking -/
 abbrev TokenStream := List Token
 

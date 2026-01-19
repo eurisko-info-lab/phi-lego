@@ -27,5 +27,6 @@ import Lego.Interp
 import Lego.Bootstrap
 import Lego.Loader
 import Lego.Validation
+import Lego.Runtime
 
 -- Re-export everything for convenient access

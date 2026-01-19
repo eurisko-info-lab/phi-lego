@@ -599,6 +599,20 @@ def parseWithGrammarAs (α : Type) [AST α] (grammar : LoadedGrammar) (input : S
 def parseAsGrammarExpr (grammar : LoadedGrammar) (input : String) : Option GrammarExpr :=
   parseWithGrammarAs GrammarExpr grammar input
 
+/-! ## Printing with Loaded Grammar -/
+
+/-- Print a term back to tokens using a loaded grammar -/
+def printWithGrammar (grammar : LoadedGrammar) (prodName : String) (t : Term) : Option (List Token) :=
+  match grammar.productions.find? (·.1 == prodName) with
+  | some (_, g) => printGrammar defaultFuel grammar.productions g t []
+  | none => none
+
+/-- Print a term to string using a loaded grammar -/
+def printToString (grammar : LoadedGrammar) (prodName : String) (t : Term) : Option String :=
+  match printWithGrammar grammar prodName t with
+  | some tokens => some (tokens.map Token.toString |> String.intercalate " ")
+  | none => none
+
 /-! ## Bootstrap Loading -/
 
 /-- Load Bootstrap.lego and extract productions (without builtins).
