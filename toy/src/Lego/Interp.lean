@@ -166,6 +166,16 @@ where
       go [] rest
     | _ => none
 
+  /-- Try to lex a char literal: '.' with any unicode content -/
+  lexChar : CharStream → Option (String × CharStream)
+    | '\'' :: '\\' :: c :: '\'' :: rest =>
+      -- Escaped char: '\n', '\'', etc.
+      some (String.mk ['\'', '\\', c, '\''], rest)
+    | '\'' :: c :: '\'' :: rest =>
+      -- Single char (any unicode)
+      some (String.mk ['\'', c, '\''], rest)
+    | _ => none
+
   /-- Determine token type from production name -/
   prodToToken (keywords : List String) (prodName : String) (value : String) : Option Token :=
     let shortName := match prodName.splitOn "." with
@@ -204,14 +214,18 @@ where
         match lexString chars' with
         | some (str, rest) => go fuel' prods mainProds keywords rest (Token.lit str :: acc)
         | none =>
-          match tryTokenize prods mainProds keywords chars' with
-          | some (some tok, rest) => go fuel' prods mainProds keywords rest (tok :: acc)
-          | some (none, rest) => go fuel' prods mainProds keywords rest acc  -- ws: skip
+          -- Handle char literals specially (any unicode content)
+          match lexChar chars' with
+          | some (ch, rest) => go fuel' prods mainProds keywords rest (Token.lit ch :: acc)
           | none =>
-            -- Unknown char - skip it
-            match chars' with
-            | _ :: rest => go fuel' prods mainProds keywords rest acc
-            | [] => acc.reverse
+            match tryTokenize prods mainProds keywords chars' with
+            | some (some tok, rest) => go fuel' prods mainProds keywords rest (tok :: acc)
+            | some (none, rest) => go fuel' prods mainProds keywords rest acc  -- ws: skip
+            | none =>
+              -- Unknown char - skip it
+              match chars' with
+              | _ :: rest => go fuel' prods mainProds keywords rest acc
+              | [] => acc.reverse
 
 /-! ## Token-level Parsing State -/
 

@@ -29,7 +29,7 @@ lean_lib «Lego» where
 -- Regenerate with: ./scripts/bootstrap.sh
 lean_lib «LegoGenerated» where
   srcDir := "generated"
-  roots := #[`BootstrapGrammar, `BootstrapTokenizer, `BootstrapRules]
+  roots := #[`BootstrapGrammar, `BootstrapTokenizer, `BootstrapRules, `MinimalBootstrapTokenizer]
 
 -- Generated Rosetta output (from Red.lego and Cool.lego)
 lean_lib «RedGenerated» where
@@ -59,6 +59,10 @@ lean_exe «lego-test-cool» where
 
 lean_exe «lego-test-runtime» where
   root := `TestRuntime
+  moreLinkArgs := #["-lInit"]
+
+lean_exe «lego-test-minimal» where
+  root := `TestMinimalBootstrap
   moreLinkArgs := #["-lInit"]
 
 -- Tools

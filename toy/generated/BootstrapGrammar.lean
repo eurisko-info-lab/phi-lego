@@ -123,4 +123,3 @@ def allProductions : Productions :=
   allPieces.foldl (fun acc p => acc ++ p.grammar) []
 
 end Lego.Generated.Bootstrap
-
