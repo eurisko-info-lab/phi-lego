@@ -16,7 +16,7 @@
 -- - `<ident> ":=" term` : field assignments in structures
 -----------------------------------------------------
 
-import CubicalTT
+import CubicalTT ;
 
 lang Cool (CubicalTT) :=
 

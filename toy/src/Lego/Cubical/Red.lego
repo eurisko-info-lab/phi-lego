@@ -17,7 +17,7 @@
 -- - System bindings inherit from CubicalTT
 -----------------------------------------------------
 
-import CubicalTT
+import CubicalTT ;
 
 lang Red (CubicalTT) :=
 
