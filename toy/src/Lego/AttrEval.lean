@@ -163,24 +163,29 @@ def toList (ctx : Context) : List (String × Term) :=
 
 end Context
 
-/-! ## Dimension Context (for Cubical) -/
+/-! ## Variable Context (Generic)
 
-/-- Dimension context for cubical type theory -/
-structure DimContext where
-  dims : List String
+This is a generic variable context that can track any kind of
+scoped variables - term variables, dimension variables, etc.
+The specific interpretation depends on the language being processed.
+-/
+
+/-- Generic variable context for scoped variables -/
+structure VarContext where
+  vars : List String
   deriving Repr, Inhabited
 
-namespace DimContext
+namespace VarContext
 
-def empty : DimContext := ⟨[]⟩
+def empty : VarContext := ⟨[]⟩
 
-def extend (ctx : DimContext) (name : String) : DimContext :=
-  ⟨name :: ctx.dims⟩
+def extend (ctx : VarContext) (name : String) : VarContext :=
+  ⟨name :: ctx.vars⟩
 
-def contains (ctx : DimContext) (name : String) : Bool :=
-  ctx.dims.contains name
+def contains (ctx : VarContext) (name : String) : Bool :=
+  ctx.vars.contains name
 
-end DimContext
+end VarContext
 
 /-! ## Extended Attribute Environment -/
 
@@ -188,7 +193,7 @@ end DimContext
 structure EvalEnv where
   attrs   : AttrEnv        -- Computed attributes
   ctx     : Context        -- Typing context
-  dimCtx  : DimContext     -- Dimension context
+  varCtx  : VarContext     -- Scoped variable context (generic)
   errors  : List TypeError -- Accumulated errors
   loc     : SourceLoc      -- Current location
   deriving Repr
@@ -196,7 +201,7 @@ structure EvalEnv where
 namespace EvalEnv
 
 def empty : EvalEnv :=
-  ⟨AttrEnv.empty, Context.empty, DimContext.empty, [], SourceLoc.unknown⟩
+  ⟨AttrEnv.empty, Context.empty, VarContext.empty, [], SourceLoc.unknown⟩
 
 def withCtx (env : EvalEnv) (ctx : Context) : EvalEnv :=
   { env with ctx }
@@ -207,8 +212,9 @@ def withLoc (env : EvalEnv) (loc : SourceLoc) : EvalEnv :=
 def addBinding (env : EvalEnv) (name : String) (type : Term) : EvalEnv :=
   { env with ctx := env.ctx.extend name type env.loc }
 
-def addDim (env : EvalEnv) (name : String) : EvalEnv :=
-  { env with dimCtx := env.dimCtx.extend name }
+/-- Add a scoped variable (generic - works for any variable kind) -/
+def addVar (env : EvalEnv) (name : String) : EvalEnv :=
+  { env with varCtx := env.varCtx.extend name }
 
 def addError (env : EvalEnv) (e : TypeError) : EvalEnv :=
   { env with errors := e :: env.errors }

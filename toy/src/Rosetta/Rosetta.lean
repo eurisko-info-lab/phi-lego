@@ -130,16 +130,20 @@ partial def extractFields (g : GrammarExpr) : List (String × String) :=
   | .bind name inner => [(name, inferType inner)]
   | _ => []
 where
+  /-- Infer type from grammar reference - NO domain-specific knowledge here.
+      Types come from the grammar itself, not hard-coded. -/
   inferType (g : GrammarExprF GrammarExpr) : String :=
     match g with
     | .ref name =>
-      if name == "term" || name == "Term.term" then "Term"
-      else if name == "dim" then "Dim"
-      else if name == "cof" then "Cof"
-      else if name == "ident" || name == "TOKEN.ident" then "String"
+      -- Use reference name as type, capitalizing if needed
+      if name == "ident" || name == "TOKEN.ident" then "String"
       else if name == "string" || name == "TOKEN.string" then "String"
       else if name == "number" || name == "TOKEN.number" then "Nat"
-      else "Term"  -- default
+      else if name.contains '.' then
+        -- Qualified name like "Term.term" → use the production name
+        capitalize (name.splitOn "." |>.getLast!)
+      else
+        capitalize name  -- "dim" → "Dim", "cof" → "Cof", "term" → "Term"
     | .star _ => "List Term"
     | .plus _ => "List Term"
     | _ => "Term"
@@ -210,16 +214,8 @@ partial def rosettaToLean : RosettaTerm → String
   | RosettaTerm.Error msg => s!"(panic! \"{msg}\")"
   | RosettaTerm.Loc _ _ t => rosettaToLean t  -- Drop source locations
 
-/-- Generate Lean type for a field -/
-def fieldTypeToLean (tp : String) : String :=
-  match tp with
-  | "Term" => "Term"
-  | "Dim" => "Dim"
-  | "Cof" => "Cof"
-  | "String" => "String"
-  | "Nat" => "Nat"
-  | "List Term" => "List Term"
-  | other => other
+/-- Generate Lean type for a field - pass through as-is, no special cases -/
+def fieldTypeToLean (tp : String) : String := tp
 
 /-- Generate Lean inductive from ADT -/
 def adtToLean (adt : AdtDef) : String :=
