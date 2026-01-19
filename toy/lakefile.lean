@@ -24,6 +24,14 @@ package «lego» where
 lean_lib «Lego» where
   srcDir := "src"
 
+-- Rosetta code generation pipeline
+lean_lib «Rosetta» where
+  srcDir := "src"
+  roots := #[`Rosetta.Rosetta]
+
+lean_exe «rosetta» where
+  root := `RosettaMain
+
 -- Generated code (from ToLean)
 -- These are build outputs conceptually, but checked in for bootstrap.
 -- Regenerate with: ./scripts/bootstrap.sh
