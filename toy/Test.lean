@@ -680,9 +680,9 @@ def attrEvalTests : List TestResult :=
   let ctx3 := ctx2.extend "y" (.var "Bool")
   let lookup1 := ctx3.lookupType "x"
   let lookup2 := ctx3.lookupType "z"
-  let dimCtx1 := DimContext.empty
-  let dimCtx2 := dimCtx1.extend "i"
-  let dimCtx3 := dimCtx2.extend "j"
+  let varCtx1 := VarContext.empty
+  let varCtx2 := varCtx1.extend "i"
+  let varCtx3 := varCtx2.extend "j"
   let env1 := EvalEnv.empty
   let env2 := env1.addBinding "x" (.var "Int")
   let env3 := env2.setAttr [] "type" (.var "Int")
@@ -709,9 +709,9 @@ def attrEvalTests : List TestResult :=
     assertTrue "context_lookup_found" (lookup1 == some (.var "Int")),
     assertTrue "context_lookup_missing" (lookup2 == none),
     assertTrue "context_names" (ctx3.names == ["y", "x"]),
-    assertTrue "dimctx_empty" (!dimCtx1.contains "i"),
-    assertTrue "dimctx_extend" (dimCtx2.contains "i"),
-    assertTrue "dimctx_multiple" (dimCtx3.contains "i" && dimCtx3.contains "j"),
+    assertTrue "varctx_empty" (!varCtx1.contains "i"),
+    assertTrue "varctx_extend" (varCtx2.contains "i"),
+    assertTrue "varctx_multiple" (varCtx3.contains "i" && varCtx3.contains "j"),
     assertTrue "evalenv_empty_no_errors" (!env1.hasErrors),
     assertTrue "evalenv_has_binding" (env2.ctx.bindings.length == 1),
     assertTrue "evalenv_has_attr" (env3.getAttr [] "type" == some (.var "Int")),

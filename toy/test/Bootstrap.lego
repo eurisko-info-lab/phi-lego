@@ -67,7 +67,7 @@ token Token
            | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '-'
            | '=' | '~' | '/' | '\\' | '→' | '←' | '↔' | '⊕'
            | '⊢' | '×' | 'λ' | '∂' | '∀' | '∃' | '⦉' | '⦊'
-           | '«' | '»' | '★' | '☆' | '`' ;
+           | '«' | '»' | '★' | '☆' | '`' | '↦' | '↾' ;
 
   -- Token patterns
   -- Note: '/' is allowed in identifiers for hierarchical names (e.g., trans/filler in redtt)
@@ -113,10 +113,12 @@ piece Atom
 
 -----------------------------------------------------
 -- Term: S-expression terms
+-- Binder notation: `ident "." term` binds identifier in term
 -----------------------------------------------------
 
 piece Term
-  term    ::= ident → var
+  term    ::= ident "." term → binder
+            | ident → var
             | string → lit
             | number → num
             | "(" conname term* ")" → con ;
@@ -126,10 +128,13 @@ piece Term
 -----------------------------------------------------
 -- Pattern: Match patterns for rules
 -- Produces clean Terms: $x → (var "$x"), (f x) → (con "f" [...])
+-- Binder notation: $x . body binds x in body
 -----------------------------------------------------
 
 piece Pattern
-  pattern ::= "$" ident → var
+  pattern ::= "$" ident "." pattern → binder
+            | "$" ident → var
+            | "[" pattern ":=" pattern "]" pattern → subst
             | "(" conname pattern* ")" → con
             | string → lit
             | number → num
@@ -138,10 +143,13 @@ piece Pattern
 -----------------------------------------------------
 -- Template: Substitution templates for rules
 -- Same structure as Pattern - produces clean Terms
+-- Binder notation: $x . body binds x in body
 -----------------------------------------------------
 
 piece Template
-  template ::= "$" ident → var
+  template ::= "$" ident "." template → binder
+             | "$" ident → var
+             | "[" template ":=" template "]" template → subst
              | "(" ident template* ")" → con
              | string → lit
              | number → num
@@ -187,7 +195,8 @@ piece File
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
   pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
-  ruleDecl   ::= "rule" ident ":" pattern "~>" template ";" → DRule ;
+  ruleDecl   ::= "rule" ident ":" pattern "~>" template ruleGuard? ";" → DRule ;
+  ruleGuard  ::= "when" term → guard ;
   typeDecl   ::= "type" ident ":" term ":" term whenClause? ";" → DType ;
   whenClause ::= "when" term ("," term)* → when ;
   testDecl   ::= "test" string ":" term ("~~>" term)? ";" → DTest ;
