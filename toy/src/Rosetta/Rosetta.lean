@@ -185,6 +185,9 @@ partial def patternToLean : Term → String
   | .con "var" [.lit "$", .con "ident" [.var s]] => s
   | .con "var" [.con "ident" [.var s]] => s
   | .var s => if isMetavar s then s.drop 1 else s
+  -- Number literal: num (number "0") → .i0 (or just 0 for now)
+  | .con "num" [.con "number" [.lit n]] => s!".i{n}"
+  | .con "number" [.lit n] => s!".i{n}"
   -- Constructor application: (f a b) → .f a b
   | .con "con" args =>
     match args.filter (· != .lit "(") |>.filter (· != .lit ")") with
@@ -203,6 +206,9 @@ partial def termToLean : Term → String
   | .con "var" [.lit "$", .con "ident" [.var s]] => s
   | .con "var" [.con "ident" [.var s]] => s
   | .var s => if isMetavar s then s.drop 1 else s
+  -- Number literal: num (number "0") → .i0
+  | .con "num" [.con "number" [.lit n]] => s!".i{n}"
+  | .con "number" [.lit n] => s!".i{n}"
   -- Constructor application: (f a b) → f a b
   | .con "con" args =>
     match args.filter (· != .lit "(") |>.filter (· != .lit ")") with
