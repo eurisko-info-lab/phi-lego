@@ -1,5 +1,5 @@
 /-
-  Lego.Red.RefineMonad: Elaboration/Refinement Monad
+  Lego.Cubical.RefineMonad: Elaboration/Refinement Monad
 
   Mathematical Structure:
   - Reader-State-Error monad for elaboration
@@ -18,11 +18,11 @@
    and local context (variables in scope, cofibration assumptions)."
 -/
 
-import Lego.Red.Core
-import Lego.Red.Cofibration
-import Lego.Red.Conversion
+import Lego.Cubical.Core
+import Lego.Cubical.Cofibration
+import Lego.Cubical.Conversion
 
-namespace Lego.Red.RefineMonad
+namespace Lego.Cubical.RefineMonad
 
 open Lego.Core
 open Lego.Core.Expr
@@ -375,4 +375,4 @@ def RefineM.liftConv (r : ConvResult) : RefineM Unit := do
   | .fail msg => throw (.conversionFailed msg)
   | .blocked n => throw (.unboundMeta n)
 
-end Lego.Red.RefineMonad
+end Lego.Cubical.RefineMonad

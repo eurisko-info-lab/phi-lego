@@ -1,5 +1,5 @@
 /-
-  Lego.Red.VType: V-Types (Glue Types) for Univalence
+  Lego.Cubical.VType: V-Types (Glue Types) for Univalence
 
   V-types are the key construction for implementing univalence in cubical type theory.
   They allow constructing paths between types from equivalences.
@@ -17,15 +17,16 @@
   Based on redtt's Val.ml V-type implementation and CCHM cubical type theory.
 -/
 
-import Lego.Red.Core
-import Lego.Red.Quote
-import Lego.Red.Kan
+import Lego.Cubical.Core
+import Lego.Cubical.Quote
+import Lego.Cubical.Kan
+import Lego.Cubical.Visitor
 
-namespace Lego.Red.VType
+namespace Lego.Cubical.VType
 
 open Lego.Core
 open Lego.Core.Expr
-open Lego.Red.Kan
+open Lego.Cubical.Kan
 
 /-! ## V-Type Formation
 
@@ -208,49 +209,27 @@ def mkPathToEquiv (path : Expr) : Expr :=
     Extend the normalizer to handle V-type constructs.
 -/
 
-/-- Normalize V-type expression -/
-partial def normalizeVExpr : Expr → Expr
+/-- Try to reduce V-type related expressions -/
+def reduceVTypeExpr : Expr → Option Expr
   | .vtype r ty0 ty1 equiv =>
-    let info : VTypeInfo := {
-      dimExpr := normalizeVExpr r
-      ty0 := normalizeVExpr ty0
-      ty1 := normalizeVExpr ty1
-      equiv := normalizeVExpr equiv
-    }
-    match info.reduce with
-    | some ty => ty
-    | none => vtype info.dimExpr info.ty0 info.ty1 info.equiv
-
+    let info : VTypeInfo := { dimExpr := r, ty0 := ty0, ty1 := ty1, equiv := equiv }
+    info.reduce
   | .vin r tm0 tm1 =>
-    let info : VInInfo := {
-      dimExpr := normalizeVExpr r
-      tm0 := normalizeVExpr tm0
-      tm1 := normalizeVExpr tm1
-    }
-    match info.reduce with
-    | some tm => tm
-    | none => vin info.dimExpr info.tm0 info.tm1
-
+    let info : VInInfo := { dimExpr := r, tm0 := tm0, tm1 := tm1 }
+    info.reduce
   | .vproj r ty0 ty1 equiv el =>
-    let r' := normalizeVExpr r
-    let ty0' := normalizeVExpr ty0
-    let ty1' := normalizeVExpr ty1
-    let equiv' := normalizeVExpr equiv
-    let el' := normalizeVExpr el
-    reduceVProj r' ty0' ty1' equiv' el'
+    -- Check for simple reduction cases
+    match r with
+    | .dim0 => some (app (equivFunc equiv) el)
+    | .dim1 => some el
+    | _ => match el with
+      | .vin _ _ tm1 => some tm1
+      | _ => none
+  | _ => none
 
-  -- Handle other expressions recursively
-  | .lam body => lam (normalizeVExpr body)
-  | .app f x => app (normalizeVExpr f) (normalizeVExpr x)
-  | .pi dom cod => pi (normalizeVExpr dom) (normalizeVExpr cod)
-  | .sigma dom cod => sigma (normalizeVExpr dom) (normalizeVExpr cod)
-  | .pair a b => pair (normalizeVExpr a) (normalizeVExpr b)
-  | .fst p => fst (normalizeVExpr p)
-  | .snd p => snd (normalizeVExpr p)
-  | .plam body => plam (normalizeVExpr body)
-  | .papp p r => papp (normalizeVExpr p) (normalizeVExpr r)
-  | .path ty a b => path (normalizeVExpr ty) (normalizeVExpr a) (normalizeVExpr b)
-  | e => e
+/-- Normalize V-type expression using visitor pattern -/
+def normalizeVExpr (e : Expr) : Expr :=
+  e.normalizeStep 1000 reduceVTypeExpr Expr.subst (fun d body => Expr.subst 0 d body)
 
 /-! ## V-Type Constructors -/
 
@@ -360,4 +339,4 @@ def vtypeTests : List (String × Bool) := [
     | _ => false)
 ]
 
-end Lego.Red.VType
+end Lego.Cubical.VType

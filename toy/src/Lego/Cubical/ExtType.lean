@@ -1,5 +1,5 @@
 /-
-  Lego.Red.ExtType: Extension Types for Cubical Type Theory
+  Lego.Cubical.ExtType: Extension Types for Cubical Type Theory
 
   Extension types allow specifying types with boundary constraints:
     ext n fam cof bdry : Type
@@ -22,9 +22,9 @@
   - ExtApp: elimination form
 -/
 
-import Lego.Red.Core
+import Lego.Cubical.Core
 
-namespace Lego.Red.ExtType
+namespace Lego.Cubical.ExtType
 
 open Lego.Core
 open Lego.Core.Expr
@@ -225,4 +225,4 @@ def testPathToExt : Bool :=
   | some info => info.arity == 1 && isPathLike info
   | none => false
 
-end Lego.Red.ExtType
+end Lego.Cubical.ExtType

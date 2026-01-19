@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Elaborate: Bidirectional elaboration from surface to core
+  Lego.Cubical.Elaborate: Bidirectional elaboration from surface to core
 
   Elaboration bridges surface syntax with names to core IR with de Bruijn.
   Key features:
@@ -16,17 +16,17 @@
   Based on redtt's Elaborator.ml
 -/
 
-import Lego.Red.Core
-import Lego.Red.GlobalEnv
-import Lego.Red.Unify
-import Lego.Red.Quote
-import Lego.Red.Datatype
+import Lego.Cubical.Core
+import Lego.Cubical.GlobalEnv
+import Lego.Cubical.Unify
+import Lego.Cubical.Quote
+import Lego.Cubical.Datatype
 
-namespace Lego.Red.Elaborate
+namespace Lego.Cubical.Elaborate
 
 open Lego.Core
-open Lego.Red
-open Lego.Red.Datatype
+open Lego.Cubical
+open Lego.Cubical.Datatype
 
 /-! ## Surface Syntax
 
@@ -696,4 +696,4 @@ def sucSurface (n : Surface) : Surface := .intro "Nat" "suc" [n]
 /-- Surface nat 2 -/
 def twoSurface : Surface := sucSurface (sucSurface zeroSurface)
 
-end Lego.Red.Elaborate
+end Lego.Cubical.Elaborate

@@ -1,5 +1,5 @@
 /-
-  Lego.Red.TermBuilder: De Bruijn-Free Term Construction
+  Lego.Cubical.TermBuilder: De Bruijn-Free Term Construction
 
   Mathematical Structure:
   - HOAS-style term building
@@ -14,9 +14,9 @@
    Lean functions and convert them to de Bruijn-indexed terms."
 -/
 
-import Lego.Red.Core
+import Lego.Cubical.Core
 
-namespace Lego.Red.TermBuilder
+namespace Lego.Cubical.TermBuilder
 
 open Lego.Core
 open Lego.Core.Expr
@@ -298,4 +298,4 @@ def pis (doms : List (BuildM Expr)) (k : List Expr → BuildM Expr) : BuildM Exp
     | d :: rest => pi d fun x => go rest (x :: acc)
   go doms []
 
-end Lego.Red.TermBuilder
+end Lego.Cubical.TermBuilder

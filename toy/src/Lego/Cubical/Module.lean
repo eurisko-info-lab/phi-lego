@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Module: Module System for definitions and imports
+  Lego.Cubical.Module: Module System for definitions and imports
 
   Implements a simple module system with:
   - File-based module organization (module = file)
@@ -16,15 +16,15 @@
   Based on redtt's module system (FileRes, ResEnv, Importer)
 -/
 
-import Lego.Red.Core
-import Lego.Red.GlobalEnv
-import Lego.Red.Elaborate
+import Lego.Cubical.Core
+import Lego.Cubical.GlobalEnv
+import Lego.Cubical.Elaborate
 import Std.Data.HashMap
 
-namespace Lego.Red.Module
+namespace Lego.Cubical.Module
 
 open Lego.Core
-open Lego.Red
+open Lego.Cubical
 
 /-! ## Module Paths
 
@@ -366,4 +366,4 @@ def mainModule : Module := {
   ]
 }
 
-end Lego.Red.Module
+end Lego.Cubical.Module

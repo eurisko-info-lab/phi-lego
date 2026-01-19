@@ -1,0 +1,96 @@
+import prelude
+
+def Atom : type := data [
+  | char
+  | chars
+  | ident
+  | metavar
+  | number
+  | regex
+  | reserved
+  | string
+  ]
+
+def File : type := data [
+  | autocutDecl
+  | commentDecl
+  | commentText
+  | defDecl
+  | fileDecl
+  | fileDeclWithWs
+  | grammarDecl
+  | grammarProd (name : ident) (rhs : grammarExprFull)
+  | importDecl
+  | inheritDecl
+  | langDecl
+  | langDirectBody
+  | langItem
+  | langItemWithWs
+  | langParent
+  | langParents
+  | langParentsOpt
+  | lawDecl
+  | lawOp
+  | legoFile (decls : list (fileDeclWithWs))
+  | pieceDecl
+  | pieceItem
+  | productionWithWs
+  | qualIdent
+  | ruleDecl
+  | ruleArrow
+  | ruleStub
+  | sectionMarker
+  | testDecl
+  | testExpected
+  | testOpts
+  | testOpt
+  | whitespace
+  ]
+
+def GrammarExpr : type := data [
+  | altContinuation (alt2 : grammarAlt)
+  | grammarAlt
+  | grammarAltTerm
+  | grammarAtom
+  | grammarAtomTerm
+  | grammarExpr
+  | grammarExprFull (rhs : grammarExpr)
+  | grammarExprTerm
+  | grammarSeq (seq1 : grammarSuffix)
+  | grammarSeqTerm
+  | grammarSuffix
+  | grammarSuffixTerm
+  | grammarWhitespace
+  | production (name : ident) (rhs : grammarExpr)
+  | productionNode
+  ]
+
+def Pattern : type := data [
+  | pattern
+  ]
+
+def Rule : type := data [
+  | guard (c : term)
+  | rule
+  ]
+
+def Template : type := data [
+  | template
+  ]
+
+def Term : type := data [
+  | term
+  | typedBinder
+  ]
+
+def Test : type := data [
+  | test
+  | testOptions
+  | testOption
+  ]
+
+def iso : type := sig [
+  def fwd : A → option B
+  def bwd : B → option A
+  ]
+

@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Domain: Semantic Domain Types for NbE
+  Lego.Cubical.Domain: Semantic Domain Types for NbE
 
   This module defines the semantic domain used for Normalization by Evaluation (NbE).
   The domain consists of:
@@ -18,9 +18,9 @@
   Based on cooltt's Domain.ml and redtt's Val.ml
 -/
 
-import Lego.Red.Core
+import Lego.Cubical.Core
 
-namespace Lego.Red.Domain
+namespace Lego.Cubical.Domain
 
 open Lego.Core
 
@@ -412,4 +412,4 @@ partial def tpToString : Tp → String
   | .neu cut => s!"[{cutToString cut}]"
 end
 
-end Lego.Red.Domain
+end Lego.Cubical.Domain

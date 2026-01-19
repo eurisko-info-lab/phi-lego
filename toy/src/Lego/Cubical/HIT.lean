@@ -1,5 +1,5 @@
 /-
-  Lego.Red.HIT: Higher Inductive Types (HITs) specialized Kan operations
+  Lego.Cubical.HIT: Higher Inductive Types (HITs) specialized Kan operations
 
   This module provides the specialized Kan operations for built-in HITs:
   - Nat: Natural numbers with zero and suc
@@ -18,14 +18,14 @@
   Based on cooltt's Semantics.ml and redtt's Desc.ml HIT handling
 -/
 
-import Lego.Red.Core
-import Lego.Red.FHCom
+import Lego.Cubical.Core
+import Lego.Cubical.FHCom
 
-namespace Lego.Red.HIT
+namespace Lego.Cubical.HIT
 
 open Lego.Core
-open Lego.Red
-open Lego.Red.FHCom
+open Lego.Cubical
+open Lego.Cubical.FHCom
 
 /-! ## HIT Information
 
@@ -263,4 +263,4 @@ def analyzeHIT (e : Expr) : Option HITInfo :=
   | .circleElim _ _ _ _ => some ⟨.circle, false, "circleElim"⟩
   | _ => none
 
-end Lego.Red.HIT
+end Lego.Cubical.HIT

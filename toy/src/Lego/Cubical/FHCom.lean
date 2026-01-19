@@ -1,5 +1,5 @@
 /-
-  Lego.Red.FHCom: Fibrant Homogeneous Composition
+  Lego.Cubical.FHCom: Fibrant Homogeneous Composition
 
   FHCom (Fibrant HCom) is used for types in cubical type theory.
   When a type A is formed as an FHCom, elements of A are boxes (Box),
@@ -26,14 +26,15 @@
   - This enables the universe to be Kan (have fillers)
 -/
 
-import Lego.Red.Core
-import Lego.Red.Kan
+import Lego.Cubical.Core
+import Lego.Cubical.Kan
+import Lego.Cubical.Visitor
 
-namespace Lego.Red.FHCom
+namespace Lego.Cubical.FHCom
 
 open Lego.Core
 open Lego.Core.Expr
-open Lego.Red.Kan
+open Lego.Cubical.Kan
 
 /-! ## FHCom Type Formation
 
@@ -249,56 +250,8 @@ def reduceFHComExpr (e : Expr) : Option Expr :=
 
 /-! ## Normalization -/
 
-/-- Normalize FHCom-related expressions -/
-partial def normalizeFHCom (fuel : Nat) (e : Expr) : Expr :=
-  if fuel == 0 then e
-  else
-    match reduceFHComExpr e with
-    | some e' => normalizeFHCom (fuel - 1) e'
-    | none =>
-      match e with
-      | .fhcom r r' cap sysList =>
-        let r' := normalizeFHCom (fuel - 1) r
-        let r'' := normalizeFHCom (fuel - 1) r'
-        let cap' := normalizeFHCom (fuel - 1) cap
-        let sys' := sysList.map fun (φ, tube) =>
-          (normalizeFHCom (fuel - 1) φ, normalizeFHCom (fuel - 1) tube)
-        mkFHCom r' r'' cap' sys'
-      | .boxEl r r' cap sysList =>
-        let r' := normalizeFHCom (fuel - 1) r
-        let r'' := normalizeFHCom (fuel - 1) r'
-        let cap' := normalizeFHCom (fuel - 1) cap
-        let sys' := sysList.map fun (φ, side) =>
-          (normalizeFHCom (fuel - 1) φ, normalizeFHCom (fuel - 1) side)
-        mkBox r' r'' cap' sys'
-      | .capEl r r' ty sysList el =>
-        let r' := normalizeFHCom (fuel - 1) r
-        let r'' := normalizeFHCom (fuel - 1) r'
-        let ty' := normalizeFHCom (fuel - 1) ty
-        let sys' := sysList.map fun (φ, tube) =>
-          (normalizeFHCom (fuel - 1) φ, normalizeFHCom (fuel - 1) tube)
-        let el' := normalizeFHCom (fuel - 1) el
-        mkCap r' r'' ty' sys' el'
-      | .app f x =>
-        let f' := normalizeFHCom (fuel - 1) f
-        let x' := normalizeFHCom (fuel - 1) x
-        match f' with
-        | .lam body => normalizeFHCom (fuel - 1) (Expr.subst 0 x' body)
-        | _ => .app f' x'
-      | .lam body => .lam (normalizeFHCom (fuel - 1) body)
-      | .pi dom cod => .pi (normalizeFHCom (fuel - 1) dom) (normalizeFHCom (fuel - 1) cod)
-      | .sigma dom cod => .sigma (normalizeFHCom (fuel - 1) dom) (normalizeFHCom (fuel - 1) cod)
-      | .pair a b => .pair (normalizeFHCom (fuel - 1) a) (normalizeFHCom (fuel - 1) b)
-      | .fst p =>
-        let p' := normalizeFHCom (fuel - 1) p
-        match p' with
-        | .pair a _ => a
-        | _ => .fst p'
-      | .snd p =>
-        let p' := normalizeFHCom (fuel - 1) p
-        match p' with
-        | .pair _ b => b
-        | _ => .snd p'
-      | _ => e
+/-- Normalize FHCom-related expressions using visitor pattern -/
+def normalizeFHCom (fuel : Nat) (e : Expr) : Expr :=
+  e.normalizeStep fuel reduceFHComExpr Expr.subst (fun d body => Expr.subst 0 d body)
 
-end Lego.Red.FHCom
+end Lego.Cubical.FHCom

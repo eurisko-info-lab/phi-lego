@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Signature: Signature types (records with named fields)
+  Lego.Cubical.Signature: Signature types (records with named fields)
 
   Mathematical Structure:
   - Telescopes: dependent sequences of types (Γ ⊢ A₁, x₁:A₁ ⊢ A₂, ...)
@@ -18,9 +18,9 @@
   - Empty signature is the terminal object (Unit)
 -/
 
-import Lego.Red.Core
+import Lego.Cubical.Core
 
-namespace Lego.Red.Signature
+namespace Lego.Cubical.Signature
 
 open Lego.Core
 open Lego.Core.Expr
@@ -430,4 +430,4 @@ def mkSimpleStruct (fields : List (String × Expr)) : Struct :=
 def inferStructType (s : Struct) (inferType : Expr → Expr) : SignatureType :=
   { telescope := s.fields.map fun f => { label := f.label, ty := inferType f.value } }
 
-end Lego.Red.Signature
+end Lego.Cubical.Signature

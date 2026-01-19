@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Kan: Kan Operations for Cubical Type Theory
+  Lego.Cubical.Kan: Kan Operations for Cubical Type Theory
 
   Implements the key transport operations:
   - Coercion (coe): transport along a path in the universe
@@ -15,10 +15,11 @@
   Based on redtt's Val.ml Kan operations and CCHM cubical type theory.
 -/
 
-import Lego.Red.Core
-import Lego.Red.Quote
+import Lego.Cubical.Core
+import Lego.Cubical.Quote
+import Lego.Cubical.Visitor
 
-namespace Lego.Red.Kan
+namespace Lego.Cubical.Kan
 
 open Lego.Core
 open Lego.Core.Expr
@@ -86,36 +87,14 @@ partial def evalCof (subst : Nat → Option Dim) : Expr → Bool
   | .cof_or φ ψ => evalCof subst φ || evalCof subst ψ
   | _ => false
 
-/-! ## Dimension Substitution in Expressions -/
+/-! ## Dimension Substitution in Expressions
 
-/-- Substitute a dimension expression for dimVar 0 -/
-partial def substDim0 (d : Expr) : Expr → Expr
-  | .dimVar 0 => d
-  | .dimVar n => .dimVar (n - 1)  -- Shift down
-  | .dim0 => .dim0
-  | .dim1 => .dim1
-  | .plam body => .plam (substDim0 (shiftDim d) body)
-  | .papp p r => .papp (substDim0 d p) (substDim0 d r)
-  | .lam body => .lam (substDim0 d body)  -- Regular vars don't interact
-  | .app f x => .app (substDim0 d f) (substDim0 d x)
-  | .pi dom cod => .pi (substDim0 d dom) (substDim0 d cod)
-  | .sigma dom cod => .sigma (substDim0 d dom) (substDim0 d cod)
-  | .pair a b => .pair (substDim0 d a) (substDim0 d b)
-  | .fst e => .fst (substDim0 d e)
-  | .snd e => .snd (substDim0 d e)
-  | .path ty a b => .path (substDim0 d ty) (substDim0 d a) (substDim0 d b)
-  | .coe r r' ty a => .coe (substDim0 d r) (substDim0 d r') (substDim0 d ty) (substDim0 d a)
-  | .hcom r r' ty phi cap => .hcom (substDim0 d r) (substDim0 d r') (substDim0 d ty) (substDim0 d phi) (substDim0 d cap)
-  | .cof_eq r s => .cof_eq (substDim0 d r) (substDim0 d s)
-  | .cof_and φ ψ => .cof_and (substDim0 d φ) (substDim0 d ψ)
-  | .cof_or φ ψ => .cof_or (substDim0 d φ) (substDim0 d ψ)
-  | e => e
-where
-  shiftDim : Expr → Expr
-    | .dimVar n => .dimVar (n + 1)
-    | .dim0 => .dim0
-    | .dim1 => .dim1
-    | e => e
+    Now using visitor-based implementation from Lego.Cubical.Visitor.
+-/
+
+/-- Substitute a dimension expression for dimVar 0 (visitor-based) -/
+def substDim0 (d : Expr) (e : Expr) : Expr :=
+  e.substDim0' d
 
 /-! ## Coercion
 
@@ -233,54 +212,11 @@ def reduceKan (e : Expr) : Option Expr :=
   | .com r r' ty tubes cap => reduceCom defaultFuel r r' ty tubes cap
   | _ => none
 
-/-- Normalize expression including Kan operations -/
-partial def normalizeKan (fuel : Nat) (e : Expr) : Expr :=
-  if fuel == 0 then e
-  else
-    -- First try Kan reduction
-    match reduceKan e with
-    | some e' => normalizeKan (fuel - 1) e'
-    | none =>
-      -- Then recurse into subterms
-      match e with
-      | .app f x =>
-        let f' := normalizeKan (fuel - 1) f
-        let x' := normalizeKan (fuel - 1) x
-        match f' with
-        | .lam body => normalizeKan (fuel - 1) (Expr.subst 0 x' body)
-        | _ => .app f' x'
-      | .papp p r =>
-        let p' := normalizeKan (fuel - 1) p
-        let r' := normalizeKan (fuel - 1) r
-        match p' with
-        | .plam body => normalizeKan (fuel - 1) (substDim0 r' body)
-        | _ => .papp p' r'
-      | .fst p =>
-        let p' := normalizeKan (fuel - 1) p
-        match p' with
-        | .pair a _ => a
-        | _ => .fst p'
-      | .snd p =>
-        let p' := normalizeKan (fuel - 1) p
-        match p' with
-        | .pair _ b => b
-        | _ => .snd p'
-      | .lam body => .lam (normalizeKan (fuel - 1) body)
-      | .plam body => .plam (normalizeKan (fuel - 1) body)
-      | .pi dom cod => .pi (normalizeKan (fuel - 1) dom) (normalizeKan (fuel - 1) cod)
-      | .sigma dom cod => .sigma (normalizeKan (fuel - 1) dom) (normalizeKan (fuel - 1) cod)
-      | .pair a b => .pair (normalizeKan (fuel - 1) a) (normalizeKan (fuel - 1) b)
-      | .path ty a b => .path (normalizeKan (fuel - 1) ty) (normalizeKan (fuel - 1) a) (normalizeKan (fuel - 1) b)
-      | .coe r r' ty a => .coe (normalizeKan (fuel - 1) r) (normalizeKan (fuel - 1) r')
-                              (normalizeKan (fuel - 1) ty) (normalizeKan (fuel - 1) a)
-      | .hcom r r' ty phi cap =>
-        .hcom (normalizeKan (fuel - 1) r) (normalizeKan (fuel - 1) r')
-              (normalizeKan (fuel - 1) ty) (normalizeKan (fuel - 1) phi)
-              (normalizeKan (fuel - 1) cap)
-      | .letE _ty val body =>
-        let val' := normalizeKan (fuel - 1) val
-        normalizeKan (fuel - 1) (Expr.subst 0 val' body)
-      | _ => e
+/-- Normalize expression including Kan operations.
+    Uses Expr.normalizeStep which handles beta reduction generically.
+    Kan-specific reductions are passed as the extraReduce parameter. -/
+def normalizeKan (fuel : Nat) (e : Expr) : Expr :=
+  e.normalizeStep fuel reduceKan (Expr.subst) substDim0
 
 /-! ## Transport (Special Case)
 
@@ -320,4 +256,4 @@ def mkTrans (tyA : Expr) (p q : Expr) : Expr :=
 def mkAp (f : Expr) (p : Expr) : Expr :=
   .plam (.app (Expr.shift f) (.papp (Expr.shift p) (.dimVar 0)))
 
-end Lego.Red.Kan
+end Lego.Cubical.Kan

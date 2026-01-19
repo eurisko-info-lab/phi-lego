@@ -49,6 +49,10 @@ lean_exe «lego-test-cool» where
   moreLinkArgs := #["-lInit"]
 
 -- Tools
+lean_lib «Cubical» where
+  srcDir := "tools"
+  roots := #[`Cubical]
+
 lean_exe «toantlr» where
   root := `tools.ToAntlr
 
@@ -57,3 +61,8 @@ lean_exe «totreesitter» where
 
 lean_exe «tolean» where
   root := `tools.ToLean
+
+-- Code Generation (Single Source of Truth)
+-- Generates RedTT, CoolTT, and Lean from Grammar.sexpr
+lean_exe «lego-gen» where
+  root := `LegoGen

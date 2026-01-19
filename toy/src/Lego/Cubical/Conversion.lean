@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Conversion: Equality and Subtyping Checking
+  Lego.Cubical.Conversion: Equality and Subtyping Checking
 
   Mathematical Structure:
   - Definitional equality via normalization
@@ -21,10 +21,11 @@
   - Neutral term equality: equate_cut
 -/
 
-import Lego.Red.Core
-import Lego.Red.Cofibration
+import Lego.Cubical.Core
+import Lego.Cubical.Cofibration
+import Lego.Cubical.Visitor
 
-namespace Lego.Red.Conversion
+namespace Lego.Cubical.Conversion
 
 open Lego.Core
 open Lego.Core.Expr
@@ -82,54 +83,16 @@ end ConvCtx
 /-! ## Weak Head Normal Form
 
     Reduce to weak head normal form for comparison.
+    Uses visitor-based whnf from Visitor.lean.
 -/
 
 /-- Check if an expression is in weak head normal form -/
-def isWhnf : Expr → Bool
-  | .app (.lam _) _ => false  -- Beta redex
-  | .fst (.pair _ _) => false  -- Sigma redex
-  | .snd (.pair _ _) => false
-  | .papp (.plam _) _ => false  -- Path redex
-  | .subOut (.subIn _) => false  -- Sub redex
-  | _ => true
-
-/-- Single step reduction -/
-partial def step : Expr → Option Expr
-  | .app (.lam body) arg => some (subst 0 arg body)
-  | .fst (.pair a _) => some a
-  | .snd (.pair _ b) => some b
-  | .papp (.plam body) r => some (subst 0 r body)
-  | .subOut (.subIn t) => some t
-  -- Dimension operations
-  | .papp e r =>
-    match step e with
-    | some e' => some (.papp e' r)
-    | none => none
-  | .app f a =>
-    match step f with
-    | some f' => some (.app f' a)
-    | none =>
-      match step a with
-      | some a' => some (.app f a')
-      | none => none
-  | .fst e =>
-    match step e with
-    | some e' => some (.fst e')
-    | none => none
-  | .snd e =>
-    match step e with
-    | some e' => some (.snd e')
-    | none => none
-  | _ => none
+def isWhnf (e : Expr) : Bool :=
+  (e.whnfStep Expr.subst (fun d body => Expr.subst 0 d body)).isNone
 
 /-- Reduce to weak head normal form -/
-partial def whnf (fuel : Nat) (e : Expr) : Expr :=
-  match fuel with
-  | 0 => e
-  | n + 1 =>
-    match step e with
-    | some e' => whnf n e'
-    | none => e
+def whnf (fuel : Nat) (e : Expr) : Expr :=
+  e.whnf' fuel Expr.subst (fun d body => Expr.subst 0 d body)
 
 /-- Default fuel for WHNF computation -/
 def defaultFuel : Nat := 1000
@@ -417,4 +380,4 @@ def equal (tp t1 t2 : Expr) : Bool :=
 def equalTp (tp1 tp2 : Expr) : Bool :=
   (checkTpEq tp1 tp2).toBool
 
-end Lego.Red.Conversion
+end Lego.Cubical.Conversion

@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Splice: Splicing values into terms under binders
+  Lego.Cubical.Splice: Splicing values into terms under binders
 
   Mathematical Structure:
   - Splicing is a form of metaprogramming for constructing terms
@@ -26,10 +26,11 @@
   - compile : Splice Term → (Env × Term) (extract result)
 -/
 
-import Lego.Red.Core
-import Lego.Red.Cofibration
+import Lego.Cubical.Core
+import Lego.Cubical.Cofibration
+import Lego.Cubical.Visitor
 
-namespace Lego.Red.Splice
+namespace Lego.Cubical.Splice
 
 open Lego.Core
 open Lego.Core.Expr
@@ -309,38 +310,22 @@ end Bdry
 def buildEvalEnv (senv : SpliceEnv) : List Expr :=
   senv.conEnv.reverse
 
-/-- Substitute spliced values into a term -/
-partial def substSpliced (env : List Expr) (e : Expr) : Expr :=
-  match e with
-  | .ix n =>
-    if h : n < env.length then env[n]'h else e
-  | .app f a => app (substSpliced env f) (substSpliced env a)
-  | .lam b => lam (substSpliced (ix 0 :: env.map shift) b)
-  | .pi d c => pi (substSpliced env d) (substSpliced (ix 0 :: env.map shift) c)
-  | .sigma b f => sigma (substSpliced env b) (substSpliced (ix 0 :: env.map shift) f)
-  | .pair a b => pair (substSpliced env a) (substSpliced env b)
-  | .fst p => fst (substSpliced env p)
-  | .snd p => snd (substSpliced env p)
-  | .plam b => plam (substSpliced env b)
-  | .papp p r => papp (substSpliced env p) (substSpliced env r)
-  | .coe a s t p => coe (substSpliced env a) (substSpliced env s) (substSpliced env t) (substSpliced env p)
-  | .hcom r r' ty φ cap => hcom (substSpliced env r) (substSpliced env r') (substSpliced env ty)
-                                (substSpliced env φ) (substSpliced env cap)
-  | .sys branches => sys (branches.map fun (φ, e) => (substSpliced env φ, substSpliced env e))
-  | .sub a φ u => sub (substSpliced env a) (substSpliced env φ) (substSpliced env u)
-  | .subIn e => subIn (substSpliced env e)
-  | .subOut e => subOut (substSpliced env e)
-  | .glue a φ t equiv => glue (substSpliced env a) (substSpliced env φ) (substSpliced env t) (substSpliced env equiv)
-  | .glueElem t a => glueElem (substSpliced env t) (substSpliced env a)
-  | .unglue e => unglue (substSpliced env e)
-  | .cof_and a b => cof_and (substSpliced env a) (substSpliced env b)
-  | .cof_or a b => cof_or (substSpliced env a) (substSpliced env b)
-  | .cof_eq a b => cof_eq (substSpliced env a) (substSpliced env b)
-  | _ => e
-where
-  shift : Expr → Expr
-    | .ix n => ix (n + 1)
-    | e => e
+/-- Create a visitor op for substituting spliced values -/
+def spliceSubstOp (vals : List Expr) : VisitorOp where
+  onAtom depth e :=
+    match e with
+    | .ix n =>
+      if n < depth then e  -- bound variable, keep as-is
+      else
+        let adjusted := n - depth
+        if h : adjusted < vals.length then
+          (vals[adjusted]'h).shiftAbove' 0 depth  -- shift the spliced value
+        else e
+    | _ => e
+
+/-- Substitute spliced values into a term using visitor pattern -/
+def substSpliced (env : List Expr) (e : Expr) : Expr :=
+  e.traverse (spliceSubstOp env) 0
 
 /-- Splice and evaluate: compile splice then substitute -/
 def spliceAndEval (s : Splice Expr) : Expr :=
@@ -348,4 +333,4 @@ def spliceAndEval (s : Splice Expr) : Expr :=
   let evalEnv := buildEvalEnv env
   substSpliced evalEnv term
 
-end Lego.Red.Splice
+end Lego.Cubical.Splice

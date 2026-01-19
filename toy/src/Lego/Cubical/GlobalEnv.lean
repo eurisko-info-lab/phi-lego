@@ -1,5 +1,5 @@
 /-
-  Lego.Red.GlobalEnv: Global Environment for definitions and datatypes
+  Lego.Cubical.GlobalEnv: Global Environment for definitions and datatypes
 
   The global environment holds:
   - Type definitions: `def name : Type := value`
@@ -16,10 +16,11 @@
 -/
 
 import Lego.Algebra
-import Lego.Red.Core
+import Lego.Cubical.Core
+import Lego.Cubical.Visitor
 import Std.Data.HashMap
 
-namespace Lego.Red
+namespace Lego.Cubical
 
 open Lego.Core
 
@@ -280,25 +281,21 @@ private def unfoldHead (env : GlobalEnv) : Expr → Option Expr
 
 /-- Step with global unfolding -/
 def stepWithGlobals (env : GlobalEnv) (e : Expr) : Option Expr :=
-  -- First try normal step
-  match Expr.step e with
+  -- First try visitor-based whnf step
+  match e.whnfStep Expr.subst (fun d body => Expr.subst 0 d body) with
   | some e' => some e'
   | none =>
     -- Try to unfold a global at the head
     unfoldHead env e
 
-/-- Normalize with global unfolding -/
-partial def normalizeWithGlobals (env : GlobalEnv) (fuel : Nat) (e : Expr) : Expr :=
+/-- Normalize with global unfolding using visitor-based whnf -/
+def normalizeWithGlobals (env : GlobalEnv) (fuel : Nat) (e : Expr) : Expr :=
   match fuel with
   | 0 => e
   | n + 1 =>
     match stepWithGlobals env e with
     | some e' => normalizeWithGlobals env n e'
-    | none =>
-      -- Try deep step
-      match Expr.stepDeep e with
-      | some e' => normalizeWithGlobals env n e'
-      | none => e
+    | none => e
 
 /-- Evaluate with global definitions -/
 def evalWithGlobals (env : GlobalEnv) (e : Expr) : Expr :=
@@ -623,4 +620,4 @@ def standardLib : GlobalEnv := Id.run do
 
   return env
 
-end Lego.Red
+end Lego.Cubical

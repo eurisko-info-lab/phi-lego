@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Datatype: User-defined inductive types with constructors and eliminators
+  Lego.Cubical.Datatype: User-defined inductive types with constructors and eliminators
 
   This module provides the machinery for user-defined datatypes like:
     data List (A : Type) where
@@ -19,13 +19,13 @@
   Based on redtt's Desc.ml and Val.ml datatype handling
 -/
 
-import Lego.Red.Core
-import Lego.Red.GlobalEnv
+import Lego.Cubical.Core
+import Lego.Cubical.GlobalEnv
 
-namespace Lego.Red.Datatype
+namespace Lego.Cubical.Datatype
 
 open Lego.Core
-open Lego.Red
+open Lego.Cubical
 
 /-! ## Datatype Type Formation
 
@@ -483,4 +483,4 @@ def ppIntro (_dlbl : String) (clbl : String) (params : List Expr) (args : List E
   let argStr := if args.isEmpty then "" else " " ++ String.intercalate " " argStrs
   constr ++ paramStr ++ argStr
 
-end Lego.Red.Datatype
+end Lego.Cubical.Datatype

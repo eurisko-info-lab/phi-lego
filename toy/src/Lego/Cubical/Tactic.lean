@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Tactic: Bidirectional type checking tactics
+  Lego.Cubical.Tactic: Bidirectional type checking tactics
 
   Mathematical Structure:
   - Bidirectional typing: synthesis (↑) and checking (↓)
@@ -22,11 +22,11 @@
   of the given type, while synthesis tactics produce both term and type.
 -/
 
-import Lego.Red.Core
-import Lego.Red.Cofibration
-import Lego.Red.Splice
+import Lego.Cubical.Core
+import Lego.Cubical.Cofibration
+import Lego.Cubical.Splice
 
-namespace Lego.Red.Tactic
+namespace Lego.Cubical.Tactic
 
 open Lego.Core
 open Lego.Core.Expr
@@ -1183,4 +1183,4 @@ def coe (ktel : KanTelescope) (srcDim trgDim termTac : ChkTac) : ChkTac :=
 
 end KanTelescope
 
-end Lego.Red.Tactic
+end Lego.Cubical.Tactic

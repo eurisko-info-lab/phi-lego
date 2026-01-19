@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Cofibration: Cofibration algebra and theory
+  Lego.Cubical.Cofibration: Cofibration algebra and theory
 
   Mathematical Structure:
   - Cofibrations: decidable propositions on the interval
@@ -20,9 +20,9 @@
   - cof_eq is symmetric and satisfies interval axioms
 -/
 
-import Lego.Red.Core
+import Lego.Cubical.Core
 
-namespace Lego.Red.Cofibration
+namespace Lego.Cubical.Cofibration
 
 open Lego.Core
 open Lego.Core.Expr
@@ -391,4 +391,4 @@ def cofToString : Expr → String
 instance : ToString CofContext where
   toString ctx := s!"CofContext[{ctx.assumptions.map cofToString}]"
 
-end Lego.Red.Cofibration
+end Lego.Cubical.Cofibration

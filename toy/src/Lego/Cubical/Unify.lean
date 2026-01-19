@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Unify: Miller-Pattern Unification for Higher-Order Terms
+  Lego.Cubical.Unify: Miller-Pattern Unification for Higher-Order Terms
 
   Implements higher-order pattern unification (Miller patterns) with:
   - Flex-rigid: ?α x₁...xₙ = t  →  ?α := λy₁...yₙ. t[xᵢ↦yᵢ]
@@ -21,9 +21,10 @@
   - redtt's Unify.ml implementation
 -/
 
-import Lego.Red.GlobalEnv
+import Lego.Cubical.GlobalEnv
+import Lego.Cubical.Visitor
 
-namespace Lego.Red
+namespace Lego.Cubical
 
 open Lego.Core
 
@@ -90,72 +91,22 @@ end UnifyState
 
     Collect free variables (de Bruijn indices) in a term.
     Essential for scope checking in pattern unification.
+    Now using visitor-based implementation from Lego.Cubical.Visitor.
 -/
 
-/-- Collect free de Bruijn indices in an expression -/
-partial def freeVars (depth : Nat) : Expr → List Nat
-  | .ix n => if n >= depth then [n - depth] else []
-  | .lam body => freeVars (depth + 1) body
-  | .app f a => freeVars depth f ++ freeVars depth a
-  | .pi dom cod => freeVars depth dom ++ freeVars (depth + 1) cod
-  | .sigma dom cod => freeVars depth dom ++ freeVars (depth + 1) cod
-  | .pair a b => freeVars depth a ++ freeVars depth b
-  | .fst p => freeVars depth p
-  | .snd p => freeVars depth p
-  | .path ty a b => freeVars depth ty ++ freeVars depth a ++ freeVars depth b
-  | .plam body => freeVars (depth + 1) body
-  | .papp p r => freeVars depth p ++ freeVars depth r
-  | .refl a => freeVars depth a
-  | .letE ty val body => freeVars depth ty ++ freeVars depth val ++ freeVars (depth + 1) body
-  | .suc n => freeVars depth n
-  | .coe r r' ty a => freeVars depth r ++ freeVars depth r' ++ freeVars depth ty ++ freeVars depth a
-  | _ => []  -- Literals and constants have no free vars
+/-- Collect free de Bruijn indices in an expression (visitor-based) -/
+def freeVars (depth : Nat) (e : Expr) : List Nat :=
+  e.freeVars' depth
 
 /-! ## Occurs Check
 
     Prevent circular solutions like ?α := f(?α)
+    Now using visitor-based implementation.
 -/
 
-/-- Check if a meta-variable occurs in an expression -/
-partial def occurs (name : GName) : Expr → Bool
-  | .lit n => n == name.name  -- Meta represented as literal
-  | .ix _ => false
-  | .lam body => occurs name body
-  | .app f a => occurs name f || occurs name a
-  | .pi dom cod => occurs name dom || occurs name cod
-  | .sigma dom cod => occurs name dom || occurs name cod
-  | .pair a b => occurs name a || occurs name b
-  | .fst p => occurs name p
-  | .snd p => occurs name p
-  | .path ty a b => occurs name ty || occurs name a || occurs name b
-  | .plam body => occurs name body
-  | .papp p r => occurs name p || occurs name r
-  | .refl a => occurs name a
-  | .coe r r' ty a => occurs name r || occurs name r' || occurs name ty || occurs name a
-  | .hcom r r' ty phi cap =>
-    occurs name r || occurs name r' || occurs name ty || occurs name phi || occurs name cap
-  | .hcomTube r r' ty tubes cap =>
-    occurs name r || occurs name r' || occurs name ty ||
-    tubes.any (fun (c, t) => occurs name c || occurs name t) || occurs name cap
-  | .com r r' ty tubes cap =>
-    occurs name r || occurs name r' || occurs name ty ||
-    tubes.any (fun (c, t) => occurs name c || occurs name t) || occurs name cap
-  | .letE ty val body => occurs name ty || occurs name val || occurs name body
-  | .natElim p z s n => occurs name p || occurs name z || occurs name s || occurs name n
-  | .suc n => occurs name n
-  | .circleElim p b l x => occurs name p || occurs name b || occurs name l || occurs name x
-  | .loop r => occurs name r
-  | .vtype r a b e => occurs name r || occurs name a || occurs name b || occurs name e
-  | .vin r m n => occurs name r || occurs name m || occurs name n
-  | .vproj r a b e v => occurs name r || occurs name a || occurs name b || occurs name e || occurs name v
-  | .glue a phi t equiv => occurs name a || occurs name phi || occurs name t || occurs name equiv
-  | .glueElem t a => occurs name t || occurs name a
-  | .unglue g => occurs name g
-  | .sys branches => branches.any (fun (c, t) => occurs name c || occurs name t)
-  | .cof_eq a b => occurs name a || occurs name b
-  | .cof_and a b => occurs name a || occurs name b
-  | .cof_or a b => occurs name a || occurs name b
-  | _ => false  -- Literals, dim0, dim1, etc.
+/-- Check if a meta-variable occurs in an expression (visitor-based) -/
+def occurs (name : GName) : Expr → Bool :=
+  Expr.occursName name.name
 
 /-! ## Unification Result -/
 
@@ -250,42 +201,10 @@ def isMeta (e : Expr) : Option String :=
     - x₁ → 1
     - x₀ → 2
     Returns None if term has variables not in the spine (scope escape).
+    Now using visitor-based implementation.
 -/
 def invertTerm (spineVars : List Nat) (term : Expr) : Option Expr :=
-  -- Check: all free vars in term must be in spineVars
-  let fvs := (freeVars 0 term).eraseDups
-  if !fvs.all (fun v => spineVars.contains v) then
-    none  -- Scope escape: term uses variable not in spine
-  else
-    -- Build varMap: spineVars[i] ↦ i
-    let varMap := zipWithIndex spineVars |>.map (fun (v, i) => (v, i))
-    some (renameVars varMap 0 term)
-where
-  zipWithIndex {α : Type} (xs : List α) : List (α × Nat) :=
-    xs.zip (List.range xs.length)
-  renameVars (ren : List (Nat × Nat)) (depth : Nat) : Expr → Expr
-    | .ix n =>
-      if n < depth then .ix n  -- Bound variable, keep
-      else
-        let adjusted := n - depth
-        match ren.find? (fun (v, _) => v == adjusted) with
-        | some (_, newIdx) => .ix (newIdx + depth)
-        | none => .ix n  -- Not in renaming, keep (shouldn't happen if scope check passed)
-    | .lam body => .lam (renameVars ren (depth + 1) body)
-    | .app f a => .app (renameVars ren depth f) (renameVars ren depth a)
-    | .pi dom cod => .pi (renameVars ren depth dom) (renameVars ren (depth + 1) cod)
-    | .sigma dom cod => .sigma (renameVars ren depth dom) (renameVars ren (depth + 1) cod)
-    | .pair a b => .pair (renameVars ren depth a) (renameVars ren depth b)
-    | .fst p => .fst (renameVars ren depth p)
-    | .snd p => .snd (renameVars ren depth p)
-    | .path ty a b => .path (renameVars ren depth ty) (renameVars ren depth a) (renameVars ren depth b)
-    | .plam body => .plam (renameVars ren (depth + 1) body)
-    | .papp p r => .papp (renameVars ren depth p) (renameVars ren depth r)
-    | .refl a => .refl (renameVars ren depth a)
-    | .letE ty val body => .letE (renameVars ren depth ty) (renameVars ren depth val) (renameVars ren (depth + 1) body)
-    | .suc n => .suc (renameVars ren depth n)
-    | .coe r r' ty a => .coe (renameVars ren depth r) (renameVars ren depth r') (renameVars ren depth ty) (renameVars ren depth a)
-    | e => e  -- Literals, constants, etc.
+  term.invertForSpine spineVars
 
 /-! ## Core Unification -/
 
@@ -522,63 +441,17 @@ end -- mutual
 /-! ## Substitution Application
 
     Apply meta-variable solutions throughout a term.
+    Now using visitor-based implementation.
 -/
 
-/-- Substitute solved metas in an expression -/
-partial def applyMetas (st : UnifyState) : Expr → Expr
-  | e@(.lit name) =>
+/-- Substitute solved metas in an expression (visitor-based) -/
+def applyMetas (st : UnifyState) (e : Expr) : Expr :=
+  e.applyMetas' fun name =>
     if name.startsWith "?" then
       match st.lookupMeta (GName.named name) with
-      | some { solution := some sol, .. } => applyMetas st sol
-      | _ => e
-    else e
-  | .lam body => .lam (applyMetas st body)
-  | .app f a => .app (applyMetas st f) (applyMetas st a)
-  | .pi dom cod => .pi (applyMetas st dom) (applyMetas st cod)
-  | .sigma dom cod => .sigma (applyMetas st dom) (applyMetas st cod)
-  | .pair a b => .pair (applyMetas st a) (applyMetas st b)
-  | .fst p => .fst (applyMetas st p)
-  | .snd p => .snd (applyMetas st p)
-  | .path ty a b => .path (applyMetas st ty) (applyMetas st a) (applyMetas st b)
-  | .plam body => .plam (applyMetas st body)
-  | .papp p r => .papp (applyMetas st p) (applyMetas st r)
-  | .refl a => .refl (applyMetas st a)
-  | .coe r r' ty a => .coe (applyMetas st r) (applyMetas st r') (applyMetas st ty) (applyMetas st a)
-  | .hcom r r' ty phi cap =>
-    .hcom (applyMetas st r) (applyMetas st r') (applyMetas st ty)
-      (applyMetas st phi)
-      (applyMetas st cap)
-  | .hcomTube r r' ty tubes cap =>
-    .hcomTube (applyMetas st r) (applyMetas st r') (applyMetas st ty)
-      (List.map (fun (c, t) => (applyMetas st c, applyMetas st t)) tubes)
-      (applyMetas st cap)
-  | .com r r' ty tubes cap =>
-    .com (applyMetas st r) (applyMetas st r') (applyMetas st ty)
-      (List.map (fun (c, t) => (applyMetas st c, applyMetas st t)) tubes)
-      (applyMetas st cap)
-  | .letE ty val body => .letE (applyMetas st ty) (applyMetas st val) (applyMetas st body)
-  | .suc n => .suc (applyMetas st n)
-  | .natElim p z s n =>
-    .natElim (applyMetas st p) (applyMetas st z) (applyMetas st s) (applyMetas st n)
-  | .loop r => .loop (applyMetas st r)
-  | .circleElim p b l x =>
-    .circleElim (applyMetas st p) (applyMetas st b) (applyMetas st l) (applyMetas st x)
-  | .vtype r a b e =>
-    .vtype (applyMetas st r) (applyMetas st a) (applyMetas st b) (applyMetas st e)
-  | .vin r m n => .vin (applyMetas st r) (applyMetas st m) (applyMetas st n)
-  | .vproj r a b e v =>
-    .vproj (applyMetas st r) (applyMetas st a) (applyMetas st b) (applyMetas st e) (applyMetas st v)
-  | .glue a phi t equiv =>
-    .glue (applyMetas st a) (applyMetas st phi) (applyMetas st t) (applyMetas st equiv)
-  | .glueElem t a =>
-    .glueElem (applyMetas st t) (applyMetas st a)
-  | .unglue g => .unglue (applyMetas st g)
-  | .sys branches =>
-    .sys (List.map (fun (c, t) => (applyMetas st c, applyMetas st t)) branches)
-  | .cof_eq a b => .cof_eq (applyMetas st a) (applyMetas st b)
-  | .cof_and a b => .cof_and (applyMetas st a) (applyMetas st b)
-  | .cof_or a b => .cof_or (applyMetas st a) (applyMetas st b)
-  | e => e  -- Atoms: ix, dim0, dim1, nat, zero, circle, base, cof_top, cof_bot
+      | some { solution := some sol, .. } => some sol
+      | _ => none
+    else none
 
 /-! ## Constraint Solving Loop
 
@@ -654,4 +527,4 @@ def unsolvedSummary (st : UnifyState) : String :=
       s!"  {m.name} : {Expr.toString m.ty}"
     s!"Unsolved meta-variables ({unsolved.length}):\n" ++ String.intercalate "\n" entries
 
-end Lego.Red
+end Lego.Cubical

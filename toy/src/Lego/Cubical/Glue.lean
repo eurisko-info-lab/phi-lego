@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Glue: Glue Types for Univalence
+  Lego.Cubical.Glue: Glue Types for Univalence
 
   Glue types are a fundamental construct in cubical type theory that enable univalence.
   They allow "gluing" a type A along a cofibration φ with an equivalent type T.
@@ -21,16 +21,16 @@
   Based on CCHM and cooltt's Glue implementation.
 -/
 
-import Lego.Red.Core
-import Lego.Red.Cofibration
-import Lego.Red.Kan
+import Lego.Cubical.Core
+import Lego.Cubical.Cofibration
+import Lego.Cubical.Kan
 
-namespace Lego.Red.Glue
+namespace Lego.Cubical.Glue
 
 open Lego.Core
 open Lego.Core.Expr
-open Lego.Red.Kan
-open Lego.Red.Cofibration
+open Lego.Cubical.Kan
+open Lego.Cubical.Cofibration
 
 /-! ## Glue Type Information
 
@@ -245,4 +245,4 @@ def strictReduceGlue (info : GlueInfo) : Expr :=
   | some reduced => reduced
   | none => info.toExpr
 
-end Lego.Red.Glue
+end Lego.Cubical.Glue

@@ -1,5 +1,5 @@
 /-
-  Lego.Red.SubType: Cubical Sub-types (Restriction Types)
+  Lego.Cubical.SubType: Cubical Sub-types (Restriction Types)
 
   Sub-types encode partial elements with boundary constraints:
     sub A φ t : Type
@@ -23,9 +23,9 @@
   Reference: cooltt's Sub type (D.Sub in Domain.ml, S.Sub in Syntax.ml)
 -/
 
-import Lego.Red.Core
+import Lego.Cubical.Core
 
-namespace Lego.Red.SubType
+namespace Lego.Cubical.SubType
 
 open Lego.Core
 open Lego.Core.Expr
@@ -220,4 +220,4 @@ def ppSubIn (e : Expr) : String :=
 def ppSubOut (e : Expr) : String :=
   s!"(subOut {e})"
 
-end Lego.Red.SubType
+end Lego.Cubical.SubType

@@ -1,5 +1,5 @@
 /-
-  Lego.Red.Semantics: Full Evaluation with Kan Operations
+  Lego.Cubical.Semantics: Full Evaluation with Kan Operations
 
   Mathematical Structure:
   - Normalization by evaluation (NbE)
@@ -14,12 +14,13 @@
    according to the specific type constructor (Pi, Sigma, Path, etc.)."
 -/
 
-import Lego.Red.Core
-import Lego.Red.Cofibration
-import Lego.Red.Conversion
-import Lego.Red.TermBuilder
+import Lego.Cubical.Core
+import Lego.Cubical.Cofibration
+import Lego.Cubical.Conversion
+import Lego.Cubical.TermBuilder
+import Lego.Cubical.Visitor
 
-namespace Lego.Red.Semantics
+namespace Lego.Cubical.Semantics
 
 open Lego.Core
 open Lego.Core.Expr
@@ -94,102 +95,51 @@ def isHComCode : Expr → Bool
 
 /-! ## Core Evaluation -/
 
-/-- Evaluate an expression to weak head normal form -/
+/-- Evaluate an expression to weak head normal form using visitor pattern.
+    Variables are looked up in the environment, beta reductions are applied. -/
 partial def eval (ctx : EvalCtx) (e : Expr) : Expr :=
   if ctx.fuel == 0 then e else
   let ctx' := ctx.decFuel
+
+  -- 1. Variable lookup
   match e with
-  -- Variables
   | .ix n =>
     match ctx.lookup n with
     | some v => eval ctx' v
     | none => e
+  | _ =>
+    -- 2. Try beta reduction using visitor infrastructure
+    -- tryBetaReduce needs (Nat → Expr → Expr → Expr), we curry subst and recurse
+    let substAndEval := fun (idx : Nat) (val : Expr) (body : Expr) =>
+      eval ctx' (Expr.subst idx val body)
+    let dimSubstAndEval := fun (d : Expr) (body : Expr) =>
+      eval ctx' (Expr.subst 0 d body)
+    match e.tryBetaReduce substAndEval dimSubstAndEval with
+    | some e' => e'  -- Already evaluated in substAndEval
+    | none =>
+      -- 3. Special Kan operation handling
+      match e with
+      | .coe line r s t =>
+        let vr := eval ctx' r
+        let vs := eval ctx' s
+        if dimEq vr vs then eval ctx' t
+        else doRigidCoe ctx' (eval ctx' line) vr vs (eval ctx' t)
 
-  -- Lambda and application
-  | .lam body => e  -- Already in WHNF
-  | .app f a =>
-    let vf := eval ctx' f
-    let va := eval ctx' a
-    match vf with
-    | .lam body => eval ctx' (subst 0 va body)
-    | _ => .app vf va
+      | .hcom tp r s φ u =>
+        let vr := eval ctx' r
+        let vs := eval ctx' s
+        let vφ := eval ctx' φ
+        if dimEq vr vs || cofTrue vφ then
+          eval ctx' (.app (.app u vs) (.lit "prf"))
+        else doRigidHCom ctx' (eval ctx' tp) vr vs vφ (eval ctx' u)
 
-  -- Pairs and projections
-  | .pair a b => .pair (eval ctx' a) (eval ctx' b)
-  | .fst p =>
-    match eval ctx' p with
-    | .pair a _ => eval ctx' a
-    | vp => .fst vp
-  | .snd p =>
-    match eval ctx' p with
-    | .pair _ b => eval ctx' b
-    | vp => .snd vp
-
-  -- Path types
-  | .plam body => e
-  | .papp p r =>
-    let vp := eval ctx' p
-    let vr := eval ctx' r
-    match vp with
-    | .plam body => eval ctx' (subst 0 vr body)
-    | _ => .papp vp vr
-
-  -- Subtypes
-  | .subIn t => .subIn (eval ctx' t)
-  | .subOut t =>
-    match eval ctx' t with
-    | .subIn v => eval ctx' v
-    | vt => .subOut vt
-
-  -- Natural numbers
-  | .zero => e
-  | .suc n => .suc (eval ctx' n)
-
-  -- Circle
-  | .base => e
-  | .loop r => .loop (eval ctx' r)
-
-  -- Dimensions and cofibrations
-  | .dim0 => e
-  | .dim1 => e
-  | .cof_top => e
-  | .cof_bot => e
-  | .cof_eq r s => .cof_eq (eval ctx' r) (eval ctx' s)
-  | .cof_and φ ψ => .cof_and (eval ctx' φ) (eval ctx' ψ)
-  | .cof_or φ ψ => .cof_or (eval ctx' φ) (eval ctx' ψ)
-
-  -- Types (already in WHNF)
-  | .pi dom cod => .pi (eval ctx' dom) cod  -- Don't eval under binders
-  | .sigma a b => .sigma (eval ctx' a) b
-  | .path tp l r => .path (eval ctx' tp) (eval ctx' l) (eval ctx' r)
-  | .nat => e
-  | .circle => e
-  | .univ _ => e
-  | .sub a φ t => .sub (eval ctx' a) (eval ctx' φ) t
-
-  -- V types
-  | .vtype r a b equiv => .vtype (eval ctx' r) (eval ctx' a) (eval ctx' b) (eval ctx' equiv)
-  | .vin r p t => .vin (eval ctx' r) (eval ctx' p) (eval ctx' t)
-  | .vproj r _ _ _ v => .vproj (eval ctx' r) (lit "A") (lit "B") (lit "equiv") (eval ctx' v)
-
-  -- Kan operations
-  | .coe line r s t =>
-    let vr := eval ctx' r
-    let vs := eval ctx' s
-    if dimEq vr vs then eval ctx' t
-    else doRigidCoe ctx' (eval ctx' line) vr vs (eval ctx' t)
-
-  | .hcom tp r s φ u =>
-    let vr := eval ctx' r
-    let vs := eval ctx' s
-    let vφ := eval ctx' φ
-    if dimEq vr vs || cofTrue vφ then
-      -- r = s or φ is true: return cap
-      eval ctx' (.app (.app u vs) (.lit "prf"))
-    else doRigidHCom ctx' (eval ctx' tp) vr vs vφ (eval ctx' u)
-
-  -- Default
-  | _ => e
+      | _ =>
+        -- 4. Generic traversal for everything else
+        let shape := e.shape
+        if shape.children.isEmpty then e
+        else
+          let children' := shape.children.map fun child => eval ctx' child.expr
+          shape.reconstruct children'
 where
   /-- Check if two dimensions are definitionally equal -/
   dimEq (r s : Expr) : Bool :=
@@ -406,4 +356,4 @@ def instClo (ctx : EvalCtx) (body : Expr) (v : Expr) : Expr :=
 def instTpClo (ctx : EvalCtx) (body : Expr) (v : Expr) : Expr :=
   instClo ctx body v
 
-end Lego.Red.Semantics
+end Lego.Cubical.Semantics

@@ -1,4 +1,4 @@
-import Lego.Red.Core
+import Lego.Cubical.Core
 
 /-!
 # Quotation: Reading Back Semantic Values to Syntax
@@ -30,7 +30,7 @@ Quotation is the right adjoint to evaluation in NbE:
 Reference: "Normalization by Evaluation for Cubical Type Theory" (Sterling)
 -/
 
-namespace Lego.Red
+namespace Lego.Cubical
 
 open Lego.Core
 open Lego.Core.Expr
@@ -367,4 +367,4 @@ def equalByNbe (ty : Expr) (v1 v2 : Expr) : Bool :=
   -- Syntactic equality of quoted forms
   conv q1 q2
 
-end Lego.Red
+end Lego.Cubical

@@ -137,28 +137,29 @@ e.applyMetas' lookup            -- apply meta solutions
 
 | Module | Status | Expr Matches | Notes |
 |--------|--------|--------------|-------|
-| `Core.lean` | Keep | 29 | Defines Expr, allowed to match |
-| `Visitor.lean` | Keep | 23 | Defines shape/traverse, allowed |
-| `Kan.lean` | ✅ Done | 2 | Domain-only: `.coe`, `.hcom` |
-| `Unify.lean` | Partial | 11 | Still has some, check meta-related |
-| `Conversion.lean` | **TODO** | **18** | High priority: step, whnf, equate_* |
-| `Semantics.lean` | **TODO** | **18** | High priority: eval is large |
-| `GlobalEnv.lean` | **TODO** | **16** | normalizeWithGlobals, inferG, checkG |
-| `Elaborate.lean` | **TODO** | 11 | infer, check, elaborate |
-| `FHCom.lean` | **TODO** | 10 | reduceFHCom, fhcom operations |
-| `VType.lean` | **TODO** | 10 | reduceVType, V-type operations |
-| `Splice.lean` | **TODO** | 9 | splice* functions |
-| `Domain.lean` | **TODO** | 7 | domain operations |
+| `Core.lean` | Keep | 28 | Defines Expr, allowed to match |
+| `Visitor.lean` | Keep | 30 | Defines shape/traverse, allowed |
+| `Kan.lean` | ✅ Done | 0 | Uses normalizeStep with reduceKan |
+| `Conversion.lean` | ✅ Done | 4 | whnf uses visitor; 4 remaining in equate_neutral (structural) |
+| `Semantics.lean` | ✅ Done | 0 | eval uses tryBetaReduce + shape |
+| `FHCom.lean` | ✅ Done | 0 | normalizeFHCom uses normalizeStep |
+| `VType.lean` | ✅ Done | 4 | normalizeVExpr uses normalizeStep; 4 in tests |
+| `Splice.lean` | ✅ Done | 0 | substSpliced uses traverse |
+| `GlobalEnv.lean` | ✅ Done | 12 | normalizeWithGlobals uses whnfStep; 12 in type-directed infer/check |
+| `Unify.lean` | Partial | 9 | freeVars/occurs/applyMetas done; some remain |
+| `Elaborate.lean` | TODO | 10 | Type-directed, may need matches |
+| `SubType.lean` | TODO | 9 | Domain-specific |
+| `Domain.lean` | TODO | 8 | Domain operations |
 | `Datatype.lean` | Check | 2 | May be domain-specific |
-| `SubType.lean` | Check | 1 | May be domain-specific |
-| `Quote.lean` | Check | 0 | Likely OK |
-| `TypeAttrs.lean` | Check | 0 | Likely OK |
+| `Quote.lean` | OK | 0 | No Expr matches |
+| `TypeAttrs.lean` | OK | 0 | No Expr matches |
 | `Cofibration.lean` | OK | 0 | No Expr matches |
 | `ExtType.lean` | OK | 0 | No Expr matches |
 | `Glue.lean` | OK | 0 | No Expr matches |
 | `HIT.lean` | OK | 0 | No Expr matches |
 
-**Priority Order**: Conversion → Semantics → GlobalEnv → Elaborate → FHCom → VType
+**Completed**: Kan, Conversion, Semantics, FHCom, VType, Splice, GlobalEnv
+**Remaining**: Elaborate (10), SubType (9), Domain (8), Unify (9), Datatype (2)
 
 ## How to Add New Operations
 

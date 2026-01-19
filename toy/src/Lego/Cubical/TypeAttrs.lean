@@ -19,7 +19,7 @@
 
 import Lego.Attr
 import Lego.AttrEval
-import Lego.Red.Core
+import Lego.Cubical.Core
 import Lego.Algebra
 
 namespace Lego
