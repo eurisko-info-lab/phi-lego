@@ -1,13 +1,16 @@
 /-
-  Bootstrap Rules and Helper Functions
+  Seed Rules for Bootstrap
 
-  This module contains:
+  PURPOSE: These rules define how the parser combines parsed terms.
+  They're needed to interpret grammars (combine sequences, wrap nodes, etc.)
+
+  Contains:
   1. Hand-coded helper functions (combineSeq, splitSeq, wrapNode, unwrapNode)
      used by the interpreter during parsing
   2. Generated rewrite rules from Bootstrap.lego that express the same logic
 
-  Eventually the hand-coded functions can be replaced by applying the rules,
-  but for now we keep both for bootstrapping.
+  These rules are used BOTH by the hardcoded bootstrap AND the runtime grammar.
+  They define the semantics of grammar interpretation, not just syntax.
 
   Regenerate with:
     lake exe tolean --rules test/Bootstrap.lego -o generated/BootstrapRules.lean

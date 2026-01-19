@@ -1,8 +1,14 @@
 /-
-  Generated Tokenizer from Bootstrap.lego
+  Seed Tokenizer for Bootstrap
 
-  Purely grammar-driven lexing. All token patterns are defined in the
-  Token piece grammar and interpreted by tokenizeWithGrammar.
+  PURPOSE: This is the MINIMAL hardcoded tokenizer needed to tokenize Bootstrap.lego.
+  The tokenizer is grammar-driven - it uses Token piece grammar to lex characters.
+
+  This is the irreducible kernel: at some point you need actual character-level
+  code to read the first .lego file. This is that code.
+
+  Future: Even this could be loaded from Bootstrap.lego if we had a simpler
+  seed format (e.g., JSON or S-expressions for the token grammar).
 
   DO NOT EDIT - regenerate with:
     lake exe tolean --tokenizer test/Bootstrap.lego -o generated/BootstrapTokenizer.lean

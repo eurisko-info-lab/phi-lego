@@ -1,10 +1,18 @@
 /-
-  Generated Grammar from Bootstrap.lego
+  Seed Grammar for Bootstrap
 
-  This module contains ONLY the grammar piece definitions.
-  Import this from your hand-written Bootstrap.lean to use
-  the generated grammar while keeping hand-written tokenizer
-  and other infrastructure.
+  PURPOSE: This is the MINIMAL hardcoded grammar needed to parse Bootstrap.lego.
+  Once Bootstrap.lego is loaded at runtime, its grammar REPLACES this one.
+
+  This file exists only to break the chicken-and-egg problem:
+  - We need a grammar to parse Bootstrap.lego
+  - Bootstrap.lego defines the grammar
+  - Solution: hardcode just enough to parse Bootstrap.lego once
+
+  After runtime bootstrap (see Lego.Runtime):
+  - This grammar is ERASED
+  - All .lego files are parsed with the grammar FROM Bootstrap.lego
+  - Edit Bootstrap.lego → changes take effect immediately
 
   DO NOT EDIT - regenerate with:
     lake exe tolean --grammar test/Bootstrap.lego > generated/BootstrapGrammar.lean

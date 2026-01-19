@@ -1,14 +1,31 @@
 /-
-  Lego.Bootstrap: The Meta-Grammar (pre-compiled)
+  Lego.Bootstrap: The Seed Grammar (hardcoded)
 
-  This is exactly like Grammar.sexpr - a pre-compiled grammar that can parse
-  other grammars. But structurally it's just another Language, not special.
+  PURPOSE: Parse Bootstrap.lego ONCE to get the real grammar.
 
-  The grammar pieces are generated from Bootstrap.lego.
-  The tokenizer is also in generated/ (hand-written initially, eventually generated).
-  The rules are generated from Bootstrap.lego.
+  This module is the "seed" that breaks the chicken-and-egg problem:
+  - We need a grammar to parse Bootstrap.lego
+  - Bootstrap.lego defines the grammar
+  - This hardcoded seed parses Bootstrap.lego
+  - Then Runtime.lean uses the PARSED grammar for everything else
 
-  To regenerate:
+  Architecture:
+    ┌─────────────────────┐
+    │  This Module        │ ──parses──▶ Bootstrap.lego
+    │  (hardcoded seed)   │                   │
+    └─────────────────────┘                   │
+                                              ▼
+                                      ┌─────────────────┐
+                                      │ Runtime Grammar │ ──parses──▶ *.lego
+                                      │ (from Bootstrap)│
+                                      └─────────────────┘
+
+  The hardcoded parts (in generated/):
+  - BootstrapGrammar.lean: grammar productions
+  - BootstrapTokenizer.lean: character-level tokenizer
+  - BootstrapRules.lean: interpreter rules
+
+  To regenerate (if Bootstrap.lego changes):
     lake exe tolean --grammar test/Bootstrap.lego -o generated/BootstrapGrammar.lean
     lake exe tolean --tokenizer test/Bootstrap.lego -o generated/BootstrapTokenizer.lean
     lake exe tolean --rules test/Bootstrap.lego -o generated/BootstrapRules.lean
