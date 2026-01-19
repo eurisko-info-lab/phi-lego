@@ -91,7 +91,6 @@ def Expr.shape : Expr → ExprShape
   | .loop r => ⟨[⟨r, .none⟩], fun | [r'] => .loop r' | _ => .loop r⟩
   | .subIn e => ⟨[⟨e, .none⟩], fun | [e'] => .subIn e' | _ => .subIn e⟩
   | .subOut e => ⟨[⟨e, .none⟩], fun | [e'] => .subOut e' | _ => .subOut e⟩
-  | .unglue e => ⟨[⟨e, .none⟩], fun | [e'] => .unglue e' | _ => .unglue e⟩
 
   -- Single child, binds 1 term var
   | .lam body => ⟨[⟨body, .term 1⟩], fun | [b'] => .lam b' | _ => .lam body⟩
@@ -111,8 +110,6 @@ def Expr.shape : Expr → ExprShape
       fun | [φ', ψ'] => .cof_and φ' ψ' | _ => .cof_and φ ψ⟩
   | .cof_or φ ψ => ⟨[⟨φ, .none⟩, ⟨ψ, .none⟩],
       fun | [φ', ψ'] => .cof_or φ' ψ' | _ => .cof_or φ ψ⟩
-  | .glueElem t a => ⟨[⟨t, .none⟩, ⟨a, .none⟩],
-      fun | [t', a'] => .glueElem t' a' | _ => .glueElem t a⟩
 
   -- Two children, second binds 1 term var (dependent types)
   | .pi dom cod => ⟨[⟨dom, .none⟩, ⟨cod, .term 1⟩],
@@ -135,8 +132,6 @@ def Expr.shape : Expr → ExprShape
       fun | [r1, r2, t', a'] => .coe r1 r2 t' a' | _ => .coe r r' ty a⟩
   | .vtype r a b equiv => ⟨[⟨r, .none⟩, ⟨a, .none⟩, ⟨b, .none⟩, ⟨equiv, .none⟩],
       fun | [r', a', b', e'] => .vtype r' a' b' e' | _ => .vtype r a b equiv⟩
-  | .glue a φ t equiv => ⟨[⟨a, .none⟩, ⟨φ, .none⟩, ⟨t, .none⟩, ⟨equiv, .none⟩],
-      fun | [a', φ', t', e'] => .glue a' φ' t' e' | _ => .glue a φ t equiv⟩
   | .natElim p z s n => ⟨[⟨p, .none⟩, ⟨z, .none⟩, ⟨s, .term 2⟩, ⟨n, .none⟩],
       fun | [p', z', s', n'] => .natElim p' z' s' n' | _ => .natElim p z s n⟩
   | .circleElim p b l x => ⟨[⟨p, .none⟩, ⟨b, .none⟩, ⟨l, .dim 1⟩, ⟨x, .none⟩],

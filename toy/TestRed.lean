@@ -28,7 +28,6 @@ import Lego.Cubical.Signature
 import Lego.Cubical.Cofibration
 import Lego.Cubical.Splice
 import Lego.Cubical.Tactic
-import Lego.Cubical.Glue
 import Lego.Cubical.Domain
 import Lego.Cubical.Conversion
 import Lego.Cubical.RefineMonad
@@ -399,22 +398,6 @@ def circleTests : List TestResult :=
     assertEq "circle_base_str" base_str "base",
     assertEq "circle_loop_str" loop_str "(loop 0)",
     assertEq "circle_type_str" circle_str "S¹"
-  ]
-
-/-- Tests for Glue types -/
-def glueTests : List TestResult :=
-  open Lego.Core.Expr in
-  let glue_elem := glueElem (lit "t") (lit "a")
-  let unglue_glue := unglue glue_elem
-  let unglue_result := step unglue_glue
-  let glue_ty := glue (lit "A") cof_top (lit "T") (lit "e")
-  let glue_str := s!"{glue_ty}"
-  let glue_elem_str := s!"{glue_elem}"
-
-  [
-    assertEq "unglue_glue" unglue_result (some (lit "a")),
-    assertTrue "glue_type_str" (glue_str.startsWith "(Glue"),
-    assertTrue "glue_elem_str" (glue_elem_str.startsWith "(glue")
   ]
 
 /-- Tests for Systems (partial elements) -/
@@ -3559,88 +3542,6 @@ def tacticModuleTests : List TestResult :=
     assertTrue "const_fn" const_fn_ok
   ]
 
-/-! ## Glue Module Tests (Enhanced) -/
-
-def glueModuleTests : List TestResult :=
-  open Lego.Core.Expr in
-  open Lego.Cubical.Glue in
-
-  -- Test GlueInfo construction
-  let ginfo := GlueInfo.mk nat cof_top nat (lit "id")
-  let ginfo_base := ginfo.base == nat
-  let ginfo_cof := ginfo.cof == cof_top
-  let ginfo_top := ginfo.top == nat
-  let ginfo_equiv := ginfo.equiv == lit "id"
-
-  -- Test GlueElemInfo construction
-  let geinfo := GlueElemInfo.mk (lit "partial") (lit "base")
-  let geinfo_partial := geinfo.partial_ == lit "partial"
-  let geinfo_base := geinfo.base == lit "base"
-
-  -- Test mkGlue smart constructor
-  let g := mkGlue nat cof_top circle (lit "equiv")
-  let g_is_glue := match g with
-    | glue _ _ _ _ => true
-    | nat => true  -- Could reduce
-    | circle => true  -- Could reduce
-    | _ => false
-
-  -- Test mkGlueElem smart constructor
-  let ge := mkGlueElem (lit "t") (lit "a")
-  let ge_is_glue_elem := match ge with
-    | glueElem _ _ => true
-    | _ => false
-
-  -- Test mkUnglue smart constructor
-  let ug := mkUnglue (glueElem (lit "t") (lit "a"))
-  let ug_is_unglue := match ug with
-    | unglue _ => true
-    | _ => false
-
-  -- Test reduceGlue (with trivial cof)
-  let g0 := glue nat cof_top circle (lit "e")
-  let reduced0 := reduceGlue g0
-  let g0_reduces := reduced0 == circle  -- cof_top means reduce to top (circle)
-
-  -- Test reduceGlueElem
-  let reduced_ge := reduceGlueElem cof_top (lit "t") (lit "a")
-  let ge_reduces := reduced_ge == lit "t"  -- cof_top -> partial
-
-  -- Test reduceUnglue
-  let reduced_ug := reduceUnglue (glueElem (lit "t") (lit "a"))
-  let ug_reduces := reduced_ug == lit "a"
-
-  -- Test ua function
-  let ua_result := ua (lit "A") (lit "B") (lit "equiv")
-  let ua_ok := match ua_result with
-    | plam _ => true
-    | _ => false
-
-  [
-    -- GlueInfo
-    assertTrue "ginfo_base" ginfo_base,
-    assertTrue "ginfo_cof" ginfo_cof,
-    assertTrue "ginfo_top" ginfo_top,
-    assertTrue "ginfo_equiv" ginfo_equiv,
-
-    -- GlueElemInfo
-    assertTrue "geinfo_partial" geinfo_partial,
-    assertTrue "geinfo_base" geinfo_base,
-
-    -- Smart constructors
-    assertTrue "mkGlue" g_is_glue,
-    assertTrue "mkGlueElem" ge_is_glue_elem,
-    assertTrue "mkUnglue" ug_is_unglue,
-
-    -- Reduction
-    assertTrue "reduceGlue_at_top" g0_reduces,
-    assertTrue "reduceGlueElem" ge_reduces,
-    assertTrue "reduceUnglue" ug_reduces,
-
-    -- ua
-    assertTrue "ua" ua_ok
-  ]
-
 /-! ## Domain Module Tests -/
 
 def domainModuleTests : List TestResult :=
@@ -4988,9 +4889,9 @@ def runRedttTypeCheckTests : IO (List TestResult) := do
 
 def allTests : List TestResult :=
   coreIRTests ++ pathTests ++ kanTests ++
-  cofibrationTests ++ natHITTests ++ circleTests ++ glueTests ++ systemTests ++ coeStabilityTests ++
+  cofibrationTests ++ natHITTests ++ circleTests ++ systemTests ++ coeStabilityTests ++
   elaborationTests ++ typecheckTests ++ elaborateAndTypecheck ++ astToIRTests ++ irToASTTests ++
-  glueModuleTests ++ domainModuleTests ++ conversionModuleTests ++ refineMonadModuleTests ++
+  domainModuleTests ++ conversionModuleTests ++ refineMonadModuleTests ++
   termBuilderModuleTests ++ semanticsModuleTests
 
 def printTestGroup (name : String) (tests : List TestResult) : IO (Nat × Nat) := do
@@ -5030,9 +4931,6 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Circle (S¹) HIT Tests" circleTests
-  totalPassed := totalPassed + p; totalFailed := totalFailed + f
-
-  let (p, f) ← printTestGroup "Glue Type Tests" glueTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "System (Partial Element) Tests" systemTests
@@ -5102,9 +5000,6 @@ def main (args : List String) : IO Unit := do
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Tactic Module Tests" tacticModuleTests
-  totalPassed := totalPassed + p; totalFailed := totalFailed + f
-
-  let (p, f) ← printTestGroup "Glue Module Tests" glueModuleTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   let (p, f) ← printTestGroup "Domain Module Tests" domainModuleTests

@@ -7,7 +7,7 @@ This document tracks which `Expr` constructors come from **redtt**, which from *
 | Category | Count | Description |
 |----------|-------|-------------|
 | **Shared** | 23 | Core cubical type theory |
-| **redtt-only** | 11 | Twins, Data types, Restrict, legacy features |
+| **redtt-only** | 8 | Twins, Data types, Restrict |
 | **cooltt-only** | 6 | Signatures, Circle, Nat with eliminators |
 | **Lego-only** | 6 | Our additions (path sugar, systems, etc.) |
 
@@ -52,7 +52,6 @@ Features specific to redtt's design:
 | `lit` | `Var` (named) | String literals (redtt uses named globals) |
 | `ghcom` | `GHCom` | Generalized hcom (for non-strict Kan) |
 | `gcom` | `GCom` | Generalized com |
-| `glue` / `glueElem` / `unglue` | (legacy) | Old-style glue types (superseded by V) |
 | `ext` | `Ext` | Extension types (n-ary path abstraction) |
 | `extLam` | `ExtLam` | Extension lambda |
 | `extApp` | `ExtApp` (frame) | Extension application |

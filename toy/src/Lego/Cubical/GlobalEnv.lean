@@ -515,11 +515,6 @@ partial def inferG (ctx : TypingCtx) : Expr → TCResultG Expr
   | .vin _ _ b => inferG ctx b
   | .vproj _ _ b _ _ => .ok b
 
-  -- Glue
-  | .glue _ _ _ _ => .ok (.univ .zero)
-  | .glueElem _ a => inferG ctx a
-  | .unglue g => inferG ctx g
-
   -- Systems
   | .sys ((_, tm) :: _) => inferG ctx tm
   | .sys [] => .error (.cannotInfer (.sys []))

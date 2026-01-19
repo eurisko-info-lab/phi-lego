@@ -162,10 +162,6 @@ inductive Expr where
   | vtype : Expr → Expr → Expr → Expr → Expr  -- V r A B equiv
   | vin   : Expr → Expr → Expr → Expr      -- vin r a b : V r A B e (when r=0 gives a, r=1 gives b)
   | vproj : Expr → Expr → Expr → Expr → Expr → Expr  -- vproj r A B equiv v : projects out of V-type
-  -- Legacy Glue (deprecated, use V-types)
-  | glue  : Expr → Expr → Expr → Expr → Expr  -- Glue A φ T equiv
-  | glueElem : Expr → Expr → Expr          -- glue t a : Glue A φ T e  (with [φ → t])
-  | unglue : Expr → Expr                   -- unglue g : A
   -- Natural numbers (for HIT treatment)
   | nat   : Expr                           -- Nat type
   | zero  : Expr                           -- zero
@@ -329,13 +325,6 @@ partial def shiftAbove (cutoff : Nat) (delta : Int) : Expr → Expr
                                  (shiftAbove cutoff delta b)
                                  (shiftAbove cutoff delta equiv)
                                  (shiftAbove cutoff delta v)
-  -- Legacy Glue types
-  | glue a phi t equiv => glue (shiftAbove cutoff delta a)
-                               (shiftAbove cutoff delta phi)
-                               (shiftAbove cutoff delta t)
-                               (shiftAbove cutoff delta equiv)
-  | glueElem t a => glueElem (shiftAbove cutoff delta t) (shiftAbove cutoff delta a)
-  | unglue g => unglue (shiftAbove cutoff delta g)
   -- Nat
   | nat => nat
   | zero => zero
@@ -494,11 +483,6 @@ partial def subst (idx : Nat) (val : Expr) : Expr → Expr
     vin (subst idx val r) (subst idx val el0) (subst idx val el1)
   | vproj r a b equiv v =>
     vproj (subst idx val r) (subst idx val a) (subst idx val b) (subst idx val equiv) (subst idx val v)
-  -- Legacy Glue types
-  | glue a phi t equiv =>
-    glue (subst idx val a) (subst idx val phi) (subst idx val t) (subst idx val equiv)
-  | glueElem t a => glueElem (subst idx val t) (subst idx val a)
-  | unglue g => unglue (subst idx val g)
   -- Nat
   | nat => nat
   | zero => zero
@@ -609,10 +593,6 @@ partial def freeIn (n : Nat) : Expr → Bool
   | vtype r a b equiv => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv
   | vin r el0 el1 => freeIn n r || freeIn n el0 || freeIn n el1
   | vproj r a b equiv v => freeIn n r || freeIn n a || freeIn n b || freeIn n equiv || freeIn n v
-  -- Legacy Glue
-  | glue a phi t equiv => freeIn n a || freeIn n phi || freeIn n t || freeIn n equiv
-  | glueElem t a => freeIn n t || freeIn n a
-  | unglue g => freeIn n g
   -- Nat
   | nat => false
   | zero => false
@@ -742,10 +722,6 @@ partial def step : Expr → Option Expr
   -- loop case: circleElim P b l (loop r) → l @ r
   -- But l is λi. ... so we need l[r] = body[0 := r]
   | circleElim _ _ l (loop r) => some (papp l r)
-
-  -- Glue/unglue reductions
-  -- unglue (glueElem t a) → a
-  | unglue (glueElem _ a) => some a
 
   -- System extraction (when cof is true)
   | sys ((cof_top, tm) :: _) => some tm
@@ -1053,31 +1029,6 @@ partial def stepDeep : Expr → Option Expr
                 match stepDeep v with
                 | some v' => some (vproj r a b equiv v')
                 | none => none
-      -- Glue operations
-      | glue a phi t equiv =>
-        match stepDeep a with
-        | some a' => some (glue a' phi t equiv)
-        | none =>
-          match stepDeep phi with
-          | some phi' => some (glue a phi' t equiv)
-          | none =>
-            match stepDeep t with
-            | some t' => some (glue a phi t' equiv)
-            | none =>
-              match stepDeep equiv with
-              | some equiv' => some (glue a phi t equiv')
-              | none => none
-      | glueElem t a =>
-        match stepDeep t with
-        | some t' => some (glueElem t' a)
-        | none =>
-          match stepDeep a with
-          | some a' => some (glueElem t a')
-          | none => none
-      | unglue g =>
-        match stepDeep g with
-        | some g' => some (unglue g')
-        | none => none
       -- Systems - try to reduce each branch
       | sys branches =>
         let rec tryBranches : List (Expr × Expr) → List (Expr × Expr) → Option Expr
@@ -1165,15 +1116,10 @@ partial def toString : Expr → String
   | sys branches =>
     let branchStrs := branches.map fun (cof, tm) => s!"{toString cof} ↦ {toString tm}"
     s!"[{String.intercalate ", " branchStrs}]"
-  -- Glue
   -- V-types
   | vtype r a b equiv => s!"(V {toString r} {toString a} {toString b} {toString equiv})"
   | vin r el0 el1 => s!"(vin {toString r} {toString el0} {toString el1})"
   | vproj r a b equiv v => s!"(vproj {toString r} {toString a} {toString b} {toString equiv} {toString v})"
-  -- Legacy Glue
-  | glue a phi t equiv => s!"(Glue {toString a} {toString phi} {toString t} {toString equiv})"
-  | glueElem t a => s!"(glue {toString t} {toString a})"
-  | unglue g => s!"(unglue {toString g})"
   -- Nat
   | nat => "ℕ"
   | zero => "0"
@@ -1272,7 +1218,6 @@ def isNeutral : Expr → Bool
   | .hcom _ _ _ _ e => isNeutral e  -- hcom stuck on neutral
   | .natElim _ _ _ n => isNeutral n
   | .circleElim _ _ _ x => isNeutral x
-  | .unglue e => isNeutral e
   | _ => false
 
 /-- Conversion checking with η-expansion.
@@ -1393,12 +1338,6 @@ partial def conv (a b : Expr) : Bool :=
   | .extApp e1 dims1, .extApp e2 dims2 =>
     conv e1 e2 && dims1.length == dims2.length &&
     (dims1.zip dims2).all fun (d1, d2) => conv d1 d2
-
-  -- ===== Glue types =====
-  | .glue a1 φ1 t1 e1, .glue a2 φ2 t2 e2 =>
-    conv a1 a2 && conv φ1 φ2 && conv t1 t2 && conv e1 e2
-  | .glueElem t1 a1, .glueElem t2 a2 => conv t1 t2 && conv a1 a2
-  | .unglue g1, .unglue g2 => conv g1 g2
 
   -- ===== V-types =====
   | .vtype r1 a1 b1 e1, .vtype r2 a2 b2 e2 =>
@@ -1671,11 +1610,6 @@ partial def infer (ctx : Ctx) : Expr → TCResult Expr
   | .vproj _ _ b _ v => do
     let _ ← infer ctx v
     .ok b
-
-  -- Legacy Glue types
-  | .glue _ _ _ _ => .ok (.univ .zero)  -- Simplified
-  | .glueElem _ a => infer ctx a
-  | .unglue g => infer ctx g
 
   -- Sub types
   -- sub A φ t : Type (when A : Type, φ : Cof, t : [φ] → A)

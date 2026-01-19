@@ -949,16 +949,6 @@ def sub (aTac φTac tTac : ChkTac) : TpTac :=
     let t ← tTac ctx (ChkGoal.simple a)  -- Partial: should be under φ
     TacResult.ok (Expr.sub a φ t)
 
-/-- Glue type formation: Glue A φ T equiv
-    For univalence (legacy, prefer V-types). -/
-def glue (aTac φTac tTac equivTac : ChkTac) : TpTac :=
-  Tp.rule "Univ.glue" fun ctx => do
-    let a ← aTac ctx (ChkGoal.simple (Expr.univ 0))
-    let φ ← φTac ctx (ChkGoal.simple (lit "𝔽"))
-    let t ← tTac ctx (ChkGoal.simple (Expr.univ 0))
-    let equiv ← equivTac ctx (ChkGoal.simple (lit s!"Equiv({t},{a})"))
-    TacResult.ok (Expr.glue a φ t equiv)
-
 end Univ
 
 /-! ## V-Type Element Tactics (ElV)

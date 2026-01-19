@@ -158,10 +158,6 @@ partial def substAt (term : Expr) (val : Expr) (depth : Nat) : Expr :=
   | Expr.vin r m n => Expr.vin r (substAt m val depth) (substAt n val depth)
   | Expr.vproj r a b e v =>
     Expr.vproj r (substAt a val depth) (substAt b val depth) (substAt e val depth) (substAt v val depth)
-  | Expr.glue a phi t equiv =>
-    Expr.glue (substAt a val depth) phi (substAt t val depth) (substAt equiv val depth)
-  | Expr.glueElem t a => Expr.glueElem (substAt t val depth) (substAt a val depth)
-  | Expr.unglue g => Expr.unglue (substAt g val depth)
   | Expr.sys branches =>
     Expr.sys (branches.map fun (c, t) => (c, substAt t val depth))
   | e => e  -- Atoms unchanged
@@ -221,9 +217,6 @@ partial def quoteTy (env : QuoteEnv) : Expr → Expr
   | Expr.vtype r a b e =>
     Expr.vtype (quoteDim env r) (quoteTy env a) (quoteTy env b) (quote env (Expr.univ Level.zero) e)
 
-  | Expr.glue a phi t equiv =>
-    Expr.glue (quoteTy env a) (quoteCof env phi) (quoteTy env t) (quote env (Expr.univ Level.zero) equiv)
-
   -- Neutral types get quoted as neutrals
   | e => quoteNeu env e
 
@@ -266,10 +259,6 @@ partial def quote (env : QuoteEnv) (ty : Expr) : Expr → Expr
     -- V-type introductions
     | Expr.vtype _ a b _e, Expr.vin r' m n =>
       Expr.vin (quoteDim env r') (quote env a m) (quote env b n)
-
-    -- Glue introductions
-    | Expr.glue a _phi t _equiv, Expr.glueElem te ae =>
-      Expr.glueElem (quote env t te) (quote env a ae)
 
     -- Neutrals and other forms
     | _, _ => quoteNeu env e'
@@ -315,8 +304,6 @@ partial def quoteNeu (env : QuoteEnv) : Expr → Expr
   | Expr.vproj r a b e v =>
     Expr.vproj (quoteDim env r) (quoteTy env a) (quoteTy env b)
       (quoteNeu env e) (quoteNeu env v)
-
-  | Expr.unglue g => Expr.unglue (quoteNeu env g)
 
   | Expr.natElim p z s n =>
     Expr.natElim (quoteTy env p) (quoteNeu env z) (quoteNeu env s) (quoteNeu env n)
