@@ -6,7 +6,7 @@
 
   For Red-specific (cubical type theory) tests, see TestRed.lean
   Run with: lake exe lego-test-red
-  
+
   NOTE: This test suite uses Runtime.init to ensure Bootstrap.lego
   is loaded first, providing the correct grammar for all .lego file parsing.
 -/

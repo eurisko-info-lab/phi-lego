@@ -3,7 +3,7 @@
 
   Tests for CoolTT library parsing.
   Run with: lake exe lego-test-cool
-  
+
   NOTE: This test suite uses Runtime.init to ensure Bootstrap.lego
   is loaded first, providing the correct grammar for all .lego file parsing.
 -/

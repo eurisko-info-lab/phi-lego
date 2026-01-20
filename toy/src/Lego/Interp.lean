@@ -55,7 +55,7 @@ def String.findSubstrFrom (s : String) (sub : String) (start : Nat := 0) : Optio
       | 0 => none
       | fuel' + 1 =>
         if i + sub.length > s.length then none
-        else if s.extract ⟨i⟩ ⟨i + sub.length⟩ == sub then some i
+        else if String.Pos.Raw.extract s ⟨i⟩ ⟨i + sub.length⟩ == sub then some i
         else go (i + 1) fuel'
     go start (s.length - start + 1)
 

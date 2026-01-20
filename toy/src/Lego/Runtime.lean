@@ -71,23 +71,15 @@ def loadBootstrap (path : String := defaultBootstrapPath) : IO (Except String Ru
   catch e =>
     return Except.error s!"Error loading {path}: {e}"
 
-/-- Load bootstrap or fall back to hardcoded -/
-def loadBootstrapOrFallback (path : String := defaultBootstrapPath) : IO Runtime := do
+/-- Load bootstrap, failing if Bootstrap.lego cannot be loaded.
+    Lego does not use fallbacks - if Bootstrap.lego fails, that's a fatal error. -/
+def loadBootstrapOrError (path : String := defaultBootstrapPath) : IO Runtime := do
   match ← loadBootstrap path with
   | Except.ok rt => return rt
   | Except.error e =>
-    -- Fall back to hardcoded bootstrap (for compatibility)
-    IO.eprintln s!"Warning: {e}"
-    IO.eprintln "Falling back to hardcoded bootstrap grammar"
-    return {
-      grammar := {
-        productions := Bootstrap.metaGrammar.allGrammar
-        symbols := []
-        startProd := "File.legoFile"
-      }
-      tokenize := Bootstrap.tokenize
-      rules := Bootstrap.allRules
-    }
+    IO.eprintln s!"FATAL: {e}"
+    IO.eprintln "Bootstrap.lego must be loadable for Lego to function."
+    IO.Process.exit 1
 
 /-! ## Parsing with Runtime Grammar -/
 
@@ -213,15 +205,15 @@ def lego2lean (rt : Runtime) (sourcePath : String) (rosettaPath : String := "./s
 /-- Initialize the Lego runtime by loading Bootstrap.lego.
     This MUST be called before parsing any user .lego files.
     Returns the runtime that should be used for all subsequent parsing.
-    
+
     The bootstrap chain is:
       Hardcoded Grammar → parses → Bootstrap.lego → Full Grammar → parses → *.lego
-    
+
     IMPORTANT: Only Bootstrap.lego should be parsed with the hardcoded grammar.
     All other .lego files must use the runtime returned by this function. -/
 def init (bootstrapPath : String := defaultBootstrapPath) : IO Runtime := do
   IO.println s!"[Lego] Loading Bootstrap.lego from {bootstrapPath}..."
-  let rt ← loadBootstrapOrFallback bootstrapPath
+  let rt ← loadBootstrapOrError bootstrapPath
   IO.println s!"[Lego] Runtime initialized with {rt.grammar.productions.length} productions"
   return rt
 

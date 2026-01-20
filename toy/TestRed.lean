@@ -4,7 +4,7 @@
   Tests for cubical type theory (Core IR), redtt library parsing,
   attribute evaluation, and type checking.
   Run with: lake exe lego-test-red
-  
+
   NOTE: This test suite uses Runtime.init to ensure Bootstrap.lego
   is loaded first, providing the correct grammar for all .lego file parsing.
 -/

@@ -9,7 +9,7 @@
   1. Parse .lego file using Runtime grammar → Term AST
   2. Walk AST to extract pieces, rules, types, tests
   3. Generate Lean code from extracted data
-  
+
   NOTE: This module uses Runtime to ensure Bootstrap.lego is loaded first.
 -/
 

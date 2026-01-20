@@ -67,16 +67,16 @@ def normalize := Lego.Generated.Bootstrap.normalize
 /-! ## Parsing -/
 
 /-- Parse Bootstrap.lego ONLY using the hardcoded grammar.
-    
+
     ⚠️  WARNING: This function should ONLY be used to parse Bootstrap.lego itself!
-    
+
     For parsing any other .lego file, use:
       let rt ← Lego.Runtime.init
       let ast ← Lego.Runtime.parseLegoFileE rt content
-    
+
     The bootstrap chain is:
       Hardcoded Grammar → Bootstrap.lego → Full Grammar → All other .lego files
-    
+
     Using this function on non-Bootstrap files violates the architecture and
     may cause parsing errors if Bootstrap.lego has been extended. -/
 def parseLegoFile (content : String) : Option Term :=
