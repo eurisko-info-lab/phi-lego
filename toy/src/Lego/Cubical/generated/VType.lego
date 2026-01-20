@@ -15,7 +15,7 @@ import Quote ;
 import Kan ;
 import Visitor ;
 
-lang VType (Core Quote Kan Visitor) :=
+lang VType (Core, Quote, Kan, Visitor) :=
 
 -----------------------------------------------------
 -- VTypeInfo

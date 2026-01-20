@@ -16,7 +16,7 @@ import Core ;
 import Cofibration ;
 import Visitor ;
 
-lang Conversion (Core Cofibration Visitor) :=
+lang Conversion (Core, Cofibration, Visitor) :=
 
 -----------------------------------------------------
 -- ConvResult

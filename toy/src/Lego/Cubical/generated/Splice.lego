@@ -17,14 +17,14 @@ import Core ;
 import Cofibration ;
 import Visitor ;
 
-lang Splice (Core Cofibration Visitor) :=
+lang Splice (Core, Cofibration, Visitor) :=
 
 -----------------------------------------------------
 -- SpliceEnv
 -- Environment for splice operations
 -----------------------------------------------------
 piece SpliceEnv
-  spliceEnv ::= "spliceEnv" "conEnv:" <expr>* "tpEnv:" <expr>* → spliceEnv ;
+  spliceEnv ::= "spliceEnv" "conEnv:" term* "tpEnv:" term* → spliceEnv ;
   
   rule spliceEnvEmpty: spliceEnvEmpty ~> (spliceEnv conEnv: () tpEnv: ()) ;
   

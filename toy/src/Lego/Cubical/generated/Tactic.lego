@@ -16,7 +16,7 @@ import Core ;
 import Cofibration ;
 import Splice ;
 
-lang Tactic (Core Cofibration Splice) :=
+lang Tactic (Core, Cofibration, Splice) :=
 
 -----------------------------------------------------
 -- TacResult

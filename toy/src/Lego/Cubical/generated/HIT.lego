@@ -15,7 +15,7 @@
 import Core ;
 import Kan ;
 
-lang HIT (Core Kan) :=
+lang HIT (Core, Kan) :=
 
 -----------------------------------------------------
 -- HITKind
@@ -42,10 +42,9 @@ piece NatKan
   -- hcom for Nat: computation is strict
   -- hcom Nat r r' φ tubes base computes if base is a numeral
   
+  rule hcomNatEq: (hcomNat $r $r $φ $tubes $base) ~> $base ;
   rule hcomNat: (hcomNat $r $r' $φ $tubes $base) ~>
-    (case (eq $r $r')
-      true => $base
-      false => (hcomNatStep $φ $tubes $base)) ;
+    (hcomNatStep $φ $tubes $base) ;
   
   -- Nat hcom is strict: the cap is returned immediately
   -- (In cubical type theory, Nat is decidable so hcom always computes)
@@ -95,10 +94,9 @@ piece CircleKan
   -- hcom for Circle must handle both base and loop
   -- hcom S¹ r r' φ tubes cap
   
+  rule hcomCircleEq: (hcomCircle $r $r $φ $tubes $cap) ~> $cap ;
   rule hcomCircle: (hcomCircle $r $r' $φ $tubes $cap) ~>
-    (case (eq $r $r')
-      true => $cap
-      false => (hcomCircleBody $r $r' $φ $tubes $cap)) ;
+    (hcomCircleBody $r $r' $φ $tubes $cap) ;
   
   -- Body of circle hcom: distinguish base vs loop
   rule hcomCircleBody: (hcomCircleBody $r $r' $φ $tubes (intro base)) ~>
@@ -160,9 +158,9 @@ piece LoopSpace
       (hcom S1 dim0 dim1 
         (cof_disj (cof_eq (ix 0) dim0) (cof_eq (ix 0) dim1))
         (lam (lam 
-          (caseCof (ix 1)
-            (cof_eq (ix 1) dim0 => (papp (shift 0 2 $p) (ix 0)))
-            (cof_eq (ix 1) dim1 => (papp (shift 0 2 $q) (ix 0))))))
+          (cofSplit (ix 1)
+            (cof_eq (ix 1) dim0) (papp (shift 0 2 $p) (ix 0))
+            (cof_eq (ix 1) dim1) (papp (shift 0 2 $q) (ix 0)))))
         (intro base))) ;
   
   -- loop inverse
@@ -195,10 +193,10 @@ piece HITBoundary
   rule loopBoundaryOk: (checkLoopBoundary (intro base) (intro base)) ~> true ;
   
   -- For general HITs, boundary checking would be more complex
-  rule hitCheckBoundary: (hitCheckBoundary $kind $ctor $bounds) ~>
-    (case $kind
-      natHIT => true  -- Nat has no path constructors
-      circleHIT => (checkCircleBoundary $ctor $bounds)) ;
+  -- Nat has no path constructors
+  rule hitCheckBoundaryNat: (hitCheckBoundary natHIT $ctor $bounds) ~> true ;
+  rule hitCheckBoundaryCircle: (hitCheckBoundary circleHIT $ctor $bounds) ~>
+    (checkCircleBoundary $ctor $bounds) ;
   
   rule checkCircleBoundary: (checkCircleBoundary base $bounds) ~> true ;
   rule checkCircleBoundaryLoop: (checkCircleBoundary (loop $i) $bounds) ~>
@@ -210,13 +208,13 @@ piece HITBoundary
 -- Quote HIT terms back to surface syntax
 -----------------------------------------------------
 piece HITQuote
-  rule quoteNat: (quoteHIT natHIT (intro zero)) ~> (surface "0") ;
+  rule quoteNat: (quoteHIT natHIT (intro zero)) ~> (surface zero) ;
   rule quoteNatSucc: (quoteHIT natHIT (intro (succ $n))) ~>
-    (surface ("succ" (quoteHIT natHIT $n))) ;
+    (surface (succ (quoteHIT natHIT $n))) ;
   
-  rule quoteCircle: (quoteHIT circleHIT (intro base)) ~> (surface "base") ;
+  rule quoteCircle: (quoteHIT circleHIT (intro base)) ~> (surface base) ;
   rule quoteCircleLoop: (quoteHIT circleHIT (intro (loop $i))) ~>
-    (surface ("loop" (quoteDim $i))) ;
+    (surface (loop (quoteDim $i))) ;
 
 -----------------------------------------------------
 -- HITNormalize

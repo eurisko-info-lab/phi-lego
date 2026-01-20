@@ -17,7 +17,7 @@ import Cofibration ;
 import TermBuilder ;
 import Visitor ;
 
-lang Semantics (Core Cofibration TermBuilder Visitor) :=
+lang Semantics (Core, Cofibration, TermBuilder, Visitor) :=
 
 -----------------------------------------------------
 -- EvalCtx

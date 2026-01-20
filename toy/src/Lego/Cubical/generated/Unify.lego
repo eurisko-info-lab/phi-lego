@@ -18,7 +18,7 @@ import Core ;
 import GlobalEnv ;
 import Visitor ;
 
-lang Unify (Core GlobalEnv Visitor) :=
+lang Unify (Core, GlobalEnv, Visitor) :=
 
 -----------------------------------------------------
 -- MetaInfo

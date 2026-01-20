@@ -15,7 +15,7 @@ import Unify ;
 import Quote ;
 import Datatype ;
 
-lang Elaborate (Core GlobalEnv Unify Quote Datatype) :=
+lang Elaborate (Core, GlobalEnv, Unify, Quote, Datatype) :=
 
 -----------------------------------------------------
 -- Surface

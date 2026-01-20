@@ -12,7 +12,7 @@ import Core ;
 import Cofibration ;
 import Conversion ;
 
-lang RefineMonad (Core Cofibration Conversion) :=
+lang RefineMonad (Core, Cofibration, Conversion) :=
 
 -----------------------------------------------------
 -- RefineError

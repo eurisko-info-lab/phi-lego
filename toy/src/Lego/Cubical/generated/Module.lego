@@ -13,7 +13,7 @@ import Core ;
 import GlobalEnv ;
 import Elaborate ;
 
-lang Module (Core GlobalEnv Elaborate) :=
+lang Module (Core, GlobalEnv, Elaborate) :=
 
 -----------------------------------------------------
 -- Selector

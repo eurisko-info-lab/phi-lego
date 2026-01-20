@@ -14,7 +14,7 @@
 import Core ;
 import Kan ;
 
-lang FHCom (Core Kan) :=
+lang FHCom (Core, Kan) :=
 
 -----------------------------------------------------
 -- FHComInfo
