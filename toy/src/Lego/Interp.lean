@@ -24,6 +24,46 @@ open Lego.Generated.Bootstrap (combineSeq splitSeq wrapNode unwrapNode)
 /-- Grammar productions map -/
 abbrev Productions := List (String × GrammarExpr)
 
+/-! ## Parse Error Tracking -/
+
+/-- A parse error with context -/
+structure ParseError where
+  /-- Error message -/
+  message : String
+  /-- Position in token stream where error occurred -/
+  position : Nat
+  /-- Production being parsed -/
+  production : String
+  /-- Expected tokens/patterns -/
+  expected : List String
+  /-- Actual token found -/
+  actual : Option Token
+  /-- Remaining tokens at error point -/
+  remaining : List Token
+  deriving Repr
+
+instance : ToString ParseError where
+  toString e :=
+    let posInfo := s!"at position {e.position}"
+    let actualStr := match e.actual with
+      | some t => s!", found {repr t}"
+      | none => ", found end of input"
+    let expectedStr := if e.expected.isEmpty then ""
+      else s!", expected one of: {e.expected}"
+    let remainingStr := if e.remaining.isEmpty then ""
+      else s!"\n  remaining tokens: {e.remaining.take 5 |>.map (fun t => toString (repr t)) |> String.intercalate ", "}"
+    s!"{e.message} {posInfo} in {e.production}{expectedStr}{actualStr}{remainingStr}"
+
+/-- Result type with error tracking -/
+inductive ParseResultE (α : Type)
+  | ok : α → ParseResultE α
+  | error : ParseError → ParseResultE α
+  deriving Repr
+
+/-- Get the furthest error (deepest position) -/
+def furthestError (e1 e2 : ParseError) : ParseError :=
+  if e1.position >= e2.position then e1 else e2
+
 /-! ## Character Stream (for lexer) -/
 
 abbrev CharStream := List Char

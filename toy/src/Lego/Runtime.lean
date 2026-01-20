@@ -95,17 +95,26 @@ def loadBootstrapOrFallback (path : String := defaultBootstrapPath) : IO Runtime
 def parseLegoFile (rt : Runtime) (content : String) : Option Term :=
   Loader.parseWithGrammar rt.grammar content
 
+/-- Parse a .lego file with detailed error reporting -/
+def parseLegoFileE (rt : Runtime) (content : String) : Except ParseError Term :=
+  Loader.parseWithGrammarE rt.grammar content
+
 /-- Parse a .lego file from path -/
 def parseLegoFilePath (rt : Runtime) (path : String) : IO (Option Term) := do
   let content ← IO.FS.readFile path
   return parseLegoFile rt content
 
+/-- Parse a .lego file from path with detailed error reporting -/
+def parseLegoFilePathE (rt : Runtime) (path : String) : IO (Except ParseError Term) := do
+  let content ← IO.FS.readFile path
+  return parseLegoFileE rt content
+
 /-- Load a language from a .lego file -/
 def loadLanguage (rt : Runtime) (path : String) : IO (Except String Loader.LoadedGrammar) := do
   let content ← IO.FS.readFile path
-  match parseLegoFile rt content with
-  | none => return Except.error s!"Failed to parse {path}"
-  | some ast =>
+  match parseLegoFileE rt content with
+  | .error e => return Except.error s!"Failed to parse {path}: {e}"
+  | .ok ast =>
     let prods := Loader.extractAllProductions ast
     let symbols := Loader.extractAllSymbols prods
     let validation := Loader.validateProductions prods
@@ -150,9 +159,9 @@ def printTerm (rt : Runtime) (t : Term) (prodName : String) : Option String :=
 /-- Load transform rules from a .lego file -/
 def loadTransformRules (rt : Runtime) (path : String) : IO (Except String (List Rule)) := do
   let content ← IO.FS.readFile path
-  match parseLegoFile rt content with
-  | none => return Except.error s!"Failed to parse {path}"
-  | some ast =>
+  match parseLegoFileE rt content with
+  | .error e => return Except.error s!"Failed to parse {path}: {e}"
+  | .ok ast =>
     return Except.ok (Loader.extractRules ast)
 
 /-- Apply a transformation: load rules, apply to term -/
@@ -182,9 +191,9 @@ where
 def lego2lean (rt : Runtime) (sourcePath : String) (rosettaPath : String := "./src/Rosetta/lego2rosetta.lego")
     (leanPath : String := "./src/Rosetta/rosetta2lean.lego") : IO (Except String Term) := do
   -- Step 1: Parse source
-  match ← parseLegoFilePath rt sourcePath with
-  | none => return Except.error s!"Failed to parse {sourcePath}"
-  | some sourceAst =>
+  match ← parseLegoFilePathE rt sourcePath with
+  | .error e => return Except.error s!"Failed to parse {sourcePath}: {e}"
+  | .ok sourceAst =>
     -- Step 2: Load lego2rosetta rules
     match ← loadTransformRules rt rosettaPath with
     | Except.error e => return Except.error e

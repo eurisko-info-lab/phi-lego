@@ -566,13 +566,52 @@ def loadGrammarFromAST (ast : Term) (startProd : String) : LoadedGrammar :=
 def parseWithGrammar (grammar : LoadedGrammar) (input : String) : Option Term :=
   let tokens := Bootstrap.tokenize input
   let st : ParseState := { tokens := tokens, binds := [] }
-  match grammar.productions.find? (·.1 == grammar.startProd) with
-  | some (_, g) =>
+  match findAllProductions grammar.productions grammar.startProd with
+  | some g =>
     let (result, _) := parseGrammar defaultFuel grammar.productions g st
     match result with
     | some (t, st') => if st'.tokens.isEmpty then some t else none
     | none => none
   | none => none
+
+/-- Parse input with detailed error reporting -/
+def parseWithGrammarE (grammar : LoadedGrammar) (input : String) : Except ParseError Term :=
+  let tokens := Bootstrap.tokenize input
+  let st : ParseState := { tokens := tokens, binds := [] }
+  match findAllProductions grammar.productions grammar.startProd with
+  | some g =>
+    let (result, _) := parseGrammar defaultFuel grammar.productions g st
+    match result with
+    | some (t, st') =>
+      if st'.tokens.isEmpty then
+        .ok t
+      else
+        .error {
+          message := "Incomplete parse"
+          position := st'.pos
+          production := grammar.startProd
+          expected := []
+          actual := st'.tokens.head?
+          remaining := st'.tokens
+        }
+    | none =>
+      .error {
+        message := "Parse failed"
+        position := st.pos
+        production := grammar.startProd
+        expected := []
+        actual := tokens.head?
+        remaining := tokens
+      }
+  | none =>
+    .error {
+      message := s!"Unknown start production: {grammar.startProd}"
+      position := 0
+      production := grammar.startProd
+      expected := []
+      actual := none
+      remaining := []
+    }
 
 /-- Parse a file using a loaded grammar -/
 def parseFileWithGrammar (grammar : LoadedGrammar) (path : String) : IO (Option Term) := do
@@ -581,6 +620,21 @@ def parseFileWithGrammar (grammar : LoadedGrammar) (path : String) : IO (Option 
     pure (parseWithGrammar grammar content)
   catch _ =>
     pure none
+
+/-- Parse a file with detailed error reporting -/
+def parseFileWithGrammarE (grammar : LoadedGrammar) (path : String) : IO (Except ParseError Term) := do
+  try
+    let content ← IO.FS.readFile path
+    pure (parseWithGrammarE grammar content)
+  catch e =>
+    pure (.error {
+      message := s!"File error: {e}"
+      position := 0
+      production := grammar.startProd
+      expected := []
+      actual := none
+      remaining := []
+    })
 
 /-! ## Parameterized Parsing (AST typeclass) -/
 
