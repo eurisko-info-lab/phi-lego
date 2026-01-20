@@ -538,7 +538,19 @@ structure LoadedGrammar where
   validation : ValidationResult := ValidationResult.empty
   deriving Repr
 
-/-- Load a grammar from a .lego file -/
+/-- Load a grammar from a .lego file.
+    
+    ⚠️  DEPRECATED: This function uses Bootstrap.parseLegoFile which is only
+    appropriate for parsing Bootstrap.lego itself.
+    
+    For loading grammars from any other .lego file, use:
+      let rt ← Lego.Runtime.init
+      let ast ← Lego.Runtime.parseLegoFileE rt content
+      let grammar := loadGrammarFromAST ast startProd
+    
+    This function is preserved for backward compatibility but may not
+    correctly parse files that use features added to Bootstrap.lego after
+    the hardcoded grammar was generated. -/
 def loadGrammarFromFile (path : String) (startProd : String) : IO (Option LoadedGrammar) := do
   try
     let content ← IO.FS.readFile path
@@ -672,7 +684,11 @@ def printToString (grammar : LoadedGrammar) (prodName : String) (t : Term) : Opt
 /-! ## Bootstrap Loading -/
 
 /-- Load Bootstrap.lego and extract productions (without builtins).
-    This allows comparing with the hard-coded Bootstrap. -/
+    This allows comparing with the hard-coded Bootstrap.
+    
+    NOTE: This function intentionally uses Bootstrap.parseLegoFile because
+    it's specifically for loading and testing Bootstrap.lego itself.
+    For parsing ANY OTHER .lego file, use Runtime.parseLegoFile instead. -/
 def loadBootstrapProductions (path : String := "./test/Bootstrap.lego") : IO (Option Productions) := do
   try
     let content ← IO.FS.readFile path

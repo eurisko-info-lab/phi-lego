@@ -6,18 +6,22 @@
   All domain knowledge comes from the .lego grammar.
 
   Pipeline:
-  1. Parse .lego file using Bootstrap grammar → Term AST
+  1. Parse .lego file using Runtime grammar → Term AST
   2. Walk AST to extract pieces, rules, types, tests
   3. Generate Lean code from extracted data
+  
+  NOTE: This module uses Runtime to ensure Bootstrap.lego is loaded first.
 -/
 
 import Lego.Loader
 import Lego.Bootstrap
+import Lego.Runtime
 import Lego.Algebra
 
 namespace Rosetta
 
 open Lego
+open Lego.Runtime
 
 /-! ## Rosetta IR Types
 
@@ -280,9 +284,9 @@ end {info.name}
 /-! ## Main Entry Point -/
 
 /-- Parse and generate Lean from a .lego file -/
-def generateFromFile (path : String) : IO (Option String) := do
+def generateFromFile (rt : Runtime) (path : String) : IO (Option String) := do
   let content ← IO.FS.readFile path
-  match Bootstrap.parseLegoFile content with
+  match Runtime.parseLegoFile rt content with
   | some ast =>
     match extractLang ast with
     | some info =>
@@ -296,9 +300,9 @@ def generateFromFile (path : String) : IO (Option String) := do
     return none
 
 /-- Generate all piece files -/
-def generatePieceFiles (path : String) (outDir : String) : IO Bool := do
+def generatePieceFiles (rt : Runtime) (path : String) (outDir : String) : IO Bool := do
   let content ← IO.FS.readFile path
-  match Bootstrap.parseLegoFile content with
+  match Runtime.parseLegoFile rt content with
   | some ast =>
     match extractLang ast with
     | some info =>

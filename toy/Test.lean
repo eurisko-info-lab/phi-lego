@@ -6,6 +6,9 @@
 
   For Red-specific (cubical type theory) tests, see TestRed.lean
   Run with: lake exe lego-test-red
+  
+  NOTE: This test suite uses Runtime.init to ensure Bootstrap.lego
+  is loaded first, providing the correct grammar for all .lego file parsing.
 -/
 
 import Lego
@@ -13,9 +16,11 @@ import Lego.Attr
 import Lego.AttrEval
 import Lego.Bootstrap
 import Lego.Loader
+import Lego.Runtime
 
 open Lego
 open Lego.Loader
+open Lego.Runtime
 
 /-! ## Test Framework -/
 
@@ -502,12 +507,12 @@ partial def countPieces (t : Term) : Nat :=
   | .con _ ts => ts.foldl (fun acc t' => acc + countPieces t') 0
   | _ => 0
 
-/-- Parse and analyze a .lego file -/
-def analyzeLegoFile (path : String) : IO (List TestResult) := do
+/-- Parse and analyze a .lego file using the runtime grammar -/
+def analyzeLegoFile (rt : Runtime) (path : String) : IO (List TestResult) := do
   let name := path.splitOn "/" |>.getLast!
   try
     let content ← IO.FS.readFile path
-    let result := Bootstrap.parseLegoFile content
+    let result := Runtime.parseLegoFile rt content
     match result with
     | some ast =>
       let testCount := countTests ast
@@ -527,8 +532,8 @@ def analyzeLegoFile (path : String) : IO (List TestResult) := do
   catch _ =>
     pure [{ name := s!"parse_{name}", passed := false, message := "✗ file not found" }]
 
-/-- Run .lego file parsing tests -/
-def runLegoFileTests : IO (List TestResult) := do
+/-- Run .lego file parsing tests using the runtime grammar -/
+def runLegoFileTests (rt : Runtime) : IO (List TestResult) := do
   let testPath := "./test"
   let examplePath := "./examples"
   let files := [
@@ -542,7 +547,7 @@ def runLegoFileTests : IO (List TestResult) := do
   ]
   let mut results : List TestResult := []
   for file in files do
-    let fileResults ← analyzeLegoFile file
+    let fileResults ← analyzeLegoFile rt file
     results := results ++ fileResults
   pure results
 
@@ -642,12 +647,12 @@ def attrTests : List TestResult :=
     assertTrue "attr_eval_creates_env" hasEntries
   ]
 
-/-- IO-based test for loading attribute grammar from file -/
-def runAttrFileTests : IO (List TestResult) := do
+/-- IO-based test for loading attribute grammar from file using runtime grammar -/
+def runAttrFileTests (rt : Runtime) : IO (List TestResult) := do
   let path := "./test/AttrTest.lego"
   try
     let content ← IO.FS.readFile path
-    match Bootstrap.parseLegoFile content with
+    match Runtime.parseLegoFile rt content with
     | some ast =>
       let attrDefs := Loader.extractAttrDefs ast
       let attrRules := Loader.extractAttrRules ast
@@ -745,6 +750,10 @@ def main : IO Unit := do
   IO.println "Lego Test Suite (Core Library)"
   IO.println "═══════════════════════════════════════════════════════════════"
 
+  -- CRITICAL: Initialize runtime by loading Bootstrap.lego FIRST
+  -- This ensures all .lego file parsing uses the correct grammar
+  let rt ← Runtime.init
+
   let mut totalPassed := 0
   let mut totalFailed := 0
 
@@ -778,11 +787,11 @@ def main : IO Unit := do
   let (p, f) ← printTestGroup "Attribute Evaluation Tests" attrEvalTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  let attrFileTests ← runAttrFileTests
+  let attrFileTests ← runAttrFileTests rt
   let (p, f) ← printTestGroup "Attribute File Loading Tests" attrFileTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  let legoFileTests ← runLegoFileTests
+  let legoFileTests ← runLegoFileTests rt
   let (p, f) ← printTestGroup ".lego File Parsing Tests" legoFileTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 

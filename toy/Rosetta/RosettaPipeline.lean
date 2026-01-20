@@ -40,10 +40,8 @@ def main : IO Unit := do
   IO.println "Rosetta Pipeline: .rosetta → Rosetta.lego → rosetta2lean → Lean"
   IO.println "═══════════════════════════════════════════════════════════════"
 
-  -- Step 0: Load Runtime from Bootstrap.lego
-  IO.println "\n[0] Loading Runtime from Bootstrap.lego..."
-  let rt ← loadBootstrapOrFallback
-  IO.println s!"  ✓ Runtime loaded with {rt.grammar.productions.length} productions"
+  -- Step 0: Initialize Runtime by loading Bootstrap.lego
+  let rt ← Lego.Runtime.init
 
   -- Step 1: Load Rosetta.lego as SOURCE grammar
   IO.println "\n[1] Loading Rosetta.lego (source grammar)..."

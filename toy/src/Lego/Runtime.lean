@@ -208,4 +208,37 @@ def lego2lean (rt : Runtime) (sourcePath : String) (rosettaPath : String := "./s
         let leanAst := transform rules2 rosettaAst
         return Except.ok leanAst
 
+/-! ## Global Initialization -/
+
+/-- Initialize the Lego runtime by loading Bootstrap.lego.
+    This MUST be called before parsing any user .lego files.
+    Returns the runtime that should be used for all subsequent parsing.
+    
+    The bootstrap chain is:
+      Hardcoded Grammar → parses → Bootstrap.lego → Full Grammar → parses → *.lego
+    
+    IMPORTANT: Only Bootstrap.lego should be parsed with the hardcoded grammar.
+    All other .lego files must use the runtime returned by this function. -/
+def init (bootstrapPath : String := defaultBootstrapPath) : IO Runtime := do
+  IO.println s!"[Lego] Loading Bootstrap.lego from {bootstrapPath}..."
+  let rt ← loadBootstrapOrFallback bootstrapPath
+  IO.println s!"[Lego] Runtime initialized with {rt.grammar.productions.length} productions"
+  return rt
+
+/-- Convenience: Initialize and parse a file in one step.
+    Use this when you just need to parse a single file. -/
+def initAndParse (path : String) (bootstrapPath : String := defaultBootstrapPath) : IO (Except String Term) := do
+  let rt ← init bootstrapPath
+  let content ← IO.FS.readFile path
+  match parseLegoFileE rt content with
+  | .error e => return .error (toString e)
+  | .ok ast => return .ok ast
+
+/-- Convenience: Initialize and load a language in one step -/
+def initAndLoadLanguage (path : String) (bootstrapPath : String := defaultBootstrapPath) : IO (Except String (Runtime × Loader.LoadedGrammar)) := do
+  let rt ← init bootstrapPath
+  match ← loadLanguage rt path with
+  | .error e => return .error e
+  | .ok grammar => return .ok (rt, grammar)
+
 end Lego.Runtime

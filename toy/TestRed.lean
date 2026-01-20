@@ -4,12 +4,16 @@
   Tests for cubical type theory (Core IR), redtt library parsing,
   attribute evaluation, and type checking.
   Run with: lake exe lego-test-red
+  
+  NOTE: This test suite uses Runtime.init to ensure Bootstrap.lego
+  is loaded first, providing the correct grammar for all .lego file parsing.
 -/
 
 import Lego
 import Lego.Attr
 import Lego.AttrEval
 import Lego.Bootstrap
+import Lego.Runtime
 import Lego.Cubical.Core
 import Lego.Cubical.TypeAttrs
 import Lego.Cubical.GlobalEnv
@@ -4537,11 +4541,11 @@ def runAttrGrammarTypeCheckTests : IO (List TestResult) := do
 
 /-! ## Redtt Library Parsing Tests -/
 
-def runRedttParsingTests : IO (List TestResult) := do
+def runRedttParsingTests (rt : Lego.Runtime.Runtime) : IO (List TestResult) := do
   let grammarResult ← do
     try
       let content ← IO.FS.readFile "./test/Redtt.lego"
-      pure (Bootstrap.parseLegoFile content)
+      pure (Lego.Runtime.parseLegoFile rt content)
     catch _ =>
       pure none
 
@@ -4675,11 +4679,11 @@ def parseWithRedttAST (prods : List (String × GrammarExpr))
     | none => none
   | none => none
 
-def runRedttASTTests : IO (List TestResult) := do
+def runRedttASTTests (rt : Lego.Runtime.Runtime) : IO (List TestResult) := do
   let grammarResult ← do
     try
       let content ← IO.FS.readFile "./test/RedttAST.lego"
-      pure (Bootstrap.parseLegoFile content)
+      pure (Lego.Runtime.parseLegoFile rt content)
     catch _ =>
       pure none
 
@@ -4744,11 +4748,11 @@ def parseWithAnnotatedGrammar (prods : List (String × GrammarExpr))
     | none => none
   | none => none
 
-def runAnnotatedGrammarTypeCheckTests : IO (List TestResult) := do
+def runAnnotatedGrammarTypeCheckTests (rt : Lego.Runtime.Runtime) : IO (List TestResult) := do
   let grammarResult ← do
     try
       let content ← IO.FS.readFile "./test/RedttTyped.lego"
-      pure (Bootstrap.parseLegoFile content)
+      pure (Lego.Runtime.parseLegoFile rt content)
     catch _ =>
       pure none
 
@@ -4843,11 +4847,11 @@ def extractDefBody (term : Term) : Option (String × Term × Term) :=
     | none => none
   | _ => none
 
-def runRedttTypeCheckTests : IO (List TestResult) := do
+def runRedttTypeCheckTests (rt : Lego.Runtime.Runtime) : IO (List TestResult) := do
   let grammarResult ← do
     try
       let content ← IO.FS.readFile "./test/Redtt.lego"
-      pure (Bootstrap.parseLegoFile content)
+      pure (Lego.Runtime.parseLegoFile rt content)
     catch _ =>
       pure none
 
@@ -4909,6 +4913,10 @@ def main (args : List String) : IO Unit := do
   IO.println "═══════════════════════════════════════════════════════════════"
   IO.println "Lego Red Test Suite (Cubical Type Theory)"
   IO.println "═══════════════════════════════════════════════════════════════"
+
+  -- CRITICAL: Initialize runtime by loading Bootstrap.lego FIRST
+  -- This ensures all .lego file parsing uses the correct grammar
+  let rt ← Lego.Runtime.init
 
   let runRedtt := args.contains "--all" || args.contains "--redtt"
 
@@ -5025,16 +5033,16 @@ def main (args : List String) : IO Unit := do
   let (p, f) ← printTestGroup "Attribute Grammar Type Checking Tests" attrTCTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  let annotatedTCTests ← runAnnotatedGrammarTypeCheckTests
+  let annotatedTCTests ← runAnnotatedGrammarTypeCheckTests rt
   let (p, f) ← printTestGroup "Annotated Grammar Type Checking Tests" annotatedTCTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-  let redttASTTests ← runRedttASTTests
+  let redttASTTests ← runRedttASTTests rt
   let (p, f) ← printTestGroup "RedttAST Grammar Tests" redttASTTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
   if runRedtt then
-    let redttTests ← runRedttParsingTests
+    let redttTests ← runRedttParsingTests rt
     let (p, f) ← printTestGroup "Redtt Library Parsing Tests" redttTests
     totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
@@ -5042,7 +5050,7 @@ def main (args : List String) : IO Unit := do
     let (p, f) ← printTestGroup "Redtt Attribute Evaluation Tests" attrEvalRedttTests
     totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
-    let redttTCTests ← runRedttTypeCheckTests
+    let redttTCTests ← runRedttTypeCheckTests rt
     let (p, f) ← printTestGroup "Redtt Library Type Checking Tests" redttTCTests
     totalPassed := totalPassed + p; totalFailed := totalFailed + f
   else

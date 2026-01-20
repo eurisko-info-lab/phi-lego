@@ -3,14 +3,19 @@
 
   Tests for CoolTT library parsing.
   Run with: lake exe lego-test-cool
+  
+  NOTE: This test suite uses Runtime.init to ensure Bootstrap.lego
+  is loaded first, providing the correct grammar for all .lego file parsing.
 -/
 
 import Lego
 import Lego.Bootstrap
 import Lego.Loader
+import Lego.Runtime
 
 open Lego
 open Lego.Loader
+open Lego.Runtime
 
 /-! ## Test Framework -/
 
@@ -190,10 +195,10 @@ def splitCoolttDecls (content : String) : List String := Id.run do
 def coolttFuel : Nat := 50000
 
 /-- Debug parsing for a single CoolTT declaration, returning details -/
-def debugCoolttParse (decl : String) : IO Unit := do
+def debugCoolttParse (rt : Runtime) (decl : String) : IO Unit := do
   try
     let content ← IO.FS.readFile "./test/Cooltt.lego"
-    match Bootstrap.parseLegoFile content with
+    match Runtime.parseLegoFile rt content with
     | none => IO.println "Failed to load Cooltt.lego"
     | some ast =>
       let coolttProds := extractAllProductions ast
@@ -289,11 +294,11 @@ partial def findCoolttFiles (dir : String) : IO (List String) := do
 
 /-! ## CoolTT Library Parsing Tests -/
 
-def runCoolttParsingTests : IO (List TestResult) := do
+def runCoolttParsingTests (rt : Runtime) : IO (List TestResult) := do
   let grammarResult ← do
     try
       let content ← IO.FS.readFile "./test/Cooltt.lego"
-      pure (Bootstrap.parseLegoFile content)
+      pure (Runtime.parseLegoFile rt content)
     catch _ =>
       pure none
 
@@ -361,10 +366,14 @@ def main (args : List String) : IO Unit := do
   IO.println "║            CoolTT Tests for Lego                              ║"
   IO.println "╚═══════════════════════════════════════════════════════════════╝"
 
+  -- CRITICAL: Initialize runtime by loading Bootstrap.lego FIRST
+  -- This ensures all .lego file parsing uses the correct grammar
+  let rt ← Runtime.init
+
   let mut totalPassed := 0
   let mut totalFailed := 0
 
-  let coolttTests ← runCoolttParsingTests
+  let coolttTests ← runCoolttParsingTests rt
   let (p, f) ← printTestGroup "Cooltt Library Parsing Tests" coolttTests
   totalPassed := totalPassed + p; totalFailed := totalFailed + f
 
