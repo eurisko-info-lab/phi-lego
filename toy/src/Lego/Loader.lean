@@ -586,27 +586,29 @@ def parseWithGrammarE (grammar : LoadedGrammar) (input : String) : Except ParseE
       if st'.tokens.isEmpty then
         .ok t
       else
-        .error {
+        let err : ParseError := {
           message := "Incomplete parse"
-          position := st'.pos
+          tokenPos := st'.pos
           production := grammar.startProd
           expected := []
           actual := st'.tokens.head?
           remaining := st'.tokens
         }
+        .error (err.withSourceLoc input)
     | none =>
-      .error {
+      let err : ParseError := {
         message := "Parse failed"
-        position := st.pos
+        tokenPos := st.pos
         production := grammar.startProd
         expected := []
         actual := tokens.head?
         remaining := tokens
       }
+      .error (err.withSourceLoc input)
   | none =>
     .error {
       message := s!"Unknown start production: {grammar.startProd}"
-      position := 0
+      tokenPos := 0
       production := grammar.startProd
       expected := []
       actual := none
@@ -629,7 +631,7 @@ def parseFileWithGrammarE (grammar : LoadedGrammar) (path : String) : IO (Except
   catch e =>
     pure (.error {
       message := s!"File error: {e}"
-      position := 0
+      tokenPos := 0
       production := grammar.startProd
       expected := []
       actual := none

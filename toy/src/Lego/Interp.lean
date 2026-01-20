@@ -26,12 +26,63 @@ abbrev Productions := List (String × GrammarExpr)
 
 /-! ## Parse Error Tracking -/
 
+/-- Source location with line and column (for parse errors) -/
+structure ParseLoc where
+  line : Nat
+  column : Nat
+  deriving Repr, BEq
+
+instance : ToString ParseLoc where
+  toString loc := s!"{loc.line}:{loc.column}"
+
+/-- Compute line and column from character offset in input -/
+def computeLineCol (input : String) (charOffset : Nat) : ParseLoc :=
+  let chars := input.toList
+  let relevant := chars.take charOffset
+  let lines := relevant.filter (· == '\n')
+  let line := lines.length + 1
+  let lastNewline := relevant.reverse.takeWhile (· != '\n') |>.length
+  let column := lastNewline + 1
+  { line, column }
+
+/-- Find substring position in string starting at offset -/
+def String.findSubstrFrom (s : String) (sub : String) (start : Nat := 0) : Option Nat :=
+  if sub.isEmpty then some start
+  else if start + sub.length > s.length then none
+  else
+    let rec go (i : Nat) (fuel : Nat) : Option Nat :=
+      match fuel with
+      | 0 => none
+      | fuel' + 1 =>
+        if i + sub.length > s.length then none
+        else if s.extract ⟨i⟩ ⟨i + sub.length⟩ == sub then some i
+        else go (i + 1) fuel'
+    go start (s.length - start + 1)
+
+/-- Find character offset by counting tokens from the beginning.
+    Walks through the input counting tokens until reaching tokenPos. -/
+def findCharOffsetByTokenCount (input : String) (tokenPos : Nat) : Nat :=
+  -- Simple approximation: walk through, counting whitespace-separated tokens
+  let rec go (chars : List Char) (pos : Nat) (count : Nat) (inToken : Bool) : Nat :=
+    match chars with
+    | [] => pos
+    | c :: rest =>
+      if count >= tokenPos then pos
+      else if c.isWhitespace then
+        if inToken then go rest (pos + 1) (count + 1) false
+        else go rest (pos + 1) count false
+      else
+        go rest (pos + 1) count true
+  go input.toList 0 0 false
+
 /-- A parse error with context -/
 structure ParseError where
   /-- Error message -/
   message : String
-  /-- Position in token stream where error occurred -/
-  position : Nat
+  /-- Token position (index in token stream) -/
+  tokenPos : Nat
+  /-- Source location (line:column) if available -/
+  loc : Option ParseLoc := none
   /-- Production being parsed -/
   production : String
   /-- Expected tokens/patterns -/
@@ -44,15 +95,22 @@ structure ParseError where
 
 instance : ToString ParseError where
   toString e :=
-    let posInfo := s!"at position {e.position}"
+    let locStr := match e.loc with
+      | some loc => s!"at {loc}"
+      | none => s!"at token {e.tokenPos}"
     let actualStr := match e.actual with
-      | some t => s!", found {repr t}"
+      | some t => s!", found '{t.toString}'"
       | none => ", found end of input"
     let expectedStr := if e.expected.isEmpty then ""
       else s!", expected one of: {e.expected}"
     let remainingStr := if e.remaining.isEmpty then ""
-      else s!"\n  remaining tokens: {e.remaining.take 5 |>.map (fun t => toString (repr t)) |> String.intercalate ", "}"
-    s!"{e.message} {posInfo} in {e.production}{expectedStr}{actualStr}{remainingStr}"
+      else s!"\n  next tokens: {e.remaining.take 5 |>.map (·.toString) |> String.intercalate " "}"
+    s!"{e.message} {locStr} in {e.production}{expectedStr}{actualStr}{remainingStr}"
+
+/-- Add source location to a parse error by counting tokens to find position -/
+def ParseError.withSourceLoc (e : ParseError) (input : String) : ParseError :=
+  let charOffset := findCharOffsetByTokenCount input e.tokenPos
+  { e with loc := some (computeLineCol input charOffset) }
 
 /-- Result type with error tracking -/
 inductive ParseResultE (α : Type)
@@ -62,7 +120,7 @@ inductive ParseResultE (α : Type)
 
 /-- Get the furthest error (deepest position) -/
 def furthestError (e1 e2 : ParseError) : ParseError :=
-  if e1.position >= e2.position then e1 else e2
+  if e1.tokenPos >= e2.tokenPos then e1 else e2
 
 /-! ## Character Stream (for lexer) -/
 

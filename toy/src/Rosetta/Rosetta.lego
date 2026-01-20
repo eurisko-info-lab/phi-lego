@@ -20,7 +20,7 @@
 -- - Variables: 'Var' with abstract binding; impl chooses indexing
 -- - Substitution: 'Subst' primitive; impl handles capture-avoidance
 -- - Patterns: Abstract patterns with $var wildcards
--- - Judgments: Declarative 'judge' with 'when' conditions
+-- - Judgments: Declarative 'type' with 'when' conditions
 -- - Modules: 'module' for composition
 -----------------------------------------------------
 
@@ -40,8 +40,8 @@ piece CorePrimitives
 
   rule appSubst: (App (Subst $x $s $f) $a) ~> (Subst $x $s (App $f $a)) ;
   
-  judge univForm: Univ : Univ ;
-  judge varType: (Var $x) : $T when bound $x : $T ;
+  type univForm: Univ : Univ ;
+  type varType: (Var $x) : $T when bound $x : $T ;
 
 -----------------------------------------------------
 -- Binders
@@ -54,7 +54,7 @@ piece Binders
 
   rule beta: (App (Lam $x . $body) $arg) ~> (Subst $x $arg $body) ;
 
-  judge lamForm: (Lam $x . $body) : (Arrow $A $B)
+  type lamForm: (Lam $x . $body) : (Arrow $A $B)
     when [$x : $A] $body : $B ;
 
 -----------------------------------------------------
@@ -71,10 +71,10 @@ piece Products
   rule sndPair: (Snd (Pair $a $b)) ~> $b ;
   rule pairEta: (Pair (Fst $p) (Snd $p)) ~> $p ;
 
-  judge pairType: (Pair $a $b) : (Prod $A $B)
+  type pairType: (Pair $a $b) : (Prod $A $B)
     when $a : $A, $b : $B ;
-  judge fstType: (Fst $p) : $A when $p : (Prod $A $B) ;
-  judge sndType: (Snd $p) : $B when $p : (Prod $A $B) ;
+  type fstType: (Fst $p) : $A when $p : (Prod $A $B) ;
+  type sndType: (Snd $p) : $B when $p : (Prod $A $B) ;
 
 -----------------------------------------------------
 -- ADT Definition
@@ -87,7 +87,7 @@ piece ADTDef
   constr ::= <ident> ":" type            → constr ;
 
   -- Example: adt Term { App : Term → Term → Term }
-  judge adtForm: (adtDef $name $constrs) : Univ ;
+  type adtForm: (adtDef $name $constrs) : Univ ;
 
 -----------------------------------------------------
 -- Rewrite Rules
@@ -105,11 +105,11 @@ piece RewriteRules
 -----------------------------------------------------
 -- Judgment Forms
 -- Abstract typing judgments: formation, intro, elim
--- 'judge' with 'when' for premises
+-- 'type' with 'when' for premises
 -----------------------------------------------------
 
 piece Judgments
-  decl ::= "judge" <ident> ":" term ":" term conds? → judgeDecl ;
+  decl ::= "type" <ident> ":" term ":" term conds? → typeDecl ;
   conds ::= "when" cond ("," cond)*     → conds ;
   cond ::= term ":" term                → cond
          | "[" bind* "]" term ":" term  → ctxCond ;
@@ -177,9 +177,9 @@ piece Builtins
   rule ifTrue: (if true $t $f) ~> $t ;
   rule ifFalse: (if false $t $f) ~> $f ;
 
-  judge boolForm: Bool : Univ ;
-  judge trueType: true : Bool ;
-  judge falseType: false : Bool ;
-  judge natForm: Nat : Univ ;
-  judge zeroType: zero : Nat ;
-  judge succType: (succ $n) : Nat when $n : Nat ;
+  type boolForm: Bool : Univ ;
+  type trueType: true : Bool ;
+  type falseType: false : Bool ;
+  type natForm: Nat : Univ ;
+  type zeroType: zero : Nat ;
+  type succType: (succ $n) : Nat when $n : Nat ;
