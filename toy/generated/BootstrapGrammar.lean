@@ -46,7 +46,8 @@ def termPiece : Piece := {
 def patternPiece : Piece := {
   name := "Pattern"
   grammar := [
-    ("Pattern.pattern", ((node "binder" ((((lit "$").seq (ref "Atom.ident")).seq (lit ".")).seq (ref "Pattern.pattern"))).alt ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "subst" ((((((lit "[").seq (ref "Pattern.pattern")).seq (lit ":=")).seq (ref "Pattern.pattern")).seq (lit "]")).seq (ref "Pattern.pattern"))).alt ((node "con" ((((lit "(").seq (ref "Term.conname")).seq ((ref "Pattern.pattern").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" (ref "Atom.ident")))))))))
+    ("Pattern.pattern", ((node "binder" ((((lit "$").seq (ref "Atom.ident")).seq (lit ".")).seq (ref "Pattern.pattern"))).alt ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "subst" ((((((lit "[").seq (ref "Pattern.pattern")).seq (lit ":=")).seq (ref "Pattern.pattern")).seq (lit "]")).seq (ref "Pattern.pattern"))).alt ((node "con" ((((lit "(").seq (ref "Pattern.patternHead")).seq ((ref "Pattern.pattern").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" (ref "Atom.ident"))))))))),
+    ("Pattern.patternHead", ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt (ref "Term.conname")))
   ]
   rules := []
 }
@@ -55,7 +56,8 @@ def patternPiece : Piece := {
 def templatePiece : Piece := {
   name := "Template"
   grammar := [
-    ("Template.template", ((node "binder" ((((lit "$").seq (ref "Atom.ident")).seq (lit ".")).seq (ref "Template.template"))).alt ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "subst" ((((((lit "[").seq (ref "Template.template")).seq (lit ":=")).seq (ref "Template.template")).seq (lit "]")).seq (ref "Template.template"))).alt ((node "con" ((((lit "(").seq (ref "Atom.ident")).seq ((ref "Template.template").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" (ref "Atom.ident")))))))))
+    ("Template.template", ((node "binder" ((((lit "$").seq (ref "Atom.ident")).seq (lit ".")).seq (ref "Template.template"))).alt ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt ((node "subst" ((((((lit "[").seq (ref "Template.template")).seq (lit ":=")).seq (ref "Template.template")).seq (lit "]")).seq (ref "Template.template"))).alt ((node "con" ((((lit "(").seq (ref "Template.headTerm")).seq ((ref "Template.template").star)).seq (lit ")"))).alt ((node "lit" (ref "Atom.string")).alt ((node "num" (ref "Atom.number")).alt (node "con" (ref "Atom.ident"))))))))),
+    ("Template.headTerm", ((node "var" ((lit "$").seq (ref "Atom.ident"))).alt (ref "Atom.ident")))
   ]
   rules := []
 }
@@ -80,7 +82,8 @@ def filePiece : Piece := {
   grammar := [
     ("File.legoFile", ((ref "File.decl").star)),
     ("File.decl", ((ref "File.importDecl").alt ((ref "File.langDecl").alt ((ref "File.tokenDecl").alt ((ref "File.pieceDecl").alt ((ref "File.ruleDecl").alt ((ref "File.typeDecl").alt ((ref "File.testDecl").alt (ref "File.attrsDecl"))))))))),
-    ("File.importDecl", (node "DImport" (((lit "import").seq (ref "Atom.ident")).seq (lit ";")))),
+    ("File.importDecl", (node "DImport" (((lit "import").seq (ref "File.modulePath")).seq (lit ";")))),
+    ("File.modulePath", (node "modulePath" ((ref "Atom.ident").seq (((lit ".").seq (ref "Atom.ident")).star)))),
     ("File.langDecl", (node "DLang" (((((lit "lang").seq (ref "Atom.ident")).seq ((ref "File.imports").alt empty)).seq (lit ":=")).seq (ref "File.langBody")))),
     ("File.imports", (node "DImports" ((((lit "(").seq (ref "Atom.ident")).seq (((lit ",").seq (ref "Atom.ident")).star)).seq (lit ")")))),
     ("File.langBody", ((ref "File.innerDecl").star)),
@@ -91,9 +94,10 @@ def filePiece : Piece := {
     ("File.pieceItem", ((ref "File.prodDecl").alt ((ref "File.ruleDecl").alt ((ref "File.typeDecl").alt (ref "File.testDecl"))))),
     ("File.prodDecl", (node "DGrammar" ((((ref "Atom.ident").seq (lit "::=")).seq (ref "GrammarExpr.expr")).seq (lit ";")))),
     ("File.ruleDecl", (node "DRule" ((((((((lit "rule").seq (ref "Atom.ident")).seq (lit ":")).seq (ref "Pattern.pattern")).seq (lit "~>")).seq (ref "Template.template")).seq ((ref "File.ruleGuard").alt empty)).seq (lit ";")))),
-    ("File.ruleGuard", (node "guard" ((lit "when").seq (ref "Term.term")))),
-    ("File.typeDecl", (node "DType" ((((((((lit "type").seq (ref "Atom.ident")).seq (lit ":")).seq (ref "Term.term")).seq (lit ":")).seq (ref "Term.term")).seq ((ref "File.whenClause").alt empty)).seq (lit ";")))),
-    ("File.whenClause", (node "when" (((lit "when").seq (ref "Term.term")).seq (((lit ",").seq (ref "Term.term")).star)))),
+    ("File.ruleGuard", (node "guard" ((lit "when").seq (ref "Pattern.pattern")))),
+    ("File.typeDecl", (node "DType" ((((((((lit "type").seq (ref "Atom.ident")).seq (lit ":")).seq (ref "Pattern.pattern")).seq (lit ":")).seq (ref "Pattern.pattern")).seq ((ref "File.whenClause").alt empty)).seq (lit ";")))),
+    ("File.whenClause", (node "when" (((lit "when").seq (ref "File.typeConstraint")).seq (((lit ",").seq (ref "File.typeConstraint")).star)))),
+    ("File.typeConstraint", (node "constraint" (((ref "Pattern.pattern").seq (lit ":")).seq (ref "Pattern.pattern")))),
     ("File.testDecl", (node "DTest" ((((((lit "test").seq (ref "Atom.string")).seq (lit ":")).seq (ref "Term.term")).seq (((lit "~~>").seq (ref "Term.term")).alt empty)).seq (lit ";")))),
     ("File.attrsDecl", (node "DAttrs" (((lit "attrs").seq (ref "Atom.ident")).seq (ref "File.attrBody")))),
     ("File.attrBody", ((ref "File.attrItem").star)),

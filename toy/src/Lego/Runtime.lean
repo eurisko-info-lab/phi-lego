@@ -46,17 +46,22 @@ def defaultBootstrapPath : String := "./test/Bootstrap.lego"
 def loadBootstrap (path : String := defaultBootstrapPath) : IO (Except String Runtime) := do
   try
     let content ← IO.FS.readFile path
+    -- Verify this is actually Bootstrap.lego
+    if !path.endsWith "Bootstrap.lego" then
+      return Except.error s!"loadBootstrap only accepts Bootstrap.lego, got: {path}"
     -- Step 1: Parse Bootstrap.lego with hardcoded grammar
     match Bootstrap.parseLegoFile content with
     | none => return Except.error s!"Failed to parse {path} with hardcoded grammar"
     | some ast =>
       -- Step 2: Extract the full grammar from parsed Bootstrap.lego
       let prods := Loader.extractAllProductions ast
+      let tokenProds := Loader.extractTokenProductions ast
       let symbols := Loader.extractAllSymbols prods
       let rules := Loader.extractRules ast
       let validation := Loader.validateProductions prods
       let grammar : Loader.LoadedGrammar := {
         productions := prods
+        tokenProductions := tokenProds
         symbols := symbols
         startProd := "File.legoFile"
         validation := validation
@@ -64,7 +69,7 @@ def loadBootstrap (path : String := defaultBootstrapPath) : IO (Except String Ru
       -- Step 3: Create runtime with loaded grammar
       let runtime : Runtime := {
         grammar := grammar
-        tokenize := Bootstrap.tokenize  -- TODO: extract from Bootstrap.lego
+        tokenize := Bootstrap.tokenize  -- Only used for Bootstrap.lego itself
         rules := rules
       }
       return Except.ok runtime
@@ -108,6 +113,7 @@ def loadLanguage (rt : Runtime) (path : String) : IO (Except String Loader.Loade
   | .error e => return Except.error s!"Failed to parse {path}: {e}"
   | .ok ast =>
     let prods := Loader.extractAllProductions ast
+    let tokenProds := Loader.extractTokenProductions ast
     let symbols := Loader.extractAllSymbols prods
     let validation := Loader.validateProductions prods
     -- Find the start production (first piece's first production, or File.legoFile)
@@ -116,6 +122,7 @@ def loadLanguage (rt : Runtime) (path : String) : IO (Except String Loader.Loade
       | none => "File.legoFile"
     return Except.ok {
       productions := prods
+      tokenProductions := tokenProds
       symbols := symbols
       startProd := startProd
       validation := validation

@@ -135,10 +135,12 @@ piece Pattern
   pattern ::= "$" ident "." pattern → binder
             | "$" ident → var
             | "[" pattern ":=" pattern "]" pattern → subst
-            | "(" conname pattern* ")" → con
+            | "(" patternHead pattern* ")" → con
             | string → lit
             | number → num
             | ident → con ;
+  patternHead ::= "$" ident → var
+                | conname ;
 
 -----------------------------------------------------
 -- Template: Substitution templates for rules
@@ -150,10 +152,12 @@ piece Template
   template ::= "$" ident "." template → binder
              | "$" ident → var
              | "[" template ":=" template "]" template → subst
-             | "(" ident template* ")" → con
+             | "(" headTerm template* ")" → con
              | string → lit
              | number → num
              | ident → con ;
+  headTerm ::= "$" ident → var
+             | ident ;
 
 -----------------------------------------------------
 -- GrammarExpr: Grammar expressions
@@ -185,7 +189,8 @@ piece GrammarExpr
 piece File
   legoFile   ::= decl* ;
   decl       ::= importDecl | langDecl | tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl ;
-  importDecl ::= "import" ident ";" → DImport ;
+  importDecl ::= "import" modulePath ";" → DImport ;
+  modulePath ::= ident ("." ident)* → modulePath ;
   langDecl   ::= "lang" ident imports? ":=" langBody → DLang ;
   imports    ::= "(" ident ("," ident)* ")" → DImports ;
   langBody   ::= innerDecl* ;
@@ -196,9 +201,10 @@ piece File
   pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":" pattern "~>" template ruleGuard? ";" → DRule ;
-  ruleGuard  ::= "when" term → guard ;
-  typeDecl   ::= "type" ident ":" term ":" term whenClause? ";" → DType ;
-  whenClause ::= "when" term ("," term)* → when ;
+  ruleGuard  ::= "when" pattern → guard ;
+  typeDecl   ::= "type" ident ":" pattern ":" pattern whenClause? ";" → DType ;
+  whenClause ::= "when" typeConstraint ("," typeConstraint)* → when ;
+  typeConstraint ::= pattern ":" pattern → constraint ;
   testDecl   ::= "test" string ":" term ("~~>" term)? ";" → DTest ;
   -- Attribute Grammar section (groups syn/inh declarations and rules)
   attrsDecl  ::= "attrs" ident attrBody → DAttrs ;

@@ -56,7 +56,8 @@ def metaInterp : LangInterp := metaGrammar.toInterp "File.legoFile"
 
 /-! ## Tokenizer (imported from generated) -/
 
-def tokenize := Lego.Generated.Bootstrap.tokenize
+/-- Raw tokenizer - DO NOT USE DIRECTLY. Use tokenizeBootstrap instead. -/
+private def tokenizeRaw := Lego.Generated.Bootstrap.tokenize
 
 /-! ## Rules (imported from generated) -/
 
@@ -64,9 +65,18 @@ def allRules := Lego.Generated.Bootstrap.allRules
 def ruleInterp := Lego.Generated.Bootstrap.ruleInterp
 def normalize := Lego.Generated.Bootstrap.normalize
 
-/-! ## Parsing -/
+/-! ## Bootstrap-Only Parsing
 
-/-- Parse Bootstrap.lego ONLY using the hardcoded grammar.
+    These functions are ONLY for parsing Bootstrap.lego itself.
+    For any other .lego file, use Runtime.parseLegoFileE.
+-/
+
+/-- Tokenize Bootstrap.lego content ONLY.
+    ⚠️  This tokenizer is ONLY for Bootstrap.lego! -/
+def tokenizeBootstrap (content : String) : List Token :=
+  tokenizeRaw content
+
+/-- Parse Bootstrap.lego content ONLY using the hardcoded grammar.
 
     ⚠️  WARNING: This function should ONLY be used to parse Bootstrap.lego itself!
 
@@ -75,14 +85,30 @@ def normalize := Lego.Generated.Bootstrap.normalize
       let ast ← Lego.Runtime.parseLegoFileE rt content
 
     The bootstrap chain is:
-      Hardcoded Grammar → Bootstrap.lego → Full Grammar → All other .lego files
+      Hardcoded Grammar → Bootstrap.lego → Full Grammar → All other .lego files -/
+private def parseBootstrapContent (content : String) : Option Term :=
+  metaInterp.parse (tokenizeRaw content)
 
-    Using this function on non-Bootstrap files violates the architecture and
-    may cause parsing errors if Bootstrap.lego has been extended. -/
+/-- Parse Bootstrap.lego from a file path. ONLY accepts Bootstrap.lego!
+    This is the ONLY entry point for bootstrap parsing. -/
+def parseBootstrapFile (path : String) : IO (Option Term) := do
+  if !path.endsWith "Bootstrap.lego" then
+    IO.eprintln s!"FATAL: Bootstrap.parseBootstrapFile only accepts Bootstrap.lego, got: {path}"
+    IO.eprintln "For other .lego files, use Runtime.parseLegoFileE"
+    IO.Process.exit 1
+  let content ← IO.FS.readFile path
+  return parseBootstrapContent content
+
+/-- DEPRECATED: Use parseBootstrapFile instead.
+    This exists only for backward compatibility during transition. -/
 def parseLegoFile (content : String) : Option Term :=
-  metaInterp.parse (tokenize content)
+  -- This should only be called from Runtime.loadBootstrap
+  parseBootstrapContent content
 
-/-- Alias for parseLegoFile that makes the intent clearer -/
+/-- Alias for parseLegoFile - DEPRECATED -/
 def parseBootstrapOnly := parseLegoFile
+
+/-- The tokenize function - only exposed for Runtime.loadBootstrap compatibility -/
+def tokenize := tokenizeRaw
 
 end Lego.Bootstrap

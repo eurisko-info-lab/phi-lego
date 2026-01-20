@@ -363,9 +363,26 @@ where
       ts.flatMap (go nameMap)
     | _ => []
 
-/-- Get main token production names (top-level productions in token pieces) -/
-def getMainTokenProds (tokenProds : Productions) : List String :=
-  tokenProds.map (·.1)
+/-- Main token production names - these are the top-level tokenizing productions.
+    These should be tried in order: longest matches first (op3 before op2 before sym).
+    Character class productions (digit, alpha, etc.) are NOT included - they're
+    only used as building blocks for these main productions. -/
+def mainTokenProdNames : List String :=
+  [ "Token.op3"      -- Longest operators first (::=)
+  , "Token.op2"      -- Two-char operators (~>, ->)
+  , "Token.special"  -- <name> syntax
+  , "Token.ident"    -- Identifiers
+  , "Token.number"   -- Numbers
+  , "Token.string"   -- String literals
+  , "Token.char"     -- Character literals
+  , "Token.ws"       -- Whitespace (skipped)
+  , "Token.comment"  -- Comments (skipped)
+  , "Token.sym"      -- Single symbol (fallback)
+  ]
+
+/-- Get main token production names for tokenization -/
+def getMainTokenProds (_tokenProds : Productions) : List String :=
+  mainTokenProdNames
 
 /-! ## Symbol Extraction for Tokenization -/
 
@@ -533,7 +550,8 @@ def validatePiece (prods : Productions) (rules : List Rule) : ValidationResult :
 /-- A loaded grammar ready for parsing -/
 structure LoadedGrammar where
   productions : Productions
-  symbols : List String
+  tokenProductions : Productions  -- Token-level (lexer) productions
+  symbols : List String           -- Keywords/reserved words
   startProd : String
   validation : ValidationResult := ValidationResult.empty
   deriving Repr
@@ -557,9 +575,10 @@ def loadGrammarFromFile (path : String) (startProd : String) : IO (Option Loaded
     match Bootstrap.parseLegoFile content with
     | some ast =>
       let prods := extractAllProductions ast
+      let tokenProds := extractTokenProductions ast
       let symbols := extractAllSymbols prods
       let validationResult := validateProductions prods
-      pure (some { productions := prods, symbols := symbols, startProd := startProd, validation := validationResult })
+      pure (some { productions := prods, tokenProductions := tokenProds, symbols := symbols, startProd := startProd, validation := validationResult })
     | none =>
       pure none
   catch _ =>
@@ -568,15 +587,18 @@ def loadGrammarFromFile (path : String) (startProd : String) : IO (Option Loaded
 /-- Load a grammar from parsed AST -/
 def loadGrammarFromAST (ast : Term) (startProd : String) : LoadedGrammar :=
   let prods := extractAllProductions ast
+  let tokenProds := extractTokenProductions ast
   let symbols := extractAllSymbols prods
   let validationResult := validateProductions prods
-  { productions := prods, symbols := symbols, startProd := startProd, validation := validationResult }
+  { productions := prods, tokenProductions := tokenProds, symbols := symbols, startProd := startProd, validation := validationResult }
 
 /-! ## Parsing with Loaded Grammar -/
 
-/-- Parse input using a loaded grammar -/
+/-- Parse input using a loaded grammar (uses grammar-driven tokenizer) -/
 def parseWithGrammar (grammar : LoadedGrammar) (input : String) : Option Term :=
-  let tokens := Bootstrap.tokenize input
+  -- Use grammar-driven tokenizer, NOT Bootstrap.tokenize
+  let mainProds := getMainTokenProds grammar.tokenProductions
+  let tokens := tokenizeWithGrammar defaultFuel grammar.tokenProductions mainProds input grammar.symbols
   let st : ParseState := { tokens := tokens, binds := [] }
   match findAllProductions grammar.productions grammar.startProd with
   | some g =>
@@ -586,9 +608,11 @@ def parseWithGrammar (grammar : LoadedGrammar) (input : String) : Option Term :=
     | none => none
   | none => none
 
-/-- Parse input with detailed error reporting -/
+/-- Parse input with detailed error reporting (uses grammar-driven tokenizer) -/
 def parseWithGrammarE (grammar : LoadedGrammar) (input : String) : Except ParseError Term :=
-  let tokens := Bootstrap.tokenize input
+  -- Use grammar-driven tokenizer, NOT Bootstrap.tokenize
+  let mainProds := getMainTokenProds grammar.tokenProductions
+  let tokens := tokenizeWithGrammar defaultFuel grammar.tokenProductions mainProds input grammar.symbols
   let st : ParseState := { tokens := tokens, binds := [] }
   match findAllProductions grammar.productions grammar.startProd with
   | some g =>
