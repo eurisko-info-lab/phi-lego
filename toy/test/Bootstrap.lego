@@ -117,10 +117,18 @@ piece Atom
 -----------------------------------------------------
 
 piece Term
-  term    ::= ident "." term → binder
+  term    ::= "$" ident "." term → binder
+            | "$" ident → var
+            | ident "." term → binder
             | ident → var
+            | "_" → wildcard
             | string → lit
             | number → num
+            | "(" "Π" "(" ident ":" term ")" "." term ")" → piType
+            | "(" "Π" "(" "_" ":" term ")" "." term ")" → piType
+            | "(" "Σ" "(" ident ":" term ")" "." term ")" → sigmaType
+            | "(" "Σ" "(" "_" ":" term ")" "." term ")" → sigmaType
+            | "[" term "]" → bracket
             | "(" conname term* ")" → con ;
   -- conname: constructor names can be idents or reserved keywords (as symbols)
   conname ::= ident | <sym> ;
@@ -135,10 +143,13 @@ piece Pattern
   pattern ::= "$" ident "." pattern → binder
             | "$" ident → var
             | "[" pattern ":=" pattern "]" pattern → subst
-            | "(" patternHead pattern* ")" → con
+            | "(" pattern "," pattern ")" → tuple
+            | "(" patternHead patternArg* ")" → con
             | string → lit
             | number → num
             | ident → con ;
+  patternArg ::= ident ":" pattern → labeledArg
+               | pattern ;
   patternHead ::= "$" ident → var
                 | conname ;
 
@@ -152,10 +163,16 @@ piece Template
   template ::= "$" ident "." template → binder
              | "$" ident → var
              | "[" template ":=" template "]" template → subst
-             | "(" headTerm template* ")" → con
+             | "(" template "," template ")" → tuple
+             | "(" "case" template caseArm+ ")" → caseExpr
+             | "(" headTerm templateArg* ")" → con
              | string → lit
              | number → num
              | ident → con ;
+  caseArm ::= "(" patternHead patternArg* ")" "=>" template → arm
+            | ident "=>" template → arm ;
+  templateArg ::= ident ":" template → labeledArg
+                | template ;
   headTerm ::= "$" ident → var
              | ident ;
 
