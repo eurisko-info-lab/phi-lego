@@ -173,3 +173,41 @@ Internal ← Builtins ← Lego ← Token ← GrammarDef ← GrammarInterp ← Gr
 ```
 
 When adding features, respect this order. Lower modules should not import higher ones.
+
+## Cubical Code Generation Pipeline
+
+The `toy/` directory contains a Lean 4 implementation with Rosetta code generation:
+
+```
+.red / .cooltt files (user source code)
+       ↓
+   Red.lego / Cool.lego (parsers, extend CubicalTT.lego)
+       ↓
+   Cubical Term AST
+       ↓
+   cubical2rosetta.lego (Cubical → Rosetta transforms)
+       ↓
+   Rosetta AST (generic: Var, Lam, App, Pair, adtDef...)
+       ↓
+   rosetta2lean.lego (Rosetta → Lean)
+       ↓
+   .lean files
+```
+
+### Key Files
+
+| File | Location | Purpose |
+|------|----------|---------|
+| **CubicalTT.lego** | `toy/src/Lego/Cubical/` | Shared cubical grammar (dims, cofs, paths, Kan ops) |
+| **Red.lego** | `toy/src/Lego/Cubical/` | redtt extensions (imports CubicalTT) |
+| **Cool.lego** | `toy/src/Lego/Cubical/` | cooltt extensions (imports CubicalTT) |
+| **cubical2rosetta.lego** | `toy/src/Rosetta/` | Transform cubical constructs → Rosetta primitives |
+| **rosetta2lean.lego** | `toy/src/Rosetta/` | Transform Rosetta → Lean syntax |
+| **Rosetta.lego** | `toy/src/Rosetta/` | Generic Rosetta primitives (Var, Lam, App, Pair, etc.) |
+
+### Separation of Concerns
+
+- **Bootstrap.lego parsing** is Lego's internal concern (how `.lego` files are parsed)
+- **CubicalTT/Red/Cool** define the source language grammars + semantics
+- **cubical2rosetta + rosetta2lean** are the transformers you modify for code generation
+- Rosetta is **target-agnostic**: no Lean-specific or cubical-specific constructs
