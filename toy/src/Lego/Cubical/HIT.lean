@@ -100,7 +100,7 @@ def hcomNatAux (fuel : Nat) (r r' : Expr) (tubes : List (Expr × Expr)) (cap : E
 termination_by fuel
 decreasing_by
   simp_wf
-  have h : fuel ≠ 0 := by simp_all [beq_eq_false_iff_ne]
+  have h : fuel ≠ 0 := by simp_all
   omega
 
 def hcomNat (r r' : Expr) (tubes : List (Expr × Expr)) (cap : Expr) : Expr :=

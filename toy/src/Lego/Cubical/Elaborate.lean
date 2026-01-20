@@ -93,17 +93,17 @@ structure LocalBinding where
 structure ElabCtx where
   locals : List LocalBinding := []
   global : GlobalEnv := GlobalEnv.empty
-  metaCtx : MetaCtx := Std.HashMap.empty
+  metaCtx : MetaCtx := Std.HashMap.emptyWithCapacity
   nextMeta : Nat := 0
 
 instance : Inhabited ElabCtx where
-  default := { locals := [], global := GlobalEnv.empty, metaCtx := Std.HashMap.empty, nextMeta := 0 }
+  default := { locals := [], global := GlobalEnv.empty, metaCtx := Std.HashMap.emptyWithCapacity, nextMeta := 0 }
 
 namespace ElabCtx
 
 /-- Empty context with globals -/
 def withGlobals (env : GlobalEnv) : ElabCtx :=
-  { locals := [], global := env, metaCtx := Std.HashMap.empty, nextMeta := 0 }
+  { locals := [], global := env, metaCtx := Std.HashMap.emptyWithCapacity, nextMeta := 0 }
 
 /-- Extend with a local binding -/
 def extend (ctx : ElabCtx) (name : String) (ty : Expr) : ElabCtx :=

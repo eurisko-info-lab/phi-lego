@@ -41,8 +41,8 @@ open Lego.Cubical
 def mkData (dlbl : String) (params : List Expr) : Expr :=
   -- Encode as: (lit "data") applied to label and params
   -- data.List.A -> datatype List applied to A
-  let base := Expr.lit s!"data.{dlbl}"
-  params.foldl Expr.app base
+  let dataBase := Expr.lit s!"data.{dlbl}"
+  params.foldl Expr.app dataBase
 
 /-- Check if an expression is a datatype type -/
 def isData? (e : Expr) : Option (String × List Expr) :=
@@ -74,8 +74,8 @@ where
 def mkIntro (dlbl : String) (clbl : String) (params : List Expr) (args : List Expr) : Expr :=
   -- Encode as: (lit "intro.dlbl.clbl.paramCount") applied to params then args
   let paramCount := params.length
-  let base := Expr.lit s!"intro.{dlbl}.{clbl}.{paramCount}"
-  let withParams := params.foldl Expr.app base
+  let introBase := Expr.lit s!"intro.{dlbl}.{clbl}.{paramCount}"
+  let withParams := params.foldl Expr.app introBase
   args.foldl Expr.app withParams
 
 /-- Check if an expression is a constructor application -/
@@ -131,8 +131,8 @@ structure ElimClause where
 def mkElim (dlbl : String) (params : List Expr) (mot : Expr)
            (clauses : List ElimClause) (scrut : Expr) : Expr :=
   -- Encode as: (lit "elim.dlbl") applied to params, mot, encoded clauses, scrut
-  let base := Expr.lit s!"elim.{dlbl}"
-  let withParams := params.foldl Expr.app base
+  let elimBase := Expr.lit s!"elim.{dlbl}"
+  let withParams := params.foldl Expr.app elimBase
   let withMot := Expr.app withParams mot
   -- Encode clauses as a nested structure
   let clauseExpr := encodeClauseList clauses

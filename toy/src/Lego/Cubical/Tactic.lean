@@ -308,9 +308,9 @@ def pair (fstTac : ChkTac) (sndTac : ChkTac) : ChkTac := rule "Sg.intro" fun ctx
   let sigResult := isSigma goal.tp
   if h : sigResult.isSome then
     let p := sigResult.get h
-    let _base := p.1
+    let sigBase := p.1
     let fam := p.2
-    match fstTac ctx (ChkGoal.simple base) with
+    match fstTac ctx (ChkGoal.simple sigBase) with
     | TacResult.ok fstVal =>
       -- Substitute fst into family
       let famSubst := subst 0 fstVal fam
