@@ -7,6 +7,8 @@
 
 import Lego.Algebra
 
+set_option linter.unusedVariables false
+
 namespace Lego.Cubical.Core
 
 open Lego (Term)
@@ -106,6 +108,6 @@ def normalize : Term → Term → Term
 /-- normalizeStep -/
 def normalizeStep : Term → Term → Term
   | fuel, (Term.con "some" [t]) => (Term.con "normalize" [fuel, t])
-  | fuel, (Term.con "none" []) => t
+  -- SKIPPED normalizeStepNone: unbound variables [t]
   | _, _ => Term.con "error" []
 end Lego.Cubical.Core

@@ -144,6 +144,18 @@ def generateGuards (renames : List (String × String)) : List String :=
       some (" && ".intercalate eqs)
     else none
 
+/-- Collect all variables used in a template -/
+partial def collectTemplateVars (t : Term) : List String :=
+  match t with
+  | .var x => [stripDollar x]
+  | .lit _ => []
+  | .con _ args => args.flatMap collectTemplateVars
+
+/-- Check for unbound variables in template -/
+def checkUnbound (patternVars : List String) (template : Term) : List String :=
+  let templateVars := collectTemplateVars template
+  templateVars.filter (fun v => !patternVars.contains v)
+
 /-- Generate a Lean function from grouped rules -/
 def generateFunction (funcName : String) (rules : List Rule) : String :=
   let arity := functionArity rules
@@ -154,28 +166,34 @@ def generateFunction (funcName : String) (rules : List Rule) : String :=
       else
         -- Collect and rename duplicate variables
         let vars := args.flatMap collectVars
-        let renames := makeUnique vars
-        -- Rename all args together, threading state
-        let (_, renamedArgs) := args.foldl (fun (acc : List (String × String) × List Term) arg =>
-          let (rem, result) := acc
-          let (newRem, renamed) := renameVarsAux rem arg
-          (newRem, result ++ [renamed])
-        ) (renames, [])
-        let pats := renamedArgs.map termToLeanPattern
-        let guards := generateGuards renames
-        -- For template, map original names to first renamed name
-        let firstNames := renames.foldl (fun (acc : List (String × String)) (orig, renamed) =>
-          if acc.any (·.1 == orig) then acc else acc ++ [(orig, renamed)]
-        ) []
-        let renamedTemplate := renameVars firstNames r.template
-        let body := termToLeanExpr renamedTemplate
-        -- Multi-arg patterns are separated by commas in Lean
-        let patStr := ", ".intercalate pats
-        if guards.isEmpty then
-          some s!"  | {patStr} => {body}"
+        -- Check for unbound variables in template
+        let unbound := checkUnbound vars r.template
+        if !unbound.isEmpty then
+          -- Report as comment since unbound vars are errors in source
+          some s!"  -- SKIPPED {r.name}: unbound variables {unbound}"
         else
-          let guardStr := " && ".intercalate guards
-          some s!"  | {patStr} => if {guardStr} then {body} else Term.con \"error\" []"
+          let renames := makeUnique vars
+          -- Rename all args together, threading state
+          let (_, renamedArgs) := args.foldl (fun (acc : List (String × String) × List Term) arg =>
+            let (rem, result) := acc
+            let (newRem, renamed) := renameVarsAux rem arg
+            (newRem, result ++ [renamed])
+          ) (renames, [])
+          let pats := renamedArgs.map termToLeanPattern
+          let guards := generateGuards renames
+          -- For template, map original names to first renamed name
+          let firstNames := renames.foldl (fun (acc : List (String × String)) (orig, renamed) =>
+            if acc.any (·.1 == orig) then acc else acc ++ [(orig, renamed)]
+          ) []
+          let renamedTemplate := renameVars firstNames r.template
+          let body := termToLeanExpr renamedTemplate
+          -- Multi-arg patterns are separated by commas in Lean
+          let patStr := ", ".intercalate pats
+          if guards.isEmpty then
+            some s!"  | {patStr} => {body}"
+          else
+            let guardStr := " && ".intercalate guards
+            some s!"  | {patStr} => if {guardStr} then {body} else Term.con \"error\" []"
     | _ => some s!"  | _ => sorry -- {r.name}"
   if cases.isEmpty then
     s!"-- {funcName}: no valid cases"
@@ -198,6 +216,8 @@ def generateLean (langName : String) (rules : List Rule) : String :=
 -/
 
 import Lego.Algebra
+
+set_option linter.unusedVariables false
 
 namespace Lego.Cubical.{langName}
 

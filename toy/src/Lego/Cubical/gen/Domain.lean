@@ -7,6 +7,8 @@
 
 import Lego.Algebra
 
+set_option linter.unusedVariables false
+
 namespace Lego.Cubical.Domain
 
 open Lego (Term)
