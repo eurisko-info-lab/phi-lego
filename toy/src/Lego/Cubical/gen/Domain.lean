@@ -5,114 +5,107 @@
     lake exe generated-pipeline Domain.lego
 -/
 
-import Lego.Cubical.Core
+import Lego.Algebra
 
 namespace Lego.Cubical.Domain
 
-open Lego.Core
-open Lego.Core.Expr
-/-- dzero -/
-def dzero : Expr → Expr
-  |  => (dconst (num (number 0)))
-  | e => e
-/-- done -/
-def done : Expr → Expr
-  |  => (dconst (num (number 1)))
-  | e => e
+open Lego (Term)
+-- dzero: no valid cases
+-- done: no valid cases
 /-- ofLevel -/
-def ofLevel : Expr → Expr
-  | .lzero => dzero
-  | .lsuc $l => (dsuc (ofLevel $l))
-  | .lmax $l1 $l2 => (dmax (ofLevel $l1) (ofLevel $l2))
-  | .lvar $n => (dlvar $n)
-  | e => e
+def ofLevel : Term → Term
+  | (Term.con "lzero" []) => (Term.con "dzero" [])
+  | (Term.con "lsuc" [l]) => (Term.con "dsuc" [(Term.con "ofLevel" [l])])
+  | (Term.con "lmax" [l1, l2]) => (Term.con "dmax" [(Term.con "ofLevel" [l1]), (Term.con "ofLevel" [l2])])
+  | (Term.con "lvar" [n]) => (Term.con "dlvar" [n])
+  | _ => Term.con "error" []
 /-- dimOfExpr -/
-def dimOfExpr : Expr → Expr
-  | .dim0 => (some ddim0)
-  | .dim1 => (some ddim1)
-  | .dimVar $n => (some (dvar $n))
-  | $e => none
-  | e => e
+def dimOfExpr : Term → Term
+  | (Term.con "dim0" []) => (Term.con "some" [(Term.con "ddim0" [])])
+  | (Term.con "dim1" []) => (Term.con "some" [(Term.con "ddim1" [])])
+  | (Term.con "dimVar" [n]) => (Term.con "some" [(Term.con "dvar" [n])])
+  | e => (Term.con "none" [])
+  | _ => Term.con "error" []
 /-- dimToExpr -/
-def dimToExpr : Expr → Expr
-  | .ddim0 => dim0
-  | .ddim1 => dim1
-  | .dvar $n => (dimVar $n)
-  | e => e
+def dimToExpr : Term → Term
+  | (Term.con "ddim0" []) => (Term.con "dim0" [])
+  | (Term.con "ddim1" []) => (Term.con "dim1" [])
+  | (Term.con "dvar" [n]) => (Term.con "dimVar" [n])
+  | _ => Term.con "error" []
 /-- dimEqD -/
-def dimEqD : Expr → Expr
-  | .ddim0, .ddim0 => true
-  | .ddim1, .ddim1 => true
-  | .dvar $n, .dvar $m => (eq $n $m)
-  | e => e
+def dimEqD : Term → Term → Term
+  | (Term.con "ddim0" []), (Term.con "ddim0" []) => (Term.con "true" [])
+  | (Term.con "ddim1" []), (Term.con "ddim1" []) => (Term.con "true" [])
+  | (Term.con "dvar" [n]), (Term.con "dvar" [m]) => (Term.con "eq" [n, m])
+  | _, _ => Term.con "error" []
 /-- dCofIsTrue -/
-def dCofIsTrue : Expr → Expr
-  | .dcof_top => true
-  | .dcof_bot => false
-  | .dcof_eq $d1 $d2 => (dimEqD $d1 $d2)
-  | .dcof_join $φ $ψ => (or (dCofIsTrue $φ) (dCofIsTrue $ψ))
-  | .dcof_meet $φ $ψ => (and (dCofIsTrue $φ) (dCofIsTrue $ψ))
-  | e => e
+def dCofIsTrue : Term → Term
+  | (Term.con "dcof_top" []) => (Term.con "true" [])
+  | (Term.con "dcof_bot" []) => (Term.con "false" [])
+  | (Term.con "dcof_eq" [d1, d2]) => (Term.con "dimEqD" [d1, d2])
+  | (Term.con "dcof_join" [φ, ψ]) => (Term.con "or" [(Term.con "dCofIsTrue" [φ]), (Term.con "dCofIsTrue" [ψ])])
+  | (Term.con "dcof_meet" [φ, ψ]) => (Term.con "and" [(Term.con "dCofIsTrue" [φ]), (Term.con "dCofIsTrue" [ψ])])
+  | _ => Term.con "error" []
 /-- dCofIsFalse -/
-def dCofIsFalse : Expr → Expr
-  | $φ => (not (dCofIsTrue $φ))
-  | e => e
+def dCofIsFalse : Term → Term
+  | φ => (Term.con "not" [(Term.con "dCofIsTrue" [φ])])
+  | _ => Term.con "error" []
 /-- denvLookup -/
-def denvLookup : Expr → Expr
-  | .num .number 0, .denvCons $v $rest => (some $v)
-  | .suc $n, .denvCons $v $rest => (denvLookup $n $rest)
-  | $n, .denvNil => none
-  | e => e
+def denvLookup : Term → Term → Term
+  | (Term.con "num" [(Term.con "number" [(Term.lit "0")])]), (Term.con "denvCons" [v, rest]) => (Term.con "some" [v])
+  | (Term.con "suc" [n]), (Term.con "denvCons" [v, rest]) => (Term.con "denvLookup" [n, rest])
+  | n, (Term.con "denvNil" []) => (Term.con "none" [])
+  | _, _ => Term.con "error" []
 /-- denvExtend -/
-def denvExtend : Expr → Expr
-  | $v, $env => (denvCons $v $env)
-  | e => e
+def denvExtend : Term → Term → Term
+  | v, env => (Term.con "denvCons" [v, env])
+  | _, _ => Term.con "error" []
 /-- dCloApply -/
-def dCloApply : Expr → Expr
-  | .dclo $body $env, $arg => (deval (denvCons $arg $env) $body)
-  | e => e
+def dCloApply : Term → Term → Term
+  | (Term.con "dclo" [body, env]), arg => (Term.con "deval" [(Term.con "denvCons" [arg, env]), body])
+  | _, _ => Term.con "error" []
 /-- deval -/
-def deval : Expr → Expr
-  | $env, .ix $n => (fromOption (denvLookup $n $env) (dneu (dcut (dneuVar $n) dtpUnknown)))
-  | $env, .lit $s => (dlit $s)
-  | $env, .lam $body => (dlam (dclo $body $env))
-  | $env, .app $f $a => (dApply (deval $env $f) (deval $env $a))
-  | $env, .pi $A $B => (dpi (dtpOf (deval $env $A)) (dclo $B $env))
-  | $env, .sigma $A $B => (dsigma (dtpOf (deval $env $A)) (dclo $B $env))
-  | $env, .pair $a $b => (dpair (deval $env $a) (deval $env $b))
-  | $env, .fst $p => (dFst (deval $env $p))
-  | $env, .snd $p => (dSnd (deval $env $p))
-  | $env, .univ $l => (duniv (ofLevel $l))
-  | $env, .path $A $a $b => (dpath (dtpOf (deval $env $A)) (deval $env $a) (deval $env $b))
-  | $env, .plam $body => (dplam (dclo $body $env))
-  | $env, .papp $p $r => (dPApp (deval $env $p) (dimOfExprForce $r))
-  | $env, .refl $a => (drefl (deval $env $a))
-  | $env, .nat => dnat
-  | $env, .zero => dzeroN
-  | $env, .suc $n => (dsucN (deval $env $n))
-  | $env, .circle => dcircle
-  | $env, .base => dbase
-  | $env, .loop $r => (dloop (dimOfExprForce $r))
-  | e => e
+def deval : Term → Term → Term
+  | env, (Term.con "ix" [n]) => (Term.con "fromOption" [(Term.con "denvLookup" [n, env]), (Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuVar" [n]), (Term.con "dtpUnknown" [])])])])
+  | env, (Term.con "lit" [s]) => (Term.con "dlit" [s])
+  | env, (Term.con "lam" [body]) => (Term.con "dlam" [(Term.con "dclo" [body, env])])
+  | env, (Term.con "app" [f, a]) => (Term.con "dApply" [(Term.con "deval" [env, f]), (Term.con "deval" [env, a])])
+  | env, (Term.con "pi" [A, B]) => (Term.con "dpi" [(Term.con "dtpOf" [(Term.con "deval" [env, A])]), (Term.con "dclo" [B, env])])
+  | env, (Term.con "sigma" [A, B]) => (Term.con "dsigma" [(Term.con "dtpOf" [(Term.con "deval" [env, A])]), (Term.con "dclo" [B, env])])
+  | env, (Term.con "pair" [a, b]) => (Term.con "dpair" [(Term.con "deval" [env, a]), (Term.con "deval" [env, b])])
+  | env, (Term.con "fst" [p]) => (Term.con "dFst" [(Term.con "deval" [env, p])])
+  | env, (Term.con "snd" [p]) => (Term.con "dSnd" [(Term.con "deval" [env, p])])
+  | env, (Term.con "univ" [l]) => (Term.con "duniv" [(Term.con "ofLevel" [l])])
+  | env, (Term.con "path" [A, a, b]) => (Term.con "dpath" [(Term.con "dtpOf" [(Term.con "deval" [env, A])]), (Term.con "deval" [env, a]), (Term.con "deval" [env, b])])
+  | env, (Term.con "plam" [body]) => (Term.con "dplam" [(Term.con "dclo" [body, env])])
+  | env, (Term.con "papp" [p, r]) => (Term.con "dPApp" [(Term.con "deval" [env, p]), (Term.con "dimOfExprForce" [r])])
+  | env, (Term.con "refl" [a]) => (Term.con "drefl" [(Term.con "deval" [env, a])])
+  | env, (Term.con "nat" []) => (Term.con "dnat" [])
+  | env, (Term.con "zero" []) => (Term.con "dzeroN" [])
+  | env, (Term.con "suc" [n]) => (Term.con "dsucN" [(Term.con "deval" [env, n])])
+  | env, (Term.con "circle" []) => (Term.con "dcircle" [])
+  | env, (Term.con "base" []) => (Term.con "dbase" [])
+  | env, (Term.con "loop" [r]) => (Term.con "dloop" [(Term.con "dimOfExprForce" [r])])
+  | _, _ => Term.con "error" []
 /-- dApply -/
-def dApply : Expr → Expr
-  | .dlam $clo, $arg => (dCloApply $clo $arg)
-  | .dneu .dcut $neu $tp, $arg => (dneu (dcut (dneuApp $neu $arg) (dtpApply $tp $arg)))
-  | e => e
+def dApply : Term → Term → Term
+  | (Term.con "dlam" [clo]), arg => (Term.con "dCloApply" [clo, arg])
+  | (Term.con "dneu" [(Term.con "dcut" [neu, tp])]), arg => (Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuApp" [neu, arg]), (Term.con "dtpApply" [tp, arg])])])
+  | _, _ => Term.con "error" []
 /-- dFst -/
-def dFst : Expr → Expr
-  | .dpair $a $b => $a
-  | .dneu .dcut $neu $tp => (dneu (dcut (dneuFst $neu) (dtpFst $tp)))
-  | e => e
+def dFst : Term → Term
+  | (Term.con "dpair" [a, b]) => a
+  | (Term.con "dneu" [(Term.con "dcut" [neu, tp])]) => (Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuFst" [neu]), (Term.con "dtpFst" [tp])])])
+  | _ => Term.con "error" []
 /-- dSnd -/
-def dSnd : Expr → Expr
-  | .dpair $a $b => $b
-  | .dneu .dcut $neu $tp => (dneu (dcut (dneuSnd $neu) (dtpSnd $tp)))
-  | e => e
+def dSnd : Term → Term
+  | (Term.con "dpair" [a, b]) => b
+  | (Term.con "dneu" [(Term.con "dcut" [neu, tp])]) => (Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuSnd" [neu]), (Term.con "dtpSnd" [tp])])])
+  | _ => Term.con "error" []
 /-- dPApp -/
-def dPApp : Expr → Expr
-  | .dplam $clo, $d => (dCloApplyDim $clo $d)
-  | .drefl $a, $d => $a
-  | .dneu .dcut $neu $tp, $d => (dneu (dcut (dneuPApp $neu $d) (dtpPApp $tp $d)))
-  | e => e
+def dPApp : Term → Term → Term
+  | (Term.con "dplam" [clo]), d => (Term.con "dCloApplyDim" [clo, d])
+  | (Term.con "drefl" [a]), d => a
+  | (Term.con "dneu" [(Term.con "dcut" [neu, tp])]), d => (Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuPApp" [neu, d]), (Term.con "dtpPApp" [tp, d])])])
+  | _, _ => Term.con "error" []
 end Lego.Cubical.Domain

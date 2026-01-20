@@ -5,118 +5,114 @@
     lake exe generated-pipeline Quote.lego
 -/
 
-import Lego.Cubical.Core
+import Lego.Algebra
 
 namespace Lego.Cubical.Quote
 
-open Lego.Core
-open Lego.Core.Expr
-/-- qenvEmpty -/
-def qenvEmpty : Expr → Expr
-  |  => (qenv (num (number 0)) (num (number 0)))
-  | e => e
+open Lego (Term)
+-- qenvEmpty: no valid cases
 /-- qenvSucc -/
-def qenvSucc : Expr → Expr
-  | .qenv $l $dl => (qenv (suc $l) $dl)
-  | e => e
+def qenvSucc : Term → Term
+  | (Term.con "qenv" [l, dl]) => (Term.con "qenv" [(Term.con "suc" [l]), dl])
+  | _ => Term.con "error" []
 /-- qenvSuccDim -/
-def qenvSuccDim : Expr → Expr
-  | .qenv $l $dl => (qenv $l (suc $dl))
-  | e => e
+def qenvSuccDim : Term → Term
+  | (Term.con "qenv" [l, dl]) => (Term.con "qenv" [l, (Term.con "suc" [dl])])
+  | _ => Term.con "error" []
 /-- levelToIndex -/
-def levelToIndex : Expr → Expr
-  | .qenv $l $dl, $lvl => (sub (sub $l $lvl) (num (number 1)))
-  | e => e
+def levelToIndex : Term → Term → Term
+  | (Term.con "qenv" [l, dl]), lvl => (Term.con "sub" [(Term.con "sub" [l, lvl]), (Term.con "num" [(Term.con "number" [(Term.lit "1")])])])
+  | _, _ => Term.con "error" []
 /-- dimLevelToIndex -/
-def dimLevelToIndex : Expr → Expr
-  | .qenv $l $dl, $lvl => (sub (sub $dl $lvl) (num (number 1)))
-  | e => e
+def dimLevelToIndex : Term → Term → Term
+  | (Term.con "qenv" [l, dl]), lvl => (Term.con "sub" [(Term.con "sub" [dl, lvl]), (Term.con "num" [(Term.con "number" [(Term.lit "1")])])])
+  | _, _ => Term.con "error" []
 /-- generic -/
-def generic : Expr → Expr
-  | .qenv $l $dl => (ix $l)
-  | e => e
+def generic : Term → Term
+  | (Term.con "qenv" [l, dl]) => (Term.con "ix" [l])
+  | _ => Term.con "error" []
 /-- genericDim -/
-def genericDim : Expr → Expr
-  | .qenv $l $dl => (dimVar $dl)
-  | e => e
+def genericDim : Term → Term
+  | (Term.con "qenv" [l, dl]) => (Term.con "dimVar" [dl])
+  | _ => Term.con "error" []
 /-- shiftFrom -/
-def shiftFrom : Expr → Expr
-  | .ix $k, $n, $cutoff => (if (geq $k $cutoff) (ix (add $k $n)) (ix $k))
-  | .lam $body, $n, $cutoff => (lam (shiftFrom $body $n (suc $cutoff)))
-  | .app $f $a, $n, $cutoff => (app (shiftFrom $f $n $cutoff) (shiftFrom $a $n $cutoff))
-  | .pi $A $B, $n, $cutoff => (pi (shiftFrom $A $n $cutoff) (shiftFrom $B $n (suc $cutoff)))
-  | .sigma $A $B, $n, $cutoff => (sigma (shiftFrom $A $n $cutoff) (shiftFrom $B $n (suc $cutoff)))
-  | .pair $a $b, $n, $cutoff => (pair (shiftFrom $a $n $cutoff) (shiftFrom $b $n $cutoff))
-  | .fst $p, $n, $cutoff => (fst (shiftFrom $p $n $cutoff))
-  | .snd $p, $n, $cutoff => (snd (shiftFrom $p $n $cutoff))
-  | .plam $body, $n, $cutoff => (plam (shiftFrom $body $n $cutoff))
-  | .papp $p $r, $n, $cutoff => (papp (shiftFrom $p $n $cutoff) $r)
-  | .lit $s, $n, $cutoff => (lit $s)
-  | .univ $l, $n, $cutoff => (univ $l)
-  | e => e
+def shiftFrom : Term → Term → Term → Term
+  | (Term.con "ix" [k]), n, cutoff => (Term.con "if" [(Term.con "geq" [k, cutoff]), (Term.con "ix" [(Term.con "add" [k, n])]), (Term.con "ix" [k])])
+  | (Term.con "lam" [body]), n, cutoff => (Term.con "lam" [(Term.con "shiftFrom" [body, n, (Term.con "suc" [cutoff])])])
+  | (Term.con "app" [f, a]), n, cutoff => (Term.con "app" [(Term.con "shiftFrom" [f, n, cutoff]), (Term.con "shiftFrom" [a, n, cutoff])])
+  | (Term.con "pi" [A, B]), n, cutoff => (Term.con "pi" [(Term.con "shiftFrom" [A, n, cutoff]), (Term.con "shiftFrom" [B, n, (Term.con "suc" [cutoff])])])
+  | (Term.con "sigma" [A, B]), n, cutoff => (Term.con "sigma" [(Term.con "shiftFrom" [A, n, cutoff]), (Term.con "shiftFrom" [B, n, (Term.con "suc" [cutoff])])])
+  | (Term.con "pair" [a, b]), n, cutoff => (Term.con "pair" [(Term.con "shiftFrom" [a, n, cutoff]), (Term.con "shiftFrom" [b, n, cutoff])])
+  | (Term.con "fst" [p]), n, cutoff => (Term.con "fst" [(Term.con "shiftFrom" [p, n, cutoff])])
+  | (Term.con "snd" [p]), n, cutoff => (Term.con "snd" [(Term.con "shiftFrom" [p, n, cutoff])])
+  | (Term.con "plam" [body]), n, cutoff => (Term.con "plam" [(Term.con "shiftFrom" [body, n, cutoff])])
+  | (Term.con "papp" [p, r]), n, cutoff => (Term.con "papp" [(Term.con "shiftFrom" [p, n, cutoff]), r])
+  | (Term.con "lit" [s]), n, cutoff => (Term.con "lit" [s])
+  | (Term.con "univ" [l]), n, cutoff => (Term.con "univ" [l])
+  | _, _, _ => Term.con "error" []
 /-- quoteCon -/
-def quoteCon : Expr → Expr
-  | $env, .dlit $s => (lit $s)
-  | $env, .dlam .dclo $body $cloEnv => (lam (quoteCon (qenvSucc $env) (deval (denvCons (dneu (dcut (dneuVar (qenvLevel $env)) dtpUnknown)) $cloEnv) $body)))
-  | $env, .dpair $a $b => (pair (quoteCon $env $a) (quoteCon $env $b))
-  | $env, .duniv $l => (univ (quoteLevel $l))
-  | $env, .dpi $A .dclo $B $cloEnv => (pi (quoteTp $env $A) (quoteCon (qenvSucc $env) (deval (denvCons (dneu (dcut (dneuVar (qenvLevel $env)) $A)) $cloEnv) $B)))
-  | $env, .dsigma $A .dclo $B $cloEnv => (sigma (quoteTp $env $A) (quoteCon (qenvSucc $env) (deval (denvCons (dneu (dcut (dneuVar (qenvLevel $env)) $A)) $cloEnv) $B)))
-  | $env, .dpath $A $a $b => (path (quoteTp $env $A) (quoteCon $env $a) (quoteCon $env $b))
-  | $env, .dplam .dclo $body $cloEnv => (plam (quoteCon (qenvSuccDim $env) (deval (denvCons (dneu (dcut (dneuVar (qenvDimLevel $env)) dtpI)) $cloEnv) $body)))
-  | $env, .drefl $a => (refl (quoteCon $env $a))
-  | $env, .dnat => nat
-  | $env, .dzeroN => zero
-  | $env, .dsucN $n => (suc (quoteCon $env $n))
-  | $env, .dcircle => circle
-  | $env, .dbase => base
-  | $env, .dloop $d => (loop (quoteDim $d))
-  | $env, .dneu $cut => (quoteNeutral $env $cut)
-  | e => e
+def quoteCon : Term → Term → Term
+  | env, (Term.con "dlit" [s]) => (Term.con "lit" [s])
+  | env, (Term.con "dlam" [(Term.con "dclo" [body, cloEnv])]) => (Term.con "lam" [(Term.con "quoteCon" [(Term.con "qenvSucc" [env]), (Term.con "deval" [(Term.con "denvCons" [(Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuVar" [(Term.con "qenvLevel" [env])]), (Term.con "dtpUnknown" [])])]), cloEnv]), body])])])
+  | env, (Term.con "dpair" [a, b]) => (Term.con "pair" [(Term.con "quoteCon" [env, a]), (Term.con "quoteCon" [env, b])])
+  | env, (Term.con "duniv" [l]) => (Term.con "univ" [(Term.con "quoteLevel" [l])])
+  | env, (Term.con "dpi" [A, (Term.con "dclo" [B, cloEnv])]) => (Term.con "pi" [(Term.con "quoteTp" [env, A]), (Term.con "quoteCon" [(Term.con "qenvSucc" [env]), (Term.con "deval" [(Term.con "denvCons" [(Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuVar" [(Term.con "qenvLevel" [env])]), A])]), cloEnv]), B])])])
+  | env, (Term.con "dsigma" [A, (Term.con "dclo" [B, cloEnv])]) => (Term.con "sigma" [(Term.con "quoteTp" [env, A]), (Term.con "quoteCon" [(Term.con "qenvSucc" [env]), (Term.con "deval" [(Term.con "denvCons" [(Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuVar" [(Term.con "qenvLevel" [env])]), A])]), cloEnv]), B])])])
+  | env, (Term.con "dpath" [A, a, b]) => (Term.con "path" [(Term.con "quoteTp" [env, A]), (Term.con "quoteCon" [env, a]), (Term.con "quoteCon" [env, b])])
+  | env, (Term.con "dplam" [(Term.con "dclo" [body, cloEnv])]) => (Term.con "plam" [(Term.con "quoteCon" [(Term.con "qenvSuccDim" [env]), (Term.con "deval" [(Term.con "denvCons" [(Term.con "dneu" [(Term.con "dcut" [(Term.con "dneuVar" [(Term.con "qenvDimLevel" [env])]), (Term.con "dtpI" [])])]), cloEnv]), body])])])
+  | env, (Term.con "drefl" [a]) => (Term.con "refl" [(Term.con "quoteCon" [env, a])])
+  | env, (Term.con "dnat" []) => (Term.con "nat" [])
+  | env, (Term.con "dzeroN" []) => (Term.con "zero" [])
+  | env, (Term.con "dsucN" [n]) => (Term.con "suc" [(Term.con "quoteCon" [env, n])])
+  | env, (Term.con "dcircle" []) => (Term.con "circle" [])
+  | env, (Term.con "dbase" []) => (Term.con "base" [])
+  | env, (Term.con "dloop" [d]) => (Term.con "loop" [(Term.con "quoteDim" [d])])
+  | env, (Term.con "dneu" [cut]) => (Term.con "quoteNeutral" [env, cut])
+  | _, _ => Term.con "error" []
 /-- quoteTp -/
-def quoteTp : Expr → Expr
-  | $env, .dtpUniv $l => (univ (quoteLevel $l))
-  | $env, .dtpPi $A $clo => (pi (quoteTp $env $A) (quoteTpClo (qenvSucc $env) $clo))
-  | $env, .dtpSigma $A $clo => (sigma (quoteTp $env $A) (quoteTpClo (qenvSucc $env) $clo))
-  | $env, .dtpPath $A $a $b => (path (quoteTp $env $A) (quoteCon $env $a) (quoteCon $env $b))
-  | $env, .dtpNat => nat
-  | $env, .dtpCircle => circle
-  | $env, .dtpNeu $cut => (quoteNeutral $env $cut)
-  | e => e
+def quoteTp : Term → Term → Term
+  | env, (Term.con "dtpUniv" [l]) => (Term.con "univ" [(Term.con "quoteLevel" [l])])
+  | env, (Term.con "dtpPi" [A, clo]) => (Term.con "pi" [(Term.con "quoteTp" [env, A]), (Term.con "quoteTpClo" [(Term.con "qenvSucc" [env]), clo])])
+  | env, (Term.con "dtpSigma" [A, clo]) => (Term.con "sigma" [(Term.con "quoteTp" [env, A]), (Term.con "quoteTpClo" [(Term.con "qenvSucc" [env]), clo])])
+  | env, (Term.con "dtpPath" [A, a, b]) => (Term.con "path" [(Term.con "quoteTp" [env, A]), (Term.con "quoteCon" [env, a]), (Term.con "quoteCon" [env, b])])
+  | env, (Term.con "dtpNat" []) => (Term.con "nat" [])
+  | env, (Term.con "dtpCircle" []) => (Term.con "circle" [])
+  | env, (Term.con "dtpNeu" [cut]) => (Term.con "quoteNeutral" [env, cut])
+  | _, _ => Term.con "error" []
 /-- quoteNeutral -/
-def quoteNeutral : Expr → Expr
-  | $env, .dcut .dneuVar $l $tp => (ix (levelToIndex $env $l))
-  | $env, .dcut .dneuApp $neu $arg $tp => (app (quoteNeutral $env (dcut $neu dtpUnknown)) (quoteCon $env $arg))
-  | $env, .dcut .dneuFst $neu $tp => (fst (quoteNeutral $env (dcut $neu dtpUnknown)))
-  | $env, .dcut .dneuSnd $neu $tp => (snd (quoteNeutral $env (dcut $neu dtpUnknown)))
-  | $env, .dcut .dneuPApp $neu $d $tp => (papp (quoteNeutral $env (dcut $neu dtpUnknown)) (quoteDim $d))
-  | $env, .dcut .dneuNatElim $P $z $s $neu $tp => (natElim (quoteCon $env $P) (quoteCon $env $z) (quoteCon $env $s) (quoteNeutral $env (dcut $neu dtpNat)))
-  | $env, .dcut .dneuCircleElim $P $b $l $neu $tp => (circleElim (quoteCon $env $P) (quoteCon $env $b) (quoteCon $env $l) (quoteNeutral $env (dcut $neu dtpCircle)))
-  | e => e
+def quoteNeutral : Term → Term → Term
+  | env, (Term.con "dcut" [(Term.con "dneuVar" [l]), tp]) => (Term.con "ix" [(Term.con "levelToIndex" [env, l])])
+  | env, (Term.con "dcut" [(Term.con "dneuApp" [neu, arg]), tp]) => (Term.con "app" [(Term.con "quoteNeutral" [env, (Term.con "dcut" [neu, (Term.con "dtpUnknown" [])])]), (Term.con "quoteCon" [env, arg])])
+  | env, (Term.con "dcut" [(Term.con "dneuFst" [neu]), tp]) => (Term.con "fst" [(Term.con "quoteNeutral" [env, (Term.con "dcut" [neu, (Term.con "dtpUnknown" [])])])])
+  | env, (Term.con "dcut" [(Term.con "dneuSnd" [neu]), tp]) => (Term.con "snd" [(Term.con "quoteNeutral" [env, (Term.con "dcut" [neu, (Term.con "dtpUnknown" [])])])])
+  | env, (Term.con "dcut" [(Term.con "dneuPApp" [neu, d]), tp]) => (Term.con "papp" [(Term.con "quoteNeutral" [env, (Term.con "dcut" [neu, (Term.con "dtpUnknown" [])])]), (Term.con "quoteDim" [d])])
+  | env, (Term.con "dcut" [(Term.con "dneuNatElim" [P, z, s, neu]), tp]) => (Term.con "natElim" [(Term.con "quoteCon" [env, P]), (Term.con "quoteCon" [env, z]), (Term.con "quoteCon" [env, s]), (Term.con "quoteNeutral" [env, (Term.con "dcut" [neu, (Term.con "dtpNat" [])])])])
+  | env, (Term.con "dcut" [(Term.con "dneuCircleElim" [P, b, l, neu]), tp]) => (Term.con "circleElim" [(Term.con "quoteCon" [env, P]), (Term.con "quoteCon" [env, b]), (Term.con "quoteCon" [env, l]), (Term.con "quoteNeutral" [env, (Term.con "dcut" [neu, (Term.con "dtpCircle" [])])])])
+  | _, _ => Term.con "error" []
 /-- quoteLevel -/
-def quoteLevel : Expr → Expr
-  | .dconst $n => (ofNat $n)
-  | .dlvar $n => (lvar $n)
-  | .dmax $l1 $l2 => (lmax (quoteLevel $l1) (quoteLevel $l2))
-  | .dsuc $l => (lsuc (quoteLevel $l))
-  | e => e
+def quoteLevel : Term → Term
+  | (Term.con "dconst" [n]) => (Term.con "ofNat" [n])
+  | (Term.con "dlvar" [n]) => (Term.con "lvar" [n])
+  | (Term.con "dmax" [l1, l2]) => (Term.con "lmax" [(Term.con "quoteLevel" [l1]), (Term.con "quoteLevel" [l2])])
+  | (Term.con "dsuc" [l]) => (Term.con "lsuc" [(Term.con "quoteLevel" [l])])
+  | _ => Term.con "error" []
 /-- ofNat -/
-def ofNat : Expr → Expr
-  | .num .number 0 => lzero
-  | .suc $n => (lsuc (ofNat $n))
-  | e => e
+def ofNat : Term → Term
+  | (Term.con "num" [(Term.con "number" [(Term.lit "0")])]) => (Term.con "lzero" [])
+  | (Term.con "suc" [n]) => (Term.con "lsuc" [(Term.con "ofNat" [n])])
+  | _ => Term.con "error" []
 /-- quoteDim -/
-def quoteDim : Expr → Expr
-  | .ddim0 => dim0
-  | .ddim1 => dim1
-  | .dvar $n => (dimVar $n)
-  | e => e
+def quoteDim : Term → Term
+  | (Term.con "ddim0" []) => (Term.con "dim0" [])
+  | (Term.con "ddim1" []) => (Term.con "dim1" [])
+  | (Term.con "dvar" [n]) => (Term.con "dimVar" [n])
+  | _ => Term.con "error" []
 /-- nbe -/
-def nbe : Expr → Expr
-  | $t => (quoteCon qenvEmpty (deval denvNil $t))
-  | e => e
+def nbe : Term → Term
+  | t => (Term.con "quoteCon" [(Term.con "qenvEmpty" []), (Term.con "deval" [(Term.con "denvNil" []), t])])
+  | _ => Term.con "error" []
 /-- nbeWithEnv -/
-def nbeWithEnv : Expr → Expr
-  | $env, $t => (quoteCon qenvEmpty (deval $env $t))
-  | e => e
+def nbeWithEnv : Term → Term → Term
+  | env, t => (Term.con "quoteCon" [(Term.con "qenvEmpty" []), (Term.con "deval" [env, t])])
+  | _, _ => Term.con "error" []
 end Lego.Cubical.Quote

@@ -5,108 +5,107 @@
     lake exe generated-pipeline Core.lego
 -/
 
-import Lego.Cubical.Core
+import Lego.Algebra
 
 namespace Lego.Cubical.Core
 
-open Lego.Core
-open Lego.Core.Expr
+open Lego (Term)
 /-- lmax -/
-def lmax : Expr → Expr
-  | $l, $l => $l
-  | .lzero, $l => $l
-  | $l, .lzero => $l
-  | .lsuc $l1, .lsuc $l2 => (lsuc (lmax $l1 $l2))
-  | e => e
+def lmax : Term → Term → Term
+  | l1, l2 => if l1 == l2 then l1 else Term.con "error" []
+  | (Term.con "lzero" []), l => l
+  | l, (Term.con "lzero" []) => l
+  | (Term.con "lsuc" [l1]), (Term.con "lsuc" [l2]) => (Term.con "lsuc" [(Term.con "lmax" [l1, l2])])
+  | _, _ => Term.con "error" []
 /-- app -/
-def app : Expr → Expr
-  | .lam $body, $arg => (subst (num (number 0)) $arg $body)
-  | e => e
+def app : Term → Term → Term
+  | (Term.con "lam" [body]), arg => (Term.con "subst" [(Term.con "num" [(Term.con "number" [(Term.lit "0")])]), arg, body])
+  | _, _ => Term.con "error" []
 /-- fst -/
-def fst : Expr → Expr
-  | .pair $a $b => $a
-  | e => e
+def fst : Term → Term
+  | (Term.con "pair" [a, b]) => a
+  | _ => Term.con "error" []
 /-- snd -/
-def snd : Expr → Expr
-  | .pair $a $b => $b
-  | e => e
+def snd : Term → Term
+  | (Term.con "pair" [a, b]) => b
+  | _ => Term.con "error" []
 /-- letE -/
-def letE : Expr → Expr
-  | $ty, $val, $body => (subst (num (number 0)) $val $body)
-  | e => e
+def letE : Term → Term → Term → Term
+  | ty, val, body => (Term.con "subst" [(Term.con "num" [(Term.con "number" [(Term.lit "0")])]), val, body])
+  | _, _, _ => Term.con "error" []
 /-- cof_eq -/
-def cof_eq : Expr → Expr
-  | $r, $r => cof_top
-  | .dim0, .dim1 => cof_bot
-  | .dim1, .dim0 => cof_bot
-  | e => e
+def cof_eq : Term → Term → Term
+  | r1, r2 => if r1 == r2 then (Term.con "cof_top" []) else Term.con "error" []
+  | (Term.con "dim0" []), (Term.con "dim1" []) => (Term.con "cof_bot" [])
+  | (Term.con "dim1" []), (Term.con "dim0" []) => (Term.con "cof_bot" [])
+  | _, _ => Term.con "error" []
 /-- cof_and -/
-def cof_and : Expr → Expr
-  | .cof_top, $φ => $φ
-  | .cof_bot, $φ => cof_bot
-  | e => e
+def cof_and : Term → Term → Term
+  | (Term.con "cof_top" []), φ => φ
+  | (Term.con "cof_bot" []), φ => (Term.con "cof_bot" [])
+  | _, _ => Term.con "error" []
 /-- cof_or -/
-def cof_or : Expr → Expr
-  | .cof_top, $φ => cof_top
-  | .cof_bot, $φ => $φ
-  | e => e
+def cof_or : Term → Term → Term
+  | (Term.con "cof_top" []), φ => (Term.con "cof_top" [])
+  | (Term.con "cof_bot" []), φ => φ
+  | _, _ => Term.con "error" []
 /-- papp -/
-def papp : Expr → Expr
-  | .plam $body, .dim0 => (substDim (num (number 0)) dim0 $body)
-  | .plam $body, .dim1 => (substDim (num (number 0)) dim1 $body)
-  | .refl $a, $r => $a
-  | e => e
+def papp : Term → Term → Term
+  | (Term.con "plam" [body]), (Term.con "dim0" []) => (Term.con "substDim" [(Term.con "num" [(Term.con "number" [(Term.lit "0")])]), (Term.con "dim0" []), body])
+  | (Term.con "plam" [body]), (Term.con "dim1" []) => (Term.con "substDim" [(Term.con "num" [(Term.con "number" [(Term.lit "0")])]), (Term.con "dim1" []), body])
+  | (Term.con "refl" [a]), r => a
+  | _, _ => Term.con "error" []
 /-- coe -/
-def coe : Expr → Expr
-  | $r, $r, $A, $a => $a
-  | e => e
+def coe : Term → Term → Term → Term → Term
+  | r1, r2, A, a => if r1 == r2 then a else Term.con "error" []
+  | _, _, _, _ => Term.con "error" []
 /-- hcom -/
-def hcom : Expr → Expr
-  | $r, $r, $A, $φ, $cap => $cap
-  | e => e
+def hcom : Term → Term → Term → Term → Term → Term
+  | r1, r2, A, φ, cap => if r1 == r2 then cap else Term.con "error" []
+  | _, _, _, _, _ => Term.con "error" []
 /-- vin -/
-def vin : Expr → Expr
-  | .dim0, $a, $b => $a
-  | .dim1, $a, $b => $b
-  | e => e
+def vin : Term → Term → Term → Term
+  | (Term.con "dim0" []), a, b => a
+  | (Term.con "dim1" []), a, b => b
+  | _, _, _ => Term.con "error" []
 /-- natElim -/
-def natElim : Expr → Expr
-  | $P, $z, $s, .zero => $z
-  | $P, $z, $s, .suc $n => (app (app $s $n) (natElim $P $z $s $n))
-  | e => e
+def natElim : Term → Term → Term → Term → Term
+  | P, z, s, (Term.con "zero" []) => z
+  | P, z, s, (Term.con "suc" [n]) => (Term.con "app" [(Term.con "app" [s, n]), (Term.con "natElim" [P, z, s, n])])
+  | _, _, _, _ => Term.con "error" []
 /-- loop -/
-def loop : Expr → Expr
-  | .dim0 => base
-  | .dim1 => base
-  | e => e
+def loop : Term → Term
+  | (Term.con "dim0" []) => (Term.con "base" [])
+  | (Term.con "dim1" []) => (Term.con "base" [])
+  | _ => Term.con "error" []
 /-- circleElim -/
-def circleElim : Expr → Expr
-  | $P, $b, $l, .base => $b
-  | e => e
+def circleElim : Term → Term → Term → Term → Term
+  | P, b, l, (Term.con "base" []) => b
+  | _, _, _, _ => Term.con "error" []
 /-- subOut -/
-def subOut : Expr → Expr
-  | .subIn $e => $e
-  | e => e
+def subOut : Term → Term
+  | (Term.con "subIn" [e]) => e
+  | _ => Term.con "error" []
 /-- shift -/
-def shift : Expr → Expr
-  | $k, $n, .ix $m => (ix (if (geq $m $k) (add $m $n) $m))
-  | $k, $n, .lam $body => (lam (shift (add $k (num (number 1))) $n $body))
-  | $k, $n, .app $f $a => (app (shift $k $n $f) (shift $k $n $a))
-  | $k, $n, .pi $A $B => (pi (shift $k $n $A) (shift (add $k (num (number 1))) $n $B))
-  | e => e
+def shift : Term → Term → Term → Term
+  | k, n, (Term.con "ix" [m]) => (Term.con "ix" [(Term.con "if" [(Term.con "geq" [m, k]), (Term.con "add" [m, n]), m])])
+  | k, n, (Term.con "lam" [body]) => (Term.con "lam" [(Term.con "shift" [(Term.con "add" [k, (Term.con "num" [(Term.con "number" [(Term.lit "1")])])]), n, body])])
+  | k, n, (Term.con "app" [f, a]) => (Term.con "app" [(Term.con "shift" [k, n, f]), (Term.con "shift" [k, n, a])])
+  | k, n, (Term.con "pi" [A, B]) => (Term.con "pi" [(Term.con "shift" [k, n, A]), (Term.con "shift" [(Term.con "add" [k, (Term.con "num" [(Term.con "number" [(Term.lit "1")])])]), n, B])])
+  | _, _, _ => Term.con "error" []
 /-- subst -/
-def subst : Expr → Expr
-  | $k, $v, .ix $k => $v
-  | $k, $v, .lam $body => (lam (subst (add $k (num (number 1))) (shift (num (number 0)) (num (number 1)) $v) $body))
-  | $k, $v, .app $f $a => (app (subst $k $v $f) (subst $k $v $a))
-  | e => e
+def subst : Term → Term → Term → Term
+  | k1, v, (Term.con "ix" [k2]) => if k1 == k2 then v else Term.con "error" []
+  | k, v, (Term.con "lam" [body]) => (Term.con "lam" [(Term.con "subst" [(Term.con "add" [k, (Term.con "num" [(Term.con "number" [(Term.lit "1")])])]), (Term.con "shift" [(Term.con "num" [(Term.con "number" [(Term.lit "0")])]), (Term.con "num" [(Term.con "number" [(Term.lit "1")])]), v]), body])])
+  | k, v, (Term.con "app" [f, a]) => (Term.con "app" [(Term.con "subst" [k, v, f]), (Term.con "subst" [k, v, a])])
+  | _, _, _ => Term.con "error" []
 /-- normalize -/
-def normalize : Expr → Expr
-  | .num .number 0, $t => $t
-  | e => e
+def normalize : Term → Term → Term
+  | (Term.con "num" [(Term.con "number" [(Term.lit "0")])]), t => t
+  | _, _ => Term.con "error" []
 /-- normalizeStep -/
-def normalizeStep : Expr → Expr
-  | $fuel, .some $t => (normalize $fuel $t)
-  | $fuel, .none => $t
-  | e => e
+def normalizeStep : Term → Term → Term
+  | fuel, (Term.con "some" [t]) => (Term.con "normalize" [fuel, t])
+  | fuel, (Term.con "none" []) => t
+  | _, _ => Term.con "error" []
 end Lego.Cubical.Core
