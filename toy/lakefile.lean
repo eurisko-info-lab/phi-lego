@@ -99,3 +99,7 @@ lean_exe «pipeline» where
 -- Rosetta Pipeline: .rosetta → Rosetta.lego → rosetta2lean → Lean
 lean_exe «rosetta-pipeline» where
   root := `Rosetta.RosettaPipeline
+
+-- Generated Pipeline: generated/*.lego → .lean
+lean_exe «generated-pipeline» where
+  root := `tools.GeneratedPipeline
