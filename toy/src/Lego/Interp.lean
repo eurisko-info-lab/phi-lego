@@ -253,6 +253,19 @@ structure ParseState where
     where memo persists even through failures. -/
 abbrev ParseResult := Option (Term × ParseState) × MemoTable
 
+/-- Find all productions with a given name and combine them with alt.
+    This is essential when multiple alternatives are defined separately:
+      term ::= "a" → A ;
+      term ::= "b" → B ;
+    should behave as: term ::= "a" → A | "b" → B ; -/
+def findAllProductions (prods : Productions) (name : String) : Option GrammarExpr :=
+  let matching := prods.filter (·.1 == name)
+  match matching with
+  | [] => none
+  | [(_, g)] => some g
+  | (_, g) :: rest =>
+    some (rest.foldl (fun acc (_, g') => .mk (.alt acc g')) g)
+
 /-! ## Token-level Grammar Engine (Parser) -/
 
 /-- Interpret a GrammarExpr for parsing (forward direction).
@@ -311,8 +324,9 @@ partial def parseGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (s
         | none => (none, st.memo)  -- Cached failure
       | none =>
         -- Cache miss - parse and cache
-        match prods.find? (·.1 == name) with
-        | some (_, g') =>
+        -- Use findAllProductions to combine multiple alternatives
+        match findAllProductions prods name with
+        | some g' =>
           let (result, memo') := parseGrammar fuel' prods g' st
           match result with
           | some (term, st') =>
@@ -384,9 +398,25 @@ def printGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (t : Term)
   | .mk (.lit s) => some (acc ++ [.sym s])
 
   | .mk (.ref name) =>
-    match prods.find? (·.1 == name) with
-    | some (_, g') => printGrammar fuel' prods g' t acc
-    | none => none
+    -- Handle built-in token types (TOKEN.*) specially
+    if name.startsWith "TOKEN." then
+      let tokType := name.drop 6  -- Remove "TOKEN." prefix
+      -- Unwrap single-element seq if present
+      let t' := match t with
+        | .con "seq" [x] => x
+        | _ => t
+      match tokType, t' with
+      | "ident", .var s => some (acc ++ [.ident s])
+      | "ident", .lit s => some (acc ++ [.ident s])  -- Also handle lit
+      | "string", .lit s => some (acc ++ [.lit s])
+      | "number", .lit s => some (acc ++ [.number s])
+      | "sym", .var s => some (acc ++ [.sym s])
+      | _, _ => none
+    else
+      -- Use findAllProductions to combine multiple alternatives
+      match findAllProductions prods name with
+      | some g' => printGrammar fuel' prods g' t acc
+      | none => none
 
   | .mk (.seq g1 g2) =>
     let (t1, t2) := splitSeq t
@@ -414,8 +444,14 @@ def printGrammar (fuel : Nat) (prods : Productions) (g : GrammarExpr) (t : Term)
   | .mk (.bind _ g') => printGrammar fuel' prods g' t acc
 
   | .mk (.node name g') =>
-    let t' := unwrapNode name t
-    printGrammar fuel' prods g' t' acc
+    -- Only succeed if the term is a node with matching name
+    match t with
+    | .con n ts =>
+      if n == name then
+        let t' := Term.con "seq" ts
+        printGrammar fuel' prods g' t' acc
+      else none  -- Node name doesn't match
+    | _ => none  -- Not a node
 
 /-! ## Parameterized Grammar Interpretation (AST typeclass) -/
 
@@ -472,8 +508,8 @@ def parseGrammarT [AST α] (fuel : Nat) (prods : Productions) (g : GrammarExpr)
           else none
         | _, _ => none
       else
-        match prods.find? (·.1 == name) with
-        | some (_, g') => parseGrammarT fuel' prods g' st
+        match findAllProductions prods name with
+        | some g' => parseGrammarT fuel' prods g' st
         | none => none
 
     | .mk (.seq g1 g2) =>

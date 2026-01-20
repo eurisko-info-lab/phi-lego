@@ -95,3 +95,7 @@ lean_exe «lego-gen» where
 -- Pipeline: CubicalTT → cubical2rosetta → rosetta2lean
 lean_exe «pipeline» where
   root := `Rosetta.Pipeline
+
+-- Rosetta Pipeline: .rosetta → Rosetta.lego → rosetta2lean → Lean
+lean_exe «rosetta-pipeline» where
+  root := `Rosetta.RosettaPipeline

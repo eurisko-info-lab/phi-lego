@@ -27,15 +27,13 @@ def main : IO Unit := do
 
   -- lean := run rules rosetta2lean.lego on lifted
   let r2lContent ← IO.FS.readFile "./src/Rosetta/rosetta2lean.lego"
-  IO.println s!"rosetta2lean content length: {r2lContent.length}"
-  let tokens := tokenize r2lContent
-  IO.println s!"rosetta2lean tokens: {tokens.length}"
-  IO.println s!"first 20 tokens: {tokens.take 20 |>.map (·.toString) |> String.intercalate " "}"
-  let some r2lAst := parseLegoFile r2lContent | IO.eprintln "parse rosetta2lean failed"; return
-  let rules2 := extractRules r2lAst
-  let lean := transform rules2 lifted
-
-  -- write to generated/
-  IO.FS.createDirAll "./generated/Cubical"
-  IO.FS.writeFile "./generated/Cubical/Redtt.lean" (toString (repr lean))
-  IO.println "Wrote generated/Cubical/Redtt.lean"
+  match parseLegoFile r2lContent with
+  | .some r2lAst =>
+    let rules2 := extractRules r2lAst
+    let lean := transform rules2 lifted
+    -- write to generated/
+    IO.FS.createDirAll "./generated/Cubical"
+    IO.FS.writeFile "./generated/Cubical/Redtt.lean" (toString (repr lean))
+    IO.println "Wrote generated/Cubical/Redtt.lean"
+  | .none =>
+    IO.eprintln s!"parse rosetta2lean failed"

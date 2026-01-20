@@ -68,23 +68,65 @@ fileDecl ::= !("rule" ruleName ":" pattern "~>" template)
 
 ### 1. NEVER Hand-Code Parsers or Printers
 
-**WRONG:**
-```haskell
-parseExpr :: String -> Maybe Term
-parseExpr s = case words s of
-  ["let", x, "=", ...] -> ...  -- NO! Hand-coded parser
+**STOP. READ THIS BEFORE WRITING ANY CODE.**
+
+If you are about to write ANY of these patterns, you are doing it wrong:
+
+```
+-- FORBIDDEN PATTERNS (if you write these, you have failed):
+termToLean, termToHaskell, termToRust, termTo*  -- NO
+prettyPrint, ppTerm, showTerm                    -- NO
+parseExpr, parseStmt, parse*                     -- NO
+case t of .con "foo" args -> "foo " ++ ...       -- NO
+match t with | .con name args => s!"{name}..."   -- NO
 ```
 
-**RIGHT:**
-```haskell
--- Use grammar-driven parsing
-result <- runGrammar grammar "expr" tokens
--- Grammar.sexpr is the source of truth
+**THE ONLY CORRECT PATTERN:**
+
+```lean
+-- Parse: grammar → tokens → AST
+let ast := parseWithGrammar grammar content
+
+-- Transform: rules → AST → AST  
+let newAst := transform rules ast
+
+-- Print: grammar → AST → tokens
+let tokens := printWithGrammar grammar prodName ast
 ```
 
-The same grammar must work for BOTH parsing AND printing. If you find yourself writing pattern matches on strings or manual AST construction, STOP. Update the grammar instead.
+**Grammar is the parser. Grammar is the printer. There is no third option.**
 
-### 2. NEVER Use `/tmp`
+If `printWithGrammar` fails, the problem is:
+1. Your transformation rules produce wrong AST shape, OR
+2. Your target grammar is incomplete
+
+Fix the `.lego` files. Do NOT add a "fallback" hand-coded printer.
+
+### 2. Bootstrap.lego is ONLY for Bootstrap
+
+**THE BOOTSTRAP CHAIN:**
+```
+Hardcoded seed grammar ──parses──▶ Bootstrap.lego
+                                        │
+                                        ▼
+                                  Runtime Grammar ──parses──▶ ALL other .lego files
+```
+
+**Bootstrap.lego defines the meta-grammar.** It is parsed ONCE at startup by the hardcoded seed. The result is the Runtime, which parses everything else.
+
+**NEVER use Bootstrap to parse arbitrary .lego files:**
+```lean
+-- WRONG: Bootstrap only parses Bootstrap.lego
+let ast := Bootstrap.parseLegoFile rosettaContent  -- NO!
+
+-- RIGHT: Use Runtime (which was loaded from Bootstrap.lego)
+let rt ← loadBootstrapOrFallback  -- This loads Bootstrap.lego ONCE
+let ast := parseLegoFile rt content  -- Runtime parses everything else
+```
+
+If you call `Bootstrap.parseLegoFile` on anything other than Bootstrap.lego itself, you are doing it wrong.
+
+### 3. NEVER Use `/tmp`
 
 **WRONG:**
 ```bash
@@ -98,7 +140,7 @@ ghc ... > ./tmp/output.hs
 
 Use `./tmp/` (gitignored) for all temporary files. Never use system `/tmp`.
 
-### 3. NEVER Pipe `ghc` or `ghci` Output Through `head`
+### 4. NEVER Pipe `ghc` or `ghci` Output Through `head`
 
 **WRONG (HANGS):**
 ```bash

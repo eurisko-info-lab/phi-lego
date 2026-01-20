@@ -603,8 +603,8 @@ def parseAsGrammarExpr (grammar : LoadedGrammar) (input : String) : Option Gramm
 
 /-- Print a term back to tokens using a loaded grammar -/
 def printWithGrammar (grammar : LoadedGrammar) (prodName : String) (t : Term) : Option (List Token) :=
-  match grammar.productions.find? (·.1 == prodName) with
-  | some (_, g) => printGrammar defaultFuel grammar.productions g t []
+  match findAllProductions grammar.productions prodName with
+  | some g => printGrammar defaultFuel grammar.productions g t []
   | none => none
 
 /-- Print a term to string using a loaded grammar -/
@@ -771,11 +771,12 @@ def extractRule (ruleDecl : Term) : Option Rule :=
   match ruleDecl with
   | .con "DRule" args =>
     -- Structure varies based on whether patterns have outer parens
-    -- Filter out keywords and punctuation
+    -- Filter out keywords, punctuation, and empty guard
     let filtered := args.filter (· != .lit "rule") |>.filter (· != .lit ":")
                        |>.filter (· != .lit "~>") |>.filter (· != .lit ";")
                        |>.filter (· != .lit "(") |>.filter (· != .lit ")")
                        |>.filter (· != .lit "$")
+                       |>.filter (· != .con "unit" [])  -- empty guard
     -- Find the name (first ident) and separate pattern/template parts
     match filtered with
     | .con "ident" [.var name] :: rest =>
