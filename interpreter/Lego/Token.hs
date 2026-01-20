@@ -402,14 +402,12 @@ tokenizeWithSymbolListCore doClassify preserveComments symbolList input =
     
     -- Identifier characters: alphanumeric, underscore, hyphen, apostrophe,
     -- plus some Unicode symbols that redtt allows in identifiers:
-    --   ∘ (composition)
+    --   ∘ (composition), φ ψ (Greek letters for cofibrations)
     -- Note: / and → are NOT included because they have syntactic meaning
     -- (path separator and function arrow). Identifiers like iso/refl and
     -- biinv-equiv→iso are handled by qualident in the grammar.
-    isIdChar c = isAlphaNum c || c == '_' || c == '-' || c == '\'' 
-                 || c == '∘'
-    
-    -- Match longest symbol first
+    isIdChar c = isAlphaNum c || c == '_' || c == '-' || c == '\''
+                 || c == '∘' || c == 'φ' || c == 'ψ'
     matchSym cs = foldr (\s acc -> if s `isPrefixOf` cs then Just (s, drop (length s) cs) else acc) Nothing sortedSymbols
     sortedSymbols = reverse $ sortBy (compare `on` length) symbolList
     sortBy cmp = foldr (insertBy cmp) []
@@ -471,10 +469,10 @@ tokenizeWithInfo = go 1 1 0  -- (line, column, indent)
     
     -- Identifier characters: alphanumeric, underscore, hyphen, apostrophe,
     -- plus some Unicode symbols that redtt allows in identifiers:
-    --   ∘ (composition)
+    --   ∘ (composition), φ ψ (Greek letters for cofibrations)
     -- Note: / and → are NOT included because they have syntactic meaning
     isIdChar c = isAlphaNum c || c == '_' || c == '-' || c == '\''
-                 || c == '∘'
+                 || c == '∘' || c == 'φ' || c == 'ψ'
     matchSym cs = foldr (\s acc -> if s `isPrefixOf` cs then Just (s, drop (length s) cs) else acc) Nothing sortedSymbols
     sortedSymbols = reverse $ sortBy (compare `on` length) symbols
     sortBy cmp = foldr (insertBy cmp) []

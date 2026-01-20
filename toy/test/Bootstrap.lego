@@ -202,9 +202,10 @@ piece File
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":" pattern "~>" template ruleGuard? ";" → DRule ;
   ruleGuard  ::= "when" pattern → guard ;
-  typeDecl   ::= "type" ident ":" pattern ":" pattern whenClause? ";" → DType ;
+  typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;
   whenClause ::= "when" typeConstraint ("," typeConstraint)* → when ;
-  typeConstraint ::= pattern ":" pattern → constraint ;
+  typeConstraint ::= pattern ":" term → constraint
+                   | "[" pattern "]" pattern "=" term → bracketConstraint ;
   testDecl   ::= "test" string ":" term ("~~>" term)? ";" → DTest ;
   -- Attribute Grammar section (groups syn/inh declarations and rules)
   attrsDecl  ::= "attrs" ident attrBody → DAttrs ;

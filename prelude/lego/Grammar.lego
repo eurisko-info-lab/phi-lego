@@ -225,8 +225,20 @@ piece File
   
   -- Piece declaration (with cut after "piece")
   pieceDecl ::= !"piece" ident whitespace? pieceItem*
-  pieceItem ::= productionWithWs
+  pieceItem ::= productionWithWs | pieceRuleDecl | pieceTestDecl | pieceTypeDecl | pieceSectionMarker
   productionWithWs ::= production whitespace?
+  pieceRuleDecl ::= ruleDecl whitespace?
+  pieceTestDecl ::= testDecl whitespace?
+  pieceTypeDecl ::= typeDecl whitespace?
+  pieceSectionMarker ::= sectionMarker whitespace?
+  
+  -- Type declaration (with cut after "type")
+  typeDecl ::= !"type" ident ":" whitespace? pattern ":" whitespace? pattern typeWhen? ";"?
+  typeWhen ::= whitespace? "when" whitespace? typeConditions
+  typeConditions ::= typeCondition typeMoreConditions*
+  typeMoreConditions ::= "," whitespace? typeCondition
+  typeCondition ::= pattern ":" whitespace? pattern
+                  | "[" pattern "]" pattern "=" pattern
   
   -- Rule declaration (with cut after "rule")
   ruleDecl ::= !"rule" ident ":" whitespace? pattern "~>" whitespace? template
