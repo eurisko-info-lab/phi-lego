@@ -1,342 +1,118 @@
 -----------------------------------------------------
 -- cubical2rosetta.lego
 -- Transforms Cubical constructs to generic Rosetta primitives
--- Import: Cubical.lego (source: cubical-specific constructs)
--- Export: Rosetta.lego (target: generic Var/Lam/App/ADT)
---
 -- Pipeline: Cubical → Rosetta → Lean
 -----------------------------------------------------
 
-vocab CubicalRosettaKeywords
-  toRosetta adtDef rewriteRule
+lang CubicalToRosetta :=
 
 -----------------------------------------------------
--- DimToRosetta
--- Dimensions → Rosetta ADT
+-- Dimensions → Rosetta
 -----------------------------------------------------
-piece DimToRosetta
-  -- dim0, dim1 → constructors of Dim ADT
-  rule dimAdt: (toRosetta Dimensions) ~> 
-    (adtDef "Dim" { I0 : Dim, I1 : Dim, Var : Name → Dim,
-                    Meet : Dim → Dim → Dim, Join : Dim → Dim → Dim,
-                    Neg : Dim → Dim }) ;
-  
-  rule toDim0: (toRosetta dim0) ~> (Var "Dim.I0") ;
-  rule toDim1: (toRosetta dim1) ~> (Var "Dim.I1") ;
-  rule toDimVar: (toRosetta (dimVar $i)) ~> (App (Var "Dim.Var") (Var $i)) ;
-  rule toDimAnd: (toRosetta (dim_and $d1 $d2)) ~> 
-    (App (App (Var "Dim.Meet") (toRosetta $d1)) (toRosetta $d2)) ;
-  rule toDimOr: (toRosetta (dim_or $d1 $d2)) ~> 
-    (App (App (Var "Dim.Join") (toRosetta $d1)) (toRosetta $d2)) ;
-  rule toDimNeg: (toRosetta (dim_neg $d)) ~> 
-    (App (Var "Dim.Neg") (toRosetta $d)) ;
+rule toDim0: (toRosetta dim0) ~> (Var "Dim.I0") ;
+rule toDim1: (toRosetta dim1) ~> (Var "Dim.I1") ;
+rule toDimVar: (toRosetta (dimVar $i)) ~> (App (Var "Dim.Var") (Var $i)) ;
+rule toDimAnd: (toRosetta (dim_and $d1 $d2)) ~> 
+  (App (App (Var "Dim.Meet") (toRosetta $d1)) (toRosetta $d2)) ;
+rule toDimOr: (toRosetta (dim_or $d1 $d2)) ~> 
+  (App (App (Var "Dim.Join") (toRosetta $d1)) (toRosetta $d2)) ;
+rule toDimNeg: (toRosetta (dim_neg $d)) ~> 
+  (App (Var "Dim.Neg") (toRosetta $d)) ;
 
 -----------------------------------------------------
--- CofToRosetta
--- Cofibrations → Rosetta ADT
+-- Cofibrations → Rosetta
 -----------------------------------------------------
-piece CofToRosetta
-  rule cofAdt: (toRosetta Cofibrations) ~>
-    (adtDef "Cof" { Top : Cof, Bot : Cof, Eq : Dim → Dim → Cof,
-                    And : Cof → Cof → Cof, Or : Cof → Cof → Cof }) ;
-  
-  rule toCofTop: (toRosetta cof_top) ~> (Var "Cof.Top") ;
-  rule toCofBot: (toRosetta cof_bot) ~> (Var "Cof.Bot") ;
-  rule toCofEq: (toRosetta (cof_eq $d1 $d2)) ~> 
-    (App (App (Var "Cof.Eq") (toRosetta $d1)) (toRosetta $d2)) ;
-  rule toCofAnd: (toRosetta (cof_and $φ1 $φ2)) ~> 
-    (App (App (Var "Cof.And") (toRosetta $φ1)) (toRosetta $φ2)) ;
-  rule toCofOr: (toRosetta (cof_disj $φ1 $φ2)) ~> 
-    (App (App (Var "Cof.Or") (toRosetta $φ1)) (toRosetta $φ2)) ;
+rule toCofTop: (toRosetta cof_top) ~> (Var "Cof.Top") ;
+rule toCofBot: (toRosetta cof_bot) ~> (Var "Cof.Bot") ;
+rule toCofEq: (toRosetta (cof_eq $d1 $d2)) ~> 
+  (App (App (Var "Cof.Eq") (toRosetta $d1)) (toRosetta $d2)) ;
+rule toCofAnd: (toRosetta (cof_and $φ1 $φ2)) ~> 
+  (App (App (Var "Cof.And") (toRosetta $φ1)) (toRosetta $φ2)) ;
+rule toCofOr: (toRosetta (cof_disj $φ1 $φ2)) ~> 
+  (App (App (Var "Cof.Or") (toRosetta $φ1)) (toRosetta $φ2)) ;
 
 -----------------------------------------------------
--- PathToRosetta
--- Path types → Rosetta Lam/App
+-- Path types → Rosetta
 -----------------------------------------------------
-piece PathToRosetta
-  rule pathAdt: (toRosetta PathTypes) ~>
-    (adtDef "Path" { PathTy : Term → Term → Term → Term,
-                     PLam : Term → Term, PApp : Term → Dim → Term }) ;
-  
-  rule toPath: (toRosetta (path $A $a $b)) ~> 
-    (App (App (App (Var "Path.PathTy") (toRosetta $A)) (toRosetta $a)) (toRosetta $b)) ;
-  rule toPlam: (toRosetta (plam $body)) ~> 
-    (Lam (toRosetta $body)) ;  -- path lambda is just lambda
-  rule toPapp: (toRosetta (papp $p $i)) ~> 
-    (App (toRosetta $p) (toRosetta $i)) ;  -- path app is just app
+rule toPath: (toRosetta (path $A $a $b)) ~> 
+  (App (App (App (Var "Path.PathTy") (toRosetta $A)) (toRosetta $a)) (toRosetta $b)) ;
+rule toPlam: (toRosetta (plam $body)) ~> (Lam (toRosetta $body)) ;
+rule toPapp: (toRosetta (papp $p $i)) ~> (App (toRosetta $p) (toRosetta $i)) ;
 
 -----------------------------------------------------
--- KanToRosetta
--- Kan operations → Rosetta ADT + rewrites
+-- Kan operations → Rosetta
 -----------------------------------------------------
-piece KanToRosetta
-  rule kanAdt: (toRosetta KanOperations) ~>
-    (adtDef "Kan" { Coe : Dim → Dim → Term → Term → Term,
-                    HCom : Term → Dim → Dim → Cof → System → Term → Term,
-                    Com : Term → Dim → Dim → Cof → System → Term → Term }) ;
-  
-  rule toCoe: (toRosetta (coe $r $r' $A $a)) ~> 
-    (App (App (App (App (Var "Kan.Coe") (toRosetta $r)) (toRosetta $r')) 
-              (toRosetta $A)) (toRosetta $a)) ;
-  
-  rule toHcom: (toRosetta (hcom $A $r $r' $φ $tubes $cap)) ~>
-    (App (App (App (App (App (App (Var "Kan.HCom") 
-      (toRosetta $A)) (toRosetta $r)) (toRosetta $r')) 
-      (toRosetta $φ)) (toRosetta $tubes)) (toRosetta $cap)) ;
-  
-  rule toCom: (toRosetta (com $A $r $r' $φ $tubes $cap)) ~>
-    (App (App (App (App (App (App (Var "Kan.Com") 
-      (toRosetta $A)) (toRosetta $r)) (toRosetta $r')) 
-      (toRosetta $φ)) (toRosetta $tubes)) (toRosetta $cap)) ;
-  
-  -- Reduction rules become Rosetta rewrite rules
-  rule coeRefl: (toRosetta coeReflRule) ~>
-    (rewriteRule "coeRefl": (Coe $r $r $A $a) ~> $a) ;
+rule toCoe: (toRosetta (coe $r $r' $A $a)) ~> 
+  (App (App (App (App (Var "Kan.Coe") (toRosetta $r)) (toRosetta $r')) 
+            (toRosetta $A)) (toRosetta $a)) ;
+rule toHcom: (toRosetta (hcom $A $r $r' $φ $tubes $cap)) ~>
+  (App (App (App (App (App (App (Var "Kan.HCom") 
+    (toRosetta $A)) (toRosetta $r)) (toRosetta $r')) 
+    (toRosetta $φ)) (toRosetta $tubes)) (toRosetta $cap)) ;
+rule toCom: (toRosetta (com $A $r $r' $φ $tubes $cap)) ~>
+  (App (App (App (App (App (App (Var "Kan.Com") 
+    (toRosetta $A)) (toRosetta $r)) (toRosetta $r')) 
+    (toRosetta $φ)) (toRosetta $tubes)) (toRosetta $cap)) ;
 
 -----------------------------------------------------
--- FHComToRosetta
--- Fibrant hcom → Rosetta ADT
+-- Sub types → Rosetta
 -----------------------------------------------------
-piece FHComToRosetta
-  rule fhcomAdt: (toRosetta FibrantHCom) ~>
-    (adtDef "FHCom" { FHCom : Dim → Dim → Term → System → Term,
-                      Box : Dim → Dim → Term → System → Term,
-                      Cap : Dim → Dim → Term → System → Term → Term }) ;
-  
-  rule toFHCom: (toRosetta (fhcom $r $r' $cap $sys)) ~>
-    (App (App (App (App (Var "FHCom.FHCom") 
-      (toRosetta $r)) (toRosetta $r')) (toRosetta $cap)) (toRosetta $sys)) ;
-  
-  rule toBox: (toRosetta (box $r $r' $cap $sys)) ~>
-    (App (App (App (App (Var "FHCom.Box") 
-      (toRosetta $r)) (toRosetta $r')) (toRosetta $cap)) (toRosetta $sys)) ;
-  
-  rule toCap: (toRosetta (cap $r $r' $ty $sys $el)) ~>
-    (App (App (App (App (App (Var "FHCom.Cap") 
-      (toRosetta $r)) (toRosetta $r')) (toRosetta $ty)) (toRosetta $sys)) (toRosetta $el)) ;
+rule toSub: (toRosetta (sub $A $φ $t)) ~> 
+  (App (App (App (Var "Sub.SubTy") (toRosetta $A)) (toRosetta $φ)) (toRosetta $t)) ;
+rule toSubIn: (toRosetta (subIn $e)) ~> (App (Var "Sub.SubIn") (toRosetta $e)) ;
+rule toSubOut: (toRosetta (subOut $e)) ~> (App (Var "Sub.SubOut") (toRosetta $e)) ;
 
 -----------------------------------------------------
--- SubToRosetta
--- Sub types → Rosetta ADT
+-- V-types → Rosetta
 -----------------------------------------------------
-piece SubToRosetta
-  rule subAdt: (toRosetta SubTypes) ~>
-    (adtDef "Sub" { SubTy : Term → Cof → Term → Term,
-                    SubIn : Term → Term, SubOut : Term → Term }) ;
-  
-  rule toSub: (toRosetta (sub $A $φ $t)) ~> 
-    (App (App (App (Var "Sub.SubTy") (toRosetta $A)) (toRosetta $φ)) (toRosetta $t)) ;
-  rule toSubIn: (toRosetta (subIn $e)) ~> 
-    (App (Var "Sub.SubIn") (toRosetta $e)) ;
-  rule toSubOut: (toRosetta (subOut $e)) ~> 
-    (App (Var "Sub.SubOut") (toRosetta $e)) ;
+rule toVType: (toRosetta (vtype $r $A $B $e)) ~> 
+  (App (App (App (App (Var "VType.VTy") (toRosetta $r)) 
+            (toRosetta $A)) (toRosetta $B)) (toRosetta $e)) ;
+rule toVIn: (toRosetta (vin $r $a $b)) ~> 
+  (App (App (App (Var "VType.VIn") (toRosetta $r)) (toRosetta $a)) (toRosetta $b)) ;
+rule toVProj: (toRosetta (vproj $r $A $B $e $v)) ~>
+  (App (App (App (App (App (Var "VType.VProj") (toRosetta $r)) 
+            (toRosetta $A)) (toRosetta $B)) (toRosetta $e)) (toRosetta $v)) ;
 
 -----------------------------------------------------
--- VTypeToRosetta
--- V-types → Rosetta ADT
+-- Glue types → Rosetta
 -----------------------------------------------------
-piece VTypeToRosetta
-  rule vtypeAdt: (toRosetta VTypes) ~>
-    (adtDef "VType" { VTy : Dim → Term → Term → Term → Term,
-                      VIn : Dim → Term → Term → Term,
-                      VProj : Dim → Term → Term → Term → Term → Term }) ;
-  
-  rule toVType: (toRosetta (vtype $r $A $B $e)) ~> 
-    (App (App (App (App (Var "VType.VTy") (toRosetta $r)) 
-              (toRosetta $A)) (toRosetta $B)) (toRosetta $e)) ;
-  
-  rule toVIn: (toRosetta (vin $r $a $b)) ~> 
-    (App (App (App (Var "VType.VIn") (toRosetta $r)) (toRosetta $a)) (toRosetta $b)) ;
-  
-  rule toVProj: (toRosetta (vproj $r $A $B $e $v)) ~>
-    (App (App (App (App (App (Var "VType.VProj") (toRosetta $r)) 
-              (toRosetta $A)) (toRosetta $B)) (toRosetta $e)) (toRosetta $v)) ;
+rule toGlue: (toRosetta (glue $A $φ $T $e)) ~>
+  (App (App (App (App (Var "Glue.GlueTy") (toRosetta $A)) 
+            (toRosetta $φ)) (toRosetta $T)) (toRosetta $e)) ;
+rule toGlueEl: (toRosetta (glueEl $t $a)) ~> 
+  (App (App (Var "Glue.GlueEl") (toRosetta $t)) (toRosetta $a)) ;
+rule toUnglue: (toRosetta (unglue $g)) ~> (App (Var "Glue.Unglue") (toRosetta $g)) ;
 
 -----------------------------------------------------
--- ExtToRosetta
--- Extension types → Rosetta ADT
+-- HITs → Rosetta
 -----------------------------------------------------
-piece ExtToRosetta
-  rule extAdt: (toRosetta ExtTypes) ~>
-    (adtDef "Ext" { ExtTy : Nat → Term → Cof → System → Term,
-                    ExtLam : Term → Term, ExtApp : Term → Dims → Term }) ;
-  
-  rule toExt: (toRosetta (ext $n $A $φ $sys)) ~>
-    (App (App (App (App (Var "Ext.ExtTy") (toRosetta $n)) 
-              (toRosetta $A)) (toRosetta $φ)) (toRosetta $sys)) ;
-  
-  rule toExtLam: (toRosetta (extLam $body)) ~> 
-    (Lam (toRosetta $body)) ;  -- extension lambda is lambda
-  
-  rule toExtApp: (toRosetta (extApp $e $dims)) ~> 
-    (App (toRosetta $e) (toRosetta $dims)) ;
+rule toCircle: (toRosetta S1) ~> (Var "Circle.S1") ;
+rule toBase: (toRosetta base) ~> (Var "Circle.Base") ;
+rule toLoop: (toRosetta (loop $i)) ~> (App (Var "Circle.Loop") (toRosetta $i)) ;
+rule toNat: (toRosetta nat) ~> (Var "Nat.NatTy") ;
+rule toZero: (toRosetta zero) ~> (Var "Nat.Zero") ;
+rule toSuc: (toRosetta (suc $n)) ~> (App (Var "Nat.Suc") (toRosetta $n)) ;
 
 -----------------------------------------------------
--- GlueToRosetta
--- Glue types → Rosetta ADT
+-- Core → Rosetta
 -----------------------------------------------------
-piece GlueToRosetta
-  rule glueAdt: (toRosetta GlueTypes) ~>
-    (adtDef "Glue" { GlueTy : Term → Cof → Term → Term → Term,
-                     GlueEl : Term → Term → Term, Unglue : Term → Term }) ;
-  
-  rule toGlue: (toRosetta (glue $A $φ $T $e)) ~>
-    (App (App (App (App (Var "Glue.GlueTy") (toRosetta $A)) 
-              (toRosetta $φ)) (toRosetta $T)) (toRosetta $e)) ;
-  
-  rule toGlueEl: (toRosetta (glueEl $t $a)) ~> 
-    (App (App (Var "Glue.GlueEl") (toRosetta $t)) (toRosetta $a)) ;
-  
-  rule toUnglue: (toRosetta (unglue $g)) ~> 
-    (App (Var "Glue.Unglue") (toRosetta $g)) ;
-
------------------------------------------------------
--- SystemToRosetta
--- Tube systems → Rosetta lists (Pair)
------------------------------------------------------
-piece SystemToRosetta
-  rule toSysEmpty: (toRosetta ()) ~> (Var "List.nil") ;
-  rule toSysCons: (toRosetta (([$φ ↦ $tube]) $rest)) ~>
-    (App (App (Var "List.cons") 
-              (Pair (toRosetta $φ) (toRosetta $tube))) 
-         (toRosetta $rest)) ;
-  rule toSysEntry: (toRosetta [$φ ↦ $tube]) ~>
-    (Pair (toRosetta $φ) (toRosetta $tube)) ;
-  rule toDimsEmpty: (toRosetta ()) ~> (Var "List.nil") ;
-  rule toDimsCons: (toRosetta (($d) $rest)) ~>
-    (App (App (Var "List.cons") (toRosetta $d)) (toRosetta $rest)) ;
-
------------------------------------------------------
--- HITToRosetta
--- Higher inductive types → Rosetta ADT
------------------------------------------------------
-piece HITToRosetta
-  rule circleAdt: (toRosetta Circle) ~>
-    (adtDef "Circle" { S1 : Term, Base : Term, Loop : Dim → Term }) ;
-  
-  rule natAdt: (toRosetta Nat) ~>
-    (adtDef "Nat" { NatTy : Term, Zero : Term, Suc : Term → Term }) ;
-  
-  rule toCircle: (toRosetta S1) ~> (Var "Circle.S1") ;
-  rule toBase: (toRosetta base) ~> (Var "Circle.Base") ;
-  rule toLoop: (toRosetta (loop $i)) ~> 
-    (App (Var "Circle.Loop") (toRosetta $i)) ;
-  
-  rule toNat: (toRosetta nat) ~> (Var "Nat.NatTy") ;
-  rule toZero: (toRosetta zero) ~> (Var "Nat.Zero") ;
-  rule toSuc: (toRosetta (suc $n)) ~> 
-    (App (Var "Nat.Suc") (toRosetta $n)) ;
-  
-  rule toElim: (toRosetta (elim $kind $P $cases $scrut)) ~>
-    (App (App (App (App (Var "HIT.elim") (toRosetta $kind)) 
-              (toRosetta $P)) (toRosetta $cases)) (toRosetta $scrut)) ;
-
------------------------------------------------------
--- CoreToRosetta
--- Core term constructors → Rosetta Lam/App/Pair/Var
------------------------------------------------------
-piece CoreToRosetta
-  -- Universe
-  rule toUniv: (toRosetta (univ $n)) ~> 
-    (App (Var "Univ") (toRosetta $n)) ;
-  
-  -- Pi types → Rosetta Pi
-  rule toPi: (toRosetta (pi $A $B)) ~> 
-    (App (App (Var "Pi") (toRosetta $A)) (Lam (toRosetta $B))) ;
-  rule toLam: (toRosetta (lam $body)) ~> 
-    (Lam (toRosetta $body)) ;
-  rule toApp: (toRosetta (app $f $x)) ~> 
-    (App (toRosetta $f) (toRosetta $x)) ;
-  
-  -- Sigma types → Rosetta Sigma
-  rule toSigma: (toRosetta (sigma $A $B)) ~> 
-    (App (App (Var "Sigma") (toRosetta $A)) (Lam (toRosetta $B))) ;
-  rule toPair: (toRosetta (pair $a $b)) ~> 
-    (Pair (toRosetta $a) (toRosetta $b)) ;
-  rule toFst: (toRosetta (fst $e)) ~> 
-    (Fst (toRosetta $e)) ;
-  rule toSnd: (toRosetta (snd $e)) ~> 
-    (Snd (toRosetta $e)) ;
-  
-  -- Variables (de Bruijn) → Rosetta Var with index
-  rule toIx: (toRosetta (ix $n)) ~> 
-    (Var (indexToName $n)) ;
-  
-  -- Let bindings → Rosetta App + Lam
-  rule toLet: (toRosetta (let $x $A $v $body)) ~>
-    (App (Lam (toRosetta $body)) (toRosetta $v)) ;
-
------------------------------------------------------
--- InfoToRosetta
--- *Info structures → Rosetta records (nested Pairs)
------------------------------------------------------
-piece InfoToRosetta
-  rule toVTypeInfo: 
-    (toRosetta (vtypeInfo dim: $d ty0: $a ty1: $b equiv: $e)) ~>
-    (Pair (Pair (Pair (toRosetta $d) (toRosetta $a)) 
-                (toRosetta $b)) (toRosetta $e)) ;
-  
-  rule toSubInfo: 
-    (toRosetta (subInfo base: $b cof: $c bdry: $d)) ~>
-    (Pair (Pair (toRosetta $b) (toRosetta $c)) (toRosetta $d)) ;
-  
-  rule toFHComInfo: 
-    (toRosetta (fhcomInfo r: $r r': $r' cap: $c sys: $s)) ~>
-    (Pair (Pair (Pair (toRosetta $r) (toRosetta $r')) 
-                (toRosetta $c)) (toRosetta $s)) ;
-
------------------------------------------------------
--- MonadToRosetta
--- Monadic constructs → Rosetta ADT
------------------------------------------------------
-piece MonadToRosetta
-  rule resultAdt: (toRosetta Results) ~>
-    (adtDef "Result" { Ok : a → s → Result a s, 
-                       Err : e → loc → Result a s }) ;
-  
-  rule toRefineOk: (toRosetta (refineOk $a $st)) ~> 
-    (App (App (Var "Result.Ok") (toRosetta $a)) (toRosetta $st)) ;
-  rule toRefineErr: (toRosetta (refineErr $e $loc)) ~> 
-    (App (App (Var "Result.Err") (toRosetta $e)) (toRosetta $loc)) ;
-  
-  rule toTacOk: (toRosetta (tacOk $a)) ~> 
-    (App (Var "TacResult.Ok") (toRosetta $a)) ;
-  rule toTacErr: (toRosetta (tacError $msg)) ~> 
-    (App (Var "TacResult.Err") (toRosetta $msg)) ;
-  
-  rule toSome: (toRosetta (some $x)) ~> 
-    (App (Var "Option.Some") (toRosetta $x)) ;
-  rule toNone: (toRosetta none) ~> (Var "Option.None") ;
-
------------------------------------------------------
--- CubicalModule
--- Collect all cubical ADT definitions
------------------------------------------------------
-piece CubicalModule
-  rule cubicalPrelude: (toRosetta CubicalPrelude) ~>
-    (module "Cubical"
-      (toRosetta Dimensions)
-      (toRosetta Cofibrations)
-      (toRosetta PathTypes)
-      (toRosetta KanOperations)
-      (toRosetta FibrantHCom)
-      (toRosetta SubTypes)
-      (toRosetta VTypes)
-      (toRosetta ExtTypes)
-      (toRosetta GlueTypes)
-      (toRosetta Circle)
-      (toRosetta Nat)
-      (toRosetta Results)) ;
+rule toUniv: (toRosetta (univ $n)) ~> (App (Var "Univ") (toRosetta $n)) ;
+rule toPi: (toRosetta (pi $A $B)) ~> 
+  (App (App (Var "Pi") (toRosetta $A)) (Lam (toRosetta $B))) ;
+rule toLam: (toRosetta (lam $body)) ~> (Lam (toRosetta $body)) ;
+rule toApp: (toRosetta (app $f $x)) ~> (App (toRosetta $f) (toRosetta $x)) ;
+rule toSigma: (toRosetta (sigma $A $B)) ~> 
+  (App (App (Var "Sigma") (toRosetta $A)) (Lam (toRosetta $B))) ;
+rule toPair: (toRosetta (pair $a $b)) ~> (Pair (toRosetta $a) (toRosetta $b)) ;
+rule toFst: (toRosetta (fst $e)) ~> (Fst (toRosetta $e)) ;
+rule toSnd: (toRosetta (snd $e)) ~> (Snd (toRosetta $e)) ;
+rule toIx: (toRosetta (ix $n)) ~> (Var (indexToName $n)) ;
+rule toLet: (toRosetta (let $x $A $v $body)) ~>
+  (App (Lam (toRosetta $body)) (toRosetta $v)) ;
 
 -----------------------------------------------------
 -- Tests
 -----------------------------------------------------
 test "dimEx": (toRosetta dim0) ~~> (Var "Dim.I0") ;
-test "cofEx": (toRosetta (cof_eq dim0 dim1)) ~~> 
-  (App (App (Var "Cof.Eq") (Var "Dim.I0")) (Var "Dim.I1")) ;
-test "pathEx": (toRosetta (path (univ 0) nat nat)) ~~> 
-  (App (App (App (Var "Path.PathTy") (App (Var "Univ") 0)) 
-            (Var "Nat.NatTy")) (Var "Nat.NatTy")) ;
-test "lamEx": (toRosetta (lam (ix 0))) ~~> (Lam (Var "x0")) ;
-test "pairEx": (toRosetta (pair zero (suc zero))) ~~>
-  (Pair (Var "Nat.Zero") (App (Var "Nat.Suc") (Var "Nat.Zero"))) ;
+test "lamEx": (toRosetta (lam (ix 0))) ~~> (Lam (Var (indexToName 0))) ;

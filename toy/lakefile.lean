@@ -91,3 +91,7 @@ lean_exe «tolean» where
 -- Generates RedTT, CoolTT, and Lean from Grammar.sexpr
 lean_exe «lego-gen» where
   root := `LegoGen
+
+-- Pipeline: CubicalTT → cubical2rosetta → rosetta2lean
+lean_exe «pipeline» where
+  root := `Rosetta.Pipeline
