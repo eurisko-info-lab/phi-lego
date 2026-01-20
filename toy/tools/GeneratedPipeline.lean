@@ -144,6 +144,39 @@ def generateGuards (renames : List (String × String)) : List String :=
       some (" && ".intercalate eqs)
     else none
 
+/-- Check if a term is all constructors (no variables) -/
+partial def isSpecific (t : Term) : Bool :=
+  match t with
+  | .var _ => false
+  | .lit _ => true
+  | .con _ args => args.all isSpecific
+
+/-- Calculate specificity score: higher = more specific -/
+def patternSpecificity (args : List Term) : Nat :=
+  args.foldl (fun acc t => if isSpecific t then acc + 10 else acc) 0
+
+/-- Check if rule has duplicate variable constraints (will need guards) -/
+def hasGuards (args : List Term) : Bool :=
+  let vars := args.flatMap collectVars
+  vars.length != vars.eraseDups.length
+
+/-- Sort rules by specificity: specific patterns first, guarded patterns last -/
+def sortRules (rules : List Rule) : List Rule :=
+  rules.toArray.qsort (fun r1 r2 =>
+    match r1.pattern, r2.pattern with
+    | .con _ args1, .con _ args2 =>
+      let spec1 := patternSpecificity args1
+      let spec2 := patternSpecificity args2
+      let guard1 := hasGuards args1
+      let guard2 := hasGuards args2
+      -- Guarded patterns go last
+      if guard1 && !guard2 then false
+      else if !guard1 && guard2 then true
+      -- Then by specificity (higher first)
+      else spec1 > spec2
+    | _, _ => true
+  ) |>.toList
+
 /-- Collect all variables used in a template -/
 partial def collectTemplateVars (t : Term) : List String :=
   match t with
@@ -156,45 +189,56 @@ def checkUnbound (patternVars : List String) (template : Term) : List String :=
   let templateVars := collectTemplateVars template
   templateVars.filter (fun v => !patternVars.contains v)
 
+/-- Generate a case for a single rule -/
+def generateCase (r : Rule) : Option String :=
+  match r.pattern with
+  | .con _ args =>
+    if args.isEmpty then none  -- Skip rules with no pattern args
+    else
+      -- Collect and rename duplicate variables
+      let vars := args.flatMap collectVars
+      -- Check for unbound variables in template
+      let unbound := checkUnbound vars r.template
+      if !unbound.isEmpty then
+        -- Report as comment since unbound vars are errors in source
+        some s!"  -- SKIPPED {r.name}: unbound variables {unbound}"
+      else
+        let renames := makeUnique vars
+        -- Rename all args together, threading state
+        let (_, renamedArgs) := args.foldl (fun (acc : List (String × String) × List Term) arg =>
+          let (rem, result) := acc
+          let (newRem, renamed) := renameVarsAux rem arg
+          (newRem, result ++ [renamed])
+        ) (renames, [])
+        let pats := renamedArgs.map termToLeanPattern
+        let guards := generateGuards renames
+        -- For template, map original names to first renamed name
+        let firstNames := renames.foldl (fun (acc : List (String × String)) (orig, renamed) =>
+          if acc.any (·.1 == orig) then acc else acc ++ [(orig, renamed)]
+        ) []
+        let renamedTemplate := renameVars firstNames r.template
+        let body := termToLeanExpr renamedTemplate
+        -- Multi-arg patterns are separated by commas in Lean
+        let patStr := ", ".intercalate pats
+        if guards.isEmpty then
+          some s!"  | {patStr} => {body}"
+        else
+          let guardStr := " && ".intercalate guards
+          some s!"  | {patStr} => if {guardStr} then {body} else Term.con \"error\" []"
+  | _ => some s!"  | _ => sorry -- {r.name}"
+
+/-- Check if a rule is a catch-all (all variables in pattern) -/
+def isCatchAll (r : Rule) : Bool :=
+  match r.pattern with
+  | .con _ args => args.all (fun t => match t with | .var _ => true | _ => false)
+  | _ => false
+
 /-- Generate a Lean function from grouped rules -/
 def generateFunction (funcName : String) (rules : List Rule) : String :=
   let arity := functionArity rules
-  let cases := rules.filterMap fun r =>
-    match r.pattern with
-    | .con _ args =>
-      if args.isEmpty then none  -- Skip rules with no pattern args
-      else
-        -- Collect and rename duplicate variables
-        let vars := args.flatMap collectVars
-        -- Check for unbound variables in template
-        let unbound := checkUnbound vars r.template
-        if !unbound.isEmpty then
-          -- Report as comment since unbound vars are errors in source
-          some s!"  -- SKIPPED {r.name}: unbound variables {unbound}"
-        else
-          let renames := makeUnique vars
-          -- Rename all args together, threading state
-          let (_, renamedArgs) := args.foldl (fun (acc : List (String × String) × List Term) arg =>
-            let (rem, result) := acc
-            let (newRem, renamed) := renameVarsAux rem arg
-            (newRem, result ++ [renamed])
-          ) (renames, [])
-          let pats := renamedArgs.map termToLeanPattern
-          let guards := generateGuards renames
-          -- For template, map original names to first renamed name
-          let firstNames := renames.foldl (fun (acc : List (String × String)) (orig, renamed) =>
-            if acc.any (·.1 == orig) then acc else acc ++ [(orig, renamed)]
-          ) []
-          let renamedTemplate := renameVars firstNames r.template
-          let body := termToLeanExpr renamedTemplate
-          -- Multi-arg patterns are separated by commas in Lean
-          let patStr := ", ".intercalate pats
-          if guards.isEmpty then
-            some s!"  | {patStr} => {body}"
-          else
-            let guardStr := " && ".intercalate guards
-            some s!"  | {patStr} => if {guardStr} then {body} else Term.con \"error\" []"
-    | _ => some s!"  | _ => sorry -- {r.name}"
+  -- Sort rules: specific patterns first, guarded patterns last
+  let sortedRules := sortRules rules
+  let cases := sortedRules.filterMap generateCase
   if cases.isEmpty then
     s!"-- {funcName}: no valid cases"
   else
@@ -202,9 +246,14 @@ def generateFunction (funcName : String) (rules : List Rule) : String :=
     let argTypes := List.replicate arity "Term"
     let typeStr := " → ".intercalate (argTypes ++ ["Term"])
     let header := s!"/-- {funcName} -/\ndef {funcName} : {typeStr}"
-    let defaultCase := if arity == 1 then "  | _ => Term.con \"error\" []"
-                       else s!"  | {", ".intercalate (List.replicate arity "_")} => Term.con \"error\" []"
-    s!"{header}\n{"\n".intercalate cases}\n{defaultCase}"
+    -- Only add default case if no catch-all pattern exists
+    let hasCatchAll := sortedRules.any isCatchAll
+    if hasCatchAll then
+      s!"{header}\n{"\n".intercalate cases}"
+    else
+      let defaultCase := if arity == 1 then "  | _ => Term.con \"error\" []"
+                         else s!"  | {", ".intercalate (List.replicate arity "_")} => Term.con \"error\" []"
+      s!"{header}\n{"\n".intercalate cases}\n{defaultCase}"
 
 /-- Generate Lean module from rules -/
 def generateLean (langName : String) (rules : List Rule) : String :=
