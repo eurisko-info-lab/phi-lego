@@ -122,10 +122,17 @@ piece Term
             | "[" "$" ident ":" term "]" term → ctxext      -- [$x : A] body (context extension)
             | "[" "$" ident ":=" term "]" term → metasubst  -- [$x := t] body (substitution)
             | ident "." term → binder
+            | ident termAtom+ → app              -- f x y = application
             | ident → var
             | string → lit
             | number → num
             | "(" termInner ")" → paren ;
+  -- Atomic terms for application
+  termAtom ::= "$" ident → metavar
+             | ident → var
+             | string → lit
+             | number → num
+             | "(" termInner ")" → paren ;
   -- Inside parens: either a constructor app or structured term
   -- Can contain punctuation like :, ., → for rich typing syntax
   termInner ::= conname termArg* → con ;
@@ -156,7 +163,15 @@ piece Pattern
             | "(" patternSeq ")" → paren               -- parenthesized
             | string → lit                             -- "literal"
             | number → num                             -- 123
+            | ident patternAtom+ → app                 -- f x y (application)
             | ident → con ;                            -- constructor/var
+  
+  -- Atomic patterns for application
+  patternAtom ::= "$" ident → var
+                | "(" patternSeq ")" → nested
+                | string → lit
+                | number → num
+                | ident → con ;
   
   -- Inside parens: a sequence of pattern elements, possibly with infix operators
   patternSeq ::= patternElem+ → seq ;
@@ -186,7 +201,15 @@ piece Template
              | "(" templateSeq ")" → paren             -- parenthesized
              | string → lit
              | number → num
+             | ident templateAtom+ → app               -- f x y (application)
              | ident → con ;
+  
+  -- Atomic templates for application
+  templateAtom ::= "$" ident → var
+                 | "(" templateSeq ")" → nested
+                 | string → lit
+                 | number → num
+                 | ident → con ;
   
   templateSeq ::= templateElem+ → seq ;
   
@@ -248,11 +271,20 @@ piece File
   typeDecl   ::= "type" ident ":" typeJudgment whenClause? ";" → DType ;
   typeJudgment ::= term (":" term)* → judgment ;  -- flexible: term or term : type or term : term : type
   whenClause ::= "when" whenCond ("," whenCond)* → when ;
-  -- A when condition is a typing judgment or equality constraint
+  -- A when condition is a typing judgment, equality constraint, or prose
   -- Examples: $A : U, [$x : $A] $body : $B, [$i := 0] $body = $a0
-  -- Note: equality must come first since typing is optional (just a term)
-  whenCond   ::= term "=" term → equality     -- term = term (equality constraint)
-               | term (":" term)? → typing ;  -- term or term : type
+  --           $branches agree on overlaps (prose/meta constraint)
+  -- Note: equality must come first since typing is optional
+  whenCond   ::= whenTerm "=" whenTerm → equality     -- term = term (equality)
+               | whenTerm ":" whenTerm → typing       -- term : type
+               | whenTerm+ → prose ;                  -- prose (free-form)
+  -- Term in when clause - allows sequences of words
+  whenTerm   ::= "$" ident → metavar
+               | "[" "$" ident ":" term "]" term → ctxext
+               | "[" "$" ident ":=" term "]" term → metasubst
+               | "[" "$" ident "]" term → ctx
+               | "(" term ")" → paren
+               | ident → var ;
   -- Test declaration: can have eval test (~~>) or type checking test (:)
   -- Examples: test "beta": (app (lam x . x) y) ~~> y ;
   --           test "refl-type": (dlam i . a) : (Path A a a) ;

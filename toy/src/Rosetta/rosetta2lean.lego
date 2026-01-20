@@ -114,7 +114,7 @@ piece ContextHelpers
 
 -----------------------------------------------------
 -- Examples
--- Built-in tests.
+-- Built-in tests for generic Rosetta transforms.
 -----------------------------------------------------
 test "transformAdtEx": transform (adtDef "Term" { Univ : Term }) ~~> (inductive Core.Term | Univ : Core.Term) when inModule "Core" ;
 test "transformRewriteEx": transform (rewriteRule "fstPair": (Fst (Pair $a $b)) ~> $a) ~~> (def Core.fstPairReduce (t : Term) : Term := match t with | Fst (Pair a b) => a | _ => t) ;
