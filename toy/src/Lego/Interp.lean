@@ -35,31 +35,45 @@ structure ParseLoc where
 instance : ToString ParseLoc where
   toString loc := s!"{loc.line}:{loc.column}"
 
-/-- Compute line and column from byte offset in input -/
+/-- Compute line and column from byte offset in input.
+    Line numbers are 1-based. Column is character count (not bytes) since last newline
+    for user-friendly display. -/
 def computeLineCol (input : String) (byteOffset : Nat) : ParseLoc :=
-  -- Count newlines in bytes before offset
-  let bytes := input.toUTF8
-  let relevant := bytes.toList.take byteOffset
-  let newlines := relevant.filter (· == '\n'.toUInt8)
-  let line := newlines.length + 1
-  -- Column is bytes since last newline
-  let lastNewlineIdx := relevant.reverse.takeWhile (· != '\n'.toUInt8) |>.length
-  let column := lastNewlineIdx + 1
+  -- Extract the prefix string up to the byte offset
+  let prefixStr := String.Pos.Raw.extract input ⟨0⟩ ⟨byteOffset⟩
+  -- Count newlines in the prefix (character-based)
+  let newlineChars := prefixStr.toList.filter (· == '\n')
+  let line := newlineChars.length + 1
+  -- Column is characters since last newline (1-based)
+  let charsAfterNewline := prefixStr.toList.reverse.takeWhile (· != '\n')
+  let column := charsAfterNewline.length + 1
   { line, column }
 
-/-- Find substring position in string starting at offset -/
-def String.findSubstrFrom (s : String) (sub : String) (start : Nat := 0) : Option Nat :=
-  if sub.isEmpty then some start
-  else if start + sub.length > s.length then none
+/-- Find substring position (as byte offset) in string starting at byte offset.
+    Returns byte offset for use with String.Pos.Raw operations. -/
+def String.findSubstrFromBytes (s : String) (sub : String) (startByte : Nat := 0) : Option Nat :=
+  let bytes := s.toUTF8
+  let subBytes := sub.toUTF8
+  if subBytes.isEmpty then some startByte
+  else if startByte + subBytes.size > bytes.size then none
   else
     let rec go (i : Nat) (fuel : Nat) : Option Nat :=
       match fuel with
       | 0 => none
       | fuel' + 1 =>
-        if i + sub.length > s.length then none
-        else if String.Pos.Raw.extract s ⟨i⟩ ⟨i + sub.length⟩ == sub then some i
-        else go (i + 1) fuel'
-    go start (s.length - start + 1)
+        if i + subBytes.size > bytes.size then none
+        else
+          -- Check if bytes at position i match subBytes
+          let slice := bytes.extract i (i + subBytes.size)
+          if slice == subBytes then some i
+          else go (i + 1) fuel'
+    go startByte (bytes.size - startByte + 1)
+
+/-- Find substring position in string starting at offset (DEPRECATED - use findSubstrFromBytes).
+    Note: This has inconsistent offset semantics. -/
+def String.findSubstrFrom (s : String) (sub : String) (start : Nat := 0) : Option Nat :=
+  -- Delegate to byte-based version for consistency
+  String.findSubstrFromBytes s sub start
 
 /-- Find character offset by counting tokens from the beginning.
     Walks through the input counting tokens until reaching tokenPos. -/
@@ -109,16 +123,38 @@ instance : ToString ParseError where
       else s!"\n  next tokens: {e.remaining.take 5 |>.map (·.toString) |> String.intercalate " "}"
     s!"{e.message} {locStr} in {e.production}{expectedStr}{actualStr}{remainingStr}"
 
-/-- Find position of a sequence of tokens in input, allowing flexible whitespace -/
+/-- Skip whitespace and comments in byte array starting at position.
+    Returns the byte offset after whitespace/comments. -/
+def skipWhitespaceBytes (bytes : ByteArray) (start : Nat) : Nat :=
+  let rec go (i : Nat) (fuel : Nat) : Nat :=
+    match fuel with
+    | 0 => i
+    | fuel' + 1 =>
+      if i < bytes.size then
+        let b := bytes[i]!
+        if b == ' '.toUInt8 || b == '\t'.toUInt8 || b == '\n'.toUInt8 || b == '\r'.toUInt8 then
+          go (i + 1) fuel'
+        else i
+      else i
+  go start bytes.size
+
+/-- Find position of a sequence of tokens in input, skipping whitespace between tokens.
+    Returns byte offset. -/
 partial def findTokenSeqPos (input : String) (tokens : List String) (start : Nat) : Option Nat :=
+  let bytes := input.toUTF8
   match tokens with
   | [] => some start
   | tok :: rest =>
-    match String.findSubstrFrom input tok start with
+    -- Skip leading whitespace
+    let startSkipped := skipWhitespaceBytes bytes start
+    match String.findSubstrFromBytes input tok startSkipped with
     | none => none
     | some pos =>
       if rest.isEmpty then some pos
-      else findTokenSeqPos input rest (pos + tok.length)
+      else
+        -- Skip whitespace after this token before searching for next
+        let afterTok := pos + tok.toUTF8.size
+        findTokenSeqPos input rest afterTok
 
 /-- Add source location to a parse error by finding the token in input -/
 def ParseError.withSourceLoc (e : ParseError) (input : String) : ParseError :=
@@ -127,15 +163,16 @@ def ParseError.withSourceLoc (e : ParseError) (input : String) : ParseError :=
   | some tok =>
     -- Find the LAST occurrence of this token (error is usually near the end of parsing)
     let tokStr := tok.toString
+    let inputBytes := input.toUTF8
     let rec findLast (fuel : Nat) (start : Nat) (lastFound : Option Nat) : Option Nat :=
       match fuel with
       | 0 => lastFound
       | fuel' + 1 =>
-        match String.findSubstrFrom input tokStr start with
+        match String.findSubstrFromBytes input tokStr start with
         | none => lastFound
         | some pos => findLast fuel' (pos + 1) (some pos)
-    let charOffset := findLast input.length 0 none |>.getD 0
-    { e with loc := some (computeLineCol input charOffset) }
+    let byteOffset := findLast inputBytes.size 0 none |>.getD 0
+    { e with loc := some (computeLineCol input byteOffset) }
 
 /-- Result type with error tracking -/
 inductive ParseResultE (α : Type)

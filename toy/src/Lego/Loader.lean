@@ -597,8 +597,10 @@ def loadGrammarFromAST (ast : Term) (startProd : String) : LoadedGrammar :=
 /-- Parse input using a loaded grammar (uses grammar-driven tokenizer) -/
 def parseWithGrammar (grammar : LoadedGrammar) (input : String) : Option Term :=
   -- Use grammar-driven tokenizer, NOT Bootstrap.tokenize
+  -- NOTE: Don't pass grammar.symbols as keywords! Those are language-specific literals,
+  -- not meta-language keywords. Node names like `syn` in `→ syn` should be identifiers.
   let mainProds := getMainTokenProds grammar.tokenProductions
-  let tokens := tokenizeWithGrammar defaultFuel grammar.tokenProductions mainProds input grammar.symbols
+  let tokens := tokenizeWithGrammar defaultFuel grammar.tokenProductions mainProds input []
   let st : ParseState := { tokens := tokens, binds := [] }
   match findAllProductions grammar.productions grammar.startProd with
   | some g =>
@@ -611,8 +613,10 @@ def parseWithGrammar (grammar : LoadedGrammar) (input : String) : Option Term :=
 /-- Parse input with detailed error reporting (uses grammar-driven tokenizer) -/
 def parseWithGrammarE (grammar : LoadedGrammar) (input : String) : Except ParseError Term :=
   -- Use grammar-driven tokenizer, NOT Bootstrap.tokenize
+  -- NOTE: Don't pass grammar.symbols as keywords! Those are language-specific literals,
+  -- not meta-language keywords. Node names like `syn` in `→ syn` should be identifiers.
   let mainProds := getMainTokenProds grammar.tokenProductions
-  let tokens := tokenizeWithGrammar defaultFuel grammar.tokenProductions mainProds input grammar.symbols
+  let tokens := tokenizeWithGrammar defaultFuel grammar.tokenProductions mainProds input []
   let st : ParseState := { tokens := tokens, binds := [] }
   match findAllProductions grammar.productions grammar.startProd with
   | some g =>
