@@ -8,10 +8,10 @@ lang Lambda :=
 -----------------------------------------------------
 piece Term
   term ::= var | lam | app ;
-  var ::= "(" "var" name ")" ;
-  lam ::= "(" "lam" name type term ")" ;
+  var ::= "(" "var" <ident> ")" ;
+  lam ::= "(" "lam" <ident> ty term ")" ;
   app ::= "(" "app" term term ")" ;
-  type ::= "Type" | name ;
+  ty ::= "Type" | <ident> ;
 
 -----------------------------------------------------
 -- Rules
