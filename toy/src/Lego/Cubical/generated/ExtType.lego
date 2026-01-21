@@ -119,9 +119,9 @@ piece PathAsExt
         dim0 => (shift 0 1 $a)
         dim1 => (shift 0 1 $b)))) ;
   
-  rule extToPath?: (extToPath? (ext 1 (lam $A) $cof $bdry)) ~>
+  rule extToPath: (extToPath (ext 1 (lam $A) $cof $bdry)) ~>
     (some (path $A (evalAtDim0 $bdry) (evalAtDim1 $bdry))) ;
-  rule extToPath?Other: (extToPath? $e) ~> none ;
+  rule extToPathOther: (extToPath $e) ~> none ;
   
   rule evalAtDim0: (evalAtDim0 (lam $body)) ~> (subst 0 dim0 $body) ;
   rule evalAtDim1: (evalAtDim1 (lam $body)) ~> (subst 0 dim1 $body) ;

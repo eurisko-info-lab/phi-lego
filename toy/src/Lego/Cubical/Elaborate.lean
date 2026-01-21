@@ -364,7 +364,7 @@ partial def check (s : Surface) (expected : Expr) : ElabM Expr := do
       let (bodyCore, _) ← infer body
       return { clbl := clbl, body := bodyCore : ElimClause }
     -- Get datatype label from scrutTy
-    match isData? scrutTy with
+    match isData scrutTy with
     | some (dlbl, params) =>
       return mkElim dlbl params motCore clausesCore scrutCore
     | none => elabError "Elim scrutinee must be a datatype"

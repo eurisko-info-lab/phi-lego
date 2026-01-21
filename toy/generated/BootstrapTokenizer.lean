@@ -66,4 +66,3 @@ def tokenize (s : String) : TokenStream :=
   tokenizeWithGrammar defaultFuel tokenProductions mainTokenProds s
 
 end Lego.Generated.Bootstrap
-

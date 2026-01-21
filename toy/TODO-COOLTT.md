@@ -118,8 +118,8 @@ Dependent records with labels. Full support in Signature.lean.
 
 ### [x] User-defined Data Types (from redtt) ✓ Already Complete
 Full support in Datatype.lean.
-- [x] Data type declarations (mkData, isData?)
-- [x] Constructor introduction (mkIntro, isIntro?)
+- [x] Data type declarations (mkData, isData)
+- [x] Constructor introduction (mkIntro, isIntro)
 - [x] Eliminator generation (mkElim, ElimClause)
 - [x] Step rules (stepElim, stepElimSimple, stepNatElim)
 

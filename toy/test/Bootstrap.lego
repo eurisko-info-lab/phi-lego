@@ -144,6 +144,7 @@ piece Pattern
             | "$" ident → var
             | "[" pattern ":=" pattern "]" pattern → subst
             | "(" pattern "," pattern ")" → tuple
+            | "(" ")" → unit
             | "(" patternHead patternArg* ")" → con
             | string → lit
             | number → num
@@ -164,6 +165,7 @@ piece Template
              | "$" ident → var
              | "[" template ":=" template "]" template → subst
              | "(" template "," template ")" → tuple
+             | "(" ")" → unit
              | "(" "case" template caseArm+ ")" → caseExpr
              | "(" headTerm templateArg* ")" → con
              | string → lit

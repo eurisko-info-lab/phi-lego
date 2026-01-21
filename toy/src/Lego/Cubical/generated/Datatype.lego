@@ -32,7 +32,7 @@ piece DataType
     (app (mkData $dlbl $rest) $p) ;
   
   -- Check if expression is a datatype type
-  rule isData?: (isData? $e) ~> (getDataHead $e ()) ;
+  rule isData: (isData $e) ~> (getDataHead $e ()) ;
   
   rule getDataHeadLit: (getDataHead (lit $s) $acc) ~>
     (case (startsWith $s "data.")
@@ -64,7 +64,7 @@ piece Intro
     (app (mkIntro' $dlbl $clbl $paramCount () $rest) $a) ;
   
   -- Check if expression is a constructor
-  rule isIntro?: (isIntro? $e) ~>
+  rule isIntro: (isIntro $e) ~>
     (let headArgs = (collectArgs $e ()) in
      parseIntro (fst headArgs) (snd headArgs)) ;
   
@@ -121,7 +121,7 @@ piece Elim
      (app (app (lit "clauses.cons") thisClause) (encodeClauseList $rest))) ;
   
   -- Check if expression is an eliminator
-  rule isElim?: (isElim? $e) ~>
+  rule isElim: (isElim $e) ~>
     (let headArgs = (collectArgs $e ()) in
      parseElim (fst headArgs) (snd headArgs)) ;
   

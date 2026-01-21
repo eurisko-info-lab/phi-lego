@@ -45,7 +45,7 @@ def mkData (dlbl : String) (params : List Expr) : Expr :=
   params.foldl Expr.app dataBase
 
 /-- Check if an expression is a datatype type -/
-def isData? (e : Expr) : Option (String × List Expr) :=
+def isData (e : Expr) : Option (String × List Expr) :=
   match getDataHead e [] with
   | some (lbl, params) => some (lbl, params)
   | none => none
@@ -79,7 +79,7 @@ def mkIntro (dlbl : String) (clbl : String) (params : List Expr) (args : List Ex
   args.foldl Expr.app withParams
 
 /-- Check if an expression is a constructor application -/
-def isIntro? (e : Expr) : Option (String × String × List Expr × List Expr) := Id.run do
+def isIntro (e : Expr) : Option (String × String × List Expr × List Expr) := Id.run do
   -- Parse backwards to get all args
   let (head, allArgs) := collectArgs e []
   match head with
@@ -179,7 +179,7 @@ def stepElim (env : GlobalEnv) (dlbl : String) (params : List Expr)
               (mot : Expr) (clauses : List ElimClause) (scrut : Expr)
               : Option Expr := do
   -- Check if scrut is an intro form
-  let (dlbl', clbl, _introParams, args) ← isIntro? scrut
+  let (dlbl', clbl, _introParams, args) ← isIntro scrut
   guard (dlbl == dlbl')
 
   -- Find the clause for this constructor
@@ -226,7 +226,7 @@ def stepElimSimple (dlbl : String) (params : List Expr)
                     (argSpecs : List GArgSpec := [])
                     : Option Expr := do
   -- Check if scrut is an intro form
-  let (dlbl', clbl, _introParams, args) ← isIntro? scrut
+  let (dlbl', clbl, _introParams, args) ← isIntro scrut
   guard (dlbl == dlbl')
 
   -- Find the clause for this constructor

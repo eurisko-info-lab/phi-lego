@@ -1159,63 +1159,63 @@ def datatypeTests : List TestResult :=
   let bool_has_true := bool_desc.constrs.any (·.name == "true")
   let bool_has_false := bool_desc.constrs.any (·.name == "false")
 
-  -- Test mkData and isData?
+  -- Test mkData and isData
   let nat_ty := mkData "Nat" []
-  let is_nat := match isData? nat_ty with
+  let is_nat := match isData nat_ty with
     | some ("Nat", []) => true
     | _ => false
 
   let list_nat := mkData "List" [nat]
-  let is_list_nat := match isData? list_nat with
+  let is_list_nat := match isData list_nat with
     | some ("List", [_]) => true
     | _ => false
 
-  -- Test mkIntro and isIntro?
+  -- Test mkIntro and isIntro
   let zero_intro := mkIntro "Nat" "zero" [] []
-  let is_zero := match isIntro? zero_intro with
+  let is_zero := match isIntro zero_intro with
     | some ("Nat", "zero", [], []) => true
     | _ => false
 
   let one_intro := mkIntro "Nat" "suc" [] [zero_intro]
-  let is_one := match isIntro? one_intro with
+  let is_one := match isIntro one_intro with
     | some ("Nat", "suc", [], [_]) => true
     | _ => false
 
   -- Test smart constructors
   let two := mkNat 2  -- suc (suc zero)
-  let is_two := match isIntro? two with
+  let is_two := match isIntro two with
     | some ("Nat", "suc", [], _) => true
     | _ => false
 
   let true_val := mkBool true
-  let is_true := match isIntro? true_val with
+  let is_true := match isIntro true_val with
     | some ("Bool", "true", [], []) => true
     | _ => false
 
   let false_val := mkBool false
-  let is_false := match isIntro? false_val with
+  let is_false := match isIntro false_val with
     | some ("Bool", "false", [], []) => true
     | _ => false
 
   -- Test list constructors
   let empty_list := mkList nat []
-  let is_empty := match isIntro? empty_list with
+  let is_empty := match isIntro empty_list with
     | some ("List", "nil", [_], []) => true
     | _ => false
 
   let one_list := mkList nat [zero_intro]
-  let is_one_list := match isIntro? one_list with
+  let is_one_list := match isIntro one_list with
     | some ("List", "cons", [_], _) => true
     | _ => false
 
   -- Test Maybe constructors
   let nothing_val := mkNothing nat
-  let is_nothing := match isIntro? nothing_val with
+  let is_nothing := match isIntro nothing_val with
     | some ("Maybe", "nothing", [_], []) => true
     | _ => false
 
   let just_val := mkJust nat zero_intro
-  let is_just := match isIntro? just_val with
+  let is_just := match isIntro just_val with
     | some ("Maybe", "just", [_], [_]) => true
     | _ => false
 
@@ -1236,7 +1236,7 @@ def datatypeTests : List TestResult :=
   -- Test intro type inference
   let zero_ty := inferIntroType stdEnv "Nat" "zero" [] []
   let has_zero_ty := match zero_ty with
-    | some e => match isData? e with
+    | some e => match isData e with
       | some ("Nat", []) => true
       | _ => false
     | none => false
@@ -1405,7 +1405,7 @@ def surfaceElabTests : List TestResult :=
     let surf := Surface.data "Nat" []
     match elaborateInfer env surf with
     | .ok (core, ty) =>
-      match isData? core with
+      match isData core with
       | some ("Nat", []) => true
       | _ => false
     | .error _ => false
@@ -1415,7 +1415,7 @@ def surfaceElabTests : List TestResult :=
     let surf := Surface.intro "Nat" "zero" []
     match elaborateInfer env surf with
     | .ok (core, _) =>
-      match isIntro? core with
+      match isIntro core with
       | some ("Nat", "zero", _, _) => true
       | _ => false
     | .error _ => false
