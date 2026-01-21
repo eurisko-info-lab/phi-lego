@@ -35,14 +35,16 @@ structure ParseLoc where
 instance : ToString ParseLoc where
   toString loc := s!"{loc.line}:{loc.column}"
 
-/-- Compute line and column from character offset in input -/
-def computeLineCol (input : String) (charOffset : Nat) : ParseLoc :=
-  let chars := input.toList
-  let relevant := chars.take charOffset
-  let lines := relevant.filter (· == '\n')
-  let line := lines.length + 1
-  let lastNewline := relevant.reverse.takeWhile (· != '\n') |>.length
-  let column := lastNewline + 1
+/-- Compute line and column from byte offset in input -/
+def computeLineCol (input : String) (byteOffset : Nat) : ParseLoc :=
+  -- Count newlines in bytes before offset
+  let bytes := input.toUTF8
+  let relevant := bytes.toList.take byteOffset
+  let newlines := relevant.filter (· == '\n'.toUInt8)
+  let line := newlines.length + 1
+  -- Column is bytes since last newline
+  let lastNewlineIdx := relevant.reverse.takeWhile (· != '\n'.toUInt8) |>.length
+  let column := lastNewlineIdx + 1
   { line, column }
 
 /-- Find substring position in string starting at offset -/
@@ -107,10 +109,33 @@ instance : ToString ParseError where
       else s!"\n  next tokens: {e.remaining.take 5 |>.map (·.toString) |> String.intercalate " "}"
     s!"{e.message} {locStr} in {e.production}{expectedStr}{actualStr}{remainingStr}"
 
-/-- Add source location to a parse error by counting tokens to find position -/
+/-- Find position of a sequence of tokens in input, allowing flexible whitespace -/
+partial def findTokenSeqPos (input : String) (tokens : List String) (start : Nat) : Option Nat :=
+  match tokens with
+  | [] => some start
+  | tok :: rest =>
+    match String.findSubstrFrom input tok start with
+    | none => none
+    | some pos =>
+      if rest.isEmpty then some pos
+      else findTokenSeqPos input rest (pos + tok.length)
+
+/-- Add source location to a parse error by finding the token in input -/
 def ParseError.withSourceLoc (e : ParseError) (input : String) : ParseError :=
-  let charOffset := findCharOffsetByTokenCount input e.tokenPos
-  { e with loc := some (computeLineCol input charOffset) }
+  match e.remaining.head? with
+  | none => { e with loc := some { line := 1, column := 1 } }
+  | some tok =>
+    -- Find the LAST occurrence of this token (error is usually near the end of parsing)
+    let tokStr := tok.toString
+    let rec findLast (fuel : Nat) (start : Nat) (lastFound : Option Nat) : Option Nat :=
+      match fuel with
+      | 0 => lastFound
+      | fuel' + 1 =>
+        match String.findSubstrFrom input tokStr start with
+        | none => lastFound
+        | some pos => findLast fuel' (pos + 1) (some pos)
+    let charOffset := findLast input.length 0 none |>.getD 0
+    { e with loc := some (computeLineCol input charOffset) }
 
 /-- Result type with error tracking -/
 inductive ParseResultE (α : Type)

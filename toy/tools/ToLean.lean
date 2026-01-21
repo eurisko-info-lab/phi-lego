@@ -34,6 +34,7 @@
 import Lego.Algebra
 import Lego.Bootstrap
 import Lego.Loader
+import Lego.Runtime
 
 namespace Lego.ToLean
 
@@ -518,23 +519,30 @@ inductive OutputMode
 def legoFileToLean (path : String) (mode : OutputMode := .full) : IO String := do
   let content ← IO.FS.readFile path
   let langName := extractGrammarName path
-  match Bootstrap.parseLegoFile content with
-  | some ast =>
-    let prods := Loader.extractProductionsOnly ast
-    let tokenProds := Loader.extractTokenProductions ast
-    let tokenPieceNames := extractTokenPieceNames ast
-    let rules := Loader.extractRules ast
-    match mode with
-    | .full => pure (generateLeanModule langName prods tokenProds rules tokenPieceNames)
-    | .grammar => pure (generateGrammarModule langName prods tokenPieceNames)
-    | .tokenizer =>
-      if tokenProds.isEmpty then
-        pure defaultTokenizer
-      else
-        pure (generateTokenizerModule langName tokenProds)
-    | .rules => pure (generateRulesModule langName rules)
-  | none =>
-    throw (IO.userError s!"Failed to parse {path}")
+  -- Use Bootstrap parser only for Bootstrap.lego, Runtime parser for everything else
+  let ast ← if path.endsWith "Bootstrap.lego" then
+    match Bootstrap.parseLegoFile content with
+    | some ast => pure ast
+    | none => throw (IO.userError s!"Failed to parse Bootstrap.lego")
+  else do
+    -- Load Runtime from Bootstrap.lego for non-Bootstrap files
+    let rt ← Runtime.loadBootstrapOrError
+    match Runtime.parseLegoFileE rt content with
+    | .ok ast => pure ast
+    | .error e => throw (IO.userError s!"Failed to parse {path}: {e}")
+  let prods := Loader.extractProductionsOnly ast
+  let tokenProds := Loader.extractTokenProductions ast
+  let tokenPieceNames := extractTokenPieceNames ast
+  let rules := Loader.extractRules ast
+  match mode with
+  | .full => pure (generateLeanModule langName prods tokenProds rules tokenPieceNames)
+  | .grammar => pure (generateGrammarModule langName prods tokenPieceNames)
+  | .tokenizer =>
+    if tokenProds.isEmpty then
+      pure defaultTokenizer
+    else
+      pure (generateTokenizerModule langName tokenProds)
+  | .rules => pure (generateRulesModule langName rules)
 
 end Lego.ToLean
 

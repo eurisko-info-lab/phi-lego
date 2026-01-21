@@ -129,6 +129,8 @@ piece Term
             | "(" "Σ" "(" ident ":" term ")" "." term ")" → sigmaType
             | "(" "Σ" "(" "_" ":" term ")" "." term ")" → sigmaType
             | "[" term "]" → bracket
+            | "(" conname "$" ident ":" term "." term ")" → binderCon
+            | "(" conname ident ":" term "." term ")" → binderCon
             | "(" conname term* ")" → con ;
   -- conname: constructor names can be idents or reserved keywords (as symbols)
   conname ::= ident | <sym> ;
@@ -149,7 +151,8 @@ piece Pattern
             | string → lit
             | number → num
             | ident → con ;
-  patternArg ::= ident ":" pattern → labeledArg
+  patternArg ::= "$" ident "." pattern → binder
+               | ident ":" pattern → labeledArg
                | pattern ;
   patternHead ::= "$" ident → var
                 | conname ;
@@ -173,7 +176,8 @@ piece Template
              | ident → con ;
   caseArm ::= "(" patternHead patternArg* ")" "=>" template → arm
             | ident "=>" template → arm ;
-  templateArg ::= ident ":" template → labeledArg
+  templateArg ::= "$" ident "." template → binder
+                | ident ":" template → labeledArg
                 | template ;
   headTerm ::= "$" ident → var
              | ident ;
