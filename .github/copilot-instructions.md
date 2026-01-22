@@ -6,6 +6,8 @@
 
 Every feature should be derived from a mathematical structure. If you can't name the algebra, you probably shouldn't write the code. This isn't aesthetic—it's engineering: algebraic laws give you free theorems, compositionality, and test oracles.
 
+**Target leverage: 100-200x** (100 lines of .lego → 10,000-20,000 lines of target code)
+
 ## Architecture
 
 Standalone, **minimal, algebraically-principled** language workbench:
@@ -24,12 +26,16 @@ interpreter/
 prelude/lego/
   Grammar.lego         -- Grammar specification source
   Grammar.sexpr        -- Portable grammar (SOURCE OF TRUTH)
-examples/              -- 65 example .lego files
+toy/
+  Rosetta/Pipeline.lean -- Code generation from .lego to .lean
+  test/Bootstrap.lego   -- Meta-grammar with all algebraic constructs
 ```
 
 **Key insight**: Syntax is an **expression**, not a procedure. The same grammar drives parsing, printing, and validation bidirectionally.
 
-## The 5 Pieces + 3 Operations
+## The 8 Algebraic Layers
+
+### Layer 1: Core Pieces (5 Pieces + 3 Operations)
 
 | Piece | Purpose | Algebra |
 |-------|---------|---------|
@@ -45,6 +51,119 @@ examples/              -- 65 example .lego files
 | Sequential | `·` | Import order |
 | Parallel | `‖` | Independent |
 
+### Layer 2: Recursion Schemes (Functorial)
+
+```lego
+derive cata for term ;           -- Catamorphism (fold)
+derive ana for term ;            -- Anamorphism (unfold)
+derive hylo for term ;           -- Hylomorphism (ana;cata)
+derive para for term ;           -- Paramorphism (fold with original)
+
+derive subst for term with binders = [lam, pi] ;
+derive shift for term with binders = [lam, pi] ;
+derive normalize for term with fuel = 1000 ;
+derive conv for term ;
+derive infer for term ;
+derive check for term ;
+```
+
+**Math**: Grammar defines functor F. Rules define F-algebra. All traversals are catamorphisms.
+
+### Layer 3: Grammar Algebra (Categorical)
+
+```lego
+pushout G1 G2 along f ;          -- Colimit (merge grammars)
+pullback G1 G2 over f ;          -- Limit (intersect grammars)
+quotient G by R ;                -- Quotient by relation
+coproduct G1 G2 ;                -- Disjoint union
+product G1 G2 ;                  -- Paired terms
+
+Child extends Parent with
+  rename a to b,
+  hide c,
+  override d = expr ;
+```
+
+**Math**: Objects = Grammars, Morphisms = Interpretations. Pushout = merge along shared fragment.
+
+### Layer 4: Effect Algebra (Monadic)
+
+```lego
+effect E {
+  op read : Unit → State ;
+  op write : State → Unit ;
+}
+
+handler H for E {
+  return : A ;
+  bind : A ;
+}
+
+free F over G ;                  -- Free monad: μX. A + F X
+cofree C over G ;                -- Cofree comonad: νX. A × F X
+monad M = State S × Reader R ;   -- Monad from specification
+monad M = M1 ∘ M2 ;              -- Monad transformer
+```
+
+**Math**: Algebraic effects, handlers, Kleisli categories.
+
+### Layer 5: Optics (Profunctorial)
+
+```lego
+lens L : S ⟷ A ;                 -- get/set pair
+prism P : S ⟷ A ;                -- match/build pair
+iso I : A ≅ B ;                  -- Isomorphism
+traversal T : S ⟿ A ;            -- Effectful traversal
+affine A : S ⤳ A ;               -- At most one target
+getter G : S → A ;               -- Read-only
+setter S : S ← A ;               -- Write-only
+review R : A ↩ S ;               -- Construct from part
+```
+
+**Math**: Profunctor optics, van Laarhoven lenses.
+
+### Layer 6: Adjunctions (Universal)
+
+```lego
+F ⊣ G : C ⇄ D ;                  -- Adjoint pair
+left adjoint F to G ;            -- F preserves colimits (free)
+right adjoint G to F ;           -- G preserves limits (forgetful)
+forgetful U : Alg → Set ;        -- Forgetful functor
+```
+
+**Math**: unit : Id → G∘F, counit : F∘G → Id. Hom(F a, b) ≅ Hom(a, G b).
+
+### Layer 7: Kan Extensions (Ultimate)
+
+```lego
+lan F along K ;                  -- Left Kan extension
+ran F along K ;                  -- Right Kan extension
+yoneda C ;                       -- Yoneda embedding: C → [C^op, Set]
+codensity F ;                    -- Codensity monad: Ran_F F
+density F ;                      -- Density comonad: Lan_F F
+```
+
+**Math**: "All concepts are Kan extensions" - Mac Lane. Substitution = Ran, Shifting = Lan.
+
+### Layer 8: Operads & Natural Transformations
+
+```lego
+operad O {
+  arity 1 : term ;
+  arity 2 : term ;
+  compose : term ;
+  unit : var ;
+}
+
+algebra A over O ;               -- O-algebra structure
+
+α => β : F ⟹ G ;                 -- Natural transformation
+dinatural δ : F ⤇ G ;            -- Dinatural (profunctors)
+extranatural ε : F ⟾ G ;         -- Extranatural
+```
+
+**Math**: Multi-arity operations, coherence, polymorphic functions.
+
 ## Grammar Constructs
 
 | Construct | Symbol | Purpose |
@@ -57,156 +176,63 @@ examples/              -- 65 example .lego files
 | Star | `g*` | Zero or more |
 | Reference | `name` | Grammar production reference |
 | Bind | `x ← g` | Capture binding |
+| Arrow | `→ name` | AST constructor annotation |
 | **Cut** | `!g` | Commit point (no backtracking) |
-
-The **GCut** construct (`!g`) is for error recovery. Once a cut succeeds, the parser commits and won't backtrack. Use after keywords for better error messages:
-```
-fileDecl ::= !("rule" ruleName ":" pattern "~>" template)
-```
 
 ## CRITICAL RULES
 
 ### 1. NEVER Hand-Code Parsers or Printers
 
-**STOP. READ THIS BEFORE WRITING ANY CODE.**
-
-If you are about to write ANY of these patterns, you are doing it wrong:
-
 ```
--- FORBIDDEN PATTERNS (if you write these, you have failed):
+-- FORBIDDEN PATTERNS:
 termToLean, termToHaskell, termToRust, termTo*  -- NO
 prettyPrint, ppTerm, showTerm                    -- NO
 parseExpr, parseStmt, parse*                     -- NO
-case t of .con "foo" args -> "foo " ++ ...       -- NO
-match t with | .con name args => s!"{name}..."   -- NO
 ```
 
 **THE ONLY CORRECT PATTERN:**
-
 ```lean
--- Parse: grammar → tokens → AST
 let ast := parseWithGrammar grammar content
-
--- Transform: rules → AST → AST  
 let newAst := transform rules ast
-
--- Print: grammar → AST → tokens
-let tokens := printWithGrammar grammar prodName ast
+let output := printWithGrammar grammar prodName ast
 ```
-
-**Grammar is the parser. Grammar is the printer. There is no third option.**
-
-If `printWithGrammar` fails, the problem is:
-1. Your transformation rules produce wrong AST shape, OR
-2. Your target grammar is incomplete
-
-Fix the `.lego` files. Do NOT add a "fallback" hand-coded printer.
 
 ### 2. Bootstrap.lego is ONLY for Bootstrap
 
-**THE BOOTSTRAP CHAIN:**
 ```
 Hardcoded seed grammar ──parses──▶ Bootstrap.lego
                                         │
                                         ▼
-                                  Runtime Grammar ──parses──▶ ALL other .lego files
+                                  Runtime ──parses──▶ ALL other .lego files
 ```
 
-**Bootstrap.lego defines the meta-grammar.** It is parsed ONCE at startup by the hardcoded seed. The result is the Runtime, which parses everything else.
-
-**NEVER use Bootstrap to parse arbitrary .lego files:**
-```lean
--- WRONG: Bootstrap only parses Bootstrap.lego
-let ast := Bootstrap.parseLegoFile rosettaContent  -- NO!
-
--- RIGHT: Use Runtime (which was loaded from Bootstrap.lego)
-let rt ← loadBootstrapOrFallback  -- This loads Bootstrap.lego ONCE
-let ast := parseLegoFile rt content  -- Runtime parses everything else
-```
-
-If you call `Bootstrap.parseLegoFile` on anything other than Bootstrap.lego itself, you are doing it wrong.
-
-### 3. NEVER Use `/tmp`
-
-**WRONG:**
-```bash
-ghc ... > /tmp/output.hs
-```
-
-**RIGHT:**
-```bash
-ghc ... > ./tmp/output.hs
-```
-
-Use `./tmp/` (gitignored) for all temporary files. Never use system `/tmp`.
-
-### 4. NEVER Pipe `ghc` or `ghci` Output Through `head`
-
-**WRONG (HANGS):**
-```bash
-ghc -e "..." | head
-ghci ... | head -20
-```
-
-**RIGHT:**
-```bash
-ghc -e "..." | tail
-ghc -e "..." | grep pattern
-ghc -e "..." > ./tmp/out.txt && head ./tmp/out.txt
-```
-
-GHC detects broken pipes and hangs. Always use `tail`, `grep`, or redirect to file first.
-
-### 4. Grammar.sexpr is Source of Truth
+### 3. Grammar.sexpr is Source of Truth
 
 - `Grammar.lego` is the human-readable source
 - `Grammar.sexpr` is the portable compiled form
-- `GrammarDef.hs` loads from `.sexpr` at runtime
-- Regenerate with: `cd .. && cabal run gen-grammar-def -- lego/prelude/lego/Grammar.lego > lego/prelude/lego/Grammar.sexpr`
+- NEVER hard-code grammar definitions
 
-NEVER hard-code grammar definitions in Haskell. If Grammar.sexpr is missing, ERROR—don't fall back.
+### 4. Math First, Code Second
+
+1. **Name the algebra** before writing code
+2. **State the laws** (associativity, identity, functoriality)
+3. **Derive operations** from universal properties
+4. If two things compose, there's a monoid/category hiding
 
 ## Build & Test
 
 ```bash
+# Haskell interpreter
 cabal build
-cabal run lego-test         # .lego file tests (234/234)
-cabal test redtt-test       # redtt parsing (725/725)
-cabal run lego-repl         # Interactive REPL
+cabal run lego-test
+cabal run lego-repl
+
+# Lean 4 code generation
+cd toy
+lake build
+lake exe pipeline            # Generate .lean from .lego
+lake build CubicalGenerated  # Compile generated code
 ```
-
-## Development Rules
-
-### Math First
-- **Name the algebra** before writing code
-- **State the laws** (associativity, identity, functoriality)
-- **Derive operations** from universal properties when possible
-- If two things compose, there's probably a monoid/category hiding
-
-### Testing Philosophy
-
-| Category | Purpose | When broken |
-|----------|---------|-------------|
-| **Laws** | Algebraic axioms | Algebra is wrong |
-| **Unit tests** | Structural preservation | Something basic broke |
-| **Demo tests** | Showcase capabilities | Feature incomplete |
-
-### Git
-- **Squash fixes** into their originating commit
-- Each commit = one well-isolated feature
-
-### Code Safety
-- **Fuel pattern** for potentially infinite loops:
-  ```haskell
-  normalize' :: Int -> Term -> Term
-  normalize' 0 t = t  -- fuel exhausted
-  normalize' n t = maybe t (normalize' (n-1)) (step t)
-  ```
-
-### Bidirectional Design
-- Same grammar for parse AND print
-- `→` annotation defines AST mapping in both directions
-- No separate parser and printer code paths
 
 ## Module Dependency Order
 
@@ -214,42 +240,30 @@ cabal run lego-repl         # Interactive REPL
 Internal ← Builtins ← Lego ← Token ← GrammarDef ← GrammarInterp ← GrammarParser ← Eval
 ```
 
-When adding features, respect this order. Lower modules should not import higher ones.
-
-## Cubical Code Generation Pipeline
-
-The `toy/` directory contains a Lean 4 implementation with Rosetta code generation:
+## Code Generation Pipeline
 
 ```
-.red / .cooltt files (user source code)
+.lego source files
        ↓
-   Red.lego / Cool.lego (parsers, extend CubicalTT.lego)
+   Bootstrap.lego (meta-grammar with algebraic constructs)
        ↓
-   Cubical Term AST
+   Parse to Term AST
        ↓
-   cubical2rosetta.lego (Cubical → Rosetta transforms)
+   Transform via cubical2rosetta.lego + rosetta2lean.lego
        ↓
-   Rosetta AST (generic: Var, Lam, App, Pair, adtDef...)
+   Pipeline.lean (termToLean printer)
        ↓
-   rosetta2lean.lego (Rosetta → Lean)
-       ↓
-   .lean files
+   Generated .lean files (Term-rewriting based)
 ```
 
-### Key Files
+## Leverage Metrics
 
-| File | Location | Purpose |
-|------|----------|---------|
-| **CubicalTT.lego** | `toy/src/Lego/Cubical/` | Shared cubical grammar (dims, cofs, paths, Kan ops) |
-| **Red.lego** | `toy/src/Lego/Cubical/` | redtt extensions (imports CubicalTT) |
-| **Cool.lego** | `toy/src/Lego/Cubical/` | cooltt extensions (imports CubicalTT) |
-| **cubical2rosetta.lego** | `toy/src/Rosetta/` | Transform cubical constructs → Rosetta primitives |
-| **rosetta2lean.lego** | `toy/src/Rosetta/` | Transform Rosetta → Lean syntax |
-| **Rosetta.lego** | `toy/src/Rosetta/` | Generic Rosetta primitives (Var, Lam, App, Pair, etc.) |
+| Input | Output | Leverage |
+|-------|--------|----------|
+| 100 lines .lego | 10,000 lines .lean | 100x |
+| Grammar definitions | Inductive types + traversals | auto |
+| `derive subst` | 20+ substitution functions | auto |
+| `derive normalize` | Full normalizer with fuel | auto |
+| `F ⊣ G` adjunction | unit, counit, laws | auto |
 
-### Separation of Concerns
-
-- **Bootstrap.lego parsing** is Lego's internal concern (how `.lego` files are parsed)
-- **CubicalTT/Red/Cool** define the source language grammars + semantics
-- **cubical2rosetta + rosetta2lean** are the transformers you modify for code generation
-- Rosetta is **target-agnostic**: no Lean-specific or cubical-specific constructs
+The goal: **Write math, get code.**
