@@ -283,100 +283,100 @@ namespace Redtt
 
     def beta-lam (t : Term) : Term :=
       match t with
-      | (con ( App (con ( Lam $x $body )) $arg )) => (con ( subst $body $x $arg ))
+      | (App (Lam $x $body) $arg) => (subst $body $x $arg)
       | _ => t
 
     def beta-fst (t : Term) : Term :=
       match t with
-      | () => ()
+      | (Fst (Cons $a $b)) => $a
       | _ => t
 
     def beta-snd (t : Term) : Term :=
       match t with
-      | () => ()
+      | (Snd (Cons $a $b)) => $b
       | _ => t
 
     def beta-let (t : Term) : Term :=
       match t with
-      | (con ( Let $x $val $body )) => (con ( subst $body $x $val ))
+      | (Let $x $val $body) => (subst $body $x $val)
       | _ => t
 
     def beta-extapp-0 (t : Term) : Term :=
       match t with
-      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim0 )) )) => (con ( subst $body $i (con ( Dim0 )) ))
+      | (ExtApp (ExtLam $i $body) (Dim0)) => (subst $body $i (Dim0))
       | _ => t
 
     def beta-extapp-1 (t : Term) : Term :=
       match t with
-      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim1 )) )) => (con ( subst $body $i (con ( Dim1 )) ))
+      | (ExtApp (ExtLam $i $body) (Dim1)) => (subst $body $i (Dim1))
       | _ => t
 
     def coe-refl (t : Term) : Term :=
       match t with
-      | (con ( Coe $r $r $ty $tm )) => (con ( Coe $r $r $ty $tm ))
+      | (Coe $r $r $ty $tm) => $tm
       | _ => t
 
     def hcom-refl (t : Term) : Term :=
       match t with
-      | (con ( HCom $r $r $ty $cap $sys )) => (con ( HCom $r $r $ty $cap $sys ))
+      | (HCom $r $r $ty $cap $sys) => $cap
       | _ => t
 
     def coe-const (t : Term) : Term :=
       match t with
-      | (con ( Coe $r $r' (const $A) $tm )) => (con ( Coe $r $r' (const $A) $tm ))
+      | (Coe $r $r' (const $A) $tm) => $tm
       | _ => t
 
     def path-app-refl (t : Term) : Term :=
       match t with
-      | (con ( ExtApp (Refl $a) $r )) => (con ( ExtApp (Refl $a) $r ))
+      | (ExtApp (Refl $a) $r) => $a
       | _ => t
 
     def path-0 (t : Term) : Term :=
       match t with
-      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim0 )) )) => (con ( subst $body $i (con ( Dim0 )) ))
+      | (ExtApp (ExtLam $i $body) (Dim0)) => (subst $body $i (Dim0))
       | _ => t
 
     def path-1 (t : Term) : Term :=
       match t with
-      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim1 )) )) => (con ( subst $body $i (con ( Dim1 )) ))
+      | (ExtApp (ExtLam $i $body) (Dim1)) => (subst $body $i (Dim1))
       | _ => t
 
     def v-0 (t : Term) : Term :=
       match t with
-      | (con ( V (con ( Dim0 )) $ty0 $ty1 $equiv )) => (con ( V (con ( Dim0 )) $ty0 $ty1 $equiv ))
+      | (V (Dim0) $ty0 $ty1 $equiv) => $ty0
       | _ => t
 
     def v-1 (t : Term) : Term :=
       match t with
-      | (con ( V (con ( Dim1 )) $ty0 $ty1 $equiv )) => (con ( V (con ( Dim1 )) $ty0 $ty1 $equiv ))
+      | (V (Dim1) $ty0 $ty1 $equiv) => $ty1
       | _ => t
 
     def vin-0 (t : Term) : Term :=
       match t with
-      | (con ( VIn (con ( Dim0 )) $tm0 $tm1 )) => (con ( VIn (con ( Dim0 )) $tm0 $tm1 ))
+      | (VIn (Dim0) $tm0 $tm1) => $tm0
       | _ => t
 
     def vin-1 (t : Term) : Term :=
       match t with
-      | (con ( VIn (con ( Dim1 )) $tm0 $tm1 )) => (con ( VIn (con ( Dim1 )) $tm0 $tm1 ))
+      | (VIn (Dim1) $tm0 $tm1) => $tm1
       | _ => t
 
     def elim-intro (t : Term) : Term :=
       match t with
-      | (con ( Elim (con ( Intro $dlbl $clbl $args )) $mot $clauses )) => (con ( apply-clause (con ( lookup $clbl $clauses )) $args ))
+      | (Elim (Intro $dlbl $clbl $args) $mot $clauses) => (apply-clause (lookup $clbl $clauses) $args)
       | _ => t
 
     -- Test: test
     -- ()
 
     -- Test: test
-    -- (con ( import (var prelude) (var path) ))
+    -- (import $(prelude) $(path))
 
     -- Test: test
-    -- (con ( def (var id) (var x) (var x) ))
+    -- (def $(id) $(x) $(x))
 
     -- Test: test
-    -- (con ( def (var id) (con ( x (var COLON) (var A) )) (var COLON) (var A) (var x) ))
+    -- (def $(id) (x $(COLON) $(A)) $(COLON) $(A) $(x))
 
   end RunML
 

@@ -67,7 +67,8 @@ token Token
            | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '-'
            | '=' | '~' | '/' | '\\' | '→' | '←' | '↔' | '⊕'
            | '⊢' | '×' | 'λ' | '∂' | '∀' | '∃' | '⦉' | '⦊'
-           | '«' | '»' | '★' | '☆' | '`' | '↦' | '↾' ;
+           | '«' | '»' | '★' | '☆' | '`' | '↦' | '↾'
+           | '⟨' | '⟩' ;
 
   -- Token patterns
   -- Note: '/' is allowed in identifiers for hierarchical names (e.g., trans/filler in redtt)
@@ -113,6 +114,14 @@ piece Atom
   string ::= <string> → string ;
   char   ::= <char> → char ;
   number ::= <number> → number ;
+  -- Meta-type aliases for generated grammars
+  expr   ::= <expr> → expr ;
+  symbol ::= <symbol> → symbol ;
+  bool   ::= <bool> → bool ;
+  elabCtx ::= <elabCtx> → elabCtx ;
+  sysEntry ::= <sysEntry> → sysEntry ;
+  visibility ::= <visibility> → visibility ;
+  name   ::= <name> → name ;
 
 -----------------------------------------------------
 -- Term: S-expression terms
@@ -169,7 +178,7 @@ piece Term
             | term ;
   -- conname: constructor names can be idents or reserved keywords (as symbols)
   -- Multi-char operators that can appear as constructor heads
-  conname ::= "=I=" | "@@" | "~>" | "→" | "×" | "↦" | ident | <sym> ;
+  conname ::= "=I=" | "@@" | "~>" | "→" | "×" | "↦" | "⟨" | "⟩" | ident | <sym> ;
 
 -----------------------------------------------------
 -- Pattern: Match patterns for rules
@@ -188,7 +197,11 @@ piece Pattern
             | "(" "$" ident "." pattern ")" → binderParen
             | "(" ident "." pattern ")" → objBinderParen
             | "(" pattern ":" pattern ")" → ann
+            | "(" "(" "(" patternHead patternArg* ")" ")" patternArg+ ")" → app
             | "(" "(" patternHead patternArg* ")" patternArg+ ")" → app
+            | "(" "(" "[" patternArg* "]" ")" patternArg+ ")" → app
+            | "(" "[" patternArg* "]" patternArg+ ")" → app
+            | "(" "(" pattern ":" pattern ")" ")" → ann
             | "(" patternHead patternArg* ")" → con
             | string → lit
             | number → num
@@ -212,6 +225,13 @@ piece Pattern
                | "|" → con
                | "=>" → con
                | "←" → con
+               | "⟨" → con
+               | "⟩" → con
+               | "," → con
+               | ":" → con
+               | ":=" → con
+               | "=" → con
+               | "in" → con
                | "with" → con
                | "where" → con
                | pattern ;
@@ -228,25 +248,50 @@ piece Pattern
 piece Template
   template ::= "$" ident "." template → binder
              | "$" ident → var
+             | "let" ident "=" template "in" template → letIn
+             | "let" "$" ident "=" template "in" template → letIn
+             | "let" "(" template "," template ")" "=" template "in" template → letTupleIn
+             | "case" template caseArm+ → caseExpr
              | "[" template ":=" template "]" template → subst
              | "[" templateArg* "]" → bracket
              | "{" templateArg* "}" → brace
+             | "(" template "," template ("," template)+ ")" → nTuple
              | "(" template "," template ")" → tuple
              | "(" ")" → unit
              | "(" "case" template caseArm+ ")" → caseExpr
              | "(" "$" ident "." template ")" → binderParen
              | "(" ident "." template ")" → objBinderParen
+             | "(" "λ" ident "." template ")" → lamParen
+             | "(" ident ident "." headTerm templateArg* ")" → introExpr
+             | "(" "let" ident "=" template "in" template ")" → letIn
+             | "(" "let" "$" ident "=" template "in" template ")" → letIn
+             | "(" "let" "(" template "," template ")" "=" template "in" template ")" → letTupleIn
              | "(" headTerm templateArg* ")" → con
+             | "(" ident ":" template templateArg+ ")" → record
+             | "(" template ":" template ")" → typed
+             | "(" template ")" → paren
+             | ident parenArg+ ident+ → con
+             | ident parenArg+ → con
              | string → lit
              | number → num
              | ident → con ;
+  parenArg ::= "(" template ")" → paren
+             | "(" template "," template ("," template)+ ")" → nTuple
+             | "(" template "," template ")" → tuple
+             | "(" ")" → unit
+             | "(" headTerm templateArg* ")" → con
+             | "(" template ":" template ")" → typed ;
   caseArm ::= "(" patternHead patternArg* ")" "=>" template → arm
-            | ident "=>" template → arm ;
+            | "$" ident "=>" template → varArm
+            | ident "=>" template → arm
+            | conname "=>" template → arm ;
   templateArg ::= "$" ident "." template → binder
                 | "$" ident ":" template → typedVar
                 | "$" ident ":=" template → assign
                 | ident ":=" template → assign
                 | ident ":" template → labeledArg
+                | string ":" template → stringLabeledArg
+                | "(" template ":" template ")" → typed
                 | ident "." template → objBinder
                 | "~>" → con
                 | "→" → con
@@ -261,11 +306,19 @@ piece Template
                 | "|" → con
                 | "=>" → con
                 | "←" → con
+                | "⟨" → con
+                | "⟩" → con
+                | "," → con
                 | "with" → con
                 | "where" → con
                 | template ;
   headTerm ::= "$" ident → var
              | ident
+             | string
+             | number
+             | "(" template ":" template ")" → typed
+             | "(" template "," template ("," template)+ ")" → nTuple
+             | "(" template "," template ")" → tuple
              | "(" template templateArg* ")" → app ;
 
 -----------------------------------------------------
@@ -302,7 +355,8 @@ piece File
   vocabDecl  ::= "vocab" ident ident* → DVocab ;
   modulePath ::= ident ("." ident)* → modulePath ;
   langDecl   ::= "lang" ident imports? ":=" langBody → DLang ;
-  imports    ::= "(" ident+ ")" → DImports ;
+  imports    ::= "(" ident ("," ident)* ")" → DImports
+               | "(" ident+ ")" → DImports ;
   langBody   ::= innerDecl* ;
   innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl ;
   tokenDecl  ::= "token" ident tokenItem+ → DToken ;
@@ -310,7 +364,7 @@ piece File
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
   pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
-  ruleDecl   ::= "rule" ident ":" pattern ruleArrow template ruleGuard? ";" → DRule ;
+  ruleDecl   ::= "rule" ident ":"? pattern ruleArrow template ruleGuard? ";" → DRule ;
   ruleArrow  ::= "~~>" | "~>" ;
   ruleGuard  ::= "when" sideCondition ("," sideCondition)* → guard ;
   typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;

@@ -9,21 +9,21 @@ namespace Red
 
     def extBeta (t : Term) : Term :=
       match t with
-      | (con ( extApp (extLam (binder $ x . $body)) $r )) => (con ( extApp (extLam (binder $ x . $body)) $r ))
+      | (extApp (extLam (binder $ x . $body)) $r) => (subst [ $x := $r ] $body)
       | _ => t
 
     def extApp0 (t : Term) : Term :=
       match t with
-      | (con ( extApp (extLam (binder $ x . $body)) (num (number 0)) )) => (con ( extApp (extLam (binder $ x . $body)) (num (number 0)) ))
+      | (extApp (extLam (binder $ x . $body)) (num (number 0))) => (subst [ $x := (num (number 0)) ] $body)
       | _ => t
 
     def extApp1 (t : Term) : Term :=
       match t with
-      | (con ( extApp (extLam (binder $ x . $body)) (num (number 1)) )) => (con ( extApp (extLam (binder $ x . $body)) (num (number 1)) ))
+      | (extApp (extLam (binder $ x . $body)) (num (number 1))) => (subst [ $x := (num (number 1)) ] $body)
       | _ => t
 
     -- Test: test
-    -- (con ( extApp (extLam (objBinder i . (f (var i)))) (num (number 0)) ))
+    -- (extApp (extLam (objBinder i . (f $(i)))) (num (number 0)))
 
   end ExtType
 
@@ -34,22 +34,22 @@ namespace Red
 
     def ghcomRefl (t : Term) : Term :=
       match t with
-      | (con ( ghcom $r (con ~>) $r $A $sys $a )) => (con ( ghcom $r (con ~>) $r $A $sys $a ))
+      | (ghcom $r (~>) $r $A $sys $a) => $a
       | _ => t
 
     def gcomRefl (t : Term) : Term :=
       match t with
-      | (con ( gcom $r (con ~>) $r (binderParen ( $ i . $A )) $sys $a )) => (con ( gcom $r (con ~>) $r (binderParen ( $ i . $A )) $sys $a ))
+      | (gcom $r (~>) $r (binderParen ( $ i . $A )) $sys $a) => $a
       | _ => t
 
     def ghcomBdy (t : Term) : Term :=
       match t with
-      | (con ( ghcom $r (con ~>) $s $A (bracket [ $φ (con ↦) (binder $ i . $u) ]) $a )) => (con ( ghcom $r (con ~>) $s $A (bracket [ $φ (con ↦) (binder $ i . $u) ]) $a ))
+      | (ghcom $r (~>) $s $A (bracket [ $φ (↦) (binder $ i . $u) ]) $a) => (subst [ $i := $s ] $u)
       | _ => t
 
     def gcomBdy (t : Term) : Term :=
       match t with
-      | (con ( gcom $r (con ~>) $s (binderParen ( $ i . $A )) (bracket [ $φ (con ↦) (binder $ j . $u) ]) $a )) => (con ( gcom $r (con ~>) $s (binderParen ( $ i . $A )) (bracket [ $φ (con ↦) (binder $ j . $u) ]) $a ))
+      | (gcom $r (~>) $s (binderParen ( $ i . $A )) (bracket [ $φ (↦) (binder $ j . $u) ]) $a) => (subst [ $j := $s ] $u)
       | _ => t
 
   end GCom
@@ -76,12 +76,12 @@ namespace Red
 
     def introElim (t : Term) : Term :=
       match t with
-      | (con ( elim $e (con ( $C $ms )) (con ( intro $c $as )) )) => (con ( (( $ms $c )) $as ))
+      | (elim $e ($C $ms) (intro $c $as)) => ((( $ms $c )) $as)
       | _ => t
 
     def introBdy (t : Term) : Term :=
       match t with
-      | (con ( intro $c $as )) => (con ( intro $c $as ))
+      | (intro $c $as) => $bdy
       | _ => t
 
   end Data
@@ -93,17 +93,17 @@ namespace Red
 
     def twin0 (t : Term) : Term :=
       match t with
-      | (con ( twin $x $y (num (number 0)) $a )) => (con ( twin $x $y (num (number 0)) $a ))
+      | (twin $x $y (num (number 0)) $a) => (subst [ $y := $x ] $a)
       | _ => t
 
     def twin1 (t : Term) : Term :=
       match t with
-      | (con ( twin $x $y (num (number 1)) $a )) => (con ( twin $x $y (num (number 1)) $a ))
+      | (twin $x $y (num (number 1)) $a) => $a
       | _ => t
 
     def twinSym (t : Term) : Term :=
       match t with
-      | (con ( twin $x $y $i (con ( twin $y $x (con ( (num (number 1)) (con -) $i )) $a )) )) => (con ( twin $x $y $i (con ( twin $y $x (con ( (num (number 1)) (con -) $i )) $a )) ))
+      | (twin $x $y $i (twin $y $x ((num (number 1)) (-) $i) $a)) => $a
       | _ => t
 
   end Twin
@@ -122,12 +122,12 @@ namespace Red
 
     def fhcomRefl (t : Term) : Term :=
       match t with
-      | (con ( fhcom $r (con ~>) $r $A $sys $a )) => (con ( fhcom $r (con ~>) $r $A $sys $a ))
+      | (fhcom $r (~>) $r $A $sys $a) => $a
       | _ => t
 
     def fhcomBdy (t : Term) : Term :=
       match t with
-      | (con ( fhcom $r (con ~>) $s $A (bracket [ $φ (con ↦) (binder $ i . $u) ]) $a )) => (con ( fhcom $r (con ~>) $s $A (bracket [ $φ (con ↦) (binder $ i . $u) ]) $a ))
+      | (fhcom $r (~>) $s $A (bracket [ $φ (↦) (binder $ i . $u) ]) $a) => (subst [ $i := $s ] $u)
       | _ => t
 
   end FHcom
@@ -139,12 +139,12 @@ namespace Red
 
     def capBox (t : Term) : Term :=
       match t with
-      | (con ( cap $r (con ~>) $s $sys (con ( box $r (con ~>) $s $sys' $a )) )) => (con ( cap $r (con ~>) $s $sys (con ( box $r (con ~>) $s $sys' $a )) ))
+      | (cap $r (~>) $s $sys (box $r (~>) $s $sys' $a)) => $a
       | _ => t
 
     def boxBdy (t : Term) : Term :=
       match t with
-      | (con ( box $r (con ~>) $s (bracket [ $φ (con ↦) $u ]) $a )) => (con ( box $r (con ~>) $s (bracket [ $φ (con ↦) $u ]) $a ))
+      | (box $r (~>) $s (bracket [ $φ (↦) $u ]) $a) => $u
       | _ => t
 
   end BoxCap
@@ -156,17 +156,17 @@ namespace Red
 
     def coeqGlue0 (t : Term) : Term :=
       match t with
-      | (con ( coeqGlue $a (num (number 0)) )) => (con ( coeqGlue $a (num (number 0)) ))
+      | (coeqGlue $a (num (number 0))) => (coeqIn ($f $a))
       | _ => t
 
     def coeqGlue1 (t : Term) : Term :=
       match t with
-      | (con ( coeqGlue $a (num (number 1)) )) => (con ( coeqGlue $a (num (number 1)) ))
+      | (coeqGlue $a (num (number 1))) => (coeqIn ($g $a))
       | _ => t
 
     def coeqElimIn (t : Term) : Term :=
       match t with
-      | (con ( coeqElim $P $h $p (coeqIn $b) )) => (con ( $h $b ))
+      | (coeqElim $P $h $p (coeqIn $b)) => ($h $b)
       | _ => t
 
   end Coeq
@@ -178,22 +178,22 @@ namespace Red
 
     def push0 (t : Term) : Term :=
       match t with
-      | (con ( push $a (num (number 0)) )) => (con ( push $a (num (number 0)) ))
+      | (push $a (num (number 0))) => (inl ($f $a))
       | _ => t
 
     def push1 (t : Term) : Term :=
       match t with
-      | (con ( push $a (num (number 1)) )) => (con ( push $a (num (number 1)) ))
+      | (push $a (num (number 1))) => (inr ($g $a))
       | _ => t
 
     def pushElimInl (t : Term) : Term :=
       match t with
-      | (con ( pushElim $P $l $r $p (inl $a) )) => (con ( $l $a ))
+      | (pushElim $P $l $r $p (inl $a)) => ($l $a)
       | _ => t
 
     def pushElimInr (t : Term) : Term :=
       match t with
-      | (con ( pushElim $P $l $r $p (inr $b) )) => (con ( $r $b ))
+      | (pushElim $P $l $r $p (inr $b)) => ($r $b)
       | _ => t
 
   end Pushout

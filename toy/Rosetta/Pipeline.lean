@@ -60,10 +60,11 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
     s!"{pad}section {name}\n\n{contents.map (termToLean · (indent + 1)) |> String.intercalate "\n\n"}\n\n{pad}end {name}"
   | .con "DRule" args =>
     -- Transform DRule directly in printer
-    -- Structure: [lit "rule", ident name, lit ":", pat, lit "~~>", tmpl, unit, lit ";"]
+    -- Structure: [lit "rule", ident name, lit ":", pat (idx 3), lit "~>", tmpl (idx 5), unit, lit ";"]
     let name := args.find? Term.isVar |>.bind Term.getVarName |>.getD "rule"
-    let pat := args.find? (fun t => match t with | .con "con" _ => true | _ => false) |>.getD (.con "unit" [])
-    let tmpl := args.reverse.find? (fun t => match t with | .con "con" _ => true | _ => false) |>.getD (.con "unit" [])
+    -- Pattern is at index 3, template at index 5
+    let pat := args[3]? |>.getD (.con "unit" [])
+    let tmpl := args[5]? |>.getD (.con "unit" [])
     s!"{pad}def {name} (t : Term) : Term :=\n{pad}  match t with\n{pad}  | {termToLean pat 0} => {termToLean tmpl 0}\n{pad}  | _ => t"
   | .con "DTest" args =>
     -- Transform DTest directly in printer
@@ -99,8 +100,20 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
     s!"({termToLean head 0} {args.map (termToLean · 0) |> String.intercalate " "})"
   | .con "metavar" [.var name] =>
     s!"${name}"
+  | .con "var" [.lit "$", .con "ident" [.var name]] =>
+    s!"${name}"
+  | .con "var" args =>
+    -- Fallback for var nodes
+    let inner := args.map (termToLean · 0) |> String.intercalate " "
+    s!"$({inner})"
+  | .con "ident" [.var name] =>
+    name
   | .con "unit" [] =>
     "()"
+  | .con "con" args =>
+    -- S-expression: (con arg1 arg2 ...)
+    let inner := args.filter (fun t => match t with | .lit "(" => false | .lit ")" => false | _ => true)
+    s!"({inner.map (termToLean · 0) |> String.intercalate " "})"
   | .con tag args =>
     if args.isEmpty then tag
     else s!"({tag} {args.map (termToLean · 0) |> String.intercalate " "})"
@@ -124,9 +137,35 @@ def main : IO Unit := do
 
   -- Process multiple .lego files
   let files := [
+    -- Core cubical files
     ("./test/Redtt.lego", "./generated/Cubical/Redtt.lean"),
     ("./src/Lego/Cubical/CubicalTT.lego", "./generated/Cubical/CubicalTT.lean"),
-    ("./src/Lego/Cubical/Red.lego", "./generated/Cubical/Red.lean")
+    ("./src/Lego/Cubical/Red.lego", "./generated/Cubical/Red.lean"),
+    -- Generated cubical modules (~6800 lines)
+    ("./src/Lego/Cubical/generated/Cofibration.lego", "./generated/Cubical/Cofibration.lean"),
+    ("./src/Lego/Cubical/generated/Conversion.lego", "./generated/Cubical/Conversion.lean"),
+    ("./src/Lego/Cubical/generated/Core.lego", "./generated/Cubical/Core.lean"),
+    ("./src/Lego/Cubical/generated/Datatype.lego", "./generated/Cubical/Datatype.lean"),
+    ("./src/Lego/Cubical/generated/Domain.lego", "./generated/Cubical/Domain.lean"),
+    ("./src/Lego/Cubical/generated/Elaborate.lego", "./generated/Cubical/Elaborate.lean"),
+    ("./src/Lego/Cubical/generated/ExtType.lego", "./generated/Cubical/ExtType.lean"),
+    ("./src/Lego/Cubical/generated/FHCom.lego", "./generated/Cubical/FHCom.lean"),
+    ("./src/Lego/Cubical/generated/GlobalEnv.lego", "./generated/Cubical/GlobalEnv.lean"),
+    ("./src/Lego/Cubical/generated/HIT.lego", "./generated/Cubical/HIT.lean"),
+    ("./src/Lego/Cubical/generated/Kan.lego", "./generated/Cubical/Kan.lean"),
+    ("./src/Lego/Cubical/generated/Module.lego", "./generated/Cubical/Module.lean"),
+    ("./src/Lego/Cubical/generated/Quote.lego", "./generated/Cubical/Quote.lean"),
+    ("./src/Lego/Cubical/generated/RefineMonad.lego", "./generated/Cubical/RefineMonad.lean"),
+    ("./src/Lego/Cubical/generated/Semantics.lego", "./generated/Cubical/Semantics.lean"),
+    ("./src/Lego/Cubical/generated/Signature.lego", "./generated/Cubical/Signature.lean"),
+    ("./src/Lego/Cubical/generated/Splice.lego", "./generated/Cubical/Splice.lean"),
+    ("./src/Lego/Cubical/generated/SubType.lego", "./generated/Cubical/SubType.lean"),
+    ("./src/Lego/Cubical/generated/Tactic.lego", "./generated/Cubical/Tactic.lean"),
+    ("./src/Lego/Cubical/generated/TermBuilder.lego", "./generated/Cubical/TermBuilder.lean"),
+    ("./src/Lego/Cubical/generated/TypeAttrs.lego", "./generated/Cubical/TypeAttrs.lean"),
+    ("./src/Lego/Cubical/generated/Unify.lego", "./generated/Cubical/Unify.lean"),
+    ("./src/Lego/Cubical/generated/VType.lego", "./generated/Cubical/VType.lean"),
+    ("./src/Lego/Cubical/generated/Visitor.lego", "./generated/Cubical/Visitor.lean")
     -- Cool.lego has unsupported 'for' syntax in type constraints, skipped for now
   ]
 

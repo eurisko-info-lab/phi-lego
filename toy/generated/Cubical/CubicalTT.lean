@@ -7,84 +7,84 @@ namespace CubicalTT
 
     def join0L (t : Term) : Term :=
       match t with
-      | (con ( join (num (number 0)) $r )) => (con ( join (num (number 0)) $r ))
+      | (join (num (number 0)) $r) => $r
       | _ => t
 
     def join0R (t : Term) : Term :=
       match t with
-      | (con ( join $r (num (number 0)) )) => (con ( join $r (num (number 0)) ))
+      | (join $r (num (number 0))) => $r
       | _ => t
 
     def join1L (t : Term) : Term :=
       match t with
-      | (con ( join (num (number 1)) $r )) => (con ( join (num (number 1)) $r ))
+      | (join (num (number 1)) $r) => (num (number 1))
       | _ => t
 
     def join1R (t : Term) : Term :=
       match t with
-      | (con ( join $r (num (number 1)) )) => (con ( join $r (num (number 1)) ))
+      | (join $r (num (number 1))) => (num (number 1))
       | _ => t
 
     def joinIdem (t : Term) : Term :=
       match t with
-      | (con ( join $r $r )) => (con ( join $r $r ))
+      | (join $r $r) => $r
       | _ => t
 
     def meet0L (t : Term) : Term :=
       match t with
-      | (con ( meet (num (number 0)) $r )) => (con ( meet (num (number 0)) $r ))
+      | (meet (num (number 0)) $r) => (num (number 0))
       | _ => t
 
     def meet0R (t : Term) : Term :=
       match t with
-      | (con ( meet $r (num (number 0)) )) => (con ( meet $r (num (number 0)) ))
+      | (meet $r (num (number 0))) => (num (number 0))
       | _ => t
 
     def meet1L (t : Term) : Term :=
       match t with
-      | (con ( meet (num (number 1)) $r )) => (con ( meet (num (number 1)) $r ))
+      | (meet (num (number 1)) $r) => $r
       | _ => t
 
     def meet1R (t : Term) : Term :=
       match t with
-      | (con ( meet $r (num (number 1)) )) => (con ( meet $r (num (number 1)) ))
+      | (meet $r (num (number 1))) => $r
       | _ => t
 
     def meetIdem (t : Term) : Term :=
       match t with
-      | (con ( meet $r $r )) => (con ( meet $r $r ))
+      | (meet $r $r) => $r
       | _ => t
 
     def inv0 (t : Term) : Term :=
       match t with
-      | () => ()
+      | (inv (num (number 0))) => (num (number 1))
       | _ => t
 
     def inv1 (t : Term) : Term :=
       match t with
-      | () => ()
+      | (inv (num (number 1))) => (num (number 0))
       | _ => t
 
     def invInv (t : Term) : Term :=
       match t with
-      | () => ()
+      | (inv (inv $r)) => $r
       | _ => t
 
     def deMorganOr (t : Term) : Term :=
       match t with
-      | (con ( meet (inv $r) (inv $s) )) => (con ( meet (inv $r) (inv $s) ))
+      | (inv (join $r $s)) => (meet (inv $r) (inv $s))
       | _ => t
 
     def deMorganAnd (t : Term) : Term :=
       match t with
-      | (con ( join (inv $r) (inv $s) )) => (con ( join (inv $r) (inv $s) ))
+      | (inv (meet $r $s)) => (join (inv $r) (inv $s))
       | _ => t
 
     -- Test: test
-    -- (con ( join (num (number 0)) (var i) ))
+    -- (join (num (number 0)) $(i))
 
     -- Test: test
-    -- (con ( meet (num (number 0)) (var i) ))
+    -- (meet (num (number 0)) $(i))
 
     -- Test: test
     -- ()
@@ -98,47 +98,47 @@ namespace CubicalTT
 
     def cof0Or (t : Term) : Term :=
       match t with
-      | (con ( cofOr (con cof0) $φ )) => (con ( cofOr (con cof0) $φ ))
+      | (cofOr (cof0) $φ) => $φ
       | _ => t
 
     def cof1Or (t : Term) : Term :=
       match t with
-      | (con ( cofOr (con cof1) $φ )) => (con cof1)
+      | (cofOr (cof1) $φ) => (cof1)
       | _ => t
 
     def cofOrIdem (t : Term) : Term :=
       match t with
-      | (con ( cofOr $φ $φ )) => (con ( cofOr $φ $φ ))
+      | (cofOr $φ $φ) => $φ
       | _ => t
 
     def cof0And (t : Term) : Term :=
       match t with
-      | (con ( cofAnd (con cof0) $φ )) => (con cof0)
+      | (cofAnd (cof0) $φ) => (cof0)
       | _ => t
 
     def cof1And (t : Term) : Term :=
       match t with
-      | (con ( cofAnd (con cof1) $φ )) => (con ( cofAnd (con cof1) $φ ))
+      | (cofAnd (cof1) $φ) => $φ
       | _ => t
 
     def cofAndIdem (t : Term) : Term :=
       match t with
-      | (con ( cofAnd $φ $φ )) => (con ( cofAnd $φ $φ ))
+      | (cofAnd $φ $φ) => $φ
       | _ => t
 
     def eqRefl (t : Term) : Term :=
       match t with
-      | (con ( eq $r $r )) => (con cof1)
+      | (eq $r $r) => (cof1)
       | _ => t
 
     def eq01 (t : Term) : Term :=
       match t with
-      | (con ( eq (num (number 0)) (num (number 1)) )) => (con cof0)
+      | (eq (num (number 0)) (num (number 1))) => (cof0)
       | _ => t
 
     def eq10 (t : Term) : Term :=
       match t with
-      | (con ( eq (num (number 1)) (num (number 0)) )) => (con cof0)
+      | (eq (num (number 1)) (num (number 0))) => (cof0)
       | _ => t
 
   end Cofibration
@@ -150,12 +150,12 @@ namespace CubicalTT
 
     def fstPair (t : Term) : Term :=
       match t with
-      | () => ()
+      | (fst (pair $a $b)) => $a
       | _ => t
 
     def sndPair (t : Term) : Term :=
       match t with
-      | () => ()
+      | (snd (pair $a $b)) => $b
       | _ => t
 
     -- Test: test
@@ -173,19 +173,19 @@ namespace CubicalTT
 
     def beta (t : Term) : Term :=
       match t with
-      | (con ( app (lam (binder $ x . $body)) $arg )) => (con ( app (lam (binder $ x . $body)) $arg ))
+      | (app (lam (binder $ x . $body)) $arg) => (subst [ $x := $arg ] $body)
       | _ => t
 
     def dbeta (t : Term) : Term :=
       match t with
-      | (con ( dapp (dlam (binder $ i . $body)) $r )) => (con ( dapp (dlam (binder $ i . $body)) $r ))
+      | (dapp (dlam (binder $ i . $body)) $r) => (subst [ $i := $r ] $body)
       | _ => t
 
     -- Test: test
-    -- (con ( app (lam (objBinder x . (var x))) (var y) ))
+    -- (app (lam (objBinder x . $(x))) $(y))
 
     -- Test: test
-    -- (con ( dapp (dlam (objBinder i . (con ( dapp (var f) (var i) )))) (num (number 0)) ))
+    -- (dapp (dlam (objBinder i . (dapp $(f) $(i)))) (num (number 0)))
 
   end Lambda
 
@@ -196,7 +196,7 @@ namespace CubicalTT
 
     def arrSugar (t : Term) : Term :=
       match t with
-      | (con ( $A (con →) $B )) => (con ( $A (con →) $B ))
+      | ($A (→) $B) => (Pi (labeledArg _ : (binder $ A . $B)))
       | _ => t
 
   end Pi
@@ -208,7 +208,7 @@ namespace CubicalTT
 
     def prodSugar (t : Term) : Term :=
       match t with
-      | (con ( $A (con ×) $B )) => (con ( $A (con ×) $B ))
+      | ($A (×) $B) => (Sigma (labeledArg _ : (binder $ A . $B)))
       | _ => t
 
   end Sigma
@@ -220,7 +220,7 @@ namespace CubicalTT
 
     def pathSugar (t : Term) : Term :=
       match t with
-      | (con ( Path $A $a $b )) => (con ( Path $A $a $b ))
+      | (Path $A $a $b) => (introExpr ( PathP _ . $A (.) (binder $ a . $b) ))
       | _ => t
 
     -- Test: test
@@ -245,16 +245,16 @@ namespace CubicalTT
 
     def coeRefl (t : Term) : Term :=
       match t with
-      | (con ( coe $r (con ~>) $r (binderParen ( $ i . $A )) $a )) => (con ( coe $r (con ~>) $r (binderParen ( $ i . $A )) $a ))
+      | (coe $r (~>) $r (binderParen ( $ i . $A )) $a) => $a
       | _ => t
 
     def coeConst (t : Term) : Term :=
       match t with
-      | (con ( coe $r (con ~>) $s (binderParen ( $ i . $A )) $a )) => (con ( coe $r (con ~>) $s (binderParen ( $ i . $A )) $a ))
+      | (coe $r (~>) $s (binderParen ( $ i . $A )) $a) => $a
       | _ => t
 
     -- Test: test
-    -- (con ( coe (num (number 0)) (con ~>) (num (number 0)) (objBinderParen ( i . (var A) )) (var a) ))
+    -- (coe (num (number 0)) (~>) (num (number 0)) (objBinderParen ( i . $(A) )) $(a))
 
   end Coe
 
@@ -265,12 +265,12 @@ namespace CubicalTT
 
     def hcomRefl (t : Term) : Term :=
       match t with
-      | (con ( hcom $r (con ~>) $r $A $sys $a )) => (con ( hcom $r (con ~>) $r $A $sys $a ))
+      | (hcom $r (~>) $r $A $sys $a) => $a
       | _ => t
 
     def hcomTotal (t : Term) : Term :=
       match t with
-      | (con ( hcom $r (con ~>) $s $A (sys (bracket [ (con ( cof1 (con ↦) $u )) ])) $a )) => (con ( hcom $r (con ~>) $s $A (sys (bracket [ (con ( cof1 (con ↦) $u )) ])) $a ))
+      | (hcom $r (~>) $s $A (sys (bracket [ (cof1 (↦) $u) ])) $a) => (subst [ $j := $s ] $u)
       | _ => t
 
   end Hcom
@@ -282,7 +282,7 @@ namespace CubicalTT
 
     def comRefl (t : Term) : Term :=
       match t with
-      | (con ( com $r (con ~>) $r (binderParen ( $ i . $A )) $sys $a )) => (con ( com $r (con ~>) $r (binderParen ( $ i . $A )) $sys $a ))
+      | (com $r (~>) $r (binderParen ( $ i . $A )) $sys $a) => $a
       | _ => t
 
   end Com
@@ -294,32 +294,32 @@ namespace CubicalTT
 
     def V0 (t : Term) : Term :=
       match t with
-      | (con ( V (num (number 0)) $A $B $e )) => (con ( V (num (number 0)) $A $B $e ))
+      | (V (num (number 0)) $A $B $e) => $A
       | _ => t
 
     def V1 (t : Term) : Term :=
       match t with
-      | (con ( V (num (number 1)) $A $B $e )) => (con ( V (num (number 1)) $A $B $e ))
+      | (V (num (number 1)) $A $B $e) => $B
       | _ => t
 
     def Vin0 (t : Term) : Term :=
       match t with
-      | (con ( Vin (num (number 0)) $a )) => (con ( Vin (num (number 0)) $a ))
+      | (Vin (num (number 0)) $a) => (fst $a)
       | _ => t
 
     def Vin1 (t : Term) : Term :=
       match t with
-      | (con ( Vin (num (number 1)) $a )) => (con ( Vin (num (number 1)) $a ))
+      | (Vin (num (number 1)) $a) => $a
       | _ => t
 
     def Vproj0 (t : Term) : Term :=
       match t with
-      | (con ( Vproj (num (number 0)) $v $e )) => (con ( app $e (snd $v) ))
+      | (Vproj (num (number 0)) $v $e) => (app $e (snd $v))
       | _ => t
 
     def Vproj1 (t : Term) : Term :=
       match t with
-      | (con ( Vproj (num (number 1)) $v $e )) => (con ( Vproj (num (number 1)) $v $e ))
+      | (Vproj (num (number 1)) $v $e) => $v
       | _ => t
 
   end VType
@@ -331,7 +331,7 @@ namespace CubicalTT
 
     def outInS (t : Term) : Term :=
       match t with
-      | () => ()
+      | (outS (inS $a)) => $a
       | _ => t
 
   end Sub
@@ -343,7 +343,7 @@ namespace CubicalTT
 
     def unglueGlue (t : Term) : Term :=
       match t with
-      | (con ( unglue $φ (con ( glue $sys $a )) )) => (con ( unglue $φ (con ( glue $sys $a )) ))
+      | (unglue $φ (glue $sys $a)) => $a
       | _ => t
 
   end Glue
@@ -352,32 +352,32 @@ namespace CubicalTT
 
     def convRefl (t : Term) : Term :=
       match t with
-      | (con ( conv $A $A )) => (con true)
+      | (conv $A $A) => (true)
       | _ => t
 
     def convSym (t : Term) : Term :=
       match t with
-      | (con ( conv $A $B )) => (con ( conv $B $A ))
+      | (conv $A $B) => (conv $B $A)
       | _ => t
 
     def convU (t : Term) : Term :=
       match t with
-      | (con ( conv (con U) (con U) )) => (con true)
+      | (conv (U) (U)) => (true)
       | _ => t
 
     def convPi (t : Term) : Term :=
       match t with
-      | (con ( conv (Pi (typedVar $ x : (binder $ A1 . $B1))) (Pi (typedVar $ x : (binder $ A2 . $B2))) )) => (con ( and (con ( conv $A2 $A1 )) (con ( conv $B1 $B2 )) ))
+      | (conv (Pi (typedVar $ x : (binder $ A1 . $B1))) (Pi (typedVar $ x : (binder $ A2 . $B2)))) => (and (conv $A2 $A1) (conv $B1 $B2))
       | _ => t
 
     def convSigma (t : Term) : Term :=
       match t with
-      | (con ( conv (Σ (typedVar $ x : (binder $ A1 . $B1))) (Σ (typedVar $ x : (binder $ A2 . $B2))) )) => (con ( and (con ( conv $A1 $A2 )) (con ( conv $B1 $B2 )) ))
+      | (conv (Σ (typedVar $ x : (binder $ A1 . $B1))) (Σ (typedVar $ x : (binder $ A2 . $B2)))) => (and (conv $A1 $A2) (conv $B1 $B2))
       | _ => t
 
     def convPath (t : Term) : Term :=
       match t with
-      | (con ( conv (PathP (binder $ i . (binder $ A1 . (binder $ a01 . $a11)))) (PathP (binder $ i . (binder $ A2 . (binder $ a02 . $a12)))) )) => (con ( and (con ( conv $A1 $A2 )) (con ( and (con ( conv $a01 $a02 )) (con ( conv $a11 $a12 )) )) ))
+      | (conv (PathP (binder $ i . (binder $ A1 . (binder $ a01 . $a11)))) (PathP (binder $ i . (binder $ A2 . (binder $ a02 . $a12))))) => (and (conv $A1 $A2) (and (conv $a01 $a02) (conv $a11 $a12)))
       | _ => t
 
   end Conversion
@@ -386,37 +386,37 @@ namespace CubicalTT
 
     def isNeutralVar (t : Term) : Term :=
       match t with
-      | (con true) => (con true)
+      | (neutral (var $x)) => (true)
       | _ => t
 
     def isNeutralApp (t : Term) : Term :=
       match t with
-      | () => ()
+      | (neutral (app $f $a)) => (neutral $f)
       | _ => t
 
     def isNeutralFst (t : Term) : Term :=
       match t with
-      | () => ()
+      | (neutral (fst $p)) => (neutral $p)
       | _ => t
 
     def isNeutralSnd (t : Term) : Term :=
       match t with
-      | () => ()
+      | (neutral (snd $p)) => (neutral $p)
       | _ => t
 
     def isNeutralDApp (t : Term) : Term :=
       match t with
-      | () => ()
+      | (neutral (dapp $p $r)) => (neutral $p)
       | _ => t
 
     def isNeutralCoe (t : Term) : Term :=
       match t with
-      | (con ( or (neutral $A) (neutral $a) )) => (con ( or (neutral $A) (neutral $a) ))
+      | (neutral (coe $r (~>) $s (binderParen ( $ i . $A )) $a)) => (or (neutral $A) (neutral $a))
       | _ => t
 
     def isNeutralHcom (t : Term) : Term :=
       match t with
-      | (con ( or (neutral $A) (neutral $a) )) => (con ( or (neutral $A) (neutral $a) ))
+      | (neutral (hcom $r (~>) $s $A $sys $a)) => (or (neutral $A) (neutral $a))
       | _ => t
 
   end Neutral
@@ -428,7 +428,7 @@ namespace CubicalTT
 
     def equivFunId (t : Term) : Term :=
       match t with
-      | () => ()
+      | (equivFun (idEquiv $A)) => (introExpr ( lam x . x ))
       | _ => t
 
   end Equiv
