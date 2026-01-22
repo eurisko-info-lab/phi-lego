@@ -839,6 +839,76 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
   | .con "DMonad" args =>
     let name := args[1]?.bind Term.getVarName |>.getD "M"
     s!"{pad}-- Monad: {name}\n{pad}-- (Generates return, bind, and monad laws)"
+  -- Optics: bidirectional transformations
+  | .con "DLens" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "lens"
+    let s := args[3]?.bind Term.getVarName |>.getD "S"
+    let a := args[5]?.bind Term.getVarName |>.getD "A"
+    s!"{pad}-- Lens: {name} : {s} ⟷ {a}\n{pad}-- get : {s} → {a}, set : {s} → {a} → {s}\n{pad}-- Laws: get∘set = id, set∘get = id, set∘set = set"
+  | .con "DPrism" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "prism"
+    let s := args[3]?.bind Term.getVarName |>.getD "S"
+    let a := args[5]?.bind Term.getVarName |>.getD "A"
+    s!"{pad}-- Prism: {name} : {s} ⟷ {a}\n{pad}-- match : {s} → {a} + {s}, build : {a} → {s}"
+  | .con "DIso" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "iso"
+    let a := args[3]?.bind Term.getVarName |>.getD "A"
+    let b := args[5]?.bind Term.getVarName |>.getD "B"
+    s!"{pad}-- Iso: {name} : {a} ≅ {b}\n{pad}-- to : {a} → {b}, from : {b} → {a}\n{pad}-- Laws: to∘from = id, from∘to = id"
+  | .con "DTraversal" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "traversal"
+    let s := args[3]?.bind Term.getVarName |>.getD "S"
+    let a := args[5]?.bind Term.getVarName |>.getD "A"
+    s!"{pad}-- Traversal: {name} : {s} ⟿ {a}\n{pad}-- traverse : ∀F. Applicative F ⇒ ({a} → F {a}) → {s} → F {s}"
+  -- Adjunctions: Free ⊣ Forgetful
+  | .con "DAdjunction" args =>
+    let left := args[0]?.bind Term.getVarName |>.getD "F"
+    let right := args[2]?.bind Term.getVarName |>.getD "G"
+    let c := args[4]?.bind Term.getVarName |>.getD "C"
+    let d := args[6]?.bind Term.getVarName |>.getD "D"
+    s!"{pad}-- Adjunction: {left} ⊣ {right} : {c} ⇄ {d}\n{pad}-- unit : Id → G∘F, counit : F∘G → Id\n{pad}-- Hom({left} a, b) ≅ Hom(a, {right} b)"
+  | .con "DLeftAdj" args =>
+    let left := args[2]?.bind Term.getVarName |>.getD "F"
+    let right := args[4]?.bind Term.getVarName |>.getD "G"
+    s!"{pad}-- Left adjoint: {left} ⊣ {right}\n{pad}-- (Free construction, preserves colimits)"
+  | .con "DRightAdj" args =>
+    let right := args[2]?.bind Term.getVarName |>.getD "G"
+    let left := args[4]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Right adjoint: {left} ⊣ {right}\n{pad}-- (Forgetful functor, preserves limits)"
+  -- Kan extensions
+  | .con "DLan" args =>
+    let f := args[1]?.bind Term.getVarName |>.getD "F"
+    let k := args[3]?.bind Term.getVarName |>.getD "K"
+    s!"{pad}-- Left Kan extension: Lan_{k} {f}\n{pad}-- Universal property: Nat(Lan F, G) ≅ Nat(F, G∘K)"
+  | .con "DRan" args =>
+    let f := args[1]?.bind Term.getVarName |>.getD "F"
+    let k := args[3]?.bind Term.getVarName |>.getD "K"
+    s!"{pad}-- Right Kan extension: Ran_{k} {f}\n{pad}-- Universal property: Nat(G, Ran F) ≅ Nat(G∘K, F)"
+  | .con "DYoneda" args =>
+    let c := args[1]?.bind Term.getVarName |>.getD "C"
+    s!"{pad}-- Yoneda embedding: y : {c} → [{c}^op, Set]\n{pad}-- Nat(y(a), F) ≅ F(a)  (Yoneda lemma)"
+  | .con "DCodensity" args =>
+    let f := args[1]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Codensity monad: Ran_{f} {f}\n{pad}-- Always a monad, even if F isn't"
+  -- Operads
+  | .con "DOperad" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "O"
+    s!"{pad}-- Operad: {name}\n{pad}-- Multi-arity operations with composition"
+  | .con "DOperadAlg" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "A"
+    let op := args[3]?.bind Term.getVarName |>.getD "O"
+    s!"{pad}-- {op}-algebra: {name}\n{pad}-- Object with {op}-operations satisfying coherence"
+  -- Natural transformations
+  | .con "DNat" args =>
+    let name := args[0]?.bind Term.getVarName |>.getD "α"
+    let f := args[4]?.bind Term.getVarName |>.getD "F"
+    let g := args[6]?.bind Term.getVarName |>.getD "G"
+    s!"{pad}-- Natural transformation: {name} : {f} ⟹ {g}\n{pad}-- Naturality: G(f) ∘ α_A = α_B ∘ F(f)"
+  | .con "DDinat" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "δ"
+    let f := args[3]?.bind Term.getVarName |>.getD "F"
+    let g := args[5]?.bind Term.getVarName |>.getD "G"
+    s!"{pad}-- Dinatural transformation: {name} : {f} ⤇ {g}\n{pad}-- Wedge condition for profunctors"
   -- Comment out grammar/parser definitions since they're not valid Lean
   | .con "inductive" [.var name, body] =>
     s!"{pad}-- Grammar: {name}"

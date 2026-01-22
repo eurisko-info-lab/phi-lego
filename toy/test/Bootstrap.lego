@@ -358,11 +358,14 @@ piece File
   imports    ::= "(" ident ("," ident)* ")" → DImports
                | "(" ident+ ")" → DImports ;
   langBody   ::= innerDecl* ;
-  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl | deriveDecl | algebraDecl | effectDecl ;
+  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl 
+               | deriveDecl | algebraDecl | effectDecl | opticsDecl | adjunctionDecl 
+               | kanDecl | operadDecl | natDecl ;
   tokenDecl  ::= "token" ident tokenItem+ → DToken ;
   tokenItem  ::= prodDecl ;
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
-  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl | algebraDecl | effectDecl ;
+  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl | algebraDecl 
+               | effectDecl | opticsDecl | adjunctionDecl | kanDecl | operadDecl | natDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":"? pattern ruleArrow template ruleGuard? ";" → DRule ;
   ruleArrow  ::= "~~>" | "~>" ;
@@ -407,6 +410,38 @@ piece File
                | "IO" → ioMonad
                | monadSpec "×" monadSpec → productMonad
                | monadSpec "∘" monadSpec → composeMonad ;
+  -- Optics: bidirectional transformations (van Laarhoven / profunctor)
+  opticsDecl ::= "lens" ident ":" ident "⟷" ident ";" → DLens
+               | "prism" ident ":" ident "⟷" ident ";" → DPrism
+               | "iso" ident ":" ident "≅" ident ";" → DIso
+               | "traversal" ident ":" ident "⟿" ident ";" → DTraversal
+               | "affine" ident ":" ident "⤳" ident ";" → DAffine
+               | "getter" ident ":" ident "→" ident ";" → DGetter
+               | "setter" ident ":" ident "←" ident ";" → DSetter
+               | "review" ident ":" ident "↩" ident ";" → DReview ;
+  -- Adjunctions: Free ⊣ Forgetful (generates both + unit/counit)
+  adjunctionDecl ::= ident "⊣" ident ":" ident "⇄" ident ";" → DAdjunction
+                   | "forgetful" ident ":" ident "→" ident ";" → DForgetful
+                   | "left" "adjoint" ident "to" ident ";" → DLeftAdj
+                   | "right" "adjoint" ident "to" ident ";" → DRightAdj ;
+  -- Kan extensions: the universal property
+  kanDecl ::= "lan" ident "along" ident ";" → DLan        -- Left Kan extension
+            | "ran" ident "along" ident ";" → DRan        -- Right Kan extension
+            | "yoneda" ident ";" → DYoneda                -- Yoneda embedding
+            | "coYoneda" ident ";" → DCoYoneda            -- Density comonad
+            | "codensity" ident ";" → DCodensity          -- Codensity monad
+            | "density" ident ";" → DDensity ;            -- Density comonad
+  -- Operads: multi-arity composition
+  operadDecl ::= "operad" ident operadBody → DOperad
+               | "algebra" ident "over" ident ";" → DOperadAlg ;
+  operadBody ::= "{" operadOp* "}" ;
+  operadOp   ::= "arity" <number> ":" ident ";" → DArity
+               | "compose" ":" ident ";" → DCompose
+               | "unit" ":" ident ";" → DUnit ;
+  -- Natural transformations: polymorphic functions between functors
+  natDecl ::= ident "=>" ident ":" ident "⟹" ident ";" → DNat
+            | "dinatural" ident ":" ident "⤇" ident ";" → DDinat
+            | "extranatural" ident ":" ident "⟾" ident ";" → DExtranat ;
   typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;
   whenClause ::= "when" typeConstraint ("," typeConstraint)* → whenClause ;
   typeConstraint ::= pattern ":" term → constraint
