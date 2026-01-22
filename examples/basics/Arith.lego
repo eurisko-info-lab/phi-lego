@@ -1,0 +1,49 @@
+-- Arith.lego: Arithmetic with executable rules and tests
+-- Exercises: rule matching, templates, builtins
+
+lang Arith :=
+
+-----------------------------------------------------
+-- Basic terms
+-----------------------------------------------------
+piece Term
+  term ::= num | add | mul | sub
+  num ::= nat
+  add ::= "(" "add" term term ")"
+  mul ::= "(" "mul" term term ")"
+  sub ::= "(" "sub" term term ")"
+
+-----------------------------------------------------
+-- Rules (uses built-in arithmetic)
+-----------------------------------------------------
+rule add_zero:
+  (add 0 $x) ~> $x
+
+rule mul_zero:
+  (mul 0 $x) ~> 0
+
+rule mul_one:
+  (mul 1 $x) ~> $x
+
+rule sub_self:
+  (sub $x $x) ~> 0
+
+-----------------------------------------------------
+-- Tests with expected outputs
+-----------------------------------------------------
+test "add_nums": (add 2 3) ~~> 5
+test "mul_nums": (mul 4 5) ~~> 20
+test "sub_nums": (sub 10 3) ~~> 7
+test "add_zero_test": (add 0 42) ~~> 42
+test "mul_zero_test": (mul 0 99) ~~> 0
+test "mul_one_test": (mul 1 17) ~~> 17
+test "nested": (add (mul 2 3) (mul 4 5)) ~~> 26
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Arith
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: add_zero, mul_zero, mul_one, sub_self
+-- [x] Normalization: arithmetic reduces via builtins
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

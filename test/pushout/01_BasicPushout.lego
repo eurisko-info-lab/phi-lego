@@ -1,0 +1,41 @@
+-- 01_BasicPushout.lego: Basic pushout composition tests
+--
+-- Tests:
+-- - Simple language composition via import
+-- - Vocabulary merging from multiple pieces
+-- - Grammar extension without conflicts
+
+lang BaseExpr :=
+
+-----------------------------------------------------
+-- A minimal expression language
+-----------------------------------------------------
+piece Atom
+  ident ::= <ident>
+  number ::= <digits>
+
+piece Expr
+  expr ::= atom | paren
+  atom ::= ident | number
+  paren ::= "(" expr ")"
+
+-----------------------------------------------------
+-- Rules for evaluation (identity for now)
+-----------------------------------------------------
+rule eval_ident:
+  $x ~> $x
+
+-----------------------------------------------------
+-- Tests using bootstrap grammar (current behavior)
+-- TODO: These should use Expr.expr after EOF marker implementation
+-----------------------------------------------------
+test "atom_ident": x
+test "atom_number": 42
+test "paren": (x)
+
+-- =============================================================================
+-- Expected behavior after EOF marker implementation:
+-- 
+-- test "expr_add": (+ x y) ~~> (+ x y)
+--   This would parse (+ x y) using Expr.expr, not bootstrap Term.term
+-- =============================================================================

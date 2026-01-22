@@ -1,0 +1,121 @@
+-- Phi in Lego: Type Inference
+-- This is the Lego equivalent of src/Phi/Type/Infer.hs, Hole.hs, Constraint.hs
+
+lang Type :=
+  import Term
+  
+  -- Types in CoC: Term with Type/Kind sorts
+  grammar:
+    Sort ::= 'type' | 'kind'
+    Ty ::= Sort | Pi | Var | App
+    
+    -- Pi type: dependent function type
+    Pi ::= '(' identifier ':' Ty ')' '->' Ty
+    
+  rules:
+    -- Sort typing (predicative)
+    (typeof type) ~> kind
+    
+    -- Variable lookup
+    (typeof (var $x)) ~> (lookup $x type-env)
+    
+    -- Pi formation
+    (typeof (pi $x $a $b)) ~>
+      (case (typeof $a)
+        kind (case (inEnv $x $a (typeof $b))
+               kind kind
+               type type)
+        type (case (inEnv $x $a (typeof $b))
+               kind kind
+               type type))
+    
+    -- Lambda introduction
+    (typeof (lam $x $t $b)) ~>
+      (case (typeof $t)
+        $s (case (inEnv $x $t (typeof $b))
+             $bt (pi $x $t $bt)))
+    
+    -- Application elimination
+    (typeof (app $f $a)) ~>
+      (case (typeof $f)
+        (pi $x $d $c) 
+          (case (checkType $a $d)
+            true (subst $x $a $c)
+            false (error "type mismatch")))
+
+lang Constraint :=
+  import Type
+  
+  -- Constraint-based type inference
+  -- Collect constraints, then solve
+  
+  rules:
+    -- Constraint types
+    -- Eq t1 t2 : type equality
+    -- Inst t scheme : instantiation
+    
+    -- Collect constraints
+    (constrain (var $x)) ~> (return (var $x) nil)
+    
+    (constrain (app $f $a)) ~>
+      (case (constrain $f)
+        (return $ft $cs1)
+          (case (constrain $a)
+            (return $at $cs2)
+              (let $r (fresh)
+                (return $r (cons (eq $ft (arrow $at $r))
+                                (append $cs1 $cs2))))))
+    
+    (constrain (lam $x $t $b)) ~>
+      (case (inEnv $x $t (constrain $b))
+        (return $bt $cs)
+          (return (arrow $t $bt) $cs))
+    
+    -- Unification
+    (unify nil $subst) ~> (just $subst)
+    (unify (cons (eq $t1 $t2) $rest) $subst) ~>
+      (case (unifyOne (apply $subst $t1) (apply $subst $t2))
+        nothing nothing
+        (just $s) (unify $rest (compose $s $subst)))
+    
+    (unifyOne (var $x) $t) ~> 
+      (if (occursIn $x $t)
+        nothing
+        (just (singleton $x $t)))
+    
+    (unifyOne $t (var $x)) ~> (unifyOne (var $x) $t)
+    
+    (unifyOne (arrow $a1 $b1) (arrow $a2 $b2)) ~>
+      (case (unifyOne $a1 $a2)
+        nothing nothing
+        (just $s1) (case (unifyOne (apply $s1 $b1) (apply $s1 $b2))
+                     nothing nothing
+                     (just $s2) (just (compose $s2 $s1))))
+    
+    (unifyOne (con $c nil) (con $c nil)) ~> (just empty)
+    (unifyOne $t1 $t2) ~> nothing when (neq $t1 $t2)
+
+lang Hole :=
+  import Type
+  import Constraint
+  
+  -- Type holes: placeholders to be inferred
+  grammar:
+    Hole ::= '_' | '_' identifier
+    
+  rules:
+    -- Introduce fresh metavariable for hole
+    (constrain (hole $h)) ~> 
+      (let $meta (freshMeta $h)
+        (return $meta nil))
+    
+    -- After solving, fill holes with their solutions
+    (fillHoles $term $solution) ~>
+      (mapTerm (fn $t 
+        (case $t
+          (meta $m) (lookupDefault (meta $m) $m $solution)
+          $other $other))
+        $term)
+
+-- Composition
+lang TypeInference := Type + Constraint + Hole

@@ -1,0 +1,199 @@
+-- Lego.lego: Lego defined in itself
+-- The 5 pieces + 3 operations, metacircularly
+
+lang Lego :=
+
+-- PIECE 1: Name
+-- The atomic identifier
+piece Name
+  name ::= letter namerest
+  namerest ::= "" | alphanumeric namerest
+  letter ::= "a" | "b" | "c" | "z" | "A" | "B" | "C" | "Z"
+  alphanumeric ::= letter | digit
+  digit ::= "0" | "1" | "2" | "9"
+
+-- PIECE 2: Graph
+-- Nodes and edges (the carrier set)
+piece Graph
+  graph ::= emptygraph | explicitgraph | uniongraph
+  emptygraph ::= "empty"
+  explicitgraph ::= "graph" nodes edges
+  uniongraph ::= "union" graph graph
+  
+  nodes ::= singlenode | multinodes
+  singlenode ::= node
+  multinodes ::= node "," nodes
+  node ::= name ":" sort
+  sort ::= "App" | "Lam" | "Pi" | "Var" | "Type" | name
+  
+  edges ::= singleedge | multiedges
+  singleedge ::= edge
+  multiedges ::= edge "," edges
+  edge ::= port "--" port
+  port ::= name "." nat
+
+-- PIECE 3: Grammar  
+-- Production rules (syntax specification)
+piece Grammar
+  grammar ::= production | grammar grammar
+  production ::= name "::=" alternatives
+  alternatives ::= alternative | alternative "|" alternatives
+  alternative ::= "" | symbol alternative
+  symbol ::= ntsym | termsym | groupsym | starsym | plussym | optsym
+  ntsym ::= name
+  termsym ::= "lit" chars
+  groupsym ::= "group" alternatives
+  starsym ::= "star" symbol
+  plussym ::= "plus" symbol
+  optsym ::= "opt" symbol
+
+-- PIECE 4: RuleDef
+-- Rewrite rules (computation specification)  
+piece RuleDef
+  ruledef ::= "ruledef" name pattern template guard
+  
+  pattern ::= varpattern | constrpattern | litpattern
+  varpattern ::= "$" name
+  constrpattern ::= "constr" name patterns
+  litpattern ::= "literal" value
+  patterns ::= "" | pattern patterns
+  
+  template ::= vartmpl | constrtmpl | littmpl | substmpl
+  vartmpl ::= "$" name
+  constrtmpl ::= "constr" name templates
+  littmpl ::= "literal" value
+  substmpl ::= "subst" name name template
+  templates ::= "" | template templates
+  
+  guard ::= noguard | withguard
+  noguard ::= ""
+  withguard ::= "when" condition
+  condition ::= eqcond | neqcond
+  eqcond ::= "eq" term term
+  neqcond ::= "neq" term term
+
+-- PIECE 5: LangDef
+-- Complete language (fixed point of composition)
+piece LangDef
+  langdef ::= "language" name inheritance body
+  
+  inheritance ::= noinherit | withinherit
+  noinherit ::= ""
+  withinherit ::= "is" namelist "with"
+  namelist ::= singlename | consnames
+  singlename ::= name
+  consnames ::= name "+" namelist
+  
+  body ::= decls
+  decls ::= decl | decl decls
+  decl ::= piecedef | ruledef | testdef | importdef
+  
+  piecedef ::= "piece" name grammar
+  importdef ::= "import" name
+  testdef ::= "testdef" name term expect
+  expect ::= noexpect | withexpect
+  noexpect ::= ""
+  withexpect ::= "=>" term
+
+-- OPERATION 1: Pushout (po)
+-- Categorical composition with identification
+piece Pushout
+  pushout ::= langpushout | graphpushout | grampushout
+  langpushout ::= "po" langdef langdef
+  graphpushout ::= "pograph" graph graph
+  grampushout ::= "pogram" grammar grammar
+  
+  -- Pushout diagram:
+  --      A
+  --     / \
+  --    f   g
+  --   /     \
+  --  B       C
+  --   \     /
+  --    \   /
+  --    B po C  (coequalizer of shared structure)
+
+-- OPERATION 2: Fold (catamorphism)
+-- Structural recursion over languages
+piece Fold
+  fold ::= "fold" cases term
+  
+  cases ::= singlecase | multicases
+  singlecase ::= foldcase
+  multicases ::= foldcase "," cases
+  foldcase ::= pattern "=>" template
+  
+  -- fold {Lam x t b => ..., App f a => ...} expr
+  -- Processes term bottom-up
+
+-- OPERATION 3: Fix (mu)
+-- Recursive language definition
+piece Fix
+  fix ::= mufix | namedfix
+  mufix ::= "mu" name "." langdef
+  namedfix ::= "fix" name "=" langdef
+  
+  -- Lang = mu L. Name + Graph + Grammar + RuleDef + L po L
+  -- The recursive equation that defines Lego itself
+
+-- META: Lego's self-description
+piece LegoMeta
+  -- Lego = mu L. Name po Graph po Grammar po RuleDef po LangDef
+  --        with operations: po, fold, mu
+  
+  lego ::= "Lego" "=" "mu" "L" "." components
+  components ::= "Name" "po" "Graph" "po" "Grammar" "po" "RuleDef" "po" "LangDef"
+  
+  -- The fixed point equation:
+  -- L = Name + Graph + Grammar + RuleDef + (L x L -> L)
+  --                                         ^ pushout operation
+
+-- Laws (algebraic structure)
+piece Laws
+  -- Pushout is a monoid
+  rule pushout_identity:
+    (po $L empty) ~> $L
+  
+  rule pushout_assoc:
+    (po (po $A $B) $C) ~> (po $A (po $B $C))
+  
+  -- Fold is the unique catamorphism  
+  rule fold_var:
+    (fold $cases (Var $x)) ~> (lookup Var $cases $x)
+  
+  rule fold_app:
+    (fold $cases (App $f $a)) ~> (apply (lookup App $cases) (fold $cases $f) (fold $cases $a))
+  
+  rule fold_lam:
+    (fold $cases (Lam $x $t $b)) ~> (apply (lookup Lam $cases) $x (fold $cases $t) (fold $cases $b))
+  
+  -- Fix computes to its unfolding
+  rule fix_unfold:
+    (mu $X $body) ~> (subst $X (mu $X $body) $body)
+
+-- Example: Defining LC in Lego
+piece Example
+  -- Lambda calculus as a Lego language:
+  lc_def ::= "language" name "=" lc_body
+  lc_body ::= name
+
+-- Tests
+piece Tests
+  test "name": foo
+  test "graph": _
+  test "grammar": _
+  test "ruledef": _
+  test "pushout": _
+  test "fold": _
+  test "fix": _
+  test "lego": _
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Lego
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

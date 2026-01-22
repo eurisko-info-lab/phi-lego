@@ -1,0 +1,18 @@
+-- ERROR TEST: Conflicting rewrite rules
+-- Expected: Warning about overlapping/conflicting rules
+
+lang ConflictingRules :=
+
+piece Grammar
+  expr ::= f | num
+  f ::= "(" "f" expr ")"
+  num ::= "0" | "1"
+
+-- These rules conflict - same pattern, different results
+rule r1:
+  (f $x) ~> 0
+
+rule r2:
+  (f $x) ~> 1   -- same pattern as r1!
+
+test "which_one": (f 0) ~~> 0  -- which rule wins?

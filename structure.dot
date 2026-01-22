@@ -1,0 +1,227 @@
+// Lego Language Structure
+//
+// Shows the minimal algebraic pieces needed to build languages
+//
+// Render: dot -Tpng lego-structure.dot -o lego-structure.png
+
+digraph LegoStructure {
+  rankdir=TB;
+  node [fontname="Helvetica", fontsize=11];
+  edge [fontname="Helvetica", fontsize=9];
+  splines=true;
+  nodesep=0.6;
+  ranksep=0.8;
+
+  // ===================================================================
+  // THE 5 PIECES (Types)
+  // ===================================================================
+
+  subgraph cluster_pieces {
+    label="The 5 Pieces (Types)";
+    style=rounded;
+    color="#1565c0";
+    bgcolor="#e3f2fd";
+    fontcolor="#1565c0";
+    fontsize=14;
+    
+    node [shape=box3d, style="filled", fillcolor="#bbdefb", color="#1565c0"];
+    
+    NamePiece [label="Name\n-----\nSet\n\nIdentifiers"];
+    GraphPiece [label="Graph\n-----\nMonoid\n\nNodes + Edges"];
+    GrammarPiece [label="Grammar\n-----\nFree Algebra\n\nSyntax"];
+    RulePiece [label="Rule\n-----\nRewrite\n\nComputation"];
+    LangPiece [label="Lang\n-----\nInitial Algebra\n\nmu(LangF)"];
+  }
+
+  // ===================================================================
+  // THE 3 OPERATIONS (Functions)
+  // ===================================================================
+
+  subgraph cluster_ops {
+    label="The 3 Operations (Functions)";
+    style=rounded;
+    color="#2e7d32";
+    bgcolor="#e8f5e9";
+    fontcolor="#2e7d32";
+    fontsize=14;
+    
+    node [shape=ellipse, style="filled", fillcolor="#c8e6c9", color="#2e7d32"];
+    
+    PushoutOp [label="Pushout (+)\n---------\nColimit\n\nLang x Lang -> Lang"];
+    FoldOp [label="Fold\n---------\nCatamorphism\n\n(LangF a -> a) -> Lang -> a"];
+    FixOp [label="Fix (mu)\n---------\nFixed Point\n\n(a -> a) -> a"];
+  }
+
+  // ===================================================================
+  // GRAMMAR CONSTRUCTORS (GrammarExpr)
+  // ===================================================================
+
+  subgraph cluster_grammar {
+    label="Grammar Constructors";
+    style=rounded;
+    color="#7b1fa2";
+    bgcolor="#f3e5f5";
+    fontcolor="#7b1fa2";
+    fontsize=12;
+    
+    node [shape=box, style="filled,rounded", fillcolor="#e1bee7", color="#7b1fa2"];
+    
+    GEmpty [label="eps\nempty"];
+    GLit [label="\"tok\"\nliteral"];
+    GNode [label="<con>\nnode"];
+    GSeq [label="g1 . g2\nsequence"];
+    GAlt [label="g1 | g2\nalternative"];
+    GStar [label="g*\nKleene star"];
+    GRec [label="mu X.g\nrecursion"];
+    GBind [label="x <- g\nbinding"];
+  }
+
+  // ===================================================================
+  // RULE CONSTRUCTORS
+  // ===================================================================
+
+  subgraph cluster_rules {
+    label="Rule Constructors";
+    style=rounded;
+    color="#e65100";
+    bgcolor="#fff3e0";
+    fontcolor="#e65100";
+    fontsize=12;
+    
+    node [shape=box, style="filled,rounded", fillcolor="#ffe0b2", color="#e65100"];
+    
+    Pattern [label="Pattern\n$x, (con $a $b)"];
+    Template [label="Template\n[$x := $a] $b"];
+    Rewrite [label="p ~> t\nrewrite"];
+    Guard [label="when g\nguard"];
+  }
+
+  // ===================================================================
+  // COMPOSITION EXAMPLES
+  // ===================================================================
+
+  subgraph cluster_examples {
+    label="Composition = Playing Lego";
+    style=rounded;
+    color="#c62828";
+    bgcolor="#ffebee";
+    fontcolor="#c62828";
+    fontsize=12;
+    
+    node [shape=component, style="filled", fillcolor="#ffcdd2", color="#c62828"];
+    
+    VarEx [label="Var\n---\nvariables"];
+    AppLamEx [label="AppLam\n---\nlam, app"];
+    ArrowEx [label="Arrow\n---\nA -> B"];
+    PolyEx [label="Poly\n---\nforall, Lam"];
+    DepEx [label="Dep\n---\nPi, Sigma"];
+    SortsEx [label="Sorts\n---\n*, box"];
+    
+    node [shape=box3d, style="filled", fillcolor="#ef9a9a", color="#c62828"];
+    
+    STLCEx [label="STLC\n=======\nAppLam + Arrow"];
+    SystemFEx [label="SystemF\n=======\nSTLC + Poly"];
+    CoCEx [label="CoC\n=======\nAppLam + Dep + Sorts"];
+    CICEx [label="CIC\n=======\nCoC + Inductive"];
+  }
+
+  // ===================================================================
+  // RELATIONSHIPS: Pieces → Operations
+  // ===================================================================
+
+  edge [style=bold, color="#666666"];
+
+  // What operations work on what
+  LangPiece -> PushoutOp [label="input"];
+  LangPiece -> FoldOp [label="input"];
+  GrammarPiece -> FixOp [label="recursion"];
+  
+  PushoutOp -> LangPiece [label="output", style=dashed];
+  FoldOp -> LangPiece [label="from", style=dashed, dir=back];
+
+  // ===================================================================
+  // RELATIONSHIPS: Grammar structure
+  // ===================================================================
+
+  edge [color="#7b1fa2"];
+
+  GrammarPiece -> GEmpty [style=dotted];
+  GrammarPiece -> GLit [style=dotted];
+  GrammarPiece -> GNode [style=dotted];
+  GrammarPiece -> GSeq [style=dotted];
+  GrammarPiece -> GAlt [style=dotted];
+  GrammarPiece -> GStar [style=dotted];
+  GrammarPiece -> GRec [style=dotted];
+  GrammarPiece -> GBind [style=dotted];
+
+  // ===================================================================
+  // RELATIONSHIPS: Rule structure
+  // ===================================================================
+
+  edge [color="#e65100"];
+
+  RulePiece -> Pattern [style=dotted];
+  RulePiece -> Template [style=dotted];
+  RulePiece -> Rewrite [style=dotted];
+  RulePiece -> Guard [style=dotted];
+
+  // ===================================================================
+  // RELATIONSHIPS: Composition examples
+  // ===================================================================
+
+  edge [color="#c62828", style=bold];
+
+  VarEx -> AppLamEx;
+  VarEx -> ArrowEx;
+  VarEx -> PolyEx;
+  VarEx -> DepEx;
+  
+  AppLamEx -> STLCEx;
+  ArrowEx -> STLCEx;
+  
+  STLCEx -> SystemFEx;
+  PolyEx -> SystemFEx;
+  
+  AppLamEx -> CoCEx;
+  DepEx -> CoCEx;
+  SortsEx -> CoCEx;
+  
+  CoCEx -> CICEx;
+
+  // ===================================================================
+  // THE EQUATION
+  // ===================================================================
+
+  subgraph cluster_equation {
+    label="The Fundamental Equation";
+    style=rounded;
+    color="#000000";
+    bgcolor="#f5f5f5";
+    fontsize=14;
+    
+    node [shape=plaintext];
+    
+    equation [label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="8">
+        <TR><TD COLSPAN="5" ALIGN="CENTER"><B><FONT POINT-SIZE="16">Lang = μX. Graph + Grammar[X] + Rule[X]</FONT></B></TD></TR>
+        <TR><TD></TD></TR>
+        <TR>
+          <TD ALIGN="CENTER"><B>L1 ⊔ L2</B><BR/>pushout</TD>
+          <TD ALIGN="CENTER"><B>=</B></TD>
+          <TD ALIGN="CENTER"><B>poGraph(G1, G2)</B><BR/>merge nodes</TD>
+          <TD ALIGN="CENTER"><B>+</B></TD>
+          <TD ALIGN="CENTER"><B>poLang(L1, L2)</B><BR/>merge grammars</TD>
+        </TR>
+      </TABLE>
+    >];
+  }
+
+  // ===================================================================
+  // LAYOUT
+  // ===================================================================
+
+  {rank=same; NamePiece; GraphPiece; GrammarPiece; RulePiece; LangPiece}
+  {rank=same; PushoutOp; FoldOp; FixOp}
+  {rank=same; VarEx; AppLamEx; ArrowEx; PolyEx; DepEx; SortsEx}
+  {rank=same; STLCEx; SystemFEx; CoCEx; CICEx}
+}

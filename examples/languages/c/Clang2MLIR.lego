@@ -1,0 +1,56 @@
+-- ============================================================
+-- Clang2MLIR.lego
+-- Compiler from simplified C (Clang) to MLIR
+-- ============================================================
+
+import Clang
+import MLIR
+
+lang Clang2MLIR (Clang, MLIR) :=
+
+------------------------------------------------------------
+-- Compilation environment
+------------------------------------------------------------
+piece CompileEnv
+  cenv ::= "(" "cenv" cenvbindings ")"
+  cenvbindings ::= cenvbinding*
+  cenvbinding ::= "(" name "=" ssa ")"
+
+------------------------------------------------------------
+-- Compilation result
+------------------------------------------------------------
+piece CompileResult
+  compresult ::= "(" "compiled" ssa ssadefs ")"
+  stmtresult ::= "(" "stmtcompiled" ssadefs ")"
+
+------------------------------------------------------------
+-- Expression compilation
+------------------------------------------------------------
+piece CompileExpr
+  compexpr ::= "(" "compile" expr cenv ")"
+
+  rule compile_int:
+    (compile (intlit $n) $env) ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (intval $n)))))
+  
+  rule compile_bool:
+    (compile (boollit $b) $env) ~> (compiled (ssa fresh) ((def (ssa fresh) (constant (boolval $b)))))
+  
+  test "compile_int": _
+  
+  test "compile_bool": _
+
+------------------------------------------------------------
+-- Statement compilation
+------------------------------------------------------------
+piece CompileStmt
+  compilestmt ::= "(" "compile_stmt" stmt cenv ")"
+  
+  rule compile_return:
+    (compile_stmt (return (intlit $n)) $env) ~> (stmtcompiled ((def (ssa v) (constant (intval $n))) (ret (ssa v))))
+  
+  rule compile_skip:
+    (compile_stmt skip $env) ~> (stmtcompiled (nop))
+
+  test "compile_return": _
+  
+  test "compile_skip": _

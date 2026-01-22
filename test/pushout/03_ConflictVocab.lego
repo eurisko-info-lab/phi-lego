@@ -1,0 +1,99 @@
+-- 03_ConflictVocab.lego: Vocabulary conflict tests
+--
+-- Tests when keywords/symbols conflict between pieces
+
+lang VocabConflict :=
+
+-----------------------------------------------------
+-- Piece with 'let' as keyword
+-----------------------------------------------------
+piece LetExpr
+  expr ::= letbind | var
+  letbind ::= "let" <ident> "=" expr "in" expr
+  var ::= <ident>
+
+-- Vocab: keywords = {"let", "in"}, symbols = {"="}
+
+-----------------------------------------------------
+-- Piece with 'let' as identifier
+-----------------------------------------------------
+piece LetVar
+  -- Here 'let' should be a valid identifier!
+  binding ::= <ident> ":=" expr
+  -- Example: let := 5  (binding 'let' to 5)
+
+-- =============================================================================
+-- Conflict: 'let' is keyword in LetExpr, identifier in LetVar
+--
+-- Expected behavior:
+--   WARNING: 'let' is keyword in LetExpr but identifier in LetVar
+--   
+-- Resolution options:
+--   1. Keywords win globally (current)
+--   2. Scope-based: 'let' is keyword only within LetExpr productions
+--   3. Error: require explicit resolution
+-- =============================================================================
+
+-----------------------------------------------------
+-- Symbol conflicts
+-----------------------------------------------------
+piece ArrowType
+  type ::= basetype | arrowtype
+  basetype ::= "Int" | "Bool"
+  arrowtype ::= type "->" type   -- -> is arrow
+
+piece Lambda
+  expr ::= lam | var
+  lam ::= "λ" <ident> "->" expr  -- -> is also arrow but in lambda!
+  var ::= <ident>
+
+-- No conflict here: both use "->" consistently
+
+-----------------------------------------------------
+-- Real conflict: same symbol, different meaning
+-----------------------------------------------------
+piece MLArrow
+  mltype ::= mlbase | mlarrow
+  mlbase ::= "int" | "bool"
+  mlarrow ::= mltype "->" mltype   -- ML function arrow
+
+piece HaskellConstraint
+  constraint ::= class "=>" type   -- => is constraint arrow
+  class ::= <ident>
+  type ::= <ident>
+
+-- These don't conflict because different symbols
+
+-----------------------------------------------------
+-- Unicode conflicts
+-----------------------------------------------------
+piece UnicodeArrow
+  utype ::= ubase | uarrow
+  ubase ::= "ℕ" | "ℤ"
+  uarrow ::= utype "→" utype    -- Unicode arrow
+
+piece ASCIIArrow
+  atype ::= abase | aarrow
+  abase ::= "Nat" | "Int"
+  aarrow ::= atype "->" atype   -- ASCII arrow
+
+-- No conflict: different symbols (→ vs ->)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "let_keyword": _
+test "arrow_type": _
+
+-- =============================================================================
+-- Vocab inference behavior:
+--
+-- collectLiterals scans grammar for string literals
+-- - "let" in letbind → keyword candidate
+-- - "in" in letbind → keyword candidate
+-- - "->" in arrowtype → symbol
+--
+-- Conflict detection:
+-- - If same literal appears as both keyword and non-keyword usage
+-- - Emit warning and use keyword classification
+-- =============================================================================

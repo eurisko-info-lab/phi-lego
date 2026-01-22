@@ -1,0 +1,148 @@
+-- CubicalVM.redtt
+-- Cubical VM with microcoded rewrite cells
+-- Paths, HITs, transport, J, projection layer
+
+module CubicalVM where
+
+-- =====================================================
+-- 1. Core Terms
+-- =====================================================
+
+data Term : Type where
+  var : String → Term
+  lam : String → Term → Term
+  app : Term → Term → Term
+
+  -- Identity / Paths
+  refl : Term → Term
+  sym : Term → Term
+  comp : Term → Term → Term
+  lamPath : String → Term → Term
+  transport : Term → Term → Term
+  J : Term → Term → Term → Term → Term
+
+  -- HITs
+  circle : Term
+  base : Term
+  loop : Term
+  susp : Term → Term
+  trunc : Term → Term
+  nTrunc : Nat → Term → Term
+
+-- =====================================================
+-- 2. Projection / Microcode Layer
+-- =====================================================
+
+projApp : Term → Term → Term
+projApp (lam x b) a = app (lam x b) a
+projApp f a = app f a
+
+projComp : Term → Term → Term
+projComp (refl a) p = p
+projComp p (refl a) = p
+projComp p q = comp p q
+
+projSym : Term → Term
+projSym (refl a) = refl a
+projSym p = sym p
+
+projLamPath : String → Term → String → Term
+projLamPath i body j = if i == j then body else lamPath i body
+
+projTransport : Term → Term → Term
+projTransport (lamPath i body) j = projLamPath i body j
+projTransport (refl a) x = x
+projTransport t x = transport t x
+
+projJ : Term → Term → Term → Term → Term
+projJ A C d (refl a) = d
+projJ A C d p = J A C d p
+
+projLoop : String → Term
+projLoop i =
+  case i of
+    "i0" → base
+    "i1" → base
+    _    → loop
+
+projSusp : Term → Term
+projSusp t = susp t
+
+projTrunc : Term → Term
+projTrunc t = trunc t
+
+projNTrunc : Nat → Term → Term
+projNTrunc n t = nTrunc n t
+
+-- =====================================================
+-- 3. VM State
+-- =====================================================
+
+record VMState where
+  constructor mkState
+  term : Term
+  ienv : List (String × String)  -- interval bindings
+
+-- =====================================================
+-- 4. Interpreter / Realizer
+-- =====================================================
+
+eval : VMState → Term
+eval st =
+  let t = st.term in
+  case t of
+    app f a → projApp (eval (mkState f st.ienv)) (eval (mkState a st.ienv))
+    lam x b → lam x (eval (mkState b st.ienv))
+
+    comp p q → projComp (eval (mkState p st.ienv)) (eval (mkState q st.ienv))
+    sym p → projSym (eval (mkState p st.ienv))
+    lamPath i b → lamPath i (eval (mkState b st.ienv))
+
+    transport t x → projTransport (eval (mkState t st.ienv)) (eval (mkState x st.ienv))
+    J A C d p → projJ (eval (mkState A st.ienv))
+                      (eval (mkState C st.ienv))
+                      (eval (mkState d st.ienv))
+                      (eval (mkState p st.ienv))
+
+    refl a → refl (eval (mkState a st.ienv))
+    circle → circle
+    base → base
+    loop → loop
+    susp t → projSusp (eval (mkState t st.ienv))
+    trunc t → projTrunc (eval (mkState t st.ienv))
+    nTrunc n t → projNTrunc n (eval (mkState t st.ienv))
+    var x → var x
+
+-- =====================================================
+-- 5. Examples / Tests
+-- =====================================================
+
+-- Identity function
+idTerm : Term
+idTerm = lam "x" (var "x")
+
+idApplied : Term
+idApplied = eval (mkState (app idTerm (var "y")) [])
+
+-- Circle endpoints
+circleI0 : Term
+circleI0 = eval (mkState (projLoop "i0") [])
+
+circleI1 : Term
+circleI1 = eval (mkState (projLoop "i1") [])
+
+-- Transport along refl
+transportExample : Term
+transportExample = eval (mkState (transport (lamPath "i" (refl (var "x"))) "i0") [])
+
+-- Path composition
+pathCompExample : Term
+pathCompExample = eval (mkState (projComp (refl (var "x")) (refl (var "y"))) [])
+
+-- J eliminator applied to refl
+jExample : Term
+jExample = eval (mkState (projJ (var "A") (lam "x" (var "B")) (var "d") (refl (var "a"))) [])
+
+-- =====================================================
+-- End of CubicalVM.redtt
+-- =====================================================

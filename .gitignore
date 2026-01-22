@@ -1,0 +1,28 @@
+# Build outputs
+dist-newstyle/
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+
+# Temporary files (use ./tmp, never /tmp)
+tmp/
+*.tix
+
+# Editor
+.vscode/
+*.swp
+*~
+
+# Lean/Lake
+test/.lake/
+test/.elan/
+test/build/
+*.olean
+
+# OS
+.DS_Store
+Thumbs.db
+.lake/
+toy/rust/
+node_modules/

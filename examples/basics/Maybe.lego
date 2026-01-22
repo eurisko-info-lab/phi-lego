@@ -1,0 +1,66 @@
+-- Maybe.lego: Maybe/Option type with nothing/just
+-- Exercises: sum type patterns, bind/map operations
+
+import Atoms
+
+lang Maybe (Atoms) :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Maybe
+  maybe ::= nothing | just
+  nothing ::= "nothing"
+  just ::= "(" "just" term ")"
+  term ::= name | num | maybe | map | bind | fromMaybe
+
+piece Ops
+  map ::= "(" "map" term maybe ")"
+  bind ::= "(" "bind" maybe term ")"
+  fromMaybe ::= "(" "fromMaybe" term maybe ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule map_nothing:
+  (map $f nothing) ~> nothing
+
+rule map_just:
+  (map $f (just $x)) ~> (just ($f $x))
+
+rule bind_nothing:
+  (bind nothing $f) ~> nothing
+
+rule bind_just:
+  (bind (just $x) $f) ~> ($f $x)
+
+rule fromMaybe_nothing:
+  (fromMaybe $default nothing) ~> $default
+
+rule fromMaybe_just:
+  (fromMaybe $default (just $x)) ~> $x
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "nothing_val": nothing
+test "just_val": (just 42)
+test "nested_just": (just (just x))
+
+test "map_nothing_test": (map f nothing) ~~> nothing
+test "map_just_test": (map f (just x)) ~~> (just (app f x))
+
+test "bind_nothing_test": (bind nothing f) ~~> nothing
+test "bind_just_test": (bind (just x) f) ~~> (app f x)
+
+test "fromMaybe_nothing_test": (fromMaybe default nothing) ~~> default
+test "fromMaybe_just_test": (fromMaybe default (just value)) ~~> value
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Maybe
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: map, bind, fromMaybe
+-- [x] Normalization: maybe ops reduce correctly
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,84 @@
+-- With.lego: With-abstraction (Agda style)
+-- Dependent pattern matching with auxiliary arguments
+-- Composes: Pattern
+
+import Pattern
+
+lang With (Pattern) :=
+
+-----------------------------------------------------
+-- With-abstraction
+-----------------------------------------------------
+piece WithAbs
+  withabs ::= with_block | with_infix | with_cont
+  with_block ::= "with" term "{" withbranches "}"
+  with_infix ::= term "with" term
+  with_cont ::= "..." "with" term     -- continuation
+
+  withbranches ::= withbranch_single | withbranches_cons
+  withbranch_single ::= withbranch
+  withbranches_cons ::= withbranch ";" withbranches
+  withbranch ::= patlist "=>" term
+
+  rule with_eval:
+    (with_block $x (withbranch_single (withbranch $p $b))) ~> (match $x (withbranch $p $b))
+
+  test "with_block": (with_block (compare x y) (withbranch_single (withbranch LT less)))
+
+-----------------------------------------------------
+-- Inspect idiom
+-----------------------------------------------------
+piece Inspect
+  inspect ::= inspect_term | inspect_eq | inspect_type
+  inspect_term ::= "inspect" term         -- inspect with proof
+  inspect_eq ::= term "eq_by" pat "by" term -- pattern with proof (renamed from ≡)
+  inspect_type ::= "Inspect" term         -- inspect type
+
+  rule inspect_refl:
+    (inspect_term $e) ~> (pair $e (refl $e))
+
+  test "inspect": (inspect_term (f x))
+
+-----------------------------------------------------
+-- View patterns
+-----------------------------------------------------
+piece View
+  view ::= view_fn | via_pat
+  view_fn ::= "view" term "=>" term     -- view function
+  via_pat ::= "via" term pat            -- use view
+
+  test "view": (view_fn half (pair n pf))
+
+-----------------------------------------------------
+-- Dot patterns (forced)
+-----------------------------------------------------
+piece DotPat
+  dotpat ::= dot_forced | absurd_pat
+  dot_forced ::= "." term               -- forced by unification
+  absurd_pat ::= "absurd"               -- impossible pattern
+
+  test "dot": (dot_forced (suc n))
+
+-----------------------------------------------------
+-- Auxiliary definitions
+-----------------------------------------------------
+piece Auxiliary
+  aux ::= aux_where | aux_helper
+  aux_where ::= "where" auxdefs
+  aux_helper ::= "helper" name patlist "=" term
+
+  auxdefs ::= auxdef_single | auxdefs_cons
+  auxdef_single ::= auxdef
+  auxdefs_cons ::= auxdef ";" auxdefs
+  auxdef ::= name patlist "=" term
+
+  test "helper": (aux_helper foo (x y) (+ x y))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for With
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,10 @@
+-- ERROR TEST: Circular import (self-reference)
+-- Expected: Error about circular dependency
+
+lang CircularImport :=
+
+import CircularImport   -- imports itself!
+
+num ::= "0"
+
+test "circular": 0 ~~> 0

@@ -1,0 +1,164 @@
+-- Lego Grammar: Declarative syntax definition (Base)
+-- 
+-- This is the BASE Lego syntax - simple and minimal.
+-- Phi extends this with composition operators and section syntax.
+--
+-- Keywords: language, is, with, import, piece, rule, test
+-- Design: Grammar is an EXPRESSION, not a procedure.
+
+lang LegoGrammar :=
+
+-----------------------------------------------------
+-- PIECE 1: Atom
+-- Identifiers, literals, and basic tokens
+-----------------------------------------------------
+
+piece Atom
+  ident  ::= <identifier>
+  string ::= "\"" <chars> "\""
+  number ::= <digits>
+  symbol ::= <symbol>
+
+-----------------------------------------------------
+-- PIECE 2: Term
+-- S-expression terms with variables and literals
+-----------------------------------------------------
+
+piece Term
+  term ::= "$" x:ident                    → ⟨TmVar x⟩
+         | "(" c:ident args:term* ")"     → ⟨TmCon c args⟩
+         | "λ" x:ident "." body:term      → ⟨TmLam x body⟩
+         | "\\" x:ident "." body:term     → ⟨TmLam x body⟩
+         | s:string                       → ⟨TmLit s⟩
+         | n:number                       → ⟨TmLit n⟩
+         | x:ident                        → ⟨TmVar x⟩
+
+-----------------------------------------------------
+-- PIECE 3: Pattern
+-- Patterns for matching in rules
+-----------------------------------------------------
+
+piece Pattern
+  pattern ::= "$" x:ident                 → ⟨PVar x⟩
+            | "(" c:ident ps:pattern* ")" → ⟨PCon c ps⟩
+            | s:string                    → ⟨PLit s⟩
+            | x:ident                     → ⟨PLit x⟩
+
+-----------------------------------------------------
+-- PIECE 4: Template
+-- Templates for rule right-hand sides
+-----------------------------------------------------
+
+piece Template
+  template ::= "$" x:ident                → ⟨TVar x⟩
+             | "(" c:ident ts:template* ")"
+                                          → ⟨TCon c ts⟩
+             | s:string                   → ⟨TLit s⟩
+             | x:ident                    → ⟨TLit x⟩
+
+-----------------------------------------------------
+-- PIECE 5: GrammarExpr
+-- Grammar expressions (syntax specifications)
+-----------------------------------------------------
+
+piece GrammarExpr
+  production ::= name:ident "::=" g:grammarExpr
+                                          → ⟨Production name g⟩
+  
+  grammarExpr ::= grammarAlt
+  
+  grammarAlt ::= g:grammarSeq             → g
+               | g1:grammarSeq "|" g2:grammarAlt
+                                          → ⟨GAlt g1 g2⟩
+  
+  grammarSeq ::= g:grammarSuffix          → g
+               | g1:grammarSuffix g2:grammarSeq
+                                          → ⟨GSeq g1 g2⟩
+  
+  grammarSuffix ::= g:grammarAtom "*"     → ⟨GStar g⟩
+                  | g:grammarAtom "+"     → ⟨GSeq g (GStar g)⟩
+                  | g:grammarAtom "?"     → ⟨GAlt g GEmpty⟩
+                  | g:grammarAtom         → g
+  
+  grammarAtom ::= s:string                → ⟨GLit s⟩
+                | x:ident ":" t:ident     → ⟨GBind x (GRef t)⟩
+                | x:ident                 → ⟨GRef x⟩
+                | "(" g:grammarExpr ")"   → g
+                | "ε"                     → ⟨GEmpty⟩
+
+-----------------------------------------------------
+-- PIECE 6: Rule
+-- Rewrite rules: pattern ~> template
+-----------------------------------------------------
+
+piece Rule
+  ruleDecl ::= "rule" name:ident ":" p:pattern "~>" t:template
+                                          → ⟨Rule name p t⟩
+             | "rule" name:ident ":" p:pattern "=>" t:template
+                                          → ⟨Rule name p t⟩
+
+-----------------------------------------------------
+-- PIECE 7: Test
+-- Test declarations: test "name": input => expected
+-----------------------------------------------------
+
+piece Test
+  testDecl ::= "test" name:string ":" input:term "=>" expected:term
+                                          → ⟨Test name input expected⟩
+             | "test" name:string ":" input:term
+                                          → ⟨Test name input input⟩
+
+-----------------------------------------------------
+-- PIECE 8: Piece
+-- Grammar piece: piece Name productions
+-----------------------------------------------------
+
+piece Piece
+  pieceDecl ::= "piece" name:ident ps:production*
+                                          → ⟨DPiece name ps⟩
+
+-----------------------------------------------------
+-- PIECE 9: Language
+-- Language definition with inheritance
+-----------------------------------------------------
+
+piece Language
+  langDecl ::= "language" name:ident inh:inheritance? body:langBody
+                                          → ⟨DLang name inh body⟩
+  
+  inheritance ::= "is" bases:baseList "with" ":"
+                                          → bases
+  
+  baseList ::= b:ident                    → ⟨list b⟩
+             | b:ident "," rest:baseList  → ⟨cons b rest⟩
+  
+  langBody ::= decls:bodyDecl*            → decls
+  
+  bodyDecl ::= importDecl | pieceDecl | ruleDecl | testDecl
+
+-----------------------------------------------------
+-- PIECE 10: Import
+-- Import declaration
+-----------------------------------------------------
+
+piece Import
+  importDecl ::= "import" name:ident      → ⟨DImport name⟩
+
+-----------------------------------------------------
+-- PIECE 11: File
+-- Complete .lego file structure
+-----------------------------------------------------
+
+piece File
+  legoFile ::= decls:fileDecl*            → decls
+  
+  fileDecl ::= langDecl | importDecl | pieceDecl | ruleDecl | testDecl
+
+-----------------------------------------------------
+-- Tests: Roundtrip (parse.print = id)
+-----------------------------------------------------
+
+test "term_var": (parse Term "$x") => (TmVar "x")
+test "term_app": (parse Term "(f x y)") => (TmCon "f" ((TmVar "x") (TmVar "y")))
+test "pattern_var": (parse Pattern "$x") => (PVar "x")
+test "pattern_con": (parse Pattern "(cons $x $xs)") => (PCon "cons" ((PVar "x") (PVar "xs")))

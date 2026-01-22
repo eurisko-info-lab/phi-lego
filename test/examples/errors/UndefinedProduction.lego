@@ -1,0 +1,10 @@
+-- ERROR TEST: Reference to undefined production
+-- Expected: Error about undefined 'undefined_ref'
+
+lang UndefinedProduction :=
+
+piece Grammar
+  expr ::= num | undefined_ref   -- 'undefined_ref' is never defined
+  num ::= "0" | "1"
+
+test "should_fail": 0 ~~> 0

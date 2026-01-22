@@ -1,0 +1,81 @@
+-- 02_ParamGrammar.lego: Grammar parametrization tests
+--
+-- Demonstrates the proposed syntax for parameterized grammars:
+--   name[T] ::= body   -- T is a grammar parameter
+--   T.prod             -- reference to production in T
+--
+-- This file documents the DESIRED syntax. Current implementation
+-- does not yet support this, but the tests show expected behavior.
+
+lang ParamTest :=
+
+-----------------------------------------------------
+-- Base expression grammar (L in test[L])
+-----------------------------------------------------
+piece Term
+  term ::= var | app | lam
+  var ::= <ident>
+  app ::= "(" term term ")"
+  lam ::= "(" "λ" <ident> "." term ")"
+
+-----------------------------------------------------
+-- Pattern grammar (for rules)
+-----------------------------------------------------
+piece Pattern
+  pattern ::= metavar | pcon
+  metavar ::= "$" <ident>
+  pcon ::= "(" <ident> pattern* ")"
+
+-----------------------------------------------------
+-- The key insight: test[L] uses L.term
+--
+-- Desired grammar (not yet implemented):
+--
+--   test[L] ::= "test" <string> ":" L.term ("~~>" L.term)?
+--
+-- Where L is the current language (pushout of all pieces so far)
+-- At this point: L = Term ⊔ Pattern
+-----------------------------------------------------
+
+-- Current tests (using bootstrap grammar):
+test "var": x
+test "app": (f x)
+test "lam": (λ x . x)
+
+-- =============================================================================
+-- After EOF marker implementation, these would work:
+--
+-- test "custom_syntax": (λ x . (f x y))
+--   Parser sees "test", switches to test[L] grammar
+--   L.term = Term.term at this point
+--   Parses (λ x . (f x y)) using Term.term, not bootstrap
+--
+-- The ~~> arrow works similarly:
+-- test "eval": (app (lam x x) y) ~~> y
+--   Both sides parsed with L.term
+-- =============================================================================
+
+-----------------------------------------------------
+-- Rules also use parametrization:
+--   rule[L] ::= "rule" <ident> ":" L.pattern "~>" Template.template
+--
+-- Where L.pattern is the pattern grammar
+-----------------------------------------------------
+
+rule beta:
+  (app (lam $x $body) $arg) ~> (subst $x $arg $body)
+
+-- =============================================================================
+-- Grammar reference syntax examples:
+--
+-- L.term        -- term production in current language L
+-- L.pattern     -- pattern production in L
+-- Base.expr     -- explicit reference to Base language's expr
+-- $T            -- metavariable over grammars (for higher-order)
+--
+-- Proposed GrammarExpr constructors:
+--   GRef "name"           -- existing: reference production by name
+--   GParam "T"            -- grammar parameter
+--   GDot (GParam "L") "term"  -- L.term reference
+--   GApp "test" [GParam "L"]  -- test[L] application
+-- =============================================================================

@@ -1,0 +1,16 @@
+-- ERROR TEST: Indirect left recursion
+-- Expected: Warning about indirect left recursion
+
+lang IndirectLeftRecursion :=
+
+piece Grammar
+  -- Indirect: a -> bx -> b -> cy -> c -> az -> a
+  a ::= bx
+  bx ::= b "x"
+  b ::= cy
+  cy ::= c "y"
+  c ::= az | base
+  az ::= a "z"
+  base ::= "base"
+
+test "indirect": base ~~> base

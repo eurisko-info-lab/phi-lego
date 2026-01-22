@@ -1,0 +1,107 @@
+-- 04_EOFIncremental.lego: Incremental pushout building
+--
+-- Shows how L grows as pieces are added
+
+lang IncrementalL :=
+
+-----------------------------------------------------
+-- Piece 1: L₀ = ∅, then L₁ = Nat
+-----------------------------------------------------
+piece Nat
+  nat ::= zero | succ
+  zero ::= "Z"
+  succ ::= "S" nat
+
+-- L = Nat
+-- Available: Nat.nat, Nat.zero, Nat.succ
+
+test "nat1": _
+-- test[L] where L = Nat
+-- L.nat = Nat.nat = Z | S nat
+
+-----------------------------------------------------
+-- Piece 2: L₂ = Nat ⊔ List
+-----------------------------------------------------
+piece List
+  list ::= nil | cons
+  nil ::= "[]"
+  cons ::= <ident> "::" list
+
+-- L = Nat ⊔ List
+-- Available: Nat.*, List.*
+
+test "list1": _
+-- test[L] where L = Nat ⊔ List
+
+-----------------------------------------------------
+-- Piece 3: L₃ = Nat ⊔ List ⊔ Combined
+-----------------------------------------------------
+piece Combined
+  expr ::= nat | list   -- references previous pieces!
+  -- This creates a unified entry point
+
+-- L = Nat ⊔ List ⊔ Combined
+-- Combined.expr can parse both Nat and List terms
+
+test "combined_nat": _
+test "combined_list": _
+
+-----------------------------------------------------
+-- Rules use the final L
+-----------------------------------------------------
+
+rule succ_zero:
+  (S Z) ~> (one)
+
+rule cons_nil:
+  ($x :: []) ~> (singleton $x)
+
+-- =============================================================================
+-- Incremental pushout trace:
+--
+-- Step 0: L = ∅ (empty language)
+-- Step 1: piece Nat     → L = ∅ ⊔ Nat = Nat
+-- Step 2: test "nat1"   → uses test[Nat]
+-- Step 3: piece List    → L = Nat ⊔ List
+-- Step 4: test "list1"  → uses test[Nat ⊔ List]
+-- Step 5: piece Combined → L = Nat ⊔ List ⊔ Combined
+-- Step 6: test "combined_*" → uses test[Nat ⊔ List ⊔ Combined]
+-- Step 7: rule succ_zero → uses rule[Nat ⊔ List ⊔ Combined]
+--
+-- Key insight: Each piece EXTENDS L, tests/rules USE current L
+-- =============================================================================
+
+-----------------------------------------------------
+-- What if a later piece shadows an earlier one?
+-----------------------------------------------------
+piece ExtNat
+  nat ::= zero | succ | pred   -- SHADOWS Nat.nat!
+  pred ::= "P" nat
+
+-- L = Nat ⊔ List ⊔ Combined ⊔ ExtNat
+-- ExtNat.nat shadows Nat.nat
+
+test "ext_nat": _
+-- Now L.nat = ExtNat.nat (includes pred)
+-- But Combined.expr still references old Nat.nat!
+
+-- =============================================================================
+-- Shadow behavior with incremental:
+--
+-- Combined was defined when L.nat = Nat.nat
+-- ExtNat shadows Nat.nat with ExtNat.nat
+-- 
+-- Question: Does Combined.expr see the new nat?
+--
+-- Option 1: Late binding (dynamic)
+--   Combined.expr sees ExtNat.nat
+--   References are resolved at use-time
+--
+-- Option 2: Early binding (static)
+--   Combined.expr sees Nat.nat
+--   References are resolved at definition-time
+--
+-- Option 3: Explicit
+--   Combined.expr ::= Nat.nat | list  (explicit reference)
+--   This always means Nat.nat regardless of shadows
+-- =============================================================================

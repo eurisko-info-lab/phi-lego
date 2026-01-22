@@ -1,0 +1,352 @@
+-- Prelude.lego: Standard library rules
+-- These rules are automatically loaded and provide basic operations.
+-- They replace hardcoded Haskell builtins with declarative Lego rules.
+
+lang Prelude :=
+
+-----------------------------------------------------
+-- Pairs
+-----------------------------------------------------
+rule fst_pair:
+  (fst (pair $a $b)) ~> $a
+
+rule snd_pair:
+  (snd (pair $a $b)) ~> $b
+
+-----------------------------------------------------
+-- Lists
+-----------------------------------------------------
+rule head_cons:
+  (head (cons $x $xs)) ~> $x
+
+rule tail_cons:
+  (tail (cons $x $xs)) ~> $xs
+
+rule null_nil:
+  (null nil) ~> true
+
+rule null_cons:
+  (null (cons $x $xs)) ~> false
+
+rule append_nil:
+  (append nil $ys) ~> $ys
+
+rule append_cons:
+  (append (cons $x $xs) $ys) ~> (cons $x (append $xs $ys))
+
+rule length_nil:
+  (length nil) ~> zero
+
+rule length_cons:
+  (length (cons $x $xs)) ~> (succ (length $xs))
+
+rule reverse_nil:
+  (reverse nil) ~> nil
+
+rule map_nil:
+  (map $f nil) ~> nil
+
+rule map_cons:
+  (map $f (cons $x $xs)) ~> (cons (app $f $x) (map $f $xs))
+
+rule filter_nil:
+  (filter $p nil) ~> nil
+
+rule foldr_nil:
+  (foldr $f $z nil) ~> $z
+
+rule foldr_cons:
+  (foldr $f $z (cons $x $xs)) ~> (app (app $f $x) (foldr $f $z $xs))
+
+rule foldl_nil:
+  (foldl $f $z nil) ~> $z
+
+rule foldl_cons:
+  (foldl $f $z (cons $x $xs)) ~> (foldl $f (app (app $f $z) $x) $xs)
+
+-----------------------------------------------------
+-- Booleans
+-----------------------------------------------------
+rule not_true:
+  (not true) ~> false
+
+rule not_false:
+  (not false) ~> true
+
+rule and_true:
+  (and true $b) ~> $b
+
+rule and_false:
+  (and false $b) ~> false
+
+rule or_true:
+  (or true $b) ~> true
+
+rule or_false:
+  (or false $b) ~> $b
+
+rule if_true:
+  (if true $then $else) ~> $then
+
+rule if_false:
+  (if false $then $else) ~> $else
+
+rule implies_def:
+  (implies $a $b) ~> (or (not $a) $b)
+
+rule xor_def:
+  (xor $a $b) ~> (and (or $a $b) (not (and $a $b)))
+
+-----------------------------------------------------
+-- Natural Numbers (Peano)
+-----------------------------------------------------
+rule pred_succ:
+  (pred (succ $n)) ~> $n
+
+rule pred_zero:
+  (pred zero) ~> zero
+
+rule isZero_zero:
+  (isZero zero) ~> true
+
+rule isZero_succ:
+  (isZero (succ $n)) ~> false
+
+rule add_zero:
+  (add zero $n) ~> $n
+
+rule add_succ:
+  (add (succ $m) $n) ~> (succ (add $m $n))
+
+rule mul_zero:
+  (mul zero $n) ~> zero
+
+rule mul_succ:
+  (mul (succ $m) $n) ~> (add $n (mul $m $n))
+
+rule sub_zero:
+  (sub $n zero) ~> $n
+
+rule sub_succ:
+  (sub (succ $m) (succ $n)) ~> (sub $m $n)
+
+rule eq_zero_zero:
+  (eq zero zero) ~> true
+
+rule eq_zero_succ:
+  (eq zero (succ $n)) ~> false
+
+rule eq_succ_zero:
+  (eq (succ $m) zero) ~> false
+
+rule eq_succ_succ:
+  (eq (succ $m) (succ $n)) ~> (eq $m $n)
+
+rule lt_zero:
+  (lt zero (succ $n)) ~> true
+
+rule lt_succ_zero:
+  (lt (succ $m) zero) ~> false
+
+rule lt_succ_succ:
+  (lt (succ $m) (succ $n)) ~> (lt $m $n)
+
+rule le_zero:
+  (le zero $n) ~> true
+
+rule le_succ_zero:
+  (le (succ $m) zero) ~> false
+
+rule le_succ_succ:
+  (le (succ $m) (succ $n)) ~> (le $m $n)
+
+-----------------------------------------------------
+-- Maybe
+-----------------------------------------------------
+rule fromMaybe_nothing:
+  (fromMaybe $def nothing) ~> $def
+
+rule fromMaybe_just:
+  (fromMaybe $def (just $x)) ~> $x
+
+rule isJust_just:
+  (isJust (just $x)) ~> true
+
+rule isJust_nothing:
+  (isJust nothing) ~> false
+
+rule isNothing_nothing:
+  (isNothing nothing) ~> true
+
+rule isNothing_just:
+  (isNothing (just $x)) ~> false
+
+rule maybe_nothing:
+  (maybe $def $f nothing) ~> $def
+
+rule maybe_just:
+  (maybe $def $f (just $x)) ~> (app $f $x)
+
+rule mapMaybe_nothing:
+  (mapMaybe $f nothing) ~> nothing
+
+rule mapMaybe_just:
+  (mapMaybe $f (just $x)) ~> (just (app $f $x))
+
+rule bindMaybe_nothing:
+  (bindMaybe nothing $f) ~> nothing
+
+rule bindMaybe_just:
+  (bindMaybe (just $x) $f) ~> (app $f $x)
+
+-----------------------------------------------------
+-- Either
+-----------------------------------------------------
+rule isLeft_left:
+  (isLeft (left $x)) ~> true
+
+rule isLeft_right:
+  (isLeft (right $x)) ~> false
+
+rule isRight_right:
+  (isRight (right $x)) ~> true
+
+rule isRight_left:
+  (isRight (left $x)) ~> false
+
+rule mapLeft_left:
+  (mapLeft $f (left $x)) ~> (left (app $f $x))
+
+rule mapLeft_right:
+  (mapLeft $f (right $x)) ~> (right $x)
+
+rule mapRight_left:
+  (mapRight $f (left $x)) ~> (left $x)
+
+rule mapRight_right:
+  (mapRight $f (right $x)) ~> (right (app $f $x))
+
+rule bimap_left:
+  (bimap $f $g (left $x)) ~> (left (app $f $x))
+
+rule bimap_right:
+  (bimap $f $g (right $x)) ~> (right (app $g $x))
+
+rule either_left:
+  (either $f $g (left $x)) ~> (app $f $x)
+
+rule either_right:
+  (either $f $g (right $x)) ~> (app $g $x)
+
+-----------------------------------------------------
+-- SKI Combinators
+-----------------------------------------------------
+rule I_reduce:
+  (app I $x) ~> $x
+
+rule K_reduce:
+  (app (app K $x) $y) ~> $x
+
+rule S_reduce:
+  (app (app (app S $f) $g) $x) ~> (app (app $f $x) (app $g $x))
+
+-- Derived combinators
+rule B_def:
+  (app (app (app B $f) $g) $x) ~> (app $f (app $g $x))
+
+rule C_def:
+  (app (app (app C $f) $x) $y) ~> (app (app $f $y) $x)
+
+rule W_def:
+  (app (app W $f) $x) ~> (app (app $f $x) $x)
+
+-----------------------------------------------------
+-- Pushout Laws (Lego's core algebraic structure)
+-- 
+-- Pushouts form a commutative monoid:
+--   Identity:     L ⊔ ∅ = ∅ ⊔ L = L
+--   Associativity: (A ⊔ B) ⊔ C = A ⊔ (B ⊔ C)
+--   Commutativity: A ⊔ B ≅ B ⊔ A (up to ordering)
+--
+-- The `import` directive is syntactic sugar for pushout:
+--   import L  ≡  CurrentLang ⊔ L
+-----------------------------------------------------
+
+-- Graph pushouts
+rule poGraph_empty_left:
+  (poGraph emptyGraph $g) ~> $g
+
+rule poGraph_empty_right:
+  (poGraph $g emptyGraph) ~> $g
+
+-- Language pushouts (symbolic - actual work done by poCompiledLang)
+rule poLang_empty_left:
+  (poLang emptyLang $L) ~> $L
+
+rule poLang_empty_right:
+  (poLang $L emptyLang) ~> $L
+
+rule poLang_assoc:
+  (poLang (poLang $A $B) $C) ~> (poLang $A (poLang $B $C))
+
+-----------------------------------------------------
+-- Function composition
+-----------------------------------------------------
+rule compose_app:
+  (app (compose $f $g) $x) ~> (app $f (app $g $x))
+
+rule id_app:
+  (app id $x) ~> $x
+
+rule const_app:
+  (app (app const $x) $y) ~> $x
+
+rule flip_app:
+  (app (app (app flip $f) $x) $y) ~> (app (app $f $y) $x)
+
+-----------------------------------------------------
+-- Tests for Prelude rules
+-----------------------------------------------------
+test "fst_test": (fst (pair a b)) ~~> a
+test "snd_test": (snd (pair a b)) ~~> b
+
+test "head_test": (head (cons x nil)) ~~> x
+test "tail_test": (tail (cons x nil)) ~~> nil
+test "null_nil_test": (null nil) ~~> true
+test "null_cons_test": (null (cons x nil)) ~~> false
+test "append_nil_test": (append nil (cons a nil)) ~~> (cons a nil)
+
+test "not_true_test": (not true) ~~> false
+test "not_false_test": (not false) ~~> true
+test "and_true_test": (and true true) ~~> true
+test "and_false_test": (and false true) ~~> false
+test "or_false_test": (or false false) ~~> false
+test "or_true_test": (or true false) ~~> true
+test "if_true_test": (if true yes no) ~~> yes
+test "if_false_test": (if false yes no) ~~> no
+
+test "pred_succ_test": (pred (succ zero)) ~~> zero
+test "isZero_zero_test": (isZero zero) ~~> true
+test "isZero_succ_test": (isZero (succ zero)) ~~> false
+test "add_zero_test": (add zero (succ zero)) ~~> (succ zero)
+test "mul_zero_test": (mul zero (succ zero)) ~~> zero
+
+test "fromMaybe_nothing_test": (fromMaybe default nothing) ~~> default
+test "fromMaybe_just_test": (fromMaybe default (just value)) ~~> value
+test "isJust_just_test": (isJust (just x)) ~~> true
+test "isJust_nothing_test": (isJust nothing) ~~> false
+
+test "isLeft_left_test": (isLeft (left x)) ~~> true
+test "isLeft_right_test": (isLeft (right x)) ~~> false
+
+test "I_test": (app I x) ~~> x
+test "K_test": (app (app K x) y) ~~> x
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Prelude
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

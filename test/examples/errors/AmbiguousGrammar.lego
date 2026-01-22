@@ -1,0 +1,19 @@
+-- ERROR TEST: Ambiguous grammar (multiple parse trees)
+-- Expected: Warning about ambiguity
+
+lang AmbiguousGrammar :=
+
+piece Grammar
+  -- Ambiguous: "if a then if b then c else d"
+  -- could be: if a then (if b then c else d)
+  -- or:       if a then (if b then c) else d
+  stmt ::= if_then | if_then_else | expr
+  if_then ::= "if" expr "then" stmt
+  if_then_else ::= "if" expr "then" stmt "else" stmt
+  expr ::= a | b | c | d
+  a ::= "a"
+  b ::= "b"
+  c ::= "c"
+  d ::= "d"
+
+test "dangling_else": a ~~> a

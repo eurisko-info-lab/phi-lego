@@ -1,0 +1,55 @@
+-- SKI.lego: SKI combinator calculus
+-- Exercises: combinator patterns, multi-step reduction
+
+lang SKI :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Term
+  term ::= S | K | I | app
+  S ::= "S"
+  K ::= "K"
+  I ::= "I"
+  app ::= "(" term term ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+-- I x = x
+rule I_reduce:
+  (I $x) ~> $x
+
+-- K x y = x
+rule K_reduce:
+  ((K $x) $y) ~> $x
+
+-- S x y z = (x z) (y z)
+rule S_reduce:
+  (((S $x) $y) $z) ~> (($x $z) ($y $z))
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "I_comb": I
+test "K_comb": K
+test "S_comb": S
+
+test "I_app": (I a) ~~> a
+test "K_app": ((K x) y) ~~> x
+test "KI": ((K I) z)
+
+-- SKK = I (identity)
+test "SKK_app": (((S K) K) x)
+
+-- S(KS)K = B combinator
+test "compose": (((S (K S)) K) f)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for SKI
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: I, K, S combinators
+-- [x] Normalization: combinator reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

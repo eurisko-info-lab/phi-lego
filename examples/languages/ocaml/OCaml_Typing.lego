@@ -1,0 +1,112 @@
+-- OCaml_Typing.lego
+-- Step 3: Type system for OCaml
+
+lang OCaml_Typing :=
+
+piece TypeSyntax
+  ty ::= intty | floatty | charty | stringty | unitty | boolty
+       | arrowty | tuplety | listty | refty | optionty | varty | polyty
+  intty ::= "IntTy"
+  floatty ::= "FloatTy"
+  charty ::= "CharTy"
+  stringty ::= "StringTy"
+  unitty ::= "UnitTy"
+  boolty ::= "BoolTy"
+  arrowty ::= "Arrow" ty ty
+  tuplety ::= "TupleTy" tylist
+  listty ::= "ListTy" ty
+  refty ::= "RefTy" ty
+  optionty ::= "OptionTy" ty
+  varty ::= "VarTy" name
+  polyty ::= "ForAll" namelist ty
+  
+  tylist ::= "nil" | "cons" ty tylist
+  namelist ::= "nil" | "cons" name namelist
+
+piece TypeEnvironment
+  tyenv ::= "EmptyTyEnv" | "ExtendTyEnv" name tyscheme tyenv
+  tyscheme ::= "Mono" ty | "Poly" namelist ty
+
+piece TypingJudgment
+  typingjdg ::= "TypeOf" tyenv expr ty
+  
+  rule type_int:
+    (TypeOf $gamma (IntLit $n) $tau) ~> (TypeOf $gamma (IntLit $n) IntTy)
+  
+  rule type_float:
+    (TypeOf $gamma (FloatLit $f) $tau) ~> (TypeOf $gamma (FloatLit $f) FloatTy)
+  
+  rule type_char:
+    (TypeOf $gamma (CharLit $c) $tau) ~> (TypeOf $gamma (CharLit $c) CharTy)
+  
+  rule type_string:
+    (TypeOf $gamma (StringLit $s) $tau) ~> (TypeOf $gamma (StringLit $s) StringTy)
+  
+  rule type_unit:
+    (TypeOf $gamma UnitExpr $tau) ~> (TypeOf $gamma UnitExpr UnitTy)
+  
+  rule type_true:
+    (TypeOf $gamma TrueExpr $tau) ~> (TypeOf $gamma TrueExpr BoolTy)
+  
+  rule type_false:
+    (TypeOf $gamma FalseExpr $tau) ~> (TypeOf $gamma FalseExpr BoolTy)
+  
+  test "type_int": (TypeOf gamma (IntLit n) tau) ~~> (TypeOf gamma (IntLit n) IntTy)
+  test "type_unit": (TypeOf gamma UnitExpr tau) ~~> (TypeOf gamma UnitExpr UnitTy)
+
+piece FunctionTyping
+  funtyping ::= "LamType" tyenv name ty expr ty | "AppType" tyenv expr expr ty
+  
+  rule type_lam:
+    (LamType $gamma $x $tau1 $e $tau2) ~> (TypeOf (ExtendTyEnv $x (Mono $tau1) $gamma) $e $tau2)
+  
+  rule type_app:
+    (AppType $gamma $e1 $e2 $tau) ~> (TypeOf $gamma $e1 (Arrow $tau2 $tau))
+  
+  test "type_lam": (LamType gamma x tau1 e tau2) ~~> (TypeOf (ExtendTyEnv x (Mono tau1) gamma) e tau2)
+
+piece LetTyping
+  lettyping ::= "LetType" tyenv name expr expr ty
+  
+  rule type_let:
+    (LetType $gamma $x $e1 $e2 $tau) ~> (TypeOf (ExtendTyEnv $x (Mono $tau1) $gamma) $e2 $tau)
+  
+  test "type_let": (LetType gamma x e1 e2 tau) ~~> (TypeOf (ExtendTyEnv x (Mono tau1) gamma) e2 tau)
+
+piece TypeInference
+  constraint ::= "Unify" ty ty | "Inst" ty tyscheme | "Gen" ty tyscheme tyenv
+  subst ::= "EmptySubst" | "ExtendSubst" name ty subst
+  inferresult ::= "Inferred" ty subst | "TypeError" name
+  
+  rule unify_var:
+    (Unify (VarTy $a) $tau) ~> (ExtendSubst $a $tau EmptySubst)
+  
+  rule unify_same:
+    (Unify $tau $tau) ~> EmptySubst
+  
+  rule unify_arrow:
+    (Unify (Arrow $t1 $t2) (Arrow $s1 $s2)) ~> (Compose (Unify $t1 $s1) (Unify $t2 $s2))
+  
+  test "unify_same": (Unify tau tau) ~~> EmptySubst
+  test "unify_var": (Unify (VarTy a) tau2) ~~> (ExtendSubst a tau2 EmptySubst)
+
+piece RefTyping
+  reftyping ::= "RefType" tyenv expr ty | "DerefType" tyenv expr ty | "AssignType" tyenv expr expr ty
+  
+  rule type_ref:
+    (RefType $gamma $e $tau) ~> (TypeOf $gamma $e (RefTy $tau))
+  
+  rule type_deref:
+    (DerefType $gamma $e $tau) ~> (TypeOf $gamma $e (RefTy $tau))
+  
+  test "type_ref": (RefType gamma e tau) ~~> (TypeOf gamma e (RefTy tau))
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for OCaml_Typing
+-- =============================================================================
+-- [ ] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,80 @@
+-- Async.lego: Async/await concurrency
+-- Futures, promises, structured concurrency
+-- Composes: Concurrent
+
+import Concurrent
+
+lang Async (Concurrent) :=
+
+-----------------------------------------------------
+-- Futures and promises
+-----------------------------------------------------
+piece Future
+  future ::= "Future" term          -- future type
+           | "async" term           -- start async computation
+           | "await" term           -- wait for result
+           | "poll" term            -- non-blocking check
+
+-----------------------------------------------------
+-- Promise (write-once)
+-----------------------------------------------------
+piece Promise
+  promise ::= "Promise" term        -- promise type
+            | "newPromise"          -- create promise
+            | "fulfill" term term   -- fulfill promise
+            | "reject" term term    -- reject with error
+
+-----------------------------------------------------
+-- Structured concurrency
+-----------------------------------------------------
+piece Structured
+  struct ::= "scope" term           -- nursery/scope
+           | "spawn" term term      -- spawn in scope
+           | "cancel" term          -- cancel scope
+           | "join" term            -- wait for all
+
+----------------------------------------------------
+-- Combinators
+-----------------------------------------------------
+piece AsyncComb
+  acomb ::= "race" term term        -- first to complete
+          | "both" term term        -- run both
+          | "timeout" term term     -- with timeout
+          | "retry" nat term        -- retry n times
+
+-----------------------------------------------------
+-- Error handling
+-----------------------------------------------------
+piece AsyncError
+  aerr ::= "catch" term term        -- catch exception
+         | "finally" term term      -- cleanup
+         | "Cancelled"              -- cancellation exception
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule await_async:
+  (await (async $e)) ~> $e
+
+rule race_done:
+  (race (async (pure $a)) $b) ~> (pure $a)
+
+rule both_pure:
+  (both (async (pure $a)) (async (pure $b))) ~> (pure (pair $a $b))
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "future": (Future Bool)
+test "async_await": (await (async (pure 42))) ~~> (pure 42)
+test "race": (race (async slow) (async fast))
+test "structured": (scope (λ s . (spawn s task1)))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Async
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: await_async, race_done, both_pure
+-- [ ] Full promise semantics (needs effect handler)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

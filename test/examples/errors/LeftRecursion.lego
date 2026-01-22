@@ -1,0 +1,14 @@
+-- ERROR TEST: Direct left recursion
+-- Expected: Warning about left recursion (infinite loop risk)
+
+lang LeftRecursion :=
+
+piece Grammar
+  -- Direct left recursion: expr -> add -> expr ...
+  expr ::= add | term
+  add ::= expr "+" term
+  term ::= zero | one
+  zero ::= "0"
+  one ::= "1"
+
+test "left_rec": 0 ~~> 0

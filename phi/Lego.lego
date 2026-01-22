@@ -1,0 +1,194 @@
+-- Lego.lego: Lego defined in itself
+-- The 5 pieces + 3 operations, metacircularly
+
+language Lego
+
+-----------------------------------------------------
+-- PIECE 1: Name
+-- The atomic identifier
+-----------------------------------------------------
+piece Name
+  name ::= letter namerest
+  namerest ::= "" | alphanumeric namerest
+  letter ::= "a" | "b" | "c" | ... | "z" 
+           | "A" | "B" | "C" | ... | "Z"
+  alphanumeric ::= letter | digit
+  digit ::= "0" | "1" | "2" | ... | "9"
+
+-----------------------------------------------------
+-- PIECE 2: Graph
+-- Nodes and edges (the carrier set)
+-----------------------------------------------------
+piece Graph
+  graph ::= "∅"                     -- empty graph
+          | "{" nodes ";" edges "}" -- explicit graph
+          | graph "∪" graph         -- union
+  
+  nodes ::= node | node "," nodes
+  node ::= name ":" sort
+  sort ::= "App" | "Lam" | "Pi" | "Var" | "Type" | name
+  
+  edges ::= edge | edge "," edges
+  edge ::= port "—" port            -- undirected edge
+  port ::= name "." nat             -- node.port_index
+
+-----------------------------------------------------
+-- PIECE 3: Grammar  
+-- Production rules (syntax specification)
+-----------------------------------------------------
+piece Grammar
+  grammar ::= production | grammar grammar
+  production ::= name "::=" alternatives
+  alternatives ::= alternative | alternative "|" alternatives
+  alternative ::= "" | symbol alternative
+  symbol ::= name           -- nonterminal reference
+           | "\"" chars "\"" -- terminal string
+           | "(" alternatives ")"  -- grouping
+           | symbol "*"     -- zero or more
+           | symbol "+"     -- one or more
+           | symbol "?"     -- optional
+
+-----------------------------------------------------
+-- PIECE 4: Rule
+-- Rewrite rules (computation specification)  
+-----------------------------------------------------
+piece Rule
+  rule ::= "rule" name ":" pattern "~>" template guard?
+  
+  pattern ::= "$" name              -- variable
+            | "(" name patterns ")" -- constructor
+            | literal               -- literal value
+  patterns ::= "" | pattern patterns
+  
+  template ::= "$" name             -- variable reference
+             | "(" name templates ")"  -- constructor
+             | literal
+             | "$" name "[" name ":=" template "]"  -- substitution
+  templates ::= "" | template templates
+  
+  guard ::= "when" condition
+  condition ::= term "=" term | term "≠" term
+
+-----------------------------------------------------
+-- PIECE 5: Lang
+-- Complete language (fixed point of composition)
+-----------------------------------------------------
+piece Lang
+  lang ::= "language" name inheritance? body
+  
+  inheritance ::= "is" namelist "with:"
+  namelist ::= name | name "+" namelist
+  
+  body ::= declaration*
+  declaration ::= piece | rule | test | import
+  
+  piece ::= "piece" name grammar
+  import ::= "import" name
+  test ::= "test" name ":" term expect?
+  expect ::= "=>" term
+
+-----------------------------------------------------
+-- OPERATION 1: Pushout (⊔)
+-- Categorical composition with identification
+-----------------------------------------------------
+piece Pushout
+  pushout ::= lang "⊔" lang         -- language pushout
+            | graph "⊔" graph       -- graph pushout
+            | grammar "⊔" grammar   -- grammar pushout
+  
+  -- Pushout diagram:
+  --      A
+  --     / \
+  --    f   g
+  --   /     \
+  --  B       C
+  --   \     /
+  --    \   /
+  --     B⊔C  (coequalizer of shared structure)
+
+-----------------------------------------------------
+-- OPERATION 2: Fold (catamorphism)
+-- Structural recursion over languages
+-----------------------------------------------------
+piece Fold
+  fold ::= "fold" "{" cases "}" term
+  
+  cases ::= case | case "," cases
+  case ::= pattern "↦" template
+  
+  -- fold {Lam x t b ↦ ..., App f a ↦ ...} expr
+  -- Processes term bottom-up
+
+-----------------------------------------------------
+-- OPERATION 3: Fix (μ)
+-- Recursive language definition
+-----------------------------------------------------
+piece Fix
+  fix ::= "μ" name "." lang         -- μL. F(L)
+        | "fix" name "=" lang       -- named fixpoint
+  
+  -- Lang = μL. Name + Graph + Grammar + Rule + L⊔L
+  -- The recursive equation that defines Lego itself
+
+-----------------------------------------------------
+-- META: Lego's self-description
+-----------------------------------------------------
+piece LegoMeta
+  -- Lego = μL. Name ⊔ Graph ⊔ Grammar ⊔ Rule ⊔ Lang
+  --        with operations: ⊔, fold, μ
+  
+  lego ::= "Lego" "=" "μ" "L" "." components
+  components ::= "Name" "⊔" "Graph" "⊔" "Grammar" "⊔" "Rule" "⊔" "Lang"
+  
+  -- The fixed point equation:
+  -- L ≅ Name + Graph + Grammar + Rule + (L × L → L)
+  --                                      ↑ pushout operation
+
+-----------------------------------------------------
+-- Laws (algebraic structure)
+-----------------------------------------------------
+
+-- Pushout is a monoid
+rule pushout_identity:
+  ($L ⊔ ∅) ~> $L
+
+rule pushout_assoc:
+  (($A ⊔ $B) ⊔ $C) ~> ($A ⊔ ($B ⊔ $C))
+
+-- Fold is the unique catamorphism  
+rule fold_var:
+  (fold { $cases } (Var $x)) ~> (lookup Var $cases $x)
+
+rule fold_app:
+  (fold { $cases } (App $f $a)) 
+    ~> (apply (lookup App $cases) (fold { $cases } $f) (fold { $cases } $a))
+
+rule fold_lam:
+  (fold { $cases } (Lam $x $t $b))
+    ~> (apply (lookup Lam $cases) $x (fold { $cases } $t) (fold { $cases } $b))
+
+-- Fix computes to its unfolding
+rule fix_unfold:
+  (μ $X . $body) ~> $body[$X := (μ $X . $body)]
+
+-----------------------------------------------------
+-- Example: Defining LC in Lego
+-----------------------------------------------------
+piece Example
+  -- Lambda calculus as a Lego language:
+  lc_def ::= "language" "LC" "="
+             "Name" "⊔" 
+             "(piece Term" "term ::= var | lam | app" ")" "⊔"
+             "(rule beta: ((λ $x . $b) $a) ~> $b[$x := $a])"
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "name": foo
+test "graph": { n1 : App ; n1.1 — n2.0 }
+test "grammar": (term ::= var | lam | app)
+test "rule": (rule id: $x ~> $x)
+test "pushout": (LC ⊔ Bool)
+test "fold": (fold { Var x ↦ x } (Var y))
+test "fix": (μ L . (Name ⊔ L))
+test "lego": (Lego = μ L . Name ⊔ Graph ⊔ Grammar ⊔ Rule ⊔ Lang)

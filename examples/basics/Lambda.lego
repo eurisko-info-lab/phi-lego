@@ -1,0 +1,44 @@
+-- Lambda.lego: Lambda calculus with beta reduction
+-- Exercises: app/lam matching, substitution, normalize
+
+import Atoms
+
+lang Lambda (Atoms) :=
+
+-----------------------------------------------------
+-- Terms
+-----------------------------------------------------
+piece Term
+  term ::= var | lam | app
+  var ::= "(" "var" name ")"
+  lam ::= "(" "lam" name type term ")"
+  app ::= "(" "app" term term ")"
+  type ::= "Type" | name
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule beta:
+  (app (lam $x $t $body) $arg) ~> (subst $x $arg $body)
+
+-----------------------------------------------------
+-- Tests: identity function
+-----------------------------------------------------
+test "identity": (lam x Type (var x))
+test "app_id": (app (lam x Type (var x)) (var y)) ~~> y
+
+-- K combinator: λx.λy.x
+test "k_comb": (lam x Type (lam y Type (var x)))
+test "k_app1": (app (lam x Type (lam y Type (var x))) (var a)) ~~> (lam y Type (var a))
+
+-- S combinator application (partial) - beta reduces f to h
+test "s_partial": (app (lam f Type (lam g Type (lam x Type (app (app (var f) (var x)) (app (var g) (var x)))))) (var h)) ~~> (lam g Type (lam x Type (app (app (var h) (var x)) (app (var g) (var x)))))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Lambda
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: β-reduction
+-- [x] Normalization: reduces to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

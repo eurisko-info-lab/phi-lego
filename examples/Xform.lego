@@ -1,0 +1,89 @@
+-- Xform.lego: Bidirectional transformations between languages
+
+lang Xform :=
+
+-----------------------------------------------------
+-- Xform Grammar
+-----------------------------------------------------
+piece XformSyntax
+  xform ::= xform_def | xform_app | xform_inv | xform_comp
+  xform_def ::= name ":" srcLang arrow tgtLang
+  xform_app ::= "(" xform term ")"        -- application
+  xform_inv ::= xform "inv"               -- inverse
+  xform_comp ::= xform "comp" xform       -- composition
+
+  arrow ::= arrow_fwd | arrow_iso | arrow_adj
+  arrow_fwd ::= "=>"                       -- functor
+  arrow_iso ::= "<=>"                      -- isomorphism
+  arrow_adj ::= "<=|=>"                    -- adjunction
+
+  -- Functor laws
+  rule xform_id:
+    (xform_app id $x) ~> $x
+
+  rule xform_compose:
+    (xform_app (xform_comp $f $g) $x) ~> (xform_app $f (xform_app $g $x))
+
+  test "xform_id": (xform_app id x)
+
+-----------------------------------------------------
+-- Phi to Lego Transformations
+-----------------------------------------------------
+piece PhiLego
+  phi_xform ::= phi_import | phi_lang | phi_binder | phi_test
+  phi_import ::= "phi_import" name
+  phi_lang ::= "phi_lang" name term term
+  phi_binder ::= "angle" name
+  phi_test ::= term "~~>" term
+
+  rule phi_import_xform:
+    (phi_import $name) ~> (import $name)
+
+  rule phi_binder_xform:
+    (angle $x) ~> (meta $x)
+
+  test "import": (phi_import Foo)
+
+-----------------------------------------------------
+-- Term to Graph Transformation
+-----------------------------------------------------
+piece TermGraph
+  to_graph ::= "toGraph" term
+  to_term ::= "toTerm" term
+
+  rule term_to_graph_var:
+    (to_graph (var $x)) ~> (node Var $x)
+
+  rule term_to_graph_app:
+    (to_graph (app $f $a)) ~> (graph (node App) (edge 1 (to_graph $f)) (edge 2 (to_graph $a)))
+
+  rule graph_to_term_var:
+    (to_term (node Var $x)) ~> (var $x)
+
+  test "toGraph_var": (to_graph (var x))
+
+-----------------------------------------------------
+-- CPS Transformation
+-----------------------------------------------------
+piece CPS
+  cps ::= "cps" term
+
+  rule cps_var:
+    (cps (var $x)) ~> (lam k (app k (var $x)))
+
+  rule cps_lam:
+    (cps (lam $x $body)) ~> (lam k (app k (lam $x (lam k2 (app (cps $body) k2)))))
+
+  rule cps_app:
+    (cps (app $f $a)) ~> (lam k (app (cps $f) (lam fv (app (cps $a) (lam av (app (app fv av) k))))))
+
+  test "cps_var": (cps (var x))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Xform
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

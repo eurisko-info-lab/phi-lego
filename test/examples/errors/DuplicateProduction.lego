@@ -1,0 +1,15 @@
+-- ERROR TEST: Duplicate production names
+-- Expected: Error or warning about duplicate 'expr'
+
+lang DuplicateProduction :=
+
+piece A
+  expr ::= num | add
+  num ::= "0" | "1"
+
+piece B
+  expr ::= bool | notx   -- duplicate 'expr' in different piece!
+  bool ::= "true" | "false"
+  notx ::= "not"
+
+test "ambiguous": 0 ~~> 0

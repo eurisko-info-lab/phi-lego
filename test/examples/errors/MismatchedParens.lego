@@ -1,0 +1,11 @@
+-- ERROR TEST: Mismatched parentheses in pattern
+-- Expected: Parse error about unbalanced parens
+
+lang MismatchedParens :=
+
+expr ::= "(" "add" expr expr ")"
+
+rule broken:
+  (add x y ~> z   -- missing closing paren
+
+test "broken": (add 1 2) ~~> 3

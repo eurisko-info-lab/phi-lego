@@ -1,0 +1,87 @@
+-- 03_ConflictRule.lego: Rule conflict tests
+--
+-- Tests behavior when multiple rules have the same name or overlap
+
+lang RuleConflict :=
+
+-----------------------------------------------------
+-- Grammar
+-----------------------------------------------------
+piece Expr
+  expr ::= add | val
+  add ::= "(" "+" expr expr ")"
+  val ::= <digits>
+
+-----------------------------------------------------
+-- Conflicting rule names
+-----------------------------------------------------
+
+rule simplify:
+  (+ 0 $x) ~> $x
+
+rule simplify:          -- CONFLICT: same name!
+  (+ $x 0) ~> $x
+
+-- =============================================================================
+-- Expected behavior options:
+--
+-- Option 1: Error
+--   ERROR: duplicate rule name 'simplify'
+--
+-- Option 2: Warning + merge (current)
+--   WARNING: rule 'simplify' has multiple definitions
+--   Both patterns are tried in order
+--
+-- Option 3: Last wins
+--   WARNING: rule 'simplify' redefined
+--   Only (+ $x 0) ~> $x is active
+-- =============================================================================
+
+-----------------------------------------------------
+-- Overlapping patterns (different names, same effect)
+-----------------------------------------------------
+
+rule add_zero_left:
+  (+ 0 $x) ~> $x
+
+rule add_identity:
+  (+ 0 $x) ~> $x      -- Same pattern as add_zero_left!
+
+-- =============================================================================
+-- Expected warning:
+--   WARNING: rule 'add_identity' has same pattern as 'add_zero_left'
+--   HINT: consider removing duplicate
+-- =============================================================================
+
+-----------------------------------------------------
+-- Conflicting rules (same pattern, different result)
+-----------------------------------------------------
+
+rule transform_a:
+  (+ $x $x) ~> (double $x)
+
+rule transform_b:
+  (+ $x $x) ~> (* 2 $x)   -- Same pattern, different template!
+
+-- =============================================================================
+-- Expected warning:
+--   WARNING: rules 'transform_a' and 'transform_b' have same pattern
+--            but different templates - non-deterministic!
+-- =============================================================================
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "zero_left": (+ 0 5) ~~> 5
+test "zero_right": (+ 5 0) ~~> 5
+
+-- =============================================================================
+-- Rule conflict resolution strategies:
+--
+-- 1. First match wins (current default)
+-- 2. Most specific wins (pattern specificity ordering)
+-- 3. Explicit priority:
+--      @priority 10
+--      rule high_priority: ...
+-- 4. Error on ambiguity (strict mode)
+-- =============================================================================

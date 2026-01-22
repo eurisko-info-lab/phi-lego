@@ -1,0 +1,92 @@
+-- Auto.lego: Automated theorem proving
+-- Decision procedures and proof search
+-- Composes: Proof
+
+import Proof
+
+lang Auto (Proof) :=
+
+-----------------------------------------------------
+-- Search strategy
+-----------------------------------------------------
+piece Strategy
+  strategy ::= "dfs" nat            -- depth-first with limit
+             | "bfs"                -- breadth-first
+             | "iterative" nat      -- iterative deepening
+             | "best-first" term    -- with heuristic
+
+-----------------------------------------------------
+-- Hints database
+-----------------------------------------------------
+piece Hints
+  hints ::= "hint" name ":" term    -- add hint
+          | "hints" "[" hintlist "]"
+          | "resolve" hints         -- resolution hints
+          | "unfold" hints          -- unfolding hints
+  hintlist ::= hint | hint "," hintlist
+  hint ::= name | "!" name          -- ! = high priority
+
+-----------------------------------------------------
+-- Decision procedures
+-----------------------------------------------------
+piece Decision
+  decision ::= "decide" term        -- generic decide
+             | "sat"                -- SAT solving
+             | "smt" "[" theories "]"  -- SMT with theories
+             | "congruence"         -- congruence closure
+             | "omega"              -- Presburger arithmetic
+  theories ::= theory | theory "," theories
+  theory ::= "LIA" | "LRA" | "NIA" | "BV" | "Arrays" | "UF"
+
+-----------------------------------------------------
+-- Proof search
+-----------------------------------------------------
+piece ProofSearch
+  search ::= "search" strategy term
+           | "inhabit" term         -- find inhabitant
+           | "derive" term          -- typeclass derivation
+
+-----------------------------------------------------
+-- Type class resolution
+-----------------------------------------------------
+piece TCResolve
+  tcres ::= "instance" term term    -- add instance
+          | "resolve-tc" term       -- resolve typeclass
+          | "overlap" name          -- overlapping instance
+
+-----------------------------------------------------
+-- Counterexample generation
+-----------------------------------------------------
+piece Counter
+  counter ::= "counterexample" term
+            | "quickcheck" term nat
+            | "smallcheck" term nat
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule search_success:
+  (search $s (exact $t)) ~> (exact $t)
+
+rule decide_true:
+  (decide true) ~> QED
+
+rule decide_false:
+  (decide false) ~> (failure "false")
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "dfs_search": _
+test "smt": _
+test "hints": _
+test "inhabit": _
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Auto
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

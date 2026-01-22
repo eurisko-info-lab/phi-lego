@@ -1,0 +1,155 @@
+cabal-version:      3.0
+name:               lego
+version:            0.1.0.0
+synopsis:           Lego: A Minimal Language for Building Languages
+description:
+    Lego is a declarative language workbench where syntax is an expression,
+    not a procedure. The same grammar drives parsing, printing, and validation
+    bidirectionally.
+    
+    Core principle: 5 composable pieces (Vocab, Grammar, Rules, Types, Tests)
+    that snap together via 3 algebraic operations (Pushout ⊕, Sequential ·, Parallel ‖).
+
+license:            MIT
+author:             Patrick
+maintainer:         patrick@example.com
+category:           Language
+build-type:         Simple
+extra-doc-files:    
+    README.md
+    CLAUDE.md
+    MATH.md
+    LEGO.md
+
+common warnings
+    ghc-options: -Wall
+
+-- Core library
+library
+    import:           warnings
+    exposed-modules:
+        Lego
+        Lego.Internal
+        Lego.Error
+        Lego.Builtins
+        Lego.Token
+        Lego.Vocabulary
+        Lego.GrammarAnalysis
+        Lego.Composition
+        Lego.Eval
+        Lego.Registry
+        Lego.GrammarInterp
+        Lego.GrammarDef
+        Lego.GrammarParser
+        Lego.RewriteMachine
+        Lego.Schema
+        Lego.SExpr
+        Lego.Validation
+    build-depends:
+        base >= 4.14 && < 5,
+        containers >= 0.6,
+        mtl >= 2.2,
+        directory >= 1.3,
+        filepath >= 1.4
+    hs-source-dirs:   interpreter
+    default-language: Haskell2010
+    default-extensions:
+        DeriveFunctor
+        DeriveFoldable
+        DeriveTraversable
+        LambdaCase
+        TupleSections
+
+-- Test runner for .lego files
+executable lego-test
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:
+        base >= 4.14 && < 5,
+        lego,
+        containers >= 0.6,
+        directory >= 1.3,
+        filepath >= 1.4
+    hs-source-dirs:   interpreter
+    default-language: Haskell2010
+    default-extensions:
+        LambdaCase
+        TupleSections
+
+-- Interactive REPL
+executable lego-repl
+    import:           warnings
+    main-is:          Repl.hs
+    build-depends:
+        base >= 4.14 && < 5,
+        lego,
+        containers >= 0.6,
+        directory >= 1.3,
+        filepath >= 1.4
+    hs-source-dirs:   interpreter
+    default-language: Haskell2010
+    default-extensions:
+        LambdaCase
+
+-- Grammar.sexpr generator (bootstrap tool)
+executable gen-grammar-def
+    import:           warnings
+    main-is:          GenGrammarDef.hs
+    build-depends:
+        base >= 4.14 && < 5,
+        lego,
+        containers >= 0.6,
+        directory >= 1.3
+    hs-source-dirs:   interpreter
+    default-language: Haskell2010
+    default-extensions:
+        LambdaCase
+
+-- Test suite for redtt library parsing (725/725 declarations)
+test-suite redtt-test
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    main-is:          RedttTest.hs
+    build-depends:
+        base >= 4.14 && < 5,
+        lego,
+        containers >= 0.6,
+        directory >= 1.3,
+        filepath >= 1.4
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    default-extensions:
+        BangPatterns
+        LambdaCase
+
+-- Round-trip test: parse . print = id, print . parse = id
+test-suite roundtrip-test
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    main-is:          RoundTripTest.hs
+    build-depends:
+        base >= 4.14 && < 5,
+        lego,
+        containers >= 0.6
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    default-extensions:
+        BangPatterns
+
+-- Bootstrap test: Parse Grammar.lego and use it to parse test files
+-- This proves Grammar.lego is self-consistent
+test-suite bootstrap-test
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    main-is:          BootstrapTest.hs
+    build-depends:
+        base >= 4.14 && < 5,
+        lego,
+        containers >= 0.6,
+        directory >= 1.3,
+        filepath >= 1.4
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    default-extensions:
+        PatternSynonyms
+        LambdaCase

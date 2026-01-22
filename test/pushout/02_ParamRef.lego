@@ -1,0 +1,80 @@
+-- 02_ParamRef.lego: Grammar reference syntax tests
+--
+-- Tests for L.production reference syntax
+
+lang RefTest :=
+
+-----------------------------------------------------
+-- Define multiple pieces with overlapping names
+-----------------------------------------------------
+piece Arith
+  expr ::= add | mul | atom
+  add ::= "(" "+" expr expr ")"
+  mul ::= "(" "*" expr expr ")"
+  atom ::= <ident> | <digits>
+
+piece Bool
+  expr ::= and | or | bool   -- NOTE: also named 'expr'!
+  and ::= "(" "and" expr expr ")"
+  or ::= "(" "or" expr expr ")"
+  bool ::= "true" | "false"
+
+-----------------------------------------------------
+-- After both pieces, what is L.expr?
+--
+-- Option 1: Last wins (Bool.expr shadows Arith.expr)
+--   L.expr = Bool.expr
+--   WARNING: Arith.expr is shadowed
+--
+-- Option 2: Merge via alternative
+--   L.expr = Arith.expr | Bool.expr
+--   Both are available
+--
+-- Option 3: Error (conflict)
+--   ERROR: conflicting definitions of 'expr'
+--
+-- Current: Option 1 (last wins with warning)
+-----------------------------------------------------
+
+-- Explicit references should work regardless:
+-- Arith.expr  -- always refers to arithmetic expr
+-- Bool.expr   -- always refers to boolean expr
+-- expr        -- ambiguous, uses shadowing rule
+
+-----------------------------------------------------
+-- Tests showing the issue
+-----------------------------------------------------
+test "arith_add": (+ a b)
+test "bool_and": (and true false)
+
+-- =============================================================================
+-- Expected warnings:
+--   WARNING: Bool.expr shadows Arith.expr
+--   
+-- To fix, user can:
+--   1. Rename one production
+--   2. Use explicit namespace: Arith.expr, Bool.expr
+--   3. Create a merged production manually:
+--      combined_expr ::= Arith.expr | Bool.expr
+-- =============================================================================
+
+-----------------------------------------------------
+-- Rules must specify which grammar they use
+-----------------------------------------------------
+
+-- This rule's pattern should be parsed with which expr?
+rule add_zero:
+  (+ $x 0) ~> $x
+
+rule and_true:
+  (and true $x) ~> $x
+
+-- =============================================================================
+-- With L.production syntax, rules could specify:
+--
+-- rule[Arith] add_zero:
+--   Arith.expr: (+ $x 0) ~> $x
+--
+-- rule[Bool] and_true:
+--   Bool.expr: (and true $x) ~> $x
+-- =============================================================================

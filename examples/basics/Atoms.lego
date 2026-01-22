@@ -1,0 +1,59 @@
+-- Atoms.lego: Standard atomic productions for all examples
+-- Provides commonly referenced base productions: name, nat, expr, etc.
+-- Import this at the top of any .lego file that uses these productions.
+
+lang Atoms :=
+
+-----------------------------------------------------
+-- Identifiers and Names
+-----------------------------------------------------
+piece Identifiers
+  name ::= <ident>        -- Variable/function/type names
+  ident ::= <ident>       -- Explicit identifier
+
+-----------------------------------------------------
+-- Numbers
+-----------------------------------------------------
+piece Numbers
+  nat ::= <digits>        -- Natural number (0, 1, 2, ...)
+  num ::= <digits>        -- Generic number
+  number ::= <digits>     -- Number literal
+
+-----------------------------------------------------
+-- Strings and Paths
+-----------------------------------------------------
+piece Strings
+  path ::= <string>       -- File system paths
+  content ::= <string>    -- Text content
+
+-----------------------------------------------------
+-- Variables (for some DSLs)
+-----------------------------------------------------
+piece Variables
+  var ::= <ident>         -- Variable identifier
+  value ::= <ident>       -- Value identifier
+  cmd ::= <string>        -- Command string
+  args ::= term*          -- Command arguments
+
+-----------------------------------------------------
+-- Expressions (placeholder)
+-----------------------------------------------------
+piece Expressions
+  expr ::= term           -- Generic expression (delegates to term)
+
+-----------------------------------------------------
+-- Terms (minimal placeholder)
+-----------------------------------------------------
+piece Terms
+  term ::= <ident>        -- Minimal term definition
+         | "(" term+ ")"  -- S-expression style
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "name": foo ~~> _
+test "nat": 42 ~~> _
+test "path": "some/path.txt" ~~> _
+test "expr": hello ~~> _
+test "term_ident": world ~~> _
+test "term_sexpr": (foo bar) ~~> _

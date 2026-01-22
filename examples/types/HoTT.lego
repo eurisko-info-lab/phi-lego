@@ -1,0 +1,104 @@
+-- HoTT.lego: Homotopy Type Theory
+-- Identity types, path induction, higher structure
+-- Composes: Base + Equality
+
+import Base
+
+lang HoTT (Base) :=
+
+-----------------------------------------------------
+-- Identity types (intensional)
+-----------------------------------------------------
+piece Identity
+  id ::= "Id" term term term      -- Id A a b
+       | "refl" term              -- reflexivity
+       | "J" term term term term  -- J eliminator
+
+-----------------------------------------------------
+-- Path operations
+-----------------------------------------------------
+piece PathOps
+  pathop ::= term "·" term        -- path composition
+           | term "⁻¹"            -- path inverse
+           | "ap" term term       -- action on paths
+           | "apd" term term      -- dependent action
+
+-----------------------------------------------------
+-- Higher inductive types
+-----------------------------------------------------
+piece HIT
+  hit ::= "circle" | "S¹"         -- circle type
+        | "base"                  -- base point
+        | "loop"                  -- loop path
+        | "susp" term             -- suspension
+        | "trunc" nat term        -- truncation
+        | "∥" term "∥" nat        -- n-truncation
+
+-----------------------------------------------------
+-- Univalence
+-----------------------------------------------------
+piece Univalence
+  ua ::= "ua" term                -- univalence
+       | "idtoeqv" term           -- Id to equivalence
+       | term "≃" term            -- equivalence type
+
+-----------------------------------------------------
+-- h-levels
+-----------------------------------------------------
+piece HLevel
+  hlevel ::= "isContr" term
+           | "isProp" term
+           | "isSet" term
+           | "is-n-type" nat term
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule J_refl:
+  (J $A $C $d (refl $a)) ~> $d
+
+-- Path inverse: only for refl paths (where we can bind the endpoint)
+-- General case ($p · ($p ⁻¹)) ~> (refl (source p)) requires typed evaluation
+-- NOTE: This rule must come BEFORE path_comp_refl_l because it's more specific
+rule path_inverse_refl:
+  ((refl $a) · ((refl $a) ⁻¹)) ~> (refl $a)
+
+rule path_comp_refl_l:
+  ((refl $a) · $p) ~> $p
+
+rule path_comp_refl_r:
+  ($p · (refl $b)) ~> $p
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "identity": (Id Bool true true)
+test "refl": (refl true)
+test "J_elim": (J Bool (λ x . Bool) true (refl true))
+test "circle": S¹
+test "equivalence": (Bool ≃ Bool)
+
+
+-----------------------------------------------------
+-- Parse + Eval tests
+-----------------------------------------------------
+
+-- J computation rule
+test "J_refl_eval": (J Bool (lam x . Bool) true (refl true)) ~~> true
+
+-- Path composition with refl - use constructor syntax
+test "path_comp_refl_l_eval": (· (refl true) loop) ~~> loop
+
+-- Path composition with refl (right)
+test "path_comp_refl_r_eval": (· loop (refl true)) ~~> loop
+
+-- Path inverse (refl case only)
+test "path_inverse_refl_eval": (· (refl true) (⁻¹ (refl true))) ~~> (refl true)
+-- =============================================================================
+-- TODO: Executable Language Checklist for HoTT
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: path types
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

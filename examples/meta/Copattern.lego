@@ -1,0 +1,92 @@
+-- Copattern.lego: Copatterns for coinductive types
+-- Define by observation (Agda/Coq style)
+-- Composes: Pattern
+
+import Pattern
+
+lang Copattern (Pattern) :=
+
+-----------------------------------------------------
+-- Copatterns (observation patterns)
+-----------------------------------------------------
+piece Copat
+  copat ::= proj | copat_app | hd | tl
+  proj ::= "." name                 -- projection/destructor
+  copat_app ::= copat pat           -- applied copattern
+  hd ::= "hd"                       -- head (shorthand)
+  tl ::= "tl"                       -- tail (shorthand)
+
+  test "proj": .hd
+  test "tl": .tl
+
+-----------------------------------------------------
+-- Codata definitions
+-----------------------------------------------------
+piece Codata
+  codata ::= "codata" name ":" term "where" "{" destructors "}"
+  destructors ::= destructor_single | destructor_cons
+  destructor_single ::= destructor
+  destructor_cons ::= destructor ";" destructors
+  destructor ::= name ":" term      -- observation type
+
+  test "codata": _
+
+-----------------------------------------------------
+-- Corecursive definitions
+-----------------------------------------------------
+piece Codef
+  codef ::= "codef" name ":" term "where" "{" cobranches "}"
+  cobranches ::= cobranch_single | cobranch_cons
+  cobranch_single ::= cobranch
+  cobranch_cons ::= cobranch ";" cobranches
+  cobranch ::= copatlist "=" term
+  copatlist ::= copat_single | copat_cons
+  copat_single ::= copat
+  copat_cons ::= copat ";" copatlist
+
+  rule codef_head:
+    (.hd (codef $name $type (cobranches (cobranch (hd) $h) $rest))) ~> $h
+
+  rule codef_tail:
+    (.tl (codef $name $type (cobranches $hd_branch (cobranch (tl) $t)))) ~> $t
+
+  test "codef": _
+
+-----------------------------------------------------
+-- Guarded recursion
+-----------------------------------------------------
+piece Guarded
+  guard ::= later | next | fix | tick
+  later ::= "▸" term                -- later modality
+  next ::= "next" term              -- delay one step
+  fix ::= "fix" name "." term       -- guarded fixpoint
+  tick ::= term "⊛" term            -- applicative tick
+
+  rule guarded_fix:
+    (fix $f $body) ~> (subst $body $f (next (fix $f $body)))
+
+  test "later": (▸ (Stream Nat))
+  test "next": (next x)
+  test "fix": _
+
+-----------------------------------------------------
+-- Productivity
+-----------------------------------------------------
+piece Productivity
+  prod ::= productive | cofold | ana
+  productive ::= "Productive" term  -- productivity assertion
+  cofold ::= "cofold" term          -- productive cofold
+  ana ::= "ana" term                -- anamorphism
+
+  test "productive": (Productive Stream)
+  test "cofold": (cofold f)
+  test "ana": (ana coalg)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Copattern
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

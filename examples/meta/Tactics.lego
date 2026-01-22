@@ -1,0 +1,120 @@
+-- Tactics.lego: Tactic-based proving
+-- Coq/Lean style tactics
+-- Composes: Proof
+
+import Proof
+
+lang Tactics (Proof) :=
+
+-----------------------------------------------------
+-- Tactic monad
+-----------------------------------------------------
+piece TacticM
+  tacticm ::= tactic_result | tactic_success | tactic_failure | tactic_seq | tactic_alt
+  tactic_result ::= "Tactic" term       -- tactic returning proof
+  tactic_success ::= "success"          -- trivial success
+  tactic_failure ::= "failure" string   -- tactic failed
+  tactic_seq ::= tactic ";" tactic      -- sequence
+  tactic_alt ::= tactic "or" tactic     -- alternative (use 'or' instead of <|>)
+
+  rule tac_seq_success:
+    (tactic_seq tactic_success $t) ~> $t
+
+  rule tac_alt_success:
+    (tactic_alt tactic_success $t) ~> tactic_success
+
+  test "success": tactic_success
+  test "sequence": (tactic_seq (intro x) (apply f))
+
+-----------------------------------------------------
+-- Introduction tactics
+-----------------------------------------------------
+piece IntroTac
+  introtac ::= intro_name | intros_all | intro_pat
+  intro_name ::= "intro" name           -- introduce hypothesis
+  intros_all ::= "intros"               -- introduce all
+  intro_pat ::= "intro_pat" pattern     -- with pattern
+
+  test "intro": (intro_name x)
+
+-----------------------------------------------------
+-- Elimination tactics
+-----------------------------------------------------
+piece ElimTac
+  elimtac ::= destruct | induct | invert | apply_tac
+  destruct ::= "destruct" term          -- case analysis
+  induct ::= "induction" term           -- induction
+  invert ::= "inversion" term           -- inversion
+  apply_tac ::= "apply" term            -- apply lemma
+
+  test "destruct": (destruct x)
+
+-----------------------------------------------------
+-- Rewriting tactics
+-----------------------------------------------------
+piece RewriteTac
+  rwtac ::= rewrite_fwd | rewrite_bwd | subst_tac | simpl_tac | unfold_tac
+  rewrite_fwd ::= "rewrite" term        -- rewrite with equality
+  rewrite_bwd ::= "rewrite_bwd" term    -- rewrite backwards
+  subst_tac ::= "subst" name            -- substitute equality
+  simpl_tac ::= "simpl"                 -- simplification
+  unfold_tac ::= "unfold" name          -- unfold definition
+
+  test "rewrite": (rewrite_fwd eq)
+
+-----------------------------------------------------
+-- Goal manipulation
+-----------------------------------------------------
+piece GoalTac
+  goaltac ::= split_tac | left_tac | right_tac | exists_tac | refl_tac | assumption_tac
+  split_tac ::= "split"                 -- split conjunction
+  left_tac ::= "left"                   -- choose left disjunct
+  right_tac ::= "right"                 -- choose right disjunct
+  exists_tac ::= "exists" term          -- provide witness
+  refl_tac ::= "reflexivity"            -- prove by refl
+  assumption_tac ::= "assumption"       -- use hypothesis
+
+  test "split": split_tac
+
+-----------------------------------------------------
+-- Automation
+-----------------------------------------------------
+piece AutoTac
+  autotac ::= trivial_tac | auto_tac | eauto_tac | omega_tac | ring_tac
+  trivial_tac ::= "trivial"             -- trivial proof
+  auto_tac ::= "auto"                   -- automatic search
+  eauto_tac ::= "eauto"                 -- with existentials
+  omega_tac ::= "omega"                 -- linear arithmetic
+  ring_tac ::= "ring"                   -- ring solver
+
+  test "auto": auto_tac
+
+-----------------------------------------------------
+-- Tacticals
+-----------------------------------------------------
+piece Tactical
+  tactical ::= try_tac | repeat_tac | do_tac | first_tac | all_tac
+  try_tac ::= "try" tactic              -- try, succeed anyway
+  repeat_tac ::= "repeat" tactic        -- repeat until fails
+  do_tac ::= "do" nat tactic            -- repeat n times
+  first_tac ::= "first" taclist         -- first success
+  all_tac ::= "all:" tactic             -- apply to all goals
+
+  taclist ::= taclist_single | taclist_cons
+  taclist_single ::= tactic
+  taclist_cons ::= tactic "," taclist
+
+  rule tac_try_fail:
+    (try_tac (tactic_failure $msg)) ~> tactic_success
+
+  test "try": (try_tac auto_tac)
+  test "repeat": (repeat_tac auto_tac)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Tactics
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: tac_seq, tac_alt
+-- [ ] Full tactic monad (needs proof state)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

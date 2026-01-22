@@ -1,0 +1,103 @@
+-- Refinement.lego: Refinement types
+-- Types with logical predicates (Liquid Haskell style)
+-- Composes: Subtype
+
+import Subtype
+
+lang Refinement (Subtype) :=
+
+-----------------------------------------------------
+-- Refinement types
+-----------------------------------------------------
+piece RefineType
+  reftype ::= reftype_full | reftype_short
+  reftype_full ::= "{" name ":" type "|" pred "}"  -- { v : T | P(v) }
+  reftype_short ::= type "{" pred "}"              -- shorthand
+
+  test "reftype": (reftype_full n Nat (gt n 0))
+
+-----------------------------------------------------
+-- Predicates
+-----------------------------------------------------
+piece Pred
+  pred ::= pred_cmp | pred_and | pred_or | pred_not | pred_forall | pred_exists | pred_true | pred_false
+  pred_cmp ::= term relop term          -- comparison
+  pred_and ::= pred "and" pred          -- conjunction
+  pred_or ::= pred "or" pred            -- disjunction
+  pred_not ::= "not" pred               -- negation
+  pred_forall ::= "forall" name ":" type "." pred  -- universal
+  pred_exists ::= "exists" name ":" type "." pred  -- existential
+  pred_true ::= "true"
+  pred_false ::= "false"
+
+  relop ::= rel_eq | rel_neq | rel_lt | rel_gt | rel_le | rel_ge
+  rel_eq ::= "="
+  rel_neq ::= "!="
+  rel_lt ::= "<"
+  rel_gt ::= ">"
+  rel_le ::= "<="
+  rel_ge ::= ">="
+
+  test "pred": (pred_cmp n rel_gt 0)
+
+-----------------------------------------------------
+-- Measure functions
+-----------------------------------------------------
+piece Measure
+  measure ::= measure_def | assume_def | inline_def
+  measure_def ::= "measure" name "::" type
+  assume_def ::= "assume" name "::" type
+  inline_def ::= "inline" name "::" type
+
+  test "measure": (measure_def len (arrow (List a) Nat))
+
+-----------------------------------------------------
+-- Liquid type inference
+-----------------------------------------------------
+piece LiquidInfer
+  liquid ::= liquid_infer | liquid_abstract | liquid_app
+  liquid_infer ::= "liquid" type          -- infer refinement
+  liquid_abstract ::= "abstract" type     -- abstract refinement
+  liquid_app ::= name "@" type            -- type application
+
+  test "liquid": (liquid_infer Int)
+
+-----------------------------------------------------
+-- Sized types as refinements
+-----------------------------------------------------
+piece SizedRef
+  sizedref ::= sized_type | sized_pos | sized_nonneg
+  sized_type ::= type "^" term            -- sized type
+  sized_pos ::= "Pos"                     -- positive size
+  sized_nonneg ::= "NonNeg"               -- non-negative size
+
+  test "sized": (sized_type Nat (suc 0))
+
+-----------------------------------------------------
+-- Automatic refinement
+-----------------------------------------------------
+piece AutoRefine
+  autoref ::= reflect_fn | ple_check | smt_check
+  reflect_fn ::= "reflect" name           -- reflect to logic
+  ple_check ::= "ple"                     -- proof by logical eval
+  smt_check ::= "smt" theories            -- SMT theories
+
+  theories ::= theories_single | theories_cons
+  theories_single ::= theory
+  theories_cons ::= theory "," theories
+  theory ::= theory_lia | theory_lra | theory_nia | theory_bv
+  theory_lia ::= "LIA"
+  theory_lra ::= "LRA"
+  theory_nia ::= "NIA"
+  theory_bv ::= "BV"
+
+  test "reflect": (reflect_fn len)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Refinement
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: refinement checking
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

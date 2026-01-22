@@ -1,0 +1,54 @@
+-- Category.lego: Base for category theory
+-- Shared by Functor, Optics
+
+import Base
+
+lang Category (Base) :=
+
+-----------------------------------------------------
+-- Category structure
+-----------------------------------------------------
+piece Cat
+  cat ::= "Cat"                     -- category of types
+        | "Hom" type type           -- morphism type
+        | "id" type                 -- identity morphism
+        | term "∘" term             -- composition
+
+-----------------------------------------------------
+-- Objects and morphisms
+-----------------------------------------------------
+piece ObjMor
+  obj ::= "Obj" cat                 -- objects of category
+  mor ::= term "⟶" term             -- morphism notation
+        | "arr" type type           -- arrow type
+
+-----------------------------------------------------
+-- Categorical laws
+-----------------------------------------------------
+piece CatLaws
+  catlaw ::= "left-id" term         -- id ∘ f = f
+           | "right-id" term        -- f ∘ id = f
+           | "assoc" term term term -- (f ∘ g) ∘ h = f ∘ (g ∘ h)
+
+-----------------------------------------------------
+-- Common categories
+-----------------------------------------------------
+piece CommonCat
+  commcat ::= "Type"                -- category of types
+            | "Kleisli" term        -- Kleisli category
+            | "Op" cat              -- opposite category
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "hom": (Hom Nat Bool)
+test "compose": (f ∘ g)
+test "identity": (id Nat)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Category
+-- =============================================================================
+-- [ ] Normalize: reduction rules
+-- [ ] Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
+-- TODO: Category needs reduction rules

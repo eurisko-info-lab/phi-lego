@@ -1,0 +1,6 @@
+-- ERROR TEST: Empty language definition
+-- Expected: Warning about empty language or parse error
+
+lang EmptyLang :=
+
+-- no grammar, no rules, no tests

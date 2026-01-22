@@ -1,0 +1,127 @@
+-- 04_EOFMarker.lego: Grammar keyword EOF marker tests
+--
+-- Demonstrates how keywords act as EOF markers that switch parsing context
+
+lang EOFTest :=
+
+-----------------------------------------------------
+-- First piece: defines initial L
+-----------------------------------------------------
+piece Arith
+  expr ::= add | mul | num
+  add ::= "(" "+" expr expr ")"
+  mul ::= "(" "*" expr expr ")"
+  num ::= <digits>
+
+-- At this point: L = Arith
+-- L.expr = Arith.expr
+
+-----------------------------------------------------
+-- test keyword is EOF marker
+-- 
+-- When parser sees "test", it:
+-- 1. Stops parsing current grammar (pieces complete)
+-- 2. Switches to: test[L] ::= "test" <string> ":" L.expr ("~~>" L.expr)?
+-- 3. Parses test body with L.expr = Arith.expr
+-----------------------------------------------------
+
+test "arith_only": (+ 1 2)
+
+-- =============================================================================
+-- Currently: (+ 1 2) parsed with bootstrap Term.term → TmCon "+" [...]
+-- After EOF impl: (+ 1 2) parsed with Arith.expr → TmCon "add" [...]
+-- =============================================================================
+
+-----------------------------------------------------
+-- Another piece extends L
+-----------------------------------------------------
+piece Bool
+  bexpr ::= band | bor | bool
+  band ::= "(" "and" bexpr bexpr ")"
+  bor ::= "(" "or" bexpr bexpr ")"
+  bool ::= "true" | "false"
+
+-- Now: L = Arith ⊔ Bool
+-- L.expr = Arith.expr (Bool adds bexpr, not expr)
+
+-----------------------------------------------------
+-- Tests after Bool piece use extended L
+-----------------------------------------------------
+
+test "after_bool": (+ 1 2)
+-- Still uses Arith.expr since Bool didn't shadow it
+
+test "bool_expr": (and true false)
+-- Uses Bool.bexpr... but wait, test uses L.expr not L.bexpr!
+-- This would FAIL to parse unless we change test to use any production
+
+-- =============================================================================
+-- Issue: What production does test[L] use?
+--
+-- Option 1: Fixed name (expr or term)
+--   test[L] ::= "test" <string> ":" L.expr ...
+--   Requires language to define 'expr'
+--
+-- Option 2: Any top-level production
+--   test[L] ::= "test" <string> ":" L.* ...
+--   Tries all productions until one matches
+--
+-- Option 3: User-specified
+--   test[Arith.expr] "name": ...
+--   test[Bool.bexpr] "name": ...
+--
+-- Option 4: Infer entry point from first piece
+--   First production of first piece is the default
+-- =============================================================================
+
+-----------------------------------------------------
+-- rule keyword is also EOF marker
+-----------------------------------------------------
+
+-- At this point L = Arith ⊔ Bool
+
+rule arith_zero:
+  (+ 0 $x) ~> $x
+
+-- =============================================================================
+-- rule[L] ::= "rule" <ident> ":" L.pattern "~>" Template.template
+--
+-- L.pattern uses L's pattern grammar (derived from L's term grammar)
+-- Template uses SExpr for the right-hand side (simpler, more flexible)
+-- =============================================================================
+
+-----------------------------------------------------
+-- prelude/code sections
+-----------------------------------------------------
+
+-- prelude: section uses a different grammar for initialization
+-- code: section uses the full language grammar
+
+-- =============================================================================
+-- Section keywords:
+--   prelude[L] ::= "prelude" ":" PreludeBody
+--   code[L] ::= "code" ":" L.*
+--
+-- These establish different parsing contexts
+-- =============================================================================
+
+-----------------------------------------------------
+-- Final tests
+-----------------------------------------------------
+test "final": _
+
+-- =============================================================================
+-- Parse trace with EOF markers:
+--
+-- 1. Parse "lang EOFTest :=" 
+-- 2. Parse "piece Arith" → L := Arith
+-- 3. Parse Arith body with grammar grammar
+-- 4. See "test" → EOF for piece, switch to test[L]
+-- 5. Parse test with L.expr = Arith.expr
+-- 6. See "piece Bool" → back to grammar mode
+-- 7. Parse Bool → L := Arith ⊔ Bool
+-- 8. See "test" → switch to test[L]
+-- 9. Parse test with L.expr (now = Arith.expr from extended L)
+-- 10. See "rule" → switch to rule[L]
+-- 11. etc.
+-- =============================================================================

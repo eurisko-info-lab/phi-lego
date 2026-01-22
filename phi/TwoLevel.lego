@@ -1,0 +1,105 @@
+-- Phi in Lego: Two-Level Types (Compile/Run time)
+-- This is the Lego equivalent of src/Phi/Logic/TwoLevel.hs
+
+lang TwoLevel :=
+  import Type
+  
+  -- Two-level types: static (compile-time) vs dynamic (run-time)
+  -- Enables staged computation and partial evaluation
+  
+  grammar:
+    Level ::= 'static' | 'dynamic'
+    LeveledType ::= Level Ty
+    
+  rules:
+    -- Static: evaluated at compile time
+    -- Dynamic: evaluated at run time
+    
+    -- Level polymorphism
+    (typeof (levelPoly $l $t)) ~>
+      (pi $l level $t)
+    
+    -- Lifting: static -> dynamic (always safe)
+    (typeof (lift $t)) ~>
+      (case (levelOf $t)
+        static (dynamic (unlevel $t)))
+    
+    -- Splice: dynamic -> static (only in certain contexts)
+    -- This is the "quote/unquote" of metaprogramming
+    (typeof (splice $t)) ~>
+      (case (levelOf $t)
+        dynamic 
+          (case (inStaticContext)
+            true (static (unlevel $t))
+            false (error "splice outside static context")))
+    
+    -- Level inference
+    (inferLevel (app $f $a)) ~>
+      (case (pair (levelOf $f) (levelOf $a))
+        (pair static static) static
+        _ dynamic)
+    
+    (inferLevel (lam $x $t $b)) ~>
+      (case (levelOf $b)
+        static static
+        dynamic dynamic)
+    
+    (inferLevel (lit $l)) ~> static  -- literals are static
+    (inferLevel (var $x)) ~> (lookupLevel $x)
+
+lang Quote :=
+  import TwoLevel
+  
+  -- Quote/Unquote for code generation
+  -- <t> : Code T  means "t is code that will produce T"
+  
+  grammar:
+    CodeType ::= 'Code' Ty
+    QuoteExpr ::= '<' Term '>'
+    UnquoteExpr ::= '~' Term
+    
+  rules:
+    (typeof (quote $t)) ~>
+      (case (inferLevel $t)
+        static (code (typeof $t)))
+    
+    (typeof (unquote $c)) ~>
+      (case (typeof $c)
+        (code $t) $t)
+    
+    -- Beta for staged computation
+    (normalize (unquote (quote $t))) ~> $t
+    
+    -- Code combination (applicative)
+    (combineCode (quote $f) (quote $a)) ~>
+      (quote (app $f $a))
+
+lang PartialEval :=
+  import TwoLevel
+  import Quote
+  
+  -- Partial evaluation: evaluate static parts at compile time
+  
+  rules:
+    -- PE for application
+    (pe (app $f $a)) ~>
+      (case (pair (levelOf $f) (levelOf $a))
+        (pair static static) (apply (pe $f) (pe $a))
+        (pair static dynamic) (specialize (pe $f) $a)
+        (pair dynamic static) (quote (app (unquote (pe $f)) (lift (pe $a))))
+        (pair dynamic dynamic) (quote (app (unquote (pe $f)) (unquote (pe $a)))))
+    
+    -- PE for lambda
+    (pe (lam $x $t $b)) ~>
+      (case (levelOf $b)
+        static (lam $x (pe $t) (pe $b))
+        dynamic (quote (lam $x (unquote (pe $t)) (unquote (inDynEnv $x (pe $b))))))
+    
+    -- Specialization: partially apply static arg to dynamic function
+    (specialize $f $a) ~>
+      (case $f
+        (lam $x $t $b) (pe (subst $x (lift $a) $b))
+        _ (quote (app (unquote $f) $a)))
+
+-- Composition
+lang TwoLevelLang := TwoLevel + Quote + PartialEval

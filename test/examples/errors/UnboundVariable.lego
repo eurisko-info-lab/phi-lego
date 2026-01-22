@@ -1,0 +1,14 @@
+-- ERROR TEST: Unbound variable in rule template
+-- Expected: Warning about variable $z not in pattern
+
+lang UnboundVariable :=
+
+piece Grammar
+  expr ::= add | num
+  add ::= "(" "add" expr expr ")"
+  num ::= "0"
+
+rule unbound_var:
+  (add $x $y) ~> $z   -- $z never bound in pattern!
+
+test "unbound": (add 0 0) ~~> 0

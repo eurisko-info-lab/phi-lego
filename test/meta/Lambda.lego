@@ -1,0 +1,250 @@
+-- Lambda.lego: Lambda Calculus as a Language
+--
+-- Structure: Language = ⊔ Pieces (pushout chain)
+-- Each piece extends previous ones with grammar, rules, laws, tests.
+
+lang LambdaCalculus :=
+
+-- =============================================================================
+-- PIECE 1: Variables (Base)
+-- =============================================================================
+
+piece Var
+  var ::= <ident>
+
+  -- Variable identity
+  law "var_id": $x == $x
+
+  test "var_x": x
+  test "var_y": y
+
+-- =============================================================================
+-- PIECE 2: Lambda Expressions
+-- =============================================================================
+-- Extends Var. data Expr = Var | Lam | App
+
+piece Expr
+  expr ::= lam | app | var
+
+  lam ::= "(" "lam" <ident> expr ")"         -- Lambda abstraction
+  app ::= "(" "app" expr expr ")"            -- Application
+
+  test "identity": (lam x x)
+  test "const": (lam x (lam y x))
+  test "apply": (app (lam x x) y)
+  test "omega": (app (lam x (app x x)) (lam x (app x x)))
+
+-- =============================================================================
+-- PIECE 3: Values (Normal Forms)
+-- =============================================================================
+-- Extends Expr. Values are expressions in normal form.
+
+piece Value
+  value ::= vlam | vvar
+
+  vlam ::= "(" "Vlam" <ident> expr ")"       -- Value lambda
+  vvar ::= "(" "Vvar" <ident> ")"            -- Value variable
+
+  test "vlam": (Vlam x x)
+  test "vvar": (Vvar x)
+
+-- =============================================================================
+-- PIECE 4: Substitution
+-- =============================================================================
+-- Extends Expr. Explicit substitution calculus.
+
+piece Subst
+  subst ::= "(" "subst" <ident> expr expr ")"
+
+  -- Substitution for variable (match): x[x := v] = v
+  rule subst_var_match:
+    (subst $x $v $x) <~> $v
+
+  -- Substitution through application (homomorphism)
+  rule subst_app:
+    (subst $x $v (app $e1 $e2)) <~> (app (subst $x $v $e1) (subst $x $v $e2))
+
+  -- Substitution through lambda
+  rule subst_lam:
+    (subst $x $v (lam $y $body)) <~> (lam $y (subst $x $v $body))
+
+  law "subst_app": (subst $x $v (app $e1 $e2)) == (app (subst $x $v $e1) (subst $x $v $e2))
+
+  test "subst": (subst x y (lam z x))
+
+-- =============================================================================
+-- GLOBAL RULES: Cross-Piece Reductions
+-- =============================================================================
+-- These require multiple pieces (Expr + Subst)
+
+-- Beta reduction: (lam x body) arg --> body[x := arg]
+rule beta:
+  (app (lam $x $body) $arg) <~> (subst $x $arg $body)
+
+-- Eta reduction: (lam x (app f x)) --> f (when x not free in f)
+rule eta:
+  (lam $x (app $f $x)) <~> $f
+
+-- =============================================================================
+-- GLOBAL LAWS
+-- =============================================================================
+
+law "beta": (app (lam $x $body) $arg) == (subst $x $arg $body)
+law "eta": (lam $x (app $f $x)) == $f
+
+-- =============================================================================
+-- GLOBAL TESTS
+-- =============================================================================
+
+test "id_apply": (app (lam x x) y)
+test "nested": (app (app (lam x (lam y x)) a) b)
+
+-- =============================================================================
+-- MATHEMATICAL FOUNDATION
+-- =============================================================================
+--
+-- LambdaCalculus = Var ⊕ Expr ⊕ Value ⊕ Subst
+--
+-- Pushout structure:
+--   Var                    (base: identifiers)
+--   Var ⊕ Expr             (add lam and app)
+--   Var ⊕ Expr ⊕ Value     (add normal forms)
+--   Var ⊕ Expr ⊕ ... ⊕ Subst (add substitution)
+--
+-- Piece-local rules use only constructs from that piece + predecessors.
+-- Global rules (beta, eta) combine Expr and Subst.
+--
+-- =============================================================================
+
+-- =============================================================================
+-- IMPORTED PIECE: Nat (Natural Numbers)
+-- =============================================================================
+-- Church numerals encoded in lambda calculus, imported for computation.
+
+piece Nat
+  nat  ::= zero | succ | nlit
+  zero ::= "(" "Z" ")"
+  succ ::= "(" "S" nat ")"
+  nlit ::= <number>
+
+  -- Successor/predecessor
+  rule succ_zero:
+    (S (Z)) <~> (nlit 1)
+
+  -- Church encoding: n = λf.λx. f^n x
+  rule church_zero:
+    (Z) <~> (lam f (lam x x))
+
+  rule church_succ:
+    (S $n) <~> (lam f (lam x (app f (app (app $n f) x))))
+
+  test "zero": (Z)
+  test "one": (S (Z))
+  test "two": (S (S (Z)))
+  test "three": (S (S (S (Z))))
+
+-- =============================================================================
+-- PIECE: Arithmetic Operations
+-- =============================================================================
+
+piece Arith
+  arith ::= add | mul | pred
+
+  add  ::= "(" "add" nat nat ")"
+  mul  ::= "(" "mul" nat nat ")"
+  pred ::= "(" "pred" nat ")"
+
+  -- Addition rules
+  rule add_zero:
+    (add (Z) $n) <~> $n
+
+  rule add_succ:
+    (add (S $m) $n) <~> (S (add $m $n))
+
+  -- Multiplication rules
+  rule mul_zero:
+    (mul (Z) $n) <~> (Z)
+
+  rule mul_succ:
+    (mul (S $m) $n) <~> (add $n (mul $m $n))
+
+  -- Predecessor
+  rule pred_zero:
+    (pred (Z)) <~> (Z)
+
+  rule pred_succ:
+    (pred (S $n)) <~> $n
+
+  test "add_0_0": (add (Z) (Z))
+  test "add_1_2": (add (S (Z)) (S (S (Z))))
+  test "mul_2_3": (mul (S (S (Z))) (S (S (S (Z)))))
+
+-- =============================================================================
+-- PIECE: Let/Letrec Bindings
+-- =============================================================================
+
+piece Let
+  letexpr  ::= letbind | letrec
+  letbind  ::= "(" "let" <ident> expr expr ")"
+  letrec   ::= "(" "letrec" <ident> expr expr ")"
+
+  -- Let desugars to application
+  rule let_desugar:
+    (let $x $val $body) <~> (app (lam $x $body) $val)
+
+  -- Letrec uses Y combinator (fix point)
+  rule letrec_desugar:
+    (letrec $f $def $body) <~> (let $f (app Y (lam $f $def)) $body)
+
+  law "let_beta": (let $x $v $body) == (subst $x $v $body)
+
+  test "let_simple": (let x (S (Z)) x)
+  test "let_nested": (let x (Z) (let y (S x) y))
+
+-- =============================================================================
+-- INTERPRETER TESTS: Real Computation
+-- =============================================================================
+
+-- Y combinator for recursion
+-- Y = λf. (λx. f (x x)) (λx. f (x x))
+test "Y_combinator": (lam f (app (lam x (app f (app x x))) (lam x (app f (app x x)))))
+
+-- Identity function
+test "interp_id": (app (lam x x) (S (Z))) ~~> (S (Z))
+
+-- Constant function: K a b = a
+test "interp_K": (app (app (lam x (lam y x)) (S (Z))) (Z)) ~~> (S (Z))
+
+-- Addition: 1 + 2 = 3
+test "interp_add_1_2": (add (S (Z)) (S (S (Z)))) ~~> (S (S (S (Z))))
+
+-- Addition: 0 + n = n
+test "interp_add_0": (add (Z) (S (S (Z)))) ~~> (S (S (Z)))
+
+-- Multiplication: 2 * 3 = 6
+test "interp_mul_2_3": (mul (S (S (Z))) (S (S (S (Z))))) ~~> (S (S (S (S (S (S (Z)))))))
+
+-- Let binding
+test "interp_let": (let x (S (S (Z))) (add x x)) ~~> (S (S (S (S (Z)))))
+
+-- Fibonacci definition (using letrec)
+-- fib 0 = 0, fib 1 = 1, fib n = fib(n-1) + fib(n-2)
+-- fib(3) = 2
+test "fib_def": (letrec fib 
+                  (lam n (app (app (app ifz n) 
+                                   (Z)) 
+                              (app (app (app ifz (pred n)) 
+                                        (S (Z))) 
+                                   (add (app fib (pred n)) 
+                                        (app fib (pred (pred n)))))))
+                  (app fib (S (S (S (Z)))))) ~~> (S (S (Z)))
+
+-- Factorial definition (using letrec)
+-- fact 0 = 1, fact n = n * fact(n-1)
+-- fact(3) = 6
+test "fact_def": (letrec fact
+                   (lam n (app (app (app ifz n)
+                                    (S (Z)))
+                               (mul n (app fact (pred n)))))
+                   (app fact (S (S (S (Z)))))) ~~> (S (S (S (S (S (S (Z)))))))
+

@@ -1,0 +1,597 @@
+-----------------------------------------------------
+-- Redtt: Cubical Type Theory Language
+-- 
+-- A Lego specification for parsing redtt (.red) files
+-- Based on: https://github.com/RedPRL/redtt
+--
+-- redtt is a proof assistant implementing cartesian cubical type theory
+-- with higher inductive types, univalence, and computational content.
+--
+-- Key features:
+-- - Cartesian cubical type theory with interval 𝕀
+-- - Path types [i] A [i=0 → M | i=1 → N]
+-- - Higher inductive types (data with path constructors)
+-- - coe, comp, hcom operations
+-- - Universe polymorphism (type, type^1, ...)
+-----------------------------------------------------
+
+import Cubical
+
+-----------------------------------------------------
+-- Core Syntax Pieces
+-----------------------------------------------------
+
+-- Intervals and dimensions
+piece Interval
+  interval ::= "𝕀"                      -- The interval type
+  dimvar ::= <ident>                    -- Dimension variable (i, j, k, ...)
+  boundary ::= "∂" "[" dimvar "]"       -- Boundary ∂[i] = (i=0 ∨ i=1)
+
+-- Basic expressions
+piece Expr
+  -- Base term production (recursive, many forms)
+  term ::= type | typeN | var | app | proj1 | proj2 | lam | lamstar 
+         | letexpr | underscore | pi | arr | sigma | prod | pair
+         | pathsugar | pathdsugar | pathtype | coeexpr | compexpr | hcomexpr
+         | "(" term ")"
+  
+  type ::= "type"                       -- Universe (type^0)
+  typeN ::= "type" "^" <number>         -- Universe level (type^1, type^2, ...)
+  var ::= <ident>                       -- Variable reference
+  app ::= "(" term term ")"             -- Application f x
+  proj1 ::= term ".fst"                 -- First projection
+  proj2 ::= term ".snd"                 -- Second projection
+  lam ::= "(" "λ" binders "→" term ")"  -- Lambda abstraction
+  lamstar ::= "(" "λ" "*" "→" term ")"  -- Lambda with wildcard
+  letexpr ::= "(" "let" <ident> ":" term "=" term "in" term ")"
+  underscore ::= "_"                    -- Implicit argument
+  
+-- Binders
+piece Binders
+  binder ::= <ident>                    -- Simple binder: x
+  binderstar ::= "*"                    -- Wildcard binder
+  bindertyped ::= "(" <ident> ":" term ")"  -- Typed binder: (x : A)
+  binders ::= binder+                   -- Multiple binders
+  dimvars ::= <ident>+                  -- Multiple dimension vars: i j k
+
+-- Function types
+piece FunType
+  pi ::= "(" <ident> ":" term ")" "→" term   -- Dependent: (x : A) → B x
+  arr ::= term "→" term                      -- Non-dependent: A → B
+
+-- Sigma types (dependent pairs)
+piece SigmaType
+  sigma ::= "(" <ident> ":" term ")" "×" term    -- Dependent: (x : A) × B x
+  prod ::= term "×" term                          -- Non-dependent: A × B
+  pair ::= "(" term "," term ")"                  -- Pair constructor
+
+-----------------------------------------------------
+-- Path and Extension Types
+-----------------------------------------------------
+
+piece PathTypes
+  -- Path type: path A M N  (sugar for [_] A [0 → M | 1 → N])
+  pathsugar ::= "path" term term term
+  
+  -- Dependent path: pathd (λ i → A i) M N
+  pathdsugar ::= "pathd" term term term
+  
+  -- Extension type with boundary constraints
+  -- [i] A [| i=0 → M | i=1 → N]
+  pathtype ::= "[" dimvars "]" term "[" pathconstrs "]"
+  pathconstrs ::= ("|" pathconstr)*
+  pathconstr ::= constraint "→" term
+  
+  -- Boundary constraints
+  constraint ::= dimvar "=" iterm       -- i=0, i=1
+  conjconstr ::= constraint ("|" constraint)*  -- i=0 | j=1
+
+-- Interval terms  
+piece IntervalTerms
+  izero ::= "0"                         -- Left endpoint
+  ione ::= "1"                          -- Right endpoint
+  ivar ::= <ident>                      -- Dimension variable
+  
+-----------------------------------------------------
+-- Cubical Operations
+-----------------------------------------------------
+
+piece CubicalOps
+  -- coe r r' a in λ i → A
+  coeexpr ::= "coe" iterm iterm term "in" term
+  
+  -- comp r r' a [ | φ → u ]
+  compexpr ::= "comp" iterm iterm term "[" compconstrs "]"
+  compconstrs ::= ("|" compconstr)*
+  compconstr ::= constraint [dimvar] "→" term  -- | i=0 j → M
+  
+  -- hcom (homogeneous composition)
+  hcomexpr ::= "hcom" iterm iterm term "[" compconstrs "]"
+  
+  -- refl : path A a a
+  reflexpr ::= "refl"
+
+-----------------------------------------------------
+-- Definitions and Declarations  
+-----------------------------------------------------
+
+piece Definitions
+  -- def name (args) : type = body
+  defn ::= "def" <ident> defargs [":" term] "=" term
+  defargs ::= defarg*
+  defarg ::= "(" <ident> ":" term ")"   -- Typed argument
+           | <ident>                     -- Untyped argument
+
+-----------------------------------------------------
+-- Data Types (Higher Inductive Types)
+-----------------------------------------------------
+
+piece DataTypes
+  -- data Name where | Con1 | Con2 (x : A) | ...
+  -- (A : type) ⊢ data Name where ...  (parameterized)
+  datadecl ::= dataparams "data" <ident> "where" datacons
+  dataparams ::= ["(" <ident> ":" term ")" "⊢"]  -- Optional parameter
+  datacons ::= ("|" datacon)*
+  
+  -- Constructor: | name (args) [boundary]
+  datacon ::= <ident> dataconargs [databdy]
+  dataconargs ::= dataconarg*
+  dataconarg ::= "(" <ident> ":" term ")"
+  
+  -- Boundary constraint for HIT constructors
+  -- [i=0 → M | i=1 → N]
+  databdy ::= "[" databdyconstr ("|" databdyconstr)* "]"
+  databdyconstr ::= constraint "→" term
+
+-----------------------------------------------------
+-- Eliminators and Pattern Matching
+-----------------------------------------------------
+
+piece Eliminators
+  -- elim [ | case → body | ... ]
+  -- elim term [ | case → body | ... ]
+  elimexpr ::= "elim" [term] "[" elimcases "]"
+  elimcases ::= ("|" elimcase)*
+  elimcase ::= elimpat "→" term
+  
+  -- Patterns in eliminators
+  elimpat ::= <ident>                   -- Constructor name
+            | <ident> elimpatargs       -- Constructor with args
+            | <ident> "*"               -- Constructor with wildcard args
+            | "*"                        -- Wildcard
+  elimpatargs ::= elimpat ("(" elimpat ["→" <ident>] ")")*  -- Recursive: (n → rec)
+
+-----------------------------------------------------
+-- Comments
+-----------------------------------------------------
+
+piece Comments
+  linecomment ::= "--" <toEOL>          -- Line comment
+  blockcomment ::= "/-" <toBlock> "-/"  -- Block comment /-  -/
+
+-----------------------------------------------------
+-- Imports
+-----------------------------------------------------
+
+piece Imports
+  importdecl ::= ["public"] "import" modulepath
+  modulepath ::= <ident> ("." <ident>)*
+
+-----------------------------------------------------
+-- Top-level file structure
+-----------------------------------------------------
+
+piece RedttFile
+  redttfile ::= topdecl*
+  topdecl ::= importdecl | defn | datadecl
+
+-- =====================================================
+-- FANCY FEATURES (Advanced redtt syntax)
+-- These demonstrate what makes redtt special
+-- =====================================================
+
+-----------------------------------------------------
+-- 1. V Type (Univalence Primitive)
+--    V i A B e : the "glue" type for univalence
+--    When i=0, V i A B e ≡ A
+--    When i=1, V i A B e ≡ B
+-----------------------------------------------------
+
+piece VType
+  -- V i A B e : univalence type former
+  vtype ::= "V" dimvar term term term
+  
+  -- vin: introduction for V type
+  -- vin i a b : V i A B e  when a:A and b:B
+  vin ::= "vin" dimvar term term
+  
+  -- vproj: projection from V type
+  -- (x : V i A B e).vproj : B
+  vproj ::= term ".vproj"
+
+-----------------------------------------------------
+-- 2. Pattern Lambdas
+--    λ [,] → body      matches pair structure
+--    λ (x, y) → body   binds components
+--    λ [| case → ...]  inline eliminator
+-----------------------------------------------------
+
+piece PatternLambda
+  -- Pattern lambda for pairs: λ [,] → body
+  lampair ::= "λ" "[" "," "]" "→" term
+  
+  -- Binding pattern: λ (x, y) → body
+  lampairbind ::= "λ" "(" <ident> "," <ident> ")" "→" term
+  
+  -- Nested wildcard: λ (*, *) → body  
+  lampairwild ::= "λ" "(" "*" "," "*" ")" "→" term
+  
+  -- Inline eliminator lambda: λ [| case → body | ...]
+  lamelim ::= "λ" "[" elimcases "]"
+
+-----------------------------------------------------
+-- 3. Universe Polymorphism
+--    type^n : universe at level n
+--    path^n A M N : path in universe n
+--    is-contr^n : contractibility at level n
+-----------------------------------------------------
+
+piece UniverseLevel
+  -- Leveled universe: type^1, type^2, ...
+  typelevel ::= "type" "^" <number>
+  
+  -- Leveled path: path^1 type A B
+  pathlevel ::= "path" "^" <number> term term term
+  
+  -- Leveled predicates
+  iscontrlevel ::= "is-contr" "^" <number> term
+  isproplevel ::= "is-prop" "^" <number> term
+  issetlevel ::= "is-set" "^" <number> term
+
+-----------------------------------------------------
+-- 4. Connection Maps (Cubical Kan Operations)
+--    These give the "and" and "or" on the interval
+--    Essential for proving path compositions
+-----------------------------------------------------
+
+piece ConnectionMaps
+  -- connection/or : [i j] A [j=0 | i=j → p i | j=1 | i=1 → p 1 | i=0 → p j]
+  connectionor ::= "connection/or" term term
+  
+  -- connection/and : [i j] A [j=0 | i=0 → p 0 | j=1 | i=j → p i | i=1 → p j]
+  connectionand ::= "connection/and" term term
+  
+  -- connection/both : both directions
+  connectionboth ::= "connection/both" term term term
+
+-----------------------------------------------------
+-- 5. Backtick Expressions (Raw Term Injection)
+--    Used when the surface syntax can't express something
+--    `(vin i (fst ...) ...)
+-----------------------------------------------------
+
+piece RawTerms
+  -- Backtick injects raw/internal term syntax
+  rawterm ::= "`" "(" <sexpr> ")"
+  
+  -- S-expression inside backticks
+  sexpr ::= <ident> | "(" sexpr* ")"
+
+-----------------------------------------------------
+-- 6. Fiber and Equivalence Types
+--    Core of HoTT equivalences
+-----------------------------------------------------
+
+piece EquivTypes
+  -- fiber f b = (a : A) × path B (f a) b
+  fibertype ::= "fiber" term term term term
+  
+  -- is-equiv f = (b : B) → is-contr (fiber A B f b)
+  isequiv ::= "is-equiv" term term term
+  
+  -- equiv A B = (f : A → B) × is-equiv A B f
+  equivtype ::= "equiv" term term
+  
+  -- id-equiv A : equiv A A
+  idequiv ::= "id-equiv" term
+  
+  -- iso→equiv : iso A B → equiv A B
+  isotoequiv ::= "iso→equiv" term term term
+
+-----------------------------------------------------
+-- 7. Weak Connections and Fillers
+--    Advanced cubical operations
+-----------------------------------------------------
+
+piece WeakConnections
+  -- weak-connection/or : for composition boundaries
+  weakconnor ::= "weak-connection/or" term term dimvar dimvar
+  
+  -- Symmetry filler for inverting paths
+  symmfiller ::= "symm/filler" term term dimvar dimvar
+
+-----------------------------------------------------
+-- 8. Square Types (2-dimensional paths)
+--    Essential for reasoning about path composition
+-----------------------------------------------------
+
+piece SquareTypes
+  -- square A a00 a01 a10 a11 p0- p1- p-0 p-1
+  -- A 2D path with 4 corners and 4 edges
+  squaretype ::= "square" term term term term term term term term term
+
+-----------------------------------------------------
+-- 9. Function Extensionality and Apd
+--    Derived principles in cubical TT
+-----------------------------------------------------
+
+piece FunExtApd
+  -- funext : ((x : A) → path B (f x) (g x)) → path (A → B) f g
+  funext ::= "funext" term term term term
+  
+  -- apd : (f : (x : A) → B x) → (p : path A a b) → pathd (λ i → B (p i)) (f a) (f b)
+  apd ::= "apd" term term term term
+
+-----------------------------------------------------
+-- Reduction Rules
+-----------------------------------------------------
+
+piece ReductionRules
+  reduction ::= name
+  
+  -- Path computation: [i] A [i=0 → M | i=1 → N] @ 0 ~~> M
+  rule path_at_zero:
+    (@ (pathtype $i $A (pathconstrs (pathconstr (constraint $i (izero)) $M) $rest)) (izero)) ~> $M
+
+  -- Path computation at 1
+  rule path_at_one:
+    (@ (pathtype $i $A (pathconstrs $first (pathconstr (constraint $i (ione)) $N))) (ione)) ~> $N
+
+  -- coe r r a in A ~~> a (reflexivity when endpoints equal)
+  rule coe_refl_zero:
+    (coeexpr (izero) (izero) $a $A) ~> $a
+
+  rule coe_refl_one:
+    (coeexpr (ione) (ione) $a $A) ~> $a
+
+  -- comp with all faces equal reduces
+  rule comp_refl:
+    (compexpr (izero) (izero) $a $bdy) ~> $a
+
+  -- Projection rules
+  rule proj_fst:
+    (proj1 (pair $a $b)) ~> $a
+
+  rule proj_snd:
+    (proj2 (pair $a $b)) ~> $b
+
+  -- Lambda application (β-reduction)
+  rule beta_lam:
+    (app (lam $x $body) $arg) ~> (subst $x $arg $body)
+
+-----------------------------------------------------
+-- Tests for parsing redtt constructs
+-----------------------------------------------------
+
+piece Tests
+  -- Universe types
+  test "type": type ~~> type
+  test "type_level": (typeN 1) ~~> (typeN 1)
+
+  -- Path types
+  test "path_sugar": (pathsugar A M N) ~~> (pathsugar A M N)
+  test "pathd_sugar": (pathdsugar A M N) ~~> (pathdsugar A M N)
+
+  -- Extension type [i] A [i=0 → M | i=1 → N]
+  test "pathtype": (pathtype i A (pathconstrs (pathconstr (constraint i (izero)) M) (pathconstr (constraint i (ione)) N)))
+    ~~> (pathtype i A (pathconstrs (pathconstr (constraint i (izero)) M) (pathconstr (constraint i (ione)) N)))
+
+  -- Sigma types
+  test "sigma": (sigma x A (app B x)) ~~> (sigma x A (app B x))
+  test "prod": (prod A B) ~~> (prod A B)
+  test "pair": (pair a b) ~~> (pair a b)
+
+  -- Projections
+  test "proj_fst": (proj1 (pair a b)) ~~> a
+  test "proj_snd": (proj2 (pair a b)) ~~> b
+
+  -- coe reflexivity
+  test "coe_0_0": (coeexpr (izero) (izero) a A) ~~> a
+  test "coe_1_1": (coeexpr (ione) (ione) a A) ~~> a
+
+  -- comp
+  test "comp_basic": (compexpr (izero) (ione) a (compconstrs (compconstr (constraint i (izero)) M)))
+    ~~> (compexpr (izero) (ione) a (compconstrs (compconstr (constraint i (izero)) M)))
+
+  -- Data declarations
+  test "data_bool": (datadecl (datacons (datacon tt) (datacon ff)))
+    ~~> (datadecl (datacons (datacon tt) (datacon ff)))
+
+-- HIT constructors (S¹)
+  test "data_s1_loop": (datacon loop (dataconarg i interval) (databdy (databdyconstr (constraint i (izero)) base) (databdyconstr (constraint i (ione)) base)))
+  ~~> (datacon loop (dataconarg i interval) (databdy (databdyconstr (constraint i (izero)) base) (databdyconstr (constraint i (ione)) base)))
+
+-- Parameterized data (susp A)
+  test "data_susp": (datadecl (dataparams A type) susp (datacons (datacon north) (datacon south)))
+  ~~> (datadecl (dataparams A type) susp (datacons (datacon north) (datacon south)))
+
+-- Eliminators
+  test "elim_bool": (elimexpr (elimcases (elimcase tt M) (elimcase ff N)))
+  ~~> (elimexpr (elimcases (elimcase tt M) (elimcase ff N)))
+
+  test "elim_wildcard": (elimexpr (elimcases (elimcase (*) M)))
+  ~~> (elimexpr (elimcases (elimcase (*) M)))
+
+-- Lambda
+  test "lam": (lam x (app f x)) ~~> (lam x (app f x))
+  test "lam_wildcard": (lamstar M) ~~> (lamstar M)
+
+-- Beta reduction
+  test "beta": (app (lam x x) y) ~~> y
+
+-- Let expressions
+  test "let": (letexpr x A M N) ~~> (letexpr x A M N)
+
+-- =====================================================
+
+-----------------------------------------------------
+-- Additional Rules and Tests
+-- (Fancy Features properly structured)
+-----------------------------------------------------
+
+piece VTypeRules
+  vrule ::= name
+  
+  -- V type boundaries
+  rule vtype_at_zero:
+    (vtype (izero) $A $B $e) ~> $A
+
+  rule vtype_at_one:
+    (vtype (ione) $A $B $e) ~> $B
+
+  -- vin boundaries
+  rule vin_at_zero:
+    (vin (izero) $a $b) ~> $a
+
+  rule vin_at_one:
+    (vin (ione) $a $b) ~> $b
+
+  test "V_type_at_0": (vtype (izero) A B e) ~~> A
+  test "V_type_at_1": (vtype (ione) A B e) ~~> B
+  test "vin_at_0": (vin (izero) a b) ~~> a
+  test "vin_at_1": (vin (ione) a b) ~~> b
+  test "ua_def": (lam i (vtype i A B e)) ~~> (lam i (vtype i A B e))
+
+piece PatternLambdaRules
+  patlam_rule ::= name
+  
+  -- Pattern lambda applies pair eliminator automatically
+  rule lampair_apply:
+    (app (lampair $body) (pair $a $b)) ~> (subst2 fstvar $a sndvar $b $body)
+
+  -- Binding pattern extracts components
+  rule lampairbind_apply:
+    (app (lampairbind $x $y $body) (pair $a $b)) ~> (subst2 $x $a $y $b $body)
+
+  -- Wildcard pattern ignores both
+  rule lampairwild_apply:
+    (app (lampairwild $body) (pair $a $b)) ~> $body
+
+  test "lampair": (lampair (app fst fstvar)) ~~> (lampair (app fst fstvar))
+  test "lampairbind": (lampairbind x y (app f (pair y x))) 
+    ~~> (lampairbind x y (app f (pair y x)))
+  test "lampairwild_refl": (app (lampairwild refl) (pair a b)) ~~> refl
+
+piece UniversePolymorphismTests
+  universetest ::= name
+  
+  test "type_level_1": (typelevel 1) ~~> (typelevel 1)
+  test "type_level_2": (typelevel 2) ~~> (typelevel 2)
+  test "path_level": (pathlevel 1 type A B) ~~> (pathlevel 1 type A B)
+  test "is_contr_level": (iscontrlevel 1 (sigma A type (equivtype A B)))
+    ~~> (iscontrlevel 1 (sigma A type (equivtype A B)))
+
+piece ConnectionTests
+  connectiontest ::= name
+  
+  test "connection_or": (connectionor A p) ~~> (connectionor A p)
+  test "connection_and": (connectionand A p) ~~> (connectionand A p)
+  test "connection_both": (connectionboth A p q) ~~> (connectionboth A p q)
+
+piece EquivTests
+  equivtest ::= name
+  
+  test "fiber": (fibertype A B f b) ~~> (fibertype A B f b)
+  test "is_equiv": (isequiv A B f) ~~> (isequiv A B f)
+  test "equiv": (equivtype A B) ~~> (equivtype A B)
+  test "id_equiv": (idequiv A) ~~> (idequiv A)
+  test "iso_to_equiv": (isotoequiv A B iso) ~~> (isotoequiv A B iso)
+
+piece RawTermTests
+  rawtermtest ::= name
+  
+  test "rawterm": (rawterm (vin i (fst x) (app filler (izero))))
+    ~~> (rawterm (vin i (fst x) (app filler (izero))))
+
+piece SquareTests
+  squaretest ::= name
+  
+  test "square": (squaretype A a00 a01 a10 a11 p0 p1 p_0 p_1)
+    ~~> (squaretype A a00 a01 a10 a11 p0 p1 p_0 p_1)
+
+piece FunExtTests
+  funexttest ::= name
+  
+  test "funext": (funext A B f g) ~~> (funext A B f g)
+  test "apd": (apd B f a b) ~~> (apd B f a b)
+
+piece SymmetryRules
+  symmrule ::= name
+  
+  rule symm_path:
+    (symm $p) ~> (lam i (app $p (neg i)))
+
+  test "symm_def": (lam p (lam i (app p (neg i)))) 
+    ~~> (lam p (lam i (app p (neg i))))
+
+-- -- =============================================================================
+-- TODO: Executable Language Checklist for Redtt
+-- Category: Cubical Type Theory (redtt/cooltt style)
+-- Current: 16 rules, 47 tests, 99 grammars
+-- Source: RedPRL/redtt, RedPRL/cooltt
+-- -- =============================================================================
+-- [x] Rules: 16 rules defined
+-- [x] Tests: 47 tests defined
+-- [ ] Normalization: Full path/coe computation
+-- [ ] Confluence: Verify cubical reduction confluence
+-- [ ] Keywords: cuts := ["piece", "rule", "test", "def", "data", "import"]
+-- -- =============================================================================
+-- Missing for full executability:
+--
+-- 1. PATH COMPUTATION
+--    - Full path application: (@ p r) where r is dimension expression
+--    - Path abstraction intro/elim
+--    - Reflexivity: refl a : path A a a
+--    - Symmetry: symm p : path A b a when p : path A a b
+--    - Transitivity: trans p q : path A a c
+--
+-- 2. COE/TRANSPORT
+--    - coe r r' a in A - full computation with type formers
+--    - coe through Π: coe (Π A B) = λx. coe B (coe A⁻¹ x)
+--    - coe through Σ: coe (Σ A B) = (coe A fst, coe B snd)
+--    - coe through path types
+--
+-- 3. HCOM (Homogeneous Composition)
+--    - hcom r r' a [φ → u] - compose with boundary
+--    - Face lattice operations: ∧, ∨, ~
+--    - Kan filling conditions
+--
+-- 4. HIGHER INDUCTIVE TYPES
+--    - S¹ (circle): base, loop
+--    - S² (sphere): base, surf  
+--    - T² (torus): pt, p, q, f
+--    - Suspension, Pushouts
+--    - Path constructors compute on endpoints
+--
+-- 5. V TYPES (Univalence)
+--    - V i A B e : glue type
+--    - Compute at 0/1: V 0 A B e ≡ A, V 1 A B e ≡ B
+--    - ua : equiv A B → path type A B
+--
+-- 6. PATTERN LAMBDAS (from cooltt)
+--    - λ [,] → body (pair pattern)
+--    - λ [| case → body] (inline elim)
+--
+-- RECOVERY FROM TRUNCATION:
+-- The following tests were simplified and need full implementations:
+--   - lamelim_s1: λ [| base → M | loop i → N]
+--   - t2c_pt: torus → (s1 × s1) at point
+--   - c2t_structure: (s1 × s1) → torus structure
+--   - hopf_base: Hopf fibration S³ → S² at base
+--   - hopf_structure: Full Hopf construction
+--
+-- REFERENCE IMPLEMENTATIONS:
+--   - RedPRL/redtt: src/core/*.ml (reduction rules)
+--   - RedPRL/cooltt: src/core/*.ml (newer implementation)
+--   - test/elab.cooltt, test/path.cooltt (examples)
+-- -- =============================================================================

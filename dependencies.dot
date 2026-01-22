@@ -1,0 +1,134 @@
+// Lego Module Dependencies
+// 
+// Algebra: Directed acyclic graph (DAG)
+// Each module represents a distinct algebraic structure
+//
+// Project: Lego Interpreter (self-contained DSL for language composition)
+// Layout: interpreter/, prelude/, examples/, test/
+//
+// CORE INSIGHT:
+// ------------
+// Lego uses 5 pieces + 3 operations for language composition:
+//   Pieces: Vocab, Grammar, Rules, Types, Tests
+//   Operations: Pushout composition (⊕), sequential (·), parallel (‖)
+//
+// Render: dot -Tpng dependencies.dot -o dependencies.png
+//         dot -Tsvg dependencies.dot -o dependencies.svg
+
+digraph LegoModules {
+  rankdir=BT;  // Bottom to top
+  node [shape=box, style=rounded, fontname="Helvetica"];
+  edge [color="#666666"];
+
+  // External dependencies (shown as ellipses)
+  node [shape=ellipse, style=dashed, color="#999999"];
+  DataMap [label="Data.Map"];
+  DataSet [label="Data.Set"];
+
+  // === Core Types (Foundation) ===
+  
+  subgraph cluster_core {
+    label="Core Types";
+    style=rounded;
+    color="#1565c0";
+    node [shape=box, style="rounded,filled", fillcolor="#e3f2fd"];
+    
+    Internal [label="Lego.Internal\nFix, ExprF, cata, ana\nInitial Algebra"];
+    Error [label="Lego.Error\nError handling"];
+    Lego [label="Lego\nTerm, GrammarExpr\n5 Pieces + 3 Ops"];
+  }
+
+  // === Tokenization ===
+  
+  subgraph cluster_token {
+    label="Tokenization";
+    style=rounded;
+    color="#7b1fa2";
+    node [shape=box, style="rounded,filled", fillcolor="#f3e5f5"];
+    
+    Token [label="Lego.Token\nFree Monoid\ntokenize"];
+    Vocabulary [label="Lego.Vocabulary\nVocab Algebra"];
+  }
+
+  // === Grammar System ===
+  
+  subgraph cluster_grammar {
+    label="Grammar System";
+    style=rounded;
+    color="#388e3c";
+    node [shape=box, style="rounded,filled", fillcolor="#e8f5e9"];
+    
+    GrammarDef [label="Lego.GrammarDef\nLoads from Grammar.sexpr"];
+    SExpr [label="Lego.SExpr\nPortable S-expr format"];
+    GrammarInterp [label="Lego.GrammarInterp\nBidirectional Parser\nparse ↔ print"];
+    GrammarParser [label="Lego.GrammarParser\n.lego file parser"];
+    GrammarAnalysis [label="Lego.GrammarAnalysis\ncollectLiterals"];
+  }
+
+  // === Evaluation ===
+  
+  subgraph cluster_eval {
+    label="Evaluation";
+    style=rounded;
+    color="#f57c00";
+    node [shape=box, style="rounded,filled", fillcolor="#fff3e0"];
+    
+    Builtins [label="Lego.Builtins\nsubstTerm, builtinStep"];
+    Eval [label="Lego.Eval\nLanguage loader\nnormalize"];
+    Registry [label="Lego.Registry\nimport resolution"];
+    RewriteMachine [label="Lego.RewriteMachine\n(experimental)"];
+  }
+
+  // === Executables ===
+  
+  subgraph cluster_exe {
+    label="Executables";
+    style=rounded;
+    color="#c62828";
+    node [shape=box, style="rounded,filled", fillcolor="#ffebee"];
+    
+    Main [label="Main\nTest runner"];
+    Repl [label="Repl\nInteractive REPL"];
+  }
+
+  // === Dependencies ===
+  
+  // Core
+  Internal -> DataMap [style=dashed];
+  Error -> {};
+  Lego -> Internal;
+  Lego -> Error;
+  Lego -> Builtins;
+
+  // Token layer
+  Token -> DataSet [style=dashed];
+  Vocabulary -> DataSet [style=dashed];
+
+  // Grammar layer
+  SExpr -> Lego;
+  GrammarDef -> Lego;
+  GrammarDef -> SExpr;
+  GrammarInterp -> Lego;
+  GrammarInterp -> Token;
+  GrammarInterp -> GrammarDef;
+  GrammarParser -> Lego;
+  GrammarParser -> Token;
+  GrammarParser -> GrammarDef;
+  GrammarParser -> GrammarInterp;
+  GrammarAnalysis -> Lego;
+  GrammarAnalysis -> Vocabulary;
+
+  // Eval layer
+  Builtins -> Internal;
+  Eval -> Lego;
+  Eval -> GrammarParser;
+  Eval -> GrammarInterp;
+  Eval -> GrammarAnalysis;
+  Eval -> Token;
+  Registry -> Eval;
+
+  // Executables
+  Main -> Lego;
+  Repl -> Eval;
+  Repl -> Token;
+}

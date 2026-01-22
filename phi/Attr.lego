@@ -1,0 +1,99 @@
+-- Phi in Lego: Attribute Grammars
+-- This is the Lego equivalent of src/Phi/Grammar/Attr.hs
+
+lang Attr :=
+  import Grammar
+  
+  -- Attribute Grammars: grammars with synthesized and inherited attributes
+  -- Syn: computed bottom-up (from children to parent)
+  -- Inh: computed top-down (from parent to children)
+  
+  grammar:
+    AttrDecl ::= ('syn' | 'inh') identifier ':' Ty
+    AttrRule ::= identifier '.' identifier '=' Term
+    
+  rules:
+    -- Attribute lookup
+    (lookupAttr $node $attr $env) ~>
+      (case (lookup (pair $node $attr) $env)
+        (just $v) $v
+        nothing (error (concat "undefined attribute: " $attr)))
+    
+    -- Synthesized attribute: depends on children
+    (evalSyn $attr $node $children) ~>
+      (case (lookupRule $node $attr syn-rules)
+        (just $rule) (evalAttrExpr $rule $node $children)
+        nothing (error "no rule for synthesized attribute"))
+    
+    -- Inherited attribute: depends on parent and siblings
+    (evalInh $attr $node $parent $siblings) ~>
+      (case (lookupRule $node $attr inh-rules)
+        (just $rule) (evalAttrExpr $rule $parent $siblings)
+        nothing (error "no rule for inherited attribute"))
+    
+    -- Attribute expression evaluation
+    (evalAttrExpr (attrRef $n $a) $env) ~> (lookupAttr $n $a $env)
+    (evalAttrExpr (lit $l) $env) ~> $l
+    (evalAttrExpr (app $f $a) $env) ~> 
+      (apply (evalAttrExpr $f $env) (evalAttrExpr $a $env))
+
+lang AttrSchedule :=
+  import Attr
+  
+  -- Attribute scheduling: determine evaluation order
+  -- Dependencies form a DAG; topological sort gives valid order
+  
+  rules:
+    -- Build dependency graph
+    (attrDeps $rule) ~>
+      (collectDeps $rule)
+    
+    (collectDeps (attrRef $n $a)) ~> (singleton (pair $n $a))
+    (collectDeps (lit $l)) ~> empty
+    (collectDeps (app $f $a)) ~> 
+      (union (collectDeps $f) (collectDeps $a))
+    
+    -- Schedule: topological sort of dependency graph
+    (schedule $rules) ~>
+      (topoSort (buildDepGraph $rules))
+    
+    -- Circular check: detect cycles in dependencies
+    (checkCircular $rules) ~>
+      (case (findCycle (buildDepGraph $rules))
+        nothing ok
+        (just $cycle) (error (concat "circular dependency: " $cycle)))
+
+lang CircularAttr :=
+  import Attr
+  import AttrSchedule
+  
+  -- Circular attribute grammars: allow certain cycles via fixpoint
+  -- Requires lattice structure on attribute domains
+  
+  rules:
+    -- Evaluate circular attributes via iteration
+    (evalCircular $attrs $node $children) ~>
+      (fixpoint
+        (fn $env (evalAllAttrs $attrs $node $children $env))
+        (initialEnv $attrs))
+    
+    -- Fixpoint iteration with fuel
+    (fixpoint $f $init) ~> (fixpointN 100 $f $init)
+    
+    (fixpointN 0 $f $x) ~> $x  -- fuel exhausted
+    (fixpointN $n $f $x) ~>
+      (let $x' ($f $x)
+        (if (eq $x $x')
+          $x'  -- converged
+          (fixpointN (pred $n) $f $x')))
+    
+    -- Join: combine values in lattice (for least fixpoint)
+    (joinAttr $v1 $v2) ~>
+      (case (attrType $v1)
+        intType (max $v1 $v2)
+        boolType (or $v1 $v2)
+        setType (union $v1 $v2)
+        _ (if (leq $v1 $v2) $v2 $v1))
+
+-- Composition: attribute grammars with scheduling and circular support
+lang AttrLang := Attr + AttrSchedule + CircularAttr

@@ -1,0 +1,142 @@
+-- ============================================================
+-- Clang.lego
+-- A simplified Clang-like C language with operational semantics
+-- This mirrors the intent of ClangIR (CIR), not full ISO C
+-- ============================================================
+
+import Base
+
+lang Clang (Base) :=
+
+------------------------------------------------------------
+-- Types
+------------------------------------------------------------
+piece CType
+  ctype ::= "int" | "bool" | "(" "ptr" ctype ")" | "(" "fun" ctypes ctype ")"
+  ctypes ::= "(" ctype* ")"
+
+------------------------------------------------------------
+-- Expressions
+------------------------------------------------------------
+piece CExpr
+  expr ::= "(" "var" name ")"
+         | "(" "intlit" nat ")"
+         | "(" "boollit" bool ")"
+         | "(" "binop" binop expr expr ")"
+         | "(" "call" expr exprs ")"
+         | "(" "load" expr ")"
+         | "(" "addr" expr ")"
+
+  exprs ::= "(" expr* ")"
+  binop ::= Add | Sub | Mul | Eq | Lt
+  Add ::= "+"
+  Sub ::= "-"
+  Mul ::= "*"
+  Div ::= "/"
+  Eq ::= "=="
+  Lt ::= "<"
+
+------------------------------------------------------------
+-- Statements
+------------------------------------------------------------
+piece CStmt
+  stmt ::= skip
+         | "(" "assign" expr expr ")"
+         | "(" "seq" stmt stmt ")"
+         | "(" "if" expr stmt stmt ")"
+         | "(" "while" expr stmt ")"
+         | "(" "return" expr ")"
+         | "(" "decl" name ctype expr ")"
+  skip ::= "skip"
+
+------------------------------------------------------------
+-- Functions and programs
+------------------------------------------------------------
+piece CDecl
+  param ::= "(" name ":" ctype ")"
+  params ::= param*
+  fundef ::= "(" "fun" name params ctype stmt ")"
+  program ::= "(" "program" fundefs ")"
+  fundefs ::= fundef*
+
+------------------------------------------------------------
+-- Runtime values
+------------------------------------------------------------
+piece CValue
+  value ::= "(" "intv" nat ")"
+          | "(" "boolv" bool ")"
+          | "(" "addrv" loc ")"
+
+------------------------------------------------------------
+-- Memory model
+------------------------------------------------------------
+piece Memory
+  loc ::= "(" "loc" nat ")"
+  store ::= "(" "store" storebindings ")"
+  storebindings ::= storebinding*
+  storebinding ::= "(" loc "↦" value ")"
+
+  env ::= "(" "env" envbindings ")"
+  envbindings ::= envbinding*
+  envbinding ::= "(" name "↦" loc ")"
+
+------------------------------------------------------------
+-- Interpreter state
+------------------------------------------------------------
+piece CState
+  state ::= "(" "state" stmt env store ")"
+  result ::= "(" "done" value store ")"
+           | "(" "step" state ")"
+
+------------------------------------------------------------
+-- Expression evaluation (big-step)
+-- We use (eval E env store) ~> V pattern
+------------------------------------------------------------
+piece CEval
+  evalexpr ::= "(" "eval" expr env store ")"
+  evalresult ::= value
+
+  -- Integer literal
+  rule eval_int:
+    (eval (intlit $n) $env $store) ~> (intv $n)
+
+  -- Boolean literal
+  rule eval_bool:
+    (eval (boollit $b) $env $store) ~> (boolv $b)
+
+  -- Binary add (match any binop with Add)
+  rule eval_add:
+    (eval (binop Add (intlit $n1) (intlit $n2)) $env $store) ~> (intv (add $n1 $n2))
+  
+  -- Binary sub
+  rule eval_sub:
+    (eval (binop Sub (intlit $n1) (intlit $n2)) $env $store) ~> (intv (sub $n1 $n2))
+  
+  -- Binary multiply
+  rule eval_mul:
+    (eval (binop Mul (intlit $n1) (intlit $n2)) $env $store) ~> (intv (mul $n1 $n2))
+
+  -- Tests
+  test "eval_int": _
+  test "eval_bool": _
+  test "eval_add": _
+
+------------------------------------------------------------
+-- Statement small-step semantics
+-- We use (step State) ~> Result pattern
+------------------------------------------------------------
+piece CStep
+  stepexpr ::= "(" "stepstmt" state ")"
+
+  -- seq skip: (seq skip s) steps to s
+  rule step_seq_skip:
+    (stepstmt (state (seq skip $s) $env $store)) ~> (step (state $s $env $store))
+  
+  -- return: (return (intlit n)) produces done
+  rule step_return:
+    (stepstmt (state (return (intlit $n)) $env $store)) ~> (done (intv $n) $store)
+  
+  -- Tests
+  test "step_seq_skip": _
+  
+  test "step_return": _

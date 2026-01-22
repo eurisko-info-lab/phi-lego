@@ -1,0 +1,144 @@
+-- Optics.lego: Optics (lenses, prisms, etc.)
+-- Profunctor and van Laarhoven representations
+-- Composes: Category
+
+import Category
+
+lang Optics (Category) :=
+
+-----------------------------------------------------
+-- Core optic type
+-----------------------------------------------------
+piece OpticType
+  optic ::= "Optic" term term term term  -- Optic p s t a b
+          | term "." term           -- optic composition
+
+-----------------------------------------------------
+-- Lens (focus on product)
+-----------------------------------------------------
+piece Lens
+  lens ::= "Lens" type type type type   -- Lens s t a b
+         | "Lens'" type type            -- simple lens
+         | "lens" term term             -- lens from get/set
+         | "view" term term             -- get
+         | "set" term term term         -- set
+         | "over" term term term        -- modify
+
+-----------------------------------------------------
+-- Prism (focus on sum)
+-----------------------------------------------------
+piece Prism
+  prism ::= "Prism" type type type type
+          | "Prism'" type type
+          | "prism" term term           -- from match/build
+          | "preview" term term         -- Maybe a
+          | "review" term term          -- build s from a
+          | "_Left" | "_Right"          -- standard prisms
+          | "_Just" | "_Nothing"
+
+-----------------------------------------------------
+-- Traversal (focus on many)
+-----------------------------------------------------
+piece Traversal
+  traversal ::= "Traversal" type type type type
+              | "Traversal'" type type
+              | "traverseOf" term term term
+              | "toListOf" term term
+              | "each"                  -- traverse container
+              | "filtered" term         -- with predicate
+
+-----------------------------------------------------
+-- Iso (bijection)
+-----------------------------------------------------
+piece Iso
+  iso ::= "Iso" type type type type
+        | "Iso'" type type
+        | "iso" term term               -- from to/from
+        | "from" term                   -- reverse iso
+        | "enum"                        -- Enum iso
+        | "non" term                    -- Maybe with default
+
+-----------------------------------------------------
+-- Affine (optional focus)
+-----------------------------------------------------
+piece Affine
+  affine ::= "Affine" type type type type
+           | "Affine'" type type
+           | "affine" term term         -- from preview/set
+           | "ix" term                  -- index into collection
+
+-----------------------------------------------------
+-- Getter and Setter
+-----------------------------------------------------
+piece GetSet
+  getter ::= "Getter" type type
+           | "to" term                  -- getter from function
+           | "like" term                -- constant getter
+
+  setter ::= "Setter" type type type type
+           | "sets" term                -- setter from modify
+           | "mapped"                   -- fmap as setter
+
+-----------------------------------------------------
+-- Fold
+-----------------------------------------------------
+piece Fold
+  fold ::= "Fold" type type
+         | "folding" term               -- fold from foldable
+         | "folded"                     -- standard fold
+         | "sumOf" term term            -- sum through fold
+         | "allOf" term term term       -- all satisfy predicate
+
+-----------------------------------------------------
+-- Optic composition
+-----------------------------------------------------
+piece OpticComp
+  ocomp ::= term "%" term               -- operator composition
+          | "re" term                   -- reverse optic
+          | "singular" term             -- traversal to affine
+
+-----------------------------------------------------
+-- Profunctor optics
+-----------------------------------------------------
+piece ProfOptic
+  profop ::= "Strong" term              -- lens constraint
+           | "Choice" term              -- prism constraint
+           | "Wander" term              -- traversal constraint
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule view_set:
+  (view $l (set $l $a $s)) ~> $a
+
+rule set_view:
+  (set $l (view $l $s) $s) ~> $s
+
+rule set_set:
+  (set $l $a (set $l $b $s)) ~> (set $l $a $s)
+
+rule over_id:
+  (over $l id $s) ~> $s
+
+rule compose_view:
+  (view ($l1 . $l2) $s) ~> (view $l2 (view $l1 $s))
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "lens_type": (Lens' Person String)
+test "view": (view _name person)
+test "set": (set _age 30 person)
+test "prism": (preview _Left either)
+test "traversal": (toListOf (each . _name) people)
+test "iso": (from _Reversed)
+test "compose": (_address . _street . _name)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Optics
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

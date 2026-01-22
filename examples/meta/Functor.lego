@@ -1,0 +1,130 @@
+-- Functor.lego: Functors and natural transformations
+-- Category theory foundations for programming
+-- Composes: Category
+
+import Category
+
+lang Functor (Category) :=
+
+-----------------------------------------------------
+-- Functor
+-----------------------------------------------------
+piece FunctorDef
+  functor ::= Functor | fmap | infix_fmap
+  Functor ::= "Functor" term        -- functor constraint
+  fmap ::= "fmap" term term         -- morphism mapping
+  infix_fmap ::= term "⟨$⟩" term    -- infix fmap
+
+  rule fmap_id:
+    (fmap (id $A) $fa) ~> $fa
+
+  rule fmap_compose:
+    (fmap (∘ $f $g) $fa) ~> (fmap $f (fmap $g $fa))
+
+  test "functor": (Functor List)
+  test "fmap": (fmap f xs)
+
+-----------------------------------------------------
+-- Bifunctor
+-----------------------------------------------------
+piece BifunctorDef
+  bifunctor ::= Bifunctor | bimap | first | second
+  Bifunctor ::= "Bifunctor" term
+  bimap ::= "bimap" term term term
+  first ::= "first" term term
+  second ::= "second" term term
+
+  test "bifunctor": (Bifunctor Either)
+  test "bimap": (bimap f g p)
+
+-----------------------------------------------------
+-- Profunctor
+-----------------------------------------------------
+piece ProfunctorDef
+  profunctor ::= Profunctor | dimap | lmap | rmap
+  Profunctor ::= "Profunctor" term
+  dimap ::= "dimap" term term term
+  lmap ::= "lmap" term term
+  rmap ::= "rmap" term term
+
+  test "profunctor": (Profunctor Arrow)
+
+-----------------------------------------------------
+-- Natural transformation
+-----------------------------------------------------
+piece NatTrans
+  nattrans ::= nat_arrow | Nat | nt | eta | mu
+  nat_arrow ::= term "⟹" term       -- natural transformation
+  Nat ::= "Nat" term term           -- Nat F G
+  nt ::= "nt" term                  -- component of NT
+  eta ::= "η" term                  -- unit
+  mu ::= "μ" term                   -- multiplication
+
+  rule nat_naturality:
+    (∘ (nt $α) (fmap $f)) ~> (∘ (fmap $f) (nt $α))
+
+  test "nat_trans": (nat_arrow List Maybe)
+
+-----------------------------------------------------
+-- Adjunction
+-----------------------------------------------------
+piece Adjunction
+  adj ::= adjoint_pair | unit_adj | counit_adj | adjoint_transpose
+  adjoint_pair ::= term "⊣" term    -- L ⊣ R adjunction
+  unit_adj ::= "unit" term          -- unit of adjunction
+  counit_adj ::= "counit" term      -- counit of adjunction
+  adjoint_transpose ::= "adjoint" term term term
+
+  test "adjunction": (adjoint_pair Free Forget)
+
+-----------------------------------------------------
+-- Monad as functor
+-----------------------------------------------------
+piece MonadF
+  monadf ::= Monad | return | join | bind
+  Monad ::= "Monad" term            -- monad constraint
+  return ::= "return" term          -- unit
+  join ::= "join" term              -- multiplication
+  bind ::= term ">>=" term          -- bind
+
+  rule monad_left_unit:
+    (bind (return $a) $f) ~> ($f $a)
+
+  rule monad_right_unit:
+    (bind $m return) ~> $m
+
+  test "monad": (Monad IO)
+  test "bind": (bind m f)
+
+-----------------------------------------------------
+-- Comonad
+-----------------------------------------------------
+piece Comonad
+  comonad ::= ComonadC | extract | duplicate | extend
+  ComonadC ::= "Comonad" term
+  extract ::= "extract" term        -- counit
+  duplicate ::= "duplicate" term    -- comultiplication
+  extend ::= "extend" term term     -- cobind
+
+  test "comonad": (Comonad Stream)
+
+-----------------------------------------------------
+-- Kan extensions
+-----------------------------------------------------
+piece Kan
+  kan ::= Lan | Ran | lan | ran
+  Lan ::= "Lan" term term           -- left Kan extension
+  Ran ::= "Ran" term term           -- right Kan extension
+  lan ::= "lan" term                -- component
+  ran ::= "ran" term                -- component
+
+  test "lan": (Lan F G)
+  test "ran": (Ran F G)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Functor
+-- =============================================================================
+-- [ ] Normalize: reduction rules
+-- [ ] Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
+-- TODO: Functor needs reduction rules

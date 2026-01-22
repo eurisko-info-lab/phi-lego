@@ -1,0 +1,9 @@
+-- ERROR TEST: Empty alternative in grammar
+-- Expected: Parse error or empty alternative warning
+
+lang EmptyAlternative :=
+
+expr ::= num |    -- trailing pipe with nothing after
+num ::= "0"
+
+test "empty_alt": 0 ~~> 0

@@ -1,0 +1,8 @@
+-- ERROR TEST: Missing language name
+-- Expected: Parse error about missing identifier
+
+lang :=
+
+num ::= "0"
+
+test "no_name": 0 ~~> 0

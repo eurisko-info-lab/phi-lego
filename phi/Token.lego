@@ -1,0 +1,80 @@
+-- Phi in Lego: Token & Vocabulary
+-- This is the Lego equivalent of src/Phi/Syntax/Token.hs and Vocab.hs
+
+lang Token :=
+  -- Tok: The free monoid of tokens
+  -- tokenize . untokenize = id (round-trip law)
+  
+  grammar:
+    -- Identifier
+    | id:Name                          → ⟨ident id⟩
+    
+    -- Keyword
+    | kw:Name                          → ⟨keyword kw⟩
+    
+    -- Symbol
+    | sym:Name                         → ⟨symbol sym⟩
+    
+    -- String literal
+    | "\"" s:String "\""               → ⟨string s⟩
+    
+    -- Number
+    | n:Number                         → ⟨number n⟩
+    
+    -- Whitespace (ignored)
+    | ws:Whitespace                    → ⟨space⟩
+    
+    -- Comment
+    | "--" rest:String                 → ⟨comment rest⟩
+  
+  -- Token stream is a list (free monoid)
+  rules:
+    -- Concatenation is associative
+    (concat (concat $a $b) $c) ~> (concat $a (concat $b $c))
+    
+    -- Empty is identity
+    (concat nil $ts) ~> $ts
+    (concat $ts nil) ~> $ts
+
+lang Vocab :=
+  import Token
+  
+  -- Vocabulary = keywords + symbols
+  -- Used to distinguish identifiers from keywords during tokenization
+  
+  grammar:
+    vocab := "vocab" ":" "{" "keywords" keywords:Name* "}" 
+                          "{" "symbols" symbols:Name* "}"
+  
+  -- Vocabulary pushout: merge keywords and symbols
+  -- Conflict resolution: both sets union
+  rules:
+    (poVocab (vocab $kw1 $sym1) (vocab $kw2 $sym2)) 
+      ~> (vocab (union $kw1 $kw2) (union $sym1 $sym2))
+
+lang Tokenize :=
+  import Token
+  import Vocab
+  
+  -- tokenize : Vocab → String → [Tok]
+  -- The main tokenization function
+  
+  rules:
+    -- Empty string
+    (tokenize $v "") ~> nil
+    
+    -- Whitespace: skip
+    (tokenize $v (cons " " $rest)) ~> (tokenize $v $rest)
+    (tokenize $v (cons "\n" $rest)) ~> (tokenize $v $rest)
+    
+    -- String literal
+    (tokenize $v (cons "\"" $rest)) ~> 
+      (let (s, rest2) (spanUntil "\"" $rest)
+           (cons (string $s) (tokenize $v $rest2)))
+    
+    -- Comment: skip to newline
+    (tokenize $v (cons "-" (cons "-" $rest))) ~>
+      (tokenize $v (dropUntil "\n" $rest))
+    
+    -- Otherwise: read identifier/keyword/symbol
+    -- (complex logic elided)

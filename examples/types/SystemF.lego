@@ -1,0 +1,59 @@
+-- SystemF.lego: System F (Polymorphic Lambda Calculus)
+-- Second-order lambda calculus with type abstraction
+-- Composes: Base
+
+import Base
+
+lang SystemF (Base) :=
+
+-----------------------------------------------------
+-- Types
+-----------------------------------------------------
+piece Type
+  polytype ::= tvar | arrow | tforall
+  tvar ::= "'" name
+  arrow ::= "(" polytype "->" polytype ")"
+  tforall ::= "(" "forall" name polytype ")"
+
+-----------------------------------------------------
+-- Terms (S-expression style)
+-----------------------------------------------------
+piece Term
+  term ::= var | lam | app | tlam | tapp
+  var ::= "(" "var" name ")"
+  lam ::= "(" "lam" name polytype term ")"
+  app ::= "(" "app" term term ")"
+  tlam ::= "(" "Lam" name term ")"
+  tapp ::= "(" "tapp" term polytype ")"
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule beta:
+  (app (lam $x $A $body) $arg) ~> $body
+
+rule type_beta:
+  (tapp (Lam $X $body) $T) ~> $body
+
+rule eta:
+  (lam $x $A (app $f (var $x))) ~> $f
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "type_var": (tvar a)
+test "arrow_type": (arrow (tvar a) (tvar b))
+test "forall_type": (tforall a (tvar a))
+test "poly_id": (Lam A (lam x (tvar A) (var x)))
+test "beta_test": (app (lam x (tvar a) (var x)) (var y)) ~~> result
+test "type_beta_test": (tapp (Lam A (lam x (tvar A) (var x))) (tvar Int)) ~~> result
+test "church_nat": (tforall X (arrow (arrow (tvar X) (tvar X)) (arrow (tvar X) (tvar X))))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for SystemF
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: System F polymorphism
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

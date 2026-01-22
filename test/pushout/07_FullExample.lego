@@ -1,0 +1,141 @@
+-- 07_FullExample.lego: Complete example showing all features
+--
+-- A realistic language definition that exercises:
+-- - Incremental pushout
+-- - Grammar references
+-- - EOF markers
+-- - Conflict resolution
+
+lang MiniML :=
+
+-----------------------------------------------------
+-- Core expressions
+-----------------------------------------------------
+piece Core
+  -- Entry points
+  expr ::= app | atom
+  atom ::= var | lit | paren
+  
+  -- Atoms
+  var ::= <ident>
+  lit ::= num | bool
+  num ::= <digits>
+  bool ::= "true" | "false"
+  paren ::= "(" expr ")"
+  
+  -- Application (left-associative via iteration)
+  app ::= atom atom+
+
+-- L = Core
+
+test "core_var": x
+test "core_app": (f x y)
+
+-----------------------------------------------------
+-- Lambda abstraction
+-----------------------------------------------------
+piece Lambda
+  -- Extend expr with lambda
+  expr ::= lam | app | atom    -- SHADOWS Core.expr
+  lam ::= "λ" <ident>+ "." expr
+  
+  -- Note: We include app and atom to maintain alternatives
+
+-- L = Core ⊔ Lambda
+-- Lambda.expr shadows Core.expr
+
+test "lam_simple": (λ x . x)
+test "lam_multi": (λ x y . x)
+
+-----------------------------------------------------
+-- Let bindings
+-----------------------------------------------------
+piece Let
+  expr ::= letbind | lam | app | atom  -- extends further
+  letbind ::= "let" <ident> "=" expr "in" expr
+
+-- L = Core ⊔ Lambda ⊔ Let
+
+test "let_simple": (let x = 1 in x)
+test "let_nested": (let f = (λ x . x) in (f 1))
+
+-----------------------------------------------------
+-- Type annotations
+-----------------------------------------------------
+piece Types
+  -- Add type annotation
+  expr ::= ann | letbind | lam | app | atom
+  ann ::= expr ":" type
+  
+  -- Type grammar
+  type ::= tvar | tfun | tparen
+  tvar ::= <ident>
+  tfun ::= type "->" type
+  tparen ::= "(" type ")"
+
+-- L = Core ⊔ Lambda ⊔ Let ⊔ Types
+
+test "typed": (x : Int)
+test "typed_fun": ((λ x . x) : (Int -> Int))
+
+-----------------------------------------------------
+-- Rules for evaluation
+-----------------------------------------------------
+
+-- Beta reduction
+rule beta:
+  ((λ $x . $body) $arg) ~> (subst $x $arg $body)
+
+-- Let unfolding
+rule let_unfold:
+  (let $x = $e in $body) ~> (subst $x $e $body)
+
+-- Type erasure (for untyped evaluation)
+rule erase_type:
+  ($e : $t) ~> $e
+
+-----------------------------------------------------
+-- Evaluation tests
+-----------------------------------------------------
+
+test "eval_beta": ((λ x . x) y) ~~> y
+test "eval_let": (let x = 1 in x) ~~> 1
+test "eval_typed": ((x : Int)) ~~> x
+
+-----------------------------------------------------
+-- Laws (algebraic properties)
+-----------------------------------------------------
+
+law "beta_value": ((λ x . $body) $v) ≅ (subst x $v $body)
+law "let_beta": (let x = $e in $body) ≅ ((λ x . $body) $e)
+law "type_erasure": ($e : $t) ≅ $e
+
+-----------------------------------------------------
+-- Demonstrate import
+-----------------------------------------------------
+
+-- To use MiniML in another file:
+--
+-- import MiniML
+--
+-- lang MyLang (MiniML) :=
+--   piece MyExtension
+--     expr ::= mycon | MiniML.expr
+--     mycon ::= "my" expr
+
+test "final": _
+
+-- =============================================================================
+-- Summary of pushout chain:
+--
+-- L₀ = ∅
+-- L₁ = Core
+-- L₂ = Core ⊔ Lambda       (Lambda.expr shadows Core.expr)
+-- L₃ = Core ⊔ Lambda ⊔ Let (Let.expr shadows Lambda.expr)
+-- L₄ = Core ⊔ Lambda ⊔ Let ⊔ Types (Types.expr shadows Let.expr)
+--
+-- Final L.expr = Types.expr = ann | letbind | lam | app | atom
+--
+-- Each piece adds one more alternative to expr
+-- This is the Expression Problem solved via incremental pushout!
+-- =============================================================================

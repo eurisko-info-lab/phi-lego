@@ -1,0 +1,193 @@
+-- CubicalIDE.lego: Cubical VM + IDE + Grammar Composition
+-- Supports Terms, Paths, HITs, Transport, Interaction Nets
+-- Modular pieces + microcode + bidirectional grammar pushouts
+
+lang CubicalIDE :=
+
+-----------------------------------------------------
+-- Term Syntax
+-----------------------------------------------------
+piece Term
+  term ::= var | lam | app | path | hit | coe
+  var ::= "(" "var" name ")"
+  lam ::= "(" "lam" name type term ")"
+  app ::= "(" "app" term term ")"
+  path ::= "refl" term
+         | term "·" term
+         | term "⁻¹"
+         | "J" term term term term
+  hit ::= "circle" | "S¹" | "base" | "loop"
+        | "susp" term
+        | "trunc" nat term
+        | "∥" term "∥" nat
+  coe ::= "coe" term term term
+  type ::= "Type" | name
+
+-----------------------------------------------------
+-- Interaction Net Nodes
+-----------------------------------------------------
+piece Node
+  node ::= "lam" term
+         | "app" term
+         | "var" name
+         | "dup" term
+         | "era" term
+
+piece Edge
+  edge ::= "edge" term term
+
+piece Port
+  port ::= identifier '.' nat
+
+piece Net
+  net ::= "net" '{' (node | edge)* '}'
+
+-----------------------------------------------------
+-- Path Operations
+-----------------------------------------------------
+piece PathOps
+  pathop ::= term "·" term      -- composition
+           | term "⁻¹"          -- inverse
+           | "ap" term term     -- action on paths
+           | "apd" term term    -- dependent action
+
+-----------------------------------------------------
+-- Transport / Coercion
+-----------------------------------------------------
+piece Coe
+  coe ::= "coe" term term term   -- coe A i0 i1
+
+-----------------------------------------------------
+-- Higher Inductive Types
+-----------------------------------------------------
+piece HIT
+  hit ::= "circle" | "S¹" | "base" | "loop"
+        | "susp" term
+        | "trunc" nat term
+        | "∥" term "∥" nat
+
+-----------------------------------------------------
+-- Evaluation / Microcode Rules
+-----------------------------------------------------
+rules:
+
+-- Lambda calculus β
+rule beta:
+  (app (lam $x $t $body) $arg) ~> subst $x $arg $body
+
+-- Path eliminators
+rule refl_app:
+  (@ (refl $a) $i) ~> $a
+rule path_comp:
+  ($p · (refl $b)) ~> $p
+rule path_inverse:
+  ($p · ($p ⁻¹)) ~> (refl $a)
+
+-- Transport / coercion
+rule coe_i0:
+  (coe $A i0 $i1) ~> subst i0 i1 $A
+rule coe_i1:
+  (coe $A $i0 i1) ~> $A
+
+-- HIT loop simplifications
+rule loop_base:
+  (loop · base) ~> base
+rule susp_eval:
+  (susp $x) ~> $x
+
+-- INet microcode: Lam-App annihilation
+rule interact_lam_app:
+  (interact (lam $l) (app $a)) ~>
+    (net (edge (port $l 2) (port $a 0))
+         (edge (port $l 3) (port $a 2))))
+
+-- Duplication commuting
+rule interact_app_dup:
+  (interact (app $a) (dup $d)) ~>
+    (net (node app $a1) (node app $a2)
+         (node dup $d1) (node dup $d2)
+         (edge (port $d1 0) (port $a 1))
+         (edge (port $d1 1) (port $a1 1))
+         (edge (port $d1 2) (port $a2 1))
+         (edge (port $d2 0) (port $a 2))
+         (edge (port $d2 1) (port $a1 2))
+         (edge (port $d2 2) (port $a2 2))
+         (edge (port $a1 0) (port $d 1))
+         (edge (port $a2 0) (port $d 2))))
+
+-- Erasure
+rule interact_era:
+  (interact (era $e) (node $n $x)) ~>
+    (eraseAll (ports $n $x))
+rule eraseAll_nil:
+  (eraseAll nil) ~> (net)
+rule eraseAll_cons:
+  (eraseAll (cons $p $ps)) ~>
+    (let $e (fresh 1)
+      (netUnion (net (node era $e) (edge (port $e 0) $p))
+                (eraseAll $ps)))
+
+-----------------------------------------------------
+-- IDE / External Hooks
+-----------------------------------------------------
+piece IDE
+  ide ::= "open" term
+        | "typecheck" term
+        | "infer" term
+        | "check" term type
+        | "normalize" term
+        | "visualize" net
+
+rules:
+  rule open_file:
+    (open $t) ~> $t
+  rule typecheck_term:
+    (typecheck $t) ~> inferType $t
+  rule infer_term:
+    (infer $t) ~> inferType $t
+  rule check_term:
+    (check $t $ty) ~> typecheckTerm $t $ty
+  rule normalize_term:
+    (normalize $t) ~> eval $t
+  rule visualize_net:
+    (visualize $n) ~> renderGraph $n
+
+-----------------------------------------------------
+-- Bidirectional Grammar + Pushouts
+-----------------------------------------------------
+piece Grammar
+  grammar ::= "grammar" name '{' piece* '}'
+  pieceRef ::= "use" name
+
+piece Pushout
+  pushout ::= "pushout" name '{' pieceRef* '}'
+
+rules:
+  -- Include piece from another grammar
+  rule include_piece:
+    (use $p) ~> lookupPiece $p
+
+  -- Compose multiple grammars via pushout
+  rule compose_pushout:
+    (pushout $name $pieces) ~>
+      (foldl mergeGrammar emptyGrammar (map lookupPiece $pieces))
+
+  -- Merge two grammars
+  rule mergeGrammar:
+    (mergeGrammar $g1 $g2) ~>
+      (unionPieces $g1 $g2)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "id_fun": (lam x Type (var x))
+test "id_app": (app (lam x Type (var x)) (var y)) ~~> (var y)
+test "refl_path": (refl (var a))
+test "path_comp": ((refl (var a)) · (refl (var a))) ~~> (refl (var a))
+test "coe_test": (coe (var A) i0 i1) ~~> (var A)
+test "loop_base": (loop · base) ~~> base
+test "interact_test":
+  (interact (lam (var x)) (app (var f))) ~~> net
+
+test "grammar_pushout":
+  (pushout CubicalExt { use Term use PathOps use HIT }) ~~> mergedGrammar

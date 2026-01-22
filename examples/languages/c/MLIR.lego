@@ -1,0 +1,100 @@
+-- ============================================================
+-- MLIR.lego
+-- A simplified MLIR core subset for compilation target
+-- ============================================================
+
+import Base
+
+lang MLIR (Base) :=
+
+------------------------------------------------------------
+-- Types
+------------------------------------------------------------
+piece MLType
+  mtype ::= i32 | i1 | "(" "memref" mtype ")" | "(" "func" mtypes mtype ")"
+  mtypes ::= "(" mtype* ")"
+  i32 ::= "i32"
+  i1 ::= "i1"
+
+------------------------------------------------------------
+-- SSA values
+------------------------------------------------------------
+piece SSA
+  ssa ::= "(" "ssa" name ")"
+  ssas ::= "(" ssa* ")"
+
+------------------------------------------------------------
+-- Operations
+------------------------------------------------------------
+piece MLOp
+  mlop ::= "(" "constant" mlvalue ")"
+         | "(" "add" ssa ssa ")"
+         | "(" "sub" ssa ssa ")"
+         | "(" "mul" ssa ssa ")"
+         | "(" "load" ssa ")"
+         | "(" "store" ssa ssa ")"
+         | "(" "call" ssa ssas ")"
+         | "(" "cmp" cmpop ssa ssa ")"
+         | "(" "br" label ")"
+         | "(" "cond_br" ssa label label ")"
+         | "(" "ret" ssa ")"
+         | nop
+
+  mlops ::= mlop*
+  cmpop ::= eq | ne | lt | gt | le | ge
+  mlvalue ::= "(" "intval" nat ")" | "(" "boolval" bool ")"
+  bool ::= "true" | "false"
+  nop ::= "nop"
+  eq ::= "eq"
+  ne ::= "ne"
+  lt ::= "lt"
+  gt ::= "gt"
+  le ::= "le"
+  ge ::= "ge"
+
+------------------------------------------------------------
+-- Labels and blocks
+------------------------------------------------------------
+piece MLIRCFG
+  label ::= "(" "label" name ")"
+
+  blockparam ::= "(" ssa ":" mtype ")"
+  blockparams ::= blockparam*
+
+  block ::= "(" "block" label blockparams mlops ")"
+  blocks ::= block*
+
+  region ::= "(" "region" blocks ")"
+  regions ::= region*
+
+  module ::= "(" "module" regions ")"
+
+------------------------------------------------------------
+-- SSA definition (assignment)
+------------------------------------------------------------
+piece SSADef
+  ssadef ::= "(" "def" ssa mlop ")"
+  ssadefs ::= ssadef*
+
+------------------------------------------------------------
+-- MLIR is SSA, so we mainly transform, not evaluate
+-- Simple constant folding rules
+------------------------------------------------------------
+piece MLIRFold
+  -- Add constants (identity, for demonstration)
+  rule mlir_add_const:
+    (add (ssa $a) (ssa $b)) ~> (add (ssa $a) (ssa $b))
+  
+  -- Fold constant addition
+  rule mlir_fold_add:
+    (def $r (add (constant (intval $n1)) (constant (intval $n2)))) ~> (def $r (constant (intval (add $n1 $n2))))
+  
+  -- Fold constant subtraction
+  rule mlir_fold_sub:
+    (def $r (sub (constant (intval $n1)) (constant (intval $n2)))) ~> (def $r (constant (intval (sub $n1 $n2))))
+
+  -- Tests
+  test "mlir_fold_add": _
+  
+  test "mlir_fold_sub": _
+

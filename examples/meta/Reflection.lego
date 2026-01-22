@@ -1,0 +1,98 @@
+-- Reflection.lego: Compile-time reflection
+-- Idris/Agda style elaborator reflection
+-- Composes: Meta
+
+import Meta
+
+lang Reflection (Meta) :=
+
+-----------------------------------------------------
+-- Term representation
+-----------------------------------------------------
+piece TTerm
+  tterm ::= TT | TVar | TApp | TLam | TPi | TType
+  TT ::= "TT"                       -- reflected term type
+  TVar ::= "TVar" name
+  TApp ::= "TApp" tterm tterm
+  TLam ::= "TLam" name tterm
+  TPi ::= "TPi" name tterm tterm
+  TType ::= "TType" nat
+
+  test "tterm": (TApp (TVar f) (TVar x))
+
+-----------------------------------------------------
+-- Type checking monad
+-----------------------------------------------------
+piece Elab
+  elab ::= ElabM | pure | bind_elab | fail_elab | try_elab
+  ElabM ::= "Elab" term             -- elaboration monad
+  pure ::= "pure" term
+  bind_elab ::= term ">>=" term
+  fail_elab ::= "fail" string
+  try_elab ::= "try" term term      -- try with fallback
+
+  rule elab_pure_bind:
+    (bind_elab (pure $a) $f) ~> ($f $a)
+
+  rule elab_try_success:
+    (try_elab (pure $a) $fallback) ~> (pure $a)
+
+  test "elab": (ElabM Bool)
+
+-----------------------------------------------------
+-- Elaboration operations
+-----------------------------------------------------
+piece ElabOps
+  elabop ::= check | infer | unify | normalise | getGoal | fill
+  check ::= "check" term term       -- check term has type
+  infer ::= "infer" term            -- infer type
+  unify ::= "unify" term term       -- unify two terms
+  normalise ::= "normalise" term    -- normalise term
+  getGoal ::= "getGoal"             -- current goal type
+  fill ::= "fill" term              -- fill hole
+
+  test "check": (check (TVar x) Bool)
+  test "goal": getGoal
+
+-----------------------------------------------------
+-- Declaration reflection
+-----------------------------------------------------
+piece DeclRefl
+  declr ::= getDecl | addDecl | getType | getDef
+  getDecl ::= "getDecl" name        -- get declaration
+  addDecl ::= "addDecl" name term term  -- add declaration
+  getType ::= "getType" name        -- get type of name
+  getDef ::= "getDef" name          -- get definition
+
+  test "gettype": (getType foo)
+
+-----------------------------------------------------
+-- Context inspection
+-----------------------------------------------------
+piece Context
+  ctx ::= getCtx | lookupCtx | withCtx
+  getCtx ::= "getCtx"               -- get local context
+  lookupCtx ::= "lookupCtx" name    -- lookup in context
+  withCtx ::= "withCtx" term term   -- extend context
+
+  test "context": getCtx
+
+-----------------------------------------------------
+-- Macros
+-----------------------------------------------------
+piece Macro
+  macro ::= macro_def | expand
+  macro_def ::= "macro" name term   -- define macro
+  expand ::= "expand" name          -- expand macro
+
+  test "macro": (macro_def myMacro body)
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Reflection
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: elab_pure_bind, elab_try_success
+-- [ ] Full introspection (needs runtime support)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

@@ -1,0 +1,115 @@
+-- OCaml_Semantics.lego
+-- Step 2: Big-step operational semantics for OCaml
+
+lang OCaml_Semantics :=
+
+piece SemanticDomains
+  value ::= intval | floatval | charval | stringval | unitval | boolval
+          | closureval | recval | refval | tupleval | recordval | constructorval
+  intval ::= "IntVal" name
+  floatval ::= "FloatVal" name
+  charval ::= "CharVal" name  
+  stringval ::= "StringVal" name
+  unitval ::= "UnitVal"
+  boolval ::= "TrueVal" | "FalseVal"
+  closureval ::= "Closure" env pattern expr
+  recval ::= "RecClosure" env name pattern expr
+  refval ::= "RefVal" name
+  tupleval ::= "TupleVal" valuelist
+  recordval ::= "RecordVal" fieldvaluelist
+  constructorval ::= "ConstructorVal" name value
+  
+  env ::= "EmptyEnv" | "ExtendEnv" name value env
+  store ::= "EmptyStore" | "ExtendStore" name value store
+  
+  valuelist ::= "nil" | "cons" value valuelist
+  fieldvaluelist ::= "nil" | "cons" fieldvalue fieldvaluelist
+  fieldvalue ::= "field" name value
+  pattern ::= name
+  expr ::= name
+
+piece Evaluation
+  config ::= "Config" env store expr
+  result ::= "Result" value store
+  
+  rule eval_int:
+    (Config $rho $sig (IntLit $n)) ~> (Result (IntVal $n) $sig)
+  
+  rule eval_float:
+    (Config $rho $sig (FloatLit $f)) ~> (Result (FloatVal $f) $sig)
+  
+  rule eval_char:
+    (Config $rho $sig (CharLit $c)) ~> (Result (CharVal $c) $sig)
+  
+  rule eval_string:
+    (Config $rho $sig (StringLit $s)) ~> (Result (StringVal $s) $sig)
+  
+  rule eval_unit:
+    (Config $rho $sig UnitExpr) ~> (Result UnitVal $sig)
+  
+  rule eval_true:
+    (Config $rho $sig TrueExpr) ~> (Result TrueVal $sig)
+  
+  rule eval_false:
+    (Config $rho $sig FalseExpr) ~> (Result FalseVal $sig)
+  
+  test "eval_int": (Config env store (IntLit n)) ~~> (Result (IntVal n) store)
+  test "eval_unit": (Config env store UnitExpr) ~~> (Result UnitVal store)
+  test "eval_true": (Config env store TrueExpr) ~~> (Result TrueVal store)
+
+piece PrimitiveOperations  
+  primop ::= "Add" | "Sub" | "Mul" | "Div" | "Mod"
+           | "Lt" | "Gt" | "Le" | "Ge" | "Eq" | "Ne"
+           | "And" | "Or" | "Not"
+           | "Concat" | "Cons" | "Hd" | "Tl"
+           
+  primresult ::= "PrimResult" value
+  
+  rule add_op:
+    (BinOp Add (IntVal $m) (IntVal $n)) ~> (PrimResult (IntVal (add $m $n)))
+  
+  rule sub_op:
+    (BinOp Sub (IntVal $m) (IntVal $n)) ~> (PrimResult (IntVal (sub $m $n)))
+  
+  test "add_op": (BinOp Add (IntVal m) (IntVal n)) ~~> (PrimResult (IntVal (add m n)))
+
+piece ControlFlow
+  branch ::= "IfBranch" value expr expr
+  
+  rule if_true:
+    (IfBranch TrueVal $e1 $e2) ~> $e1
+  
+  rule if_false:
+    (IfBranch FalseVal $e1 $e2) ~> $e2
+  
+  test "if_true": (IfBranch TrueVal e1 e2) ~~> e1
+  test "if_false": (IfBranch FalseVal e1 e2) ~~> e2
+
+piece PatternMatching
+  matchresult ::= "MatchOk" env | "MatchFail"
+  
+  rule match_var:
+    (Match $x $v) ~> (MatchOk (ExtendEnv $x $v EmptyEnv))
+  
+  rule match_unit:
+    (Match UnitPat UnitVal) ~> (MatchOk EmptyEnv)
+  
+  test "match_var": (Match x v) ~~> (MatchOk (ExtendEnv x v EmptyEnv))
+
+piece StoreOperations
+  storeop ::= "Alloc" value store | "Read" name store | "Write" name value store
+  
+  rule store_read:
+    (Read $l (ExtendStore $l $v $sigma)) ~> $v
+  
+  test "store_read": (Read l (ExtendStore l v sigma)) ~~> v
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for OCaml_Semantics
+-- =============================================================================
+-- [ ] Grammar: parsing works
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

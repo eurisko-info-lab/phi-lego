@@ -1,0 +1,152 @@
+-- RewriteMachine.lego
+-- A generic rewriting machine, language-agnostic
+-- Terms + rules compile to microcode for a scoped rewrite VM
+--
+-- DESIGN:
+--   Two-level architecture separating:
+--     Γ: Term variables (capture-avoiding substitution)
+--     Δ: Dimension variables (algebraic substitution, De Morgan)
+--
+--   This separation is crucial for correct cubical rewriting.
+--
+-- INSTRUCTIONS:
+--   PUSH_ENV    - Push term scope
+--   POP_ENV     - Pop term scope  
+--   BIND x h    - Bind name to handle
+--   DIM_PUSH    - Push dimension scope
+--   DIM_POP     - Pop dimension scope
+--   DIM_BIND x d - Bind dimension variable
+--   MATCH p     - Match pattern against focus
+--   EMIT t      - Emit result template
+--   FAIL        - Explicit failure
+
+lang RewriteMachine :=
+
+-----------------------------------------------------
+-- Names and identifiers
+-----------------------------------------------------
+piece Names
+  name ::= <identifier>
+  nat ::= <number>
+  term ::= <identifier>
+
+-- Core machine values
+piece Core
+  value ::= term | "handle" | env | state | dim
+
+-- Environment and scoping (Γ: term context)
+piece Env
+  env ::= "empty"
+        | "(" "bind" name "handle" env ")"
+
+-- Dimension environment (Δ: dimension context)
+piece DimEnv
+  dimenv ::= "dimempty"
+           | "(" "dimbind" name dim dimenv ")"
+
+-- Machine state with separated contexts
+piece State
+  state    ::= "(" "State" heap envstack dimenv counter ")"
+  heap     ::= term
+  envstack ::= "[" env* "]"
+  counter  ::= nat
+
+-- Dimension expressions (De Morgan algebra on I)
+piece Dimension
+  dim ::= "D0"              -- i0 : I
+        | "D1"              -- i1 : I
+        | "(" "DVar" name ")"       -- dimension variable
+        | "(" "DNot" dim ")"        -- reversal (~)
+        | "(" "DAnd" dim dim ")"    -- meet (∧)
+        | "(" "DOr" dim dim ")"     -- join (∨)
+
+-- Micro-instructions (extended for cubical)
+piece Instr
+  instr ::= "(" "MATCH" term ")"
+          | "PUSH_ENV"
+          | "POP_ENV"
+          | "(" "BIND" name "handle" ")"
+          | "DIM_PUSH"
+          | "DIM_POP"
+          | "(" "DIM_BIND" name dim ")"
+          | "(" "NORM_DIM" name ")"
+          | "(" "FRESH" nat ")"
+          | "(" "EMIT" term ")"
+          | "FAIL"
+
+-- Programs
+piece Program
+  program ::= instr*
+
+-- Semantics (schematic rules)
+rule match_success:
+  (MATCH $p) ~> PUSH_ENV
+
+rule scope_enter:
+  PUSH_ENV ~> state
+
+rule scope_exit:
+  POP_ENV ~> state
+
+-- Dimension normalization (De Morgan laws)
+rule dim_not_i0:
+  (DNot D0) ~> D1
+
+rule dim_not_i1:
+  (DNot D1) ~> D0
+
+rule dim_not_not:
+  (DNot (DNot $x)) ~> $x
+
+rule dim_and_zero:
+  (DAnd D0 $x) ~> D0
+
+rule dim_and_one:
+  (DAnd D1 $x) ~> $x
+
+rule dim_or_one:
+  (DOr D1 $x) ~> D1
+
+rule dim_or_zero:
+  (DOr D0 $x) ~> $x
+
+-------------------------------------------------------------
+-- Tests: Dimension algebra
+-------------------------------------------------------------
+
+-- De Morgan laws
+test "dim_not_i0": (DNot D0) ~~> D1
+test "dim_not_i1": (DNot D1) ~~> D0
+test "dim_double_not": (DNot (DNot D0)) ~~> D0
+
+-- Meet (∧)
+test "dim_and_absorb": (DAnd D0 D1) ~~> D0
+test "dim_and_identity": (DAnd D1 D0) ~~> D0
+
+-- Join (∨)
+test "dim_or_absorb": (DOr D1 D0) ~~> D1
+test "dim_or_identity": (DOr D0 D1) ~~> D1
+
+-------------------------------------------------------------
+-- This language defines:
+--   machine state with Γ/Δ separation
+--   environments for term and dimension variables
+--   instruction vocabulary for cubical rewriting
+-- Execution happens in Haskell (Lego/RewriteMachine.hs)
+-------------------------------------------------------------
+
+-- beta-reduction compilation:
+-- MATCH (app (lam $x $t $body) $arg) ~>
+--   PUSH_ENV
+--   BIND x ↦ arg
+--   EMIT body
+--   POP_ENV
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for RewriteMachine
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

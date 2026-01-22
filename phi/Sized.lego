@@ -1,0 +1,112 @@
+-- Phi in Lego: Sized Types
+-- This is the Lego equivalent of src/Phi/Type/Sized.hs
+
+lang Sized :=
+  import Type
+  
+  -- Sized types: types indexed by size for termination checking
+  -- Size : Type with successor, limit, and infty
+  
+  grammar:
+    Size ::= identifier | Size '+1' | 'inf' | 'lim' identifier '.' Size
+    SizedType ::= Ty '@' Size  -- Type at size
+    
+  rules:
+    -- Size ordering: well-founded
+    (sizeLeq $s (succ $s)) ~> true
+    (sizeLeq $s inf) ~> true
+    (sizeLeq (lim $i $s) $t) ~> (forall $i (sizeLeq $s $t))
+    
+    -- Sized inductive types
+    -- Nat@s = Zero | Succ (Nat@(s-1))  when s > 0
+    -- List@s a = Nil | Cons a (List@(s-1) a)  when s > 0
+    
+    (typeof (sizedNat $s)) ~>
+      (case (sizeGt $s zero)
+        true type
+        false (error "size must be positive"))
+    
+    -- Constructors
+    (typeof sizedZero) ~> (sizedNat $s)  -- any size
+    
+    (typeof (sizedSucc $n)) ~>
+      (case (typeof $n)
+        (sizedNat $s) (sizedNat (succ $s)))
+    
+    -- Eliminators must decrease size
+    (typeof (sizedFold $f $z $n)) ~>
+      (case (typeof $n)
+        (sizedNat $s)
+          -- f : (i < s) -> A@i -> A@(i+1)
+          -- z : A@0
+          -- result : A@s
+          (case (typeof $z)
+            $a0 (case (typeof $f)
+                  (pi $i (lt $i $s) (arrow $ai (substSize (succ $i) $ai)))
+                    (substSize $s $a0))))
+    
+    -- Recursive calls must be on smaller sizes
+    (checkTermination (app $f (con succ $args)) $s) ~>
+      (checkTermination (app $f $args) (pred $s))
+    
+    (checkTermination (app $f $arg) $s) ~>
+      (case (sizeOf $arg)
+        (just $s') (sizeLeq $s' $s)
+        nothing (error "cannot determine size"))
+
+lang Coinductive :=
+  import Sized
+  
+  -- Coinductive types: infinite structures with productivity
+  -- Dual to inductive: constructors must produce, destructors can consume
+  
+  grammar:
+    CoSized ::= 'co' identifier '@' Size
+    
+  rules:
+    -- Stream@s a = { head : a, tail : Stream@(s-1) a }
+    -- At size inf, fully infinite stream
+    
+    (typeof (coStream $s $a)) ~>
+      (case (sizeGt $s zero)
+        true type)
+    
+    -- Destructors
+    (typeof (head $stream)) ~>
+      (case (typeof $stream)
+        (coStream $s $a) $a)
+    
+    (typeof (tail $stream)) ~>
+      (case (typeof $stream)
+        (coStream $s $a) (coStream (pred $s) $a))
+    
+    -- Constructors (codata must be productive)
+    (typeof (cons-stream $h $t)) ~>
+      (case (typeof $t)
+        (coStream $s $a)
+          (case (typeof $h)
+            $a (coStream (succ $s) $a)))
+    
+    -- Productivity: each unfold step produces one constructor
+    (checkProductivity (unfold $f $seed)) ~>
+      -- f must produce Cons in finite time
+      (case (typeof $f)
+        (arrow $seedTy (pair $a (delay $seedTy)))
+          productive)
+
+lang SizedExamples :=
+  import Sized
+  import Coinductive
+  
+  -- Example: sized Nat addition (terminating)
+  rules:
+    (sizedAdd sizedZero $m) ~> $m
+    (sizedAdd (sizedSucc $n) $m) ~> (sizedSucc (sizedAdd $n $m))
+    -- Size of result: size(n) + size(m)
+    
+    -- Example: infinite stream of naturals
+    (nats $n) ~> (cons-stream $n (nats (succ $n)))
+    -- This is productive: produces Cons immediately
+
+-- Composition
+lang SizedLang := Sized + Coinductive + SizedExamples

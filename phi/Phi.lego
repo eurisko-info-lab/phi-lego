@@ -1,0 +1,132 @@
+-- Phi: Complete Language via Pushout Composition
+-- This is the Lego equivalent of src/Phi.hs
+-- The entire phi-po system expressed in 5 pieces + 3 operations
+
+-- ═══════════════════════════════════════════════════════════════
+-- IMPORTS: Atomic Lego pieces
+-- ═══════════════════════════════════════════════════════════════
+
+import Core      -- Graph, Name, GrammarExpr, Rule, Lang
+import Term      -- Term, RType, substitution
+import Token     -- Token, Vocab, Tokenize
+import Reduce    -- β-reduction, α-equivalence, normalization
+import Grammar   -- Parser, Printer, bidirectional
+import Mode      -- Modal grammar, ExecMode, ParamLang
+import Type      -- Type inference, constraints, holes
+import Graph     -- INet, Optimal reduction, CallGraph
+import Prolog    -- Horn clauses, unification, DCG
+import Effect    -- Row-based effects, handlers
+import Cont      -- Continuations, prompts, delimited
+import Sized     -- Sized types, coinductive, termination
+import TwoLevel  -- Static/dynamic, staging, partial eval
+import Attr      -- Attribute grammars, scheduling
+
+-- ═══════════════════════════════════════════════════════════════
+-- COMPOSITION: The Phi language via pushouts
+-- ═══════════════════════════════════════════════════════════════
+
+-- Level 0: Core graph infrastructure
+lang GraphCore := Core + Token
+
+-- Level 1: Term and Grammar
+lang TermLang := GraphCore + Term
+lang GrammarLang := GraphCore + Grammar
+lang ModalLang := GrammarLang + Mode
+
+-- Level 2: Evaluation strategies
+lang EvalLang := TermLang + Reduce + Graph
+
+-- Level 3: Type systems (pushout of variants)
+lang TypeCore := TermLang + Type
+lang EffectType := TypeCore + Effect
+lang ContType := TypeCore + Cont
+lang SizedType := TypeCore + Sized
+
+-- Level 4: Logic layer
+lang LogicLang := EvalLang + Prolog
+
+-- Level 5: Meta layer
+lang MetaLang := ModalLang + TwoLevel + Attr
+
+-- ═══════════════════════════════════════════════════════════════
+-- PHI: The complete language
+-- ═══════════════════════════════════════════════════════════════
+
+lang Phi :=
+  -- Core layers
+  GraphCore +
+  TermLang +
+  ModalLang +
+  
+  -- Evaluation
+  EvalLang +
+  
+  -- Type systems (all composed)
+  TypeCore +
+  EffectType +
+  ContType +
+  SizedType +
+  
+  -- Logic
+  LogicLang +
+  
+  -- Meta
+  MetaLang
+
+-- ═══════════════════════════════════════════════════════════════
+-- ALGEBRA: The Phi equations
+-- ═══════════════════════════════════════════════════════════════
+
+-- Fundamental equation:
+--   Lang = μX. Graph + Grammar[X] + Rule[X]
+-- 
+-- Phi is built by:
+--   1. Start with atomic pieces (Name, Graph, GrammarF, Rule)
+--   2. Compose via pushout (+ operator)
+--   3. Take fixed point (μ) for recursive grammars
+--   4. Interpret via catamorphism (fold)
+
+-- The 5 pieces:
+--   Name       : Set of identifiers
+--   Graph      : Nodes + Edges (carrier set)
+--   GrammarF   : Sym | Seq | Alt | Rep | Opt | Ref (free algebra)
+--   Rule       : Pattern ~> Template (rewrite)
+--   Lang       : Graph + [Grammar] + [Rule] (initial algebra)
+
+-- The 3 operations:
+--   ⊔ (Pushout)     : Compose languages, identify shared structure
+--   fold (Cata)     : Interpret language via algebra homomorphism
+--   μ (Fix)         : Recursive grammar via initial algebra
+
+-- ═══════════════════════════════════════════════════════════════
+-- TESTS: Verify composition
+-- ═══════════════════════════════════════════════════════════════
+
+tests:
+  -- Graph composition
+  test "graph pushout identity"
+    (poGraph emptyGraph $g) === $g
+    
+  -- Term reduction
+  test "beta reduction"
+    (normalize (app (lam x type (var x)) (var y))) === (var y)
+    
+  -- Type inference
+  test "identity has polymorphic type"
+    (typeof (lam x (var a) (var x))) === (pi a type (arrow (var a) (var a)))
+    
+  -- Parser/printer roundtrip
+  test "parse-print identity"
+    (unparse grammar (parse grammar "λx.x")) === "λx.x"
+    
+  -- Effect handling
+  test "state handler"
+    (runState 0 (do (put 5) get)) === (pair 5 5)
+    
+  -- Continuation
+  test "callcc escape"
+    (runCont (callcc (fn k (do (k 42) (return 0))))) === 42
+    
+  -- Prolog resolution
+  test "append relation"
+    (solve (append (cons 1 nil) (cons 2 nil) X)) === (just (cons 1 (cons 2 nil)))

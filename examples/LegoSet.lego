@@ -1,0 +1,259 @@
+-- LegoSet.lego: The language extensions for optimal self-hosting
+-- "The more math, the less code and bugs"
+--
+-- LegoSet = Base + INet + Linear + BiGrammar + Cofree + Effects + Staging
+-- (pushout composition: each level is Base + new structure)
+--
+-- COMPOSITION HIERARCHY:
+--   Level 0: Base     (terms, patterns, rules)
+--   Level 1: INet     = Base + Agents + Wiring + Interaction
+--   Level 2: Linear   = INet + Mult + GradedTypes
+--   Level 3: BiGrammar = Base + Iso + Bidirectional  
+--   Level 4: Cofree   = Base + Annotated + Comonad
+--   Level 5: Effects  = Base + Operations + Handlers
+--   Level 6: Staging  = Base + CodeTy + Splice
+--   Level 7: LegoSet  = colim(Level 0..6) (the pushout colimit)
+--
+-- Goal: Express Lego's interpreter IN Lego, with optimal reduction
+
+import Base
+
+lang LegoSet (Base) :=
+
+-- LEVEL 1: INTERACTION NETS (Optimal Reduction)
+--   INet = Base + Agents + Wiring + Interaction
+
+piece Agents
+  agent ::= "agent" name "(" nat ")"
+  port ::= agentport | principalport
+  agentport ::= name "." nat
+  principalport ::= name ".P"
+
+piece Wiring
+  wire ::= port "~" port
+  net ::= "net" netelems
+  netelems ::= netelem | netelem netelems
+  netelem ::= agent | wire
+
+piece Interaction
+  interact ::= "interact" agent "x" agent "~>" net
+
+piece INet
+  -- Lafont's 3 fundamental agents
+  era ::= "ERA"
+  dup ::= "DUP"
+  con ::= "CON"
+  
+  -- Lambda encoding
+  lamnode ::= "LAM"
+  appnode ::= "APP"
+  
+  rule inet_annihilate:
+    (interact (CON) x (CON)) ~> net
+  
+  rule inet_commute:
+    (interact (CON) x (DUP)) ~> (net (CON a) (CON b) (DUP c) (DUP d))
+  
+  rule inet_erase:
+    (interact (ERA) x (CON)) ~> (net (ERA) (ERA))
+  
+  rule inet_beta:
+    (interact (APP) x (LAM)) ~> net
+  
+  test "inet_erase": (interact (ERA) x (CON)) ~~> (net (ERA) (ERA))
+
+-- LEVEL 2: LINEAR TYPES (Resource Tracking)
+--   Linear = INet + Mult + GradedTypes
+
+piece Mult
+  mult ::= zero_m | one_m | omega_m | sum_m | prod_m
+  zero_m ::= "0"
+  one_m ::= "1"
+  omega_m ::= "W"
+  sum_m ::= "+" mult mult
+  prod_m ::= "*" mult mult
+  
+  rule mult_zero_plus:
+    (+ 0 $m) ~> $m
+  
+  rule mult_zero_times:
+    (* 0 $m) ~> 0
+  
+  rule mult_one_times:
+    (* 1 $m) ~> $m
+  
+  rule mult_omega_plus:
+    (+ W $m) ~> W
+  
+  test "mult_zero_plus": (+ 0 W) ~~> W
+  test "mult_one_times": (* 1 W) ~~> W
+
+piece GradedTypes
+  gradedfun ::= "gradedfun" name mult term term
+  linfun ::= "linfun" term term
+  tensor ::= "tensor" term term
+  withtype ::= "with" term term
+  bangtype ::= "bang" term
+
+piece Linear
+  toINet ::= "toINet" term mult
+  
+  rule linear_to_inet_zero:
+    (toINet $x 0) ~> (net (wire (port (ERA) P) $x))
+  
+  rule linear_to_inet_one:
+    (toINet $x 1) ~> (net $x)
+  
+  rule linear_to_inet_omega:
+    (toINet $x W) ~> (net (wire (port (DUP) P) $x))
+  
+  test "linear_to_inet_one": (toINet x 1) ~~> result
+
+-- LEVEL 3: BIDIRECTIONAL GRAMMARS (Parsing <-> Printing)
+--   BiGrammar = Base + Iso + Bidirectional
+
+piece Iso
+  iso ::= idiso | swapiso | assocliso | unitiso | inliso | inriso | compiso | inviso
+  idiso ::= "id"
+  swapiso ::= "swap"
+  assocliso ::= "assocL"
+  unitiso ::= "unit"
+  inliso ::= "inL"
+  inriso ::= "inR"
+  compiso ::= "comp" iso iso
+  inviso ::= "inv" iso
+  
+  rule iso_inv_inv:
+    (inv (inv $f)) ~> $f
+  
+  rule iso_comp_id:
+    (comp $f id) ~> $f
+  
+  rule iso_inv_comp:
+    (inv (comp $f $g)) ~> (comp (inv $g) (inv $f))
+  
+  test "iso_inv_inv": (inv (inv swap)) ~~> swap
+  test "iso_comp_id": (comp swap id) ~~> swap
+
+piece Bidirectional
+  biexpr ::= bialt | bipair | bilist | bilit | bitok | biref
+  bialt ::= "bialt" biexpr biexpr
+  bipair ::= "bipair" biexpr biexpr
+  bilist ::= "bilist" biexpr
+  bilit ::= "lit" string
+  bitok ::= "tok" toktype
+  biref ::= "ref" name
+  toktype ::= "ident" | "number" | "string"
+
+piece BiGrammar
+  biprod ::= "biprod" name biexpr iso
+  parse ::= "parse" name term
+  printg ::= "print" name term
+  
+  rule bi_roundtrip:
+    (parse $p (print $p $x)) ~> $x
+  
+  test "bi_roundtrip": (parse p (print p x)) ~~> x
+
+-- LEVEL 4: COFREE COMONAD (Context Threading)
+--   Cofree = Base + Annotated + Comonad
+
+piece Annotated
+  annotated ::= "ann" term term
+
+piece Comonad
+  extract ::= "extract" term
+  duplicate ::= "duplicate" term
+  extend ::= "extend" term term
+
+piece Cofree
+  rule cofree_extract:
+    (extract (ann $a $fs)) ~> $a
+  
+  rule cofree_duplicate:
+    (duplicate (ann $a $fs)) ~> (ann (ann $a $fs) (map duplicate $fs))
+  
+  rule cofree_extend:
+    (extend $f (ann $a $fs)) ~> (ann (app $f (ann $a $fs)) (map (extend $f) $fs))
+  
+  test "cofree_extract": (extract (ann 42 children)) ~~> 42
+
+-- LEVEL 5: ALGEBRAIC EFFECTS (Controlled Side Effects)
+--   Effects = Base + Operations + Handlers
+
+piece Operations
+  effectdecl ::= "effect" name effectbody
+  effectbody ::= "body" opsigs
+  opsigs ::= opsig | opsig opsigs
+  opsig ::= "op" name term term
+  perform ::= "do" name term
+
+piece Handlers
+  handler ::= "handler" clauses
+  clauses ::= clause | clause clauses
+  clause ::= returnclause | opclause
+  returnclause ::= "return" name term
+  opclause ::= "opcase" name name name term
+  handle ::= "handle" term handler
+
+piece Effects
+  state ::= "State" term
+  erroreff ::= "Error" term
+  nondet ::= "NonDet"
+  
+  rule effect_return:
+    (handle (return $x) $h) ~> (app (get $h return) $x)
+  
+  rule effect_perform:
+    (handle (do $op $v) $h) ~> (app (app (get $h $op) $v) (lam k (handle k $h)))
+  
+  test "effect_return": (handle (return x) h) ~~> (app (get h return) x)
+
+-- LEVEL 6: STAGING (Partial Evaluation)
+--   Staging = Base + CodeTy + Splice
+
+piece CodeTy
+  codeval ::= "code" term
+  codetype ::= "Code" term
+
+piece Splice
+  splice ::= "splice" term
+  runcode ::= "run" term
+
+piece Staging
+  static ::= "static" term
+  dynamic ::= "dynamic" term
+  
+  rule stage_beta:
+    (run (code $e)) ~> $e
+  
+  rule stage_lift:
+    (app (code $f) (code $x)) ~> (code (app (splice (code $f)) (splice (code $x))))
+  
+  test "stage_beta": (run (code e)) ~~> e
+
+-- LEVEL 7: LEGOSET (The Colimit)
+--   LegoSet = colim(Base -> INet -> Linear <- BiGrammar <- Cofree <- Effects <- Staging)
+
+piece LegoSetMain
+  -- The Self-Interpreter Pipeline (staged composition)
+  parsePhase ::= "parse" ":" "String" "->" "Effect" "NonDet" term
+  elabPhase ::= "elaborate" ":" term "->" "Effect" term term
+  linearPhase ::= "linearize" ":" term "->" "Effect" "Error" term
+  compilePhase ::= "compile" ":" "static" term "->" codetype
+  reducePhase ::= "reduce" ":" net "->" net
+  readbackPhase ::= "readback" ":" net "->" term
+  printPhase ::= "printPhase" ":" term "->" "String"
+  
+  -- Composition: eval = print . readback . reduce . run compile . linearize . elaborate . parse
+  evalDef ::= "eval" "=" "printPhase" "." "readback" "." "reduce" "." "run" "compile" "." "linearize" "." "elaborate" "." "parse"
+
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for LegoSet
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: reduction semantics
+-- [x] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

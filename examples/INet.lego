@@ -1,0 +1,133 @@
+-- INet.lego: Interaction Net Language
+-- Core primitives for optimal reduction
+--
+-- DESIGN:
+--   Agents (nodes) have a principal port and auxiliary ports
+--   Interaction happens only between principal ports
+--   Lafont's 3 fundamental agents: γ (constructor), δ (duplicator), ε (eraser)
+--
+-- COMPILATION TARGET:
+--   INet → RewriteMachine via INet2RewriteMachine.lego
+
+import Base
+
+lang INet (Base) :=
+
+-----------------------------------------------------
+-- Agents (nodes with ports)
+-----------------------------------------------------
+piece Agents
+  agent ::= "(" "agent" name nat ")"    -- agent name arity
+  port  ::= "(" "port" name nat ")"     -- port of agent at index
+          | "(" "principal" name ")"    -- principal port (port 0)
+
+-----------------------------------------------------
+-- Wiring (connections between ports)
+-----------------------------------------------------
+piece Wiring
+  wire ::= "(" "wire" port port ")"     -- symmetric connection
+  net  ::= "(" "net" netelem* ")"       -- network of elements
+  netelem ::= agent | wire
+
+-----------------------------------------------------
+-- Lafont's Fundamental Agents
+-----------------------------------------------------
+piece Lafont
+-- era: eraser, 0 auxiliary ports
+  era ::= "ε" | "(era)"
+  -- dup: duplicator, 2 auxiliary ports  
+  dup ::= "δ" | "(dup)"
+  -- con: constructor, 2 auxiliary ports
+  con ::= "γ" | "(con)"
+
+prelude:
+def era = (agent era 0)
+def dup = (agent dup 2)
+def con = (agent con 2)
+
+-----------------------------------------------------
+-- Lambda Encoding (interaction combinators)
+-----------------------------------------------------
+piece LambdaEncoding
+  lam_node ::= "@λ" | "(lam-node)"      -- lambda: 2 aux ports (binder, body)
+  app_node ::= "@@" | "(app-node)"      -- application: 2 aux ports (func, arg)
+
+prelude:
+def lamNode = (agent lam 2)
+def appNode = (agent app 2)
+
+-----------------------------------------------------
+-- Interaction Rules (principal port reduction)
+-----------------------------------------------------
+piece Interaction
+  interact ::= "(" "interact" agent agent ")"
+    
+-- Annihilation: same type agents
+rule annihilate_con:
+  (interact (con) (con)) ~> (net)
+  
+rule annihilate_dup:  
+  (interact (dup) (dup)) ~> (net)
+
+-- Commutation: different type agents
+-- δ ⊗ γ → cross-wiring
+rule commute_dup_con:
+  (interact (dup) (con)) ~> (crossWire (dup) (con))
+
+-- Erasure: ε erases anything
+rule erase_con:
+  (interact (era) (con)) ~>
+    (net (era) (era))
+    
+rule erase_dup:
+  (interact (era) (dup)) ~>
+    (net (era) (era))
+
+-- Beta reduction (lambda/app interaction)
+rule beta:
+  (interact (app-node) (lam-node)) ~> (betaReduce (app-node) (lam-node))
+
+-----------------------------------------------------
+-- Network Operations
+-----------------------------------------------------
+piece NetOps
+-- Find active pair (two connected principal ports)
+rule findRedex:
+  (findRedex (net $agents $wires)) ~>
+    (findActivePair $wires)
+    
+-- Step: reduce one active pair
+rule step:
+  (step (net $es)) ~>
+    (reduce (findRedex (net $es)) (net $es))
+
+-----------------------------------------------------
+-- Encoding Lambda Terms to INet
+-----------------------------------------------------
+piece LambdaToINet
+-- Variable: just a wire endpoint
+rule encode_var:
+  (toINet (var $x)) ~> (port $x principal)
+
+-- Lambda: create @λ node
+rule encode_lam:
+  (toINet (lam $x $body)) ~> (encodeLamNode $x $body)
+
+-- Application: create @@ node
+rule encode_app:
+  (toINet (app $f $a)) ~> (encodeAppNode $f $a)
+
+-----------------------------------------------------
+-- Tests (parse-only, prelude def expansion not yet implemented)
+-----------------------------------------------------
+test "era_agent": (era)
+test "dup_agent": (dup)
+test "con_agent": (con)
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for INet
+-- =============================================================================
+-- [ ] Normalize: reduction rules
+-- [ ] Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================
+-- TODO: INet needs reduction rules

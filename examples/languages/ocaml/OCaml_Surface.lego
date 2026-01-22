@@ -1,0 +1,74 @@
+-- =====================================================
+-- OCaml_Surface.lego
+-- Surface-exact OCaml syntax as composable Lego pieces
+-- No semantics yet (Step 1 only)
+-- =====================================================
+-- NOTE: Restructured to single lang block for Lego compatibility
+
+import Base
+
+lang OCamlSurface (Base) :=
+
+--------------------------------------------------------
+-- Identifiers
+--------------------------------------------------------
+piece Identifiers
+  ident ::= name
+  uident ::= name
+
+--------------------------------------------------------
+-- Literals
+--------------------------------------------------------
+piece Literals
+  int_lit ::= nat
+  literal ::= int_lit
+
+--------------------------------------------------------
+-- Keywords
+--------------------------------------------------------
+piece Keywords
+  kw ::= "let" | "rec" | "in" | "and" | "fun" | "function" | "match" | "with" | "type" | "of" | "module" | "struct" | "sig" | "end" | "functor" | "open" | "include" | "if" | "then" | "else" | "try" | "exception" | "raise"
+
+--------------------------------------------------------
+-- Expressions (simplified)
+--------------------------------------------------------
+piece Expressions
+  expr ::= literal | ident | "(" expr ")" | "fun" pattern "->" expr | "let" let_binding "in" expr | "if" expr "then" expr "else" expr | "match" expr "with" match_cases
+  let_binding ::= pattern "=" expr
+
+--------------------------------------------------------
+-- Patterns (simplified)
+--------------------------------------------------------
+piece Patterns
+  pattern ::= "_" | ident | literal | "(" pattern ")"
+  pattern_list ::= pattern | pattern "," pattern_list
+
+--------------------------------------------------------
+-- Match cases
+--------------------------------------------------------
+piece MatchCases
+  match_cases ::= match_case | match_case "|" match_cases
+  match_case ::= pattern "->" expr
+
+--------------------------------------------------------
+-- Type expressions (simplified)
+--------------------------------------------------------
+piece TypeExpr
+  type_expr ::= ident | type_expr "->" type_expr | "(" type_expr ")"
+
+--------------------------------------------------------
+-- Tests
+--------------------------------------------------------
+test "ident": x
+test "literal": _
+test "pattern": _
+test "expr": _
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for OCaml_Surface
+-- =============================================================================
+-- [ ] Grammar: Full OCaml surface syntax
+-- [ ] Rules: reduction semantics
+-- [ ] Normalization: terms reduce to normal forms
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

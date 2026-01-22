@@ -1,0 +1,362 @@
+-----------------------------------------------------
+-- CoolttAST: Abstract Syntax Tree for cooltt
+--
+-- Extracted from: vendor/cooltt/src/frontend/ConcreteSyntaxData.ml
+-- 
+-- This defines the AST types that correspond to parsed cooltt
+-- programs. The grammar in Cooltt.lego produces these structures.
+-----------------------------------------------------
+
+-----------------------------------------------------
+-- Info and Location
+-----------------------------------------------------
+
+piece Info
+  -- Source location info
+  info ::= "Some" span | "None"
+  span ::= "{" "start" ":" position "," "stop" ":" position "}"
+  position ::= "{" "pos" ":" <number> "," "line" ":" <number> "," "col" ":" <number> "}"
+
+-----------------------------------------------------
+-- Node wrapper
+-----------------------------------------------------
+
+piece Node
+  -- Every AST node has info attached
+  node(T) ::= "{" "node" ":" T "," "info" ":" info "}"
+
+-----------------------------------------------------
+-- Identifiers
+-----------------------------------------------------
+
+piece Ident
+  -- Identifier types
+  ident ::= user | anon | unfolder | blocked | machine
+  
+  user ::= "`User" "[" path "]"           -- User-defined name
+  anon ::= "`Anon"                         -- Anonymous (_)
+  unfolder ::= "`Unfolder" ident          -- Unfolded def
+  blocked ::= "`Blocked" ident            -- Blocked def
+  machine ::= "`Machine" <number>         -- Machine-generated
+  
+  path ::= <string> ("::" <string>)*      -- Module path
+
+-----------------------------------------------------
+-- Holes
+-----------------------------------------------------
+
+piece Hole
+  hole ::= "{" "name" ":" holename "," "silent" ":" <bool> "}"
+  holename ::= "Some" <string> | "None"
+
+-----------------------------------------------------
+-- Cells (telescope entries)
+-----------------------------------------------------
+
+piece Cell
+  cell ::= "Cell" "{" "names" ":" idents "," "tp" ":" con "}"
+  idents ::= "[" ident ("," ident)* "]" | "[]"
+
+-----------------------------------------------------
+-- Terms (con = concrete term)
+-----------------------------------------------------
+
+piece Con
+  con ::= node(con_)
+  
+  con_ ::=
+    -- Variables and literals
+    | "Var" ident                         -- Variable
+    | "DeBruijnLevel" <number>            -- De Bruijn level
+    | "Lit" <number>                      -- Numeric literal
+    | "Underscore"                        -- Wildcard
+    | "Visualize"                         -- #viz
+    
+    -- Natural numbers
+    | "Nat"                               -- nat type
+    | "Suc" con                           -- suc n
+    
+    -- Circle
+    | "Circle"                            -- circle type
+    | "Base"                              -- base
+    | "Loop" con                          -- loop i
+    
+    -- Functions
+    | "Pi" cells con                      -- (x:A) -> B
+    | "Lam" idents con                    -- x => body
+    | "Ap" con cons                       -- f args
+    
+    -- Pairs
+    | "Sg" cells con                      -- (x:A) * B
+    | "Pair" con con                      -- [a, b]
+    | "Fst" con                           -- fst p
+    | "Snd" con                           -- snd p
+    | "Proj" con ident                    -- t.field
+    
+    -- Records
+    | "Signature" fields                  -- sig ... end
+    | "Struct" fields                     -- struct ... end
+    | "Patch" con patches                 -- t # [...]
+    | "Open" con renames con              -- open t in body
+    
+    -- Universes
+    | "Type"                              -- type
+    
+    -- Holes
+    | "Hole" hole conopt                  -- ?name or ?name; hint
+    | "BoundaryHole" conopt               -- {! t !}
+    
+    -- Binding constructs
+    | "Let" con ident con                 -- let x := t in body
+    | "Ann" "{" "term" ":" con "," "tp" ":" con "}"  -- t : A
+    | "Generalize" ident con              -- generalize x in body
+    | "Unfold" idents con                 -- unfold fs in body
+    | "Abstract" identopt con             -- abstract x <- body
+    
+    -- Eliminators
+    | "Elim" "{" "mot" ":" con "," "cases" ":" cases "," "scrut" ":" con "}"
+    | "Rec" "{" "mot" ":" con "," "cases" ":" cases "," "scrut" ":" con "}"
+    | "LamElim" cases                     -- elim [...]
+    
+    -- Equations
+    | "Equations" "{" "code" ":" con "," "eqns" ":" eqns "}"
+    
+    -- Intervals and cofibrations
+    | "Dim"                               -- dim / 𝕀
+    | "Cof"                               -- cof / 𝔽
+    | "CofEq" con con                     -- r = s
+    | "CofLe" con con                     -- r <= s
+    | "Join" cons                         -- φ \/ ψ
+    | "Meet" cons                         -- φ /\ ψ
+    | "CofBoundary" con                   -- ∂ r
+    | "TopC"                              -- ⊤
+    | "BotC"                              -- ⊥
+    | "Prf" con                           -- [ proof ]
+    | "CofSplit" cofcases                 -- [| φ => t | ψ => u]
+    
+    -- Extension types
+    | "Ext" idents con cofcases           -- ext i => A with [...]
+    
+    -- Sub types
+    | "Sub" con con con                   -- sub A φ a
+    
+    -- Cubical operations
+    | "Coe" con con con con               -- coe A r r' a
+    | "HCom" con con con con con          -- hcom A r r' φ u
+    | "HComChk" con con con               -- hcom r r' u (checking)
+    | "HFill" con con con con             -- hfill A r φ u
+    | "HFillChk" con con                  -- hfill r u (checking)
+    | "Com" con con con con con           -- com A r r' φ u
+    
+    -- V types
+    | "V" con con con con                 -- V r A B e
+    | "VProj" con                         -- vproj t
+    | "Cap" con                           -- cap t
+    
+    -- Modifiers (for imports/exports)
+    | "ModAll"                            -- ::
+    | "ModOnly" strings                   -- path
+    | "ModRename" strings strings         -- path -> path
+    | "ModNone"                           -- !
+    | "ModExcept" strings                 -- ! path
+    | "ModSeq" cons                       -- [m1; m2]
+    | "ModUnion" cons                     -- {m1, m2}
+    | "ModInSubtree" strings con          -- path :: m
+    | "ModPrint" hole                     -- ?
+
+-----------------------------------------------------
+-- Helpers
+-----------------------------------------------------
+
+piece Helpers
+  cons ::= "[" con ("," con)* "]" | "[]"
+  cells ::= "[" cell ("," cell)* "]" | "[]"
+  idents ::= "[" ident ("," ident)* "]" | "[]"
+  strings ::= "[" <string> ("," <string>)* "]" | "[]"
+  conopt ::= "Some" con | "None"
+  identopt ::= "Some" ident | "None"
+
+-----------------------------------------------------
+-- Cases and Patterns
+-----------------------------------------------------
+
+piece CasesPatterns
+  cases ::= "[" case ("," case)* "]" | "[]"
+  case ::= "(" pat "," con ")"
+  
+  pat ::= "Pat" "{" "lbl" ":" strings "," "args" ":" patargs "}"
+  patargs ::= "[" patarg ("," patarg)* "]" | "[]"
+  patarg ::= "`Simple" ident | "`Inductive" "(" ident "," ident ")"
+  
+  cofcases ::= "[" cofcase ("," cofcase)* "]" | "[]"
+  cofcase ::= "(" con "," con ")"
+
+-----------------------------------------------------
+-- Fields (for records)
+-----------------------------------------------------
+
+piece Fields
+  fields ::= "[" field ("," field)* "]" | "[]"
+  field ::= "`Field" "(" ident "," con ")"
+          | "`Include" "(" con "," renames ")"
+  
+  patches ::= "[" patch ("," patch)* "]" | "[]"
+  patch ::= "`Patch" "(" ident "," con ")"
+          | "`Subst" "(" ident "," con ")"
+  
+  renames ::= "[" rename ("," rename)* "]" | "[]"
+  rename ::= "(" ident "," ident ")"
+
+-----------------------------------------------------
+-- Equations
+-----------------------------------------------------
+
+piece EqnSteps
+  eqns ::= "Step" eqnstep | "Qed" con
+  eqnstep ::= "Equals" "(" con "," con "," eqns ")"
+            | "Trivial" "(" con "," eqns ")"
+
+-----------------------------------------------------
+-- Declarations
+-----------------------------------------------------
+
+piece Decl
+  decl ::= node(decl_)
+  
+  decl_ ::=
+    | "Def" "{" 
+        "abstract" ":" <bool> ","
+        "shadowing" ":" <bool> ","
+        "name" ":" ident ","
+        "args" ":" cells ","
+        "def" ":" con ","
+        "tp" ":" con ","
+        "unfolding" ":" idents
+      "}"
+    | "Axiom" "{"
+        "shadowing" ":" <bool> ","
+        "name" ":" ident ","
+        "args" ":" cells ","
+        "tp" ":" con
+      "}"
+    | "Print" "{"
+        "unfolding" ":" idents ","
+        "name" ":" node(ident)
+      "}"
+    | "Import" "{"
+        "shadowing" ":" <bool> ","
+        "unitpath" ":" strings ","
+        "modifier" ":" conopt
+      "}"
+    | "NormalizeTerm" "{"
+        "unfolding" ":" idents ","
+        "con" ":" con
+      "}"
+    | "Fail" decl
+    | "Debug" <bool>
+    | "Quit"
+    | "View" "{"
+        "shadowing" ":" <bool> ","
+        "modifier" ":" con
+      "}"
+    | "Export" "{"
+        "shadowing" ":" <bool> ","
+        "modifier" ":" con
+      "}"
+    | "Repack" "{"
+        "shadowing" ":" <bool> ","
+        "modifier" ":" con
+      "}"
+    | "Section" "{"
+        "shadowing" ":" <bool> ","
+        "prefix" ":" stringsopt ","
+        "decls" ":" signature ","
+        "modifier" ":" conopt
+      "}"
+
+  signature ::= "[" decl ("," decl)* "]" | "[]"
+  stringsopt ::= "Some" strings | "None"
+
+-----------------------------------------------------
+-- REPL Commands
+-----------------------------------------------------
+
+piece ReplCommand
+  replcmd ::= node(replcmd_)
+  replcmd_ ::= "NoOp" | "EndOfFile" | "Decl" decl
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+
+piece Tests
+  -- Variable
+  test ast "x": Var (`User ["x"])
+  test ast "foo::bar": Var (`User ["foo", "bar"])
+  
+  -- Literals
+  test ast "0": Lit 0
+  test ast "42": Lit 42
+  test ast "_": Underscore
+  
+  -- Natural numbers
+  test ast "nat": Nat
+  test ast "suc n": Suc (Var (`User ["n"]))
+  test ast "zero": Lit 0
+  
+  -- Circle
+  test ast "circle": Circle
+  test ast "base": Base
+  test ast "loop i": Loop (Var (`User ["i"]))
+  
+  -- Functions
+  test ast "A -> B": Pi [Cell {names: [`Anon], tp: A}] B
+  test ast "(x : A) -> B": Pi [Cell {names: [`User ["x"]], tp: A}] B
+  test ast "x => body": Lam [`User ["x"]] body
+  test ast "f x": Ap f [x]
+  
+  -- Pairs
+  test ast "A * B": Sg [Cell {names: [`Anon], tp: A}] B
+  test ast "[a, b]": Pair a b
+  test ast "fst p": Fst p
+  test ast "snd p": Snd p
+  test ast "r.x": Proj r (`User ["x"])
+  
+  -- Cofibrations
+  test ast "i = 0": CofEq i 0
+  test ast "φ \\/ ψ": Join [φ, ψ]
+  test ast "φ /\\ ψ": Meet [φ, ψ]
+  test ast "∂ i": CofBoundary i
+  test ast "⊤": TopC
+  test ast "⊥": BotC
+  
+  -- Extension types
+  test ast "ext i => A with [i=0 => M | i=1 => N]":
+    Ext [`User ["i"]] A [(CofEq i 0, M), (CofEq i 1, N)]
+  
+  -- Sub types
+  test ast "sub A φ a": Sub A φ a
+  
+  -- Cubical ops
+  test ast "coe A r s a": Coe A r s a
+  test ast "hcom A r s φ u": HCom A r s φ u
+  test ast "com A r s φ u": Com A r s φ u
+  
+  -- V types
+  test ast "V r A B e": V r A B e
+  test ast "vproj t": VProj t
+  test ast "cap t": Cap t
+  
+  -- Let
+  test ast "let x := a in b": Let a (`User ["x"]) b
+  test ast "let x : A := a in b": Let (Ann {term: a, tp: A}) (`User ["x"]) b
+  
+  -- Eliminator
+  test ast "elim [| zero => z | suc {n => ih} => s]":
+    LamElim [(Pat {lbl: ["zero"], args: []}, z),
+             (Pat {lbl: ["suc"], args: [`Inductive (n, ih)]}, s)]
+  
+  -- Records
+  test ast "sig [x : nat]": Signature [`Field (`User ["x"], Nat)]
+  test ast "struct [x := 0]": Struct [`Field (`User ["x"], Lit 0)]
+

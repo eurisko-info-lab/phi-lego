@@ -1,0 +1,96 @@
+-- Phi in Lego: Reduction & Normalization
+-- This is the Lego equivalent of src/Phi/Eval/Reduce.hs
+
+lang Reduce :=
+  import Term
+  
+  -- normalize : [Rule] → Term → Term
+  -- Apply rules until fixed point (normal form)
+  
+  -- The fundamental rewrite rules for lambda calculus
+  rules:
+    -- β-reduction: (λx.b) a → b[x:=a]
+    (app (lam $x $t $b) $a) ~> (subst $x $a $b)
+    
+    -- η-reduction: λx.(f x) → f  (when x not free in f)
+    (lam $x $t (app $f (var $x))) ~> $f when (not (freeIn $x $f))
+  
+  -- α-equivalence: structural equality up to bound variable renaming
+  rules:
+    (alphaEq (var $x) (var $x)) ~> true
+    (alphaEq (var $x) (var $y)) ~> false when (neq $x $y)
+    
+    (alphaEq (lam $x $t1 $b1) (lam $y $t2 $b2)) ~>
+      (and (alphaEq $t1 $t2) 
+           (alphaEq $b1 (subst $y (var $x) $b2)))
+    
+    (alphaEq (app $f1 $a1) (app $f2 $a2)) ~>
+      (and (alphaEq $f1 $f2) (alphaEq $a1 $a2))
+    
+    (alphaEq (pi $x $d1 $c1) (pi $y $d2 $c2)) ~>
+      (and (alphaEq $d1 $d2)
+           (alphaEq $c1 (subst $y (var $x) $c2)))
+  
+  -- β-equivalence: same normal form
+  rules:
+    (betaEq $t1 $t2) ~> (alphaEq (normalize $t1) (normalize $t2))
+  
+  -- Step function: one reduction step
+  rules:
+    -- Try β at root
+    (step (app (lam $x $t $b) $a)) ~> (just (subst $x $a $b))
+    
+    -- Recurse into subterms
+    (step (app $f $a)) ~>
+      (case (step $f)
+        (just $f') (just (app $f' $a))
+        nothing (case (step $a)
+                  (just $a') (just (app $f $a'))
+                  nothing nothing))
+    
+    (step (lam $x $t $b)) ~>
+      (case (step $b)
+        (just $b') (just (lam $x $t $b'))
+        nothing nothing)
+    
+    -- Variables and types don't reduce
+    (step (var $x)) ~> nothing
+    (step type) ~> nothing
+    (step kind) ~> nothing
+  
+  -- Normalize: iterate step until nothing
+  rules:
+    (normalize $t) ~> (normalizeWith 1000 $t)
+    
+    (normalizeWith 0 $t) ~> $t  -- out of fuel
+    (normalizeWith $n $t) ~>
+      (case (step $t)
+        nothing $t
+        (just $t') (normalizeWith (pred $n) $t'))
+
+lang Match :=
+  import Term
+  
+  -- Pattern matching for rule application
+  rules:
+    -- Variable pattern: always matches, binds
+    (match (pvar $x) $t) ~> (just (singleton $x $t))
+    
+    -- Literal pattern: exact match
+    (match (plit $s) (lit $s)) ~> (just empty)
+    (match (plit $s) (var $s)) ~> (just empty)
+    (match (plit $s) $other) ~> nothing when (neq $s $other)
+    
+    -- Constructor pattern: match head and all args
+    (match (pcon $c nil) (con $c nil)) ~> (just empty)
+    (match (pcon $c (cons $p $ps)) (con $c (cons $t $ts))) ~>
+      (case (match $p $t)
+        nothing nothing
+        (just $b1) (case (match (pcon $c $ps) (con $c $ts))
+                     nothing nothing
+                     (just $b2) (just (merge $b1 $b2))))
+    (match (pcon $c $ps) $other) ~> nothing
+  
+  -- Merge bindings (with conflict check)
+  rules:
+    (merge $b1 $b2) ~> (union $b1 $b2)  -- simplified; should check consistency

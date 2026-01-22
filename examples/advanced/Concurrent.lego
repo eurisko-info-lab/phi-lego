@@ -1,0 +1,51 @@
+-- Concurrent.lego: Base for concurrency
+-- Shared by Async, Actors, STM
+
+import Base
+
+lang Concurrent (Base) :=
+
+-----------------------------------------------------
+-- Effect types
+-----------------------------------------------------
+piece ConcEffect
+  ceff ::= "IO" term            -- IO effect
+         | "Concurrent" term    -- concurrent computation
+         | "Fork" term          -- forkable computation
+
+-----------------------------------------------------
+-- Synchronization primitives
+-----------------------------------------------------
+piece Sync
+  sync ::= "MVar" term          -- mutable variable
+         | "newMVar" term
+         | "takeMVar" term
+         | "putMVar" term term
+         | "Chan" term          -- channel
+         | "newChan"
+         | "readChan" term
+         | "writeChan" term term
+
+-----------------------------------------------------
+-- Process identifiers
+-----------------------------------------------------
+piece Process
+  proc ::= "ThreadId"           -- thread identifier
+         | "myThreadId"         -- get current thread
+         | "fork" term          -- fork thread
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "io": (IO Bool)
+test "mvar": (MVar Nat)
+test "fork": (fork (IO unit))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Concurrent
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [ ] Rules: fork/join
+-- [ ] Normalization: verify reduction
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

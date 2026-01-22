@@ -1,0 +1,90 @@
+-- STM.lego: Software Transactional Memory
+-- Composable atomic transactions
+-- Composes: Concurrent
+
+import Concurrent
+
+lang STM (Concurrent) :=
+
+-----------------------------------------------------
+-- STM monad
+-----------------------------------------------------
+piece STMMonad
+  stmm ::= "STM" term               -- STM computation type
+         | "atomically" term        -- run STM atomically
+         | "retry"                  -- retry transaction
+         | "orElse" term term       -- alternative
+
+-----------------------------------------------------
+-- Transactional variables
+-----------------------------------------------------
+piece TVar
+  tvar ::= "TVar" term              -- transactional variable
+         | "newTVar" term           -- create TVar
+         | "readTVar" term          -- read TVar
+         | "writeTVar" term term    -- write TVar
+         | "modifyTVar" term term   -- modify TVar
+
+-----------------------------------------------------
+-- Transactional collections
+-----------------------------------------------------
+piece TCollection
+  tcoll ::= "TArray" term           -- transactional array
+          | "TQueue" term           -- transactional queue
+          | "TBQueue" nat term      -- bounded queue
+          | "TChan" term            -- transactional channel
+
+-----------------------------------------------------
+-- Queue operations
+-----------------------------------------------------
+piece TQueueOps
+  tqop ::= "newTQueue"
+         | "readTQueue" term
+         | "writeTQueue" term term
+         | "tryReadTQueue" term
+         | "peekTQueue" term
+         | "isEmptyTQueue" term
+
+-----------------------------------------------------
+-- Combinators
+-----------------------------------------------------
+piece STMComb
+  stmcomb ::= "check" term          -- guard (retry if false)
+            | "always" term         -- invariant
+            | "alwaysSucceeds" term -- must not retry
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule atomically_pure:
+  (atomically (pure $a)) ~> $a
+
+rule orElse_success:
+  (orElse (pure $a) $alt) ~> (pure $a)
+
+rule orElse_retry:
+  (orElse retry $alt) ~> $alt
+
+rule check_true:
+  (check true) ~> (pure unit)
+
+rule check_false:
+  (check false) ~> retry
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "stm_type": (STM Bool)
+test "tvar": (TVar Nat)
+test "atomic": (atomically (readTVar v))
+test "orElse": (orElse (readTQueue q) (pure default))
+test "check": (check (> balance 0))
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for STM
+-- =============================================================================
+-- [x] Grammar: parsing works
+-- [x] Rules: atomically_pure, orElse, check
+-- [ ] Full transaction semantics (needs runtime)
+-- Keywords: cuts := ["piece", "rule", "test", "def"]
+-- =============================================================================

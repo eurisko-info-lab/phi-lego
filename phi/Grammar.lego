@@ -1,0 +1,149 @@
+-- Phi in Lego: Grammar and Parsing
+-- This is the Lego equivalent of src/Phi/Grammar/Grammar.hs
+
+lang Grammar :=
+  import Graph
+  import Token
+  
+  -- GrammarF: Free algebra of grammar expressions
+  -- GrammarF X = Sym String | Seq [X] | Alt [X] | Rep X | Opt X | Ref Name
+  
+  -- Sym: literal symbol/keyword
+  grammar:
+    Sym ::= "'" /[^']+/ "'"
+    
+  -- Seq: sequence (concatenation, monoid)
+  grammar:
+    Seq ::= "(" grammar* ")"
+    
+  -- Alt: alternation (sum, coproduct)  
+  grammar:
+    Alt ::= grammar ("|" grammar)+
+    
+  -- Rep: repetition (Kleene star)
+  grammar:
+    Rep ::= grammar "*"
+    
+  -- Opt: optional (Maybe)
+  grammar:
+    Opt ::= grammar "?"
+    
+  -- Ref: reference to another production
+  grammar:
+    Ref ::= identifier
+  
+  -- Production: named grammar
+  grammar:
+    Production ::= identifier "::=" grammar
+  
+  -- The grammar algebra forms a semiring:
+  -- (+) = Alt  (additive monoid with zero = empty Alt)
+  -- (*) = Seq  (multiplicative monoid with unit = empty Seq)
+  -- Rep = Kleene closure
+  
+  rules:
+    -- Seq identity: () g = g = g ()
+    (seq nil $g) ~> $g
+    (seq $g nil) ~> $g
+    
+    -- Alt identity: (|) = empty
+    (alt nil) ~> fail
+    
+    -- Alt associativity
+    (alt (cons (alt $gs1) $gs2)) ~> (alt (append $gs1 $gs2))
+    
+    -- Seq associativity
+    (seq (cons (seq $gs1) $gs2)) ~> (seq (append $gs1 $gs2))
+    
+    -- Rep absorption: g* g* = g*
+    (seq (cons (rep $g) (cons (rep $g) $rest))) ~> 
+      (seq (cons (rep $g) $rest))
+    
+    -- Opt as Alt: g? = g | ε
+    (opt $g) ~> (alt (cons $g (cons (seq nil) nil)))
+
+lang Parser :=
+  import Grammar
+  import Token
+  
+  -- Parse result: (remaining tokens, parsed value)
+  -- parse : Grammar → [Token] → Maybe (Value, [Token])
+  
+  rules:
+    -- Sym: match literal
+    (parse (sym $s) (cons (tok $s) $rest)) ~> (just (lit $s) $rest)
+    (parse (sym $s) (cons (tok $other) $rest)) ~> nothing when (neq $s $other)
+    (parse (sym $s) nil) ~> nothing
+    
+    -- Seq: parse each in sequence
+    (parse (seq nil) $toks) ~> (just (con tuple nil) $toks)
+    (parse (seq (cons $g $gs)) $toks) ~>
+      (case (parse $g $toks)
+        nothing nothing
+        (just $v $rest1) 
+          (case (parse (seq $gs) $rest1)
+            nothing nothing
+            (just (con tuple $vs) $rest2)
+              (just (con tuple (cons $v $vs)) $rest2)))
+    
+    -- Alt: try alternatives in order (PEG-style)
+    (parse (alt nil) $toks) ~> nothing
+    (parse (alt (cons $g $gs)) $toks) ~>
+      (case (parse $g $toks)
+        (just $v $rest) (just $v $rest)
+        nothing (parse (alt $gs) $toks))
+    
+    -- Rep: zero or more
+    (parse (rep $g) $toks) ~>
+      (case (parse $g $toks)
+        nothing (just (con list nil) $toks)
+        (just $v $rest)
+          (case (parse (rep $g) $rest)
+            (just (con list $vs) $rest2)
+              (just (con list (cons $v $vs)) $rest2)))
+    
+    -- Opt: zero or one
+    (parse (opt $g) $toks) ~>
+      (case (parse $g $toks)
+        nothing (just nothing $toks)
+        (just $v $rest) (just (just $v) $rest))
+    
+    -- Ref: lookup in grammar environment and parse
+    (parse (ref $name) $toks) ~> 
+      (parse (lookup $name grammar-env) $toks)
+
+lang Printer :=
+  import Grammar
+  
+  -- Bidirectional: grammar defines both parsing and printing
+  -- unparse : Grammar → Value → Maybe [Token]
+  
+  rules:
+    (unparse (sym $s) (lit $s)) ~> (just (cons (tok $s) nil))
+    (unparse (sym $s) $other) ~> nothing
+    
+    (unparse (seq nil) (con tuple nil)) ~> (just nil)
+    (unparse (seq (cons $g $gs)) (con tuple (cons $v $vs))) ~>
+      (case (unparse $g $v)
+        nothing nothing
+        (just $ts1)
+          (case (unparse (seq $gs) (con tuple $vs))
+            nothing nothing
+            (just $ts2) (just (append $ts1 $ts2))))
+    
+    (unparse (alt (cons $g $gs)) $v) ~>
+      (case (unparse $g $v)
+        (just $ts) (just $ts)
+        nothing (unparse (alt $gs) $v))
+    
+    (unparse (rep $g) (con list nil)) ~> (just nil)
+    (unparse (rep $g) (con list (cons $v $vs))) ~>
+      (case (unparse $g $v)
+        nothing nothing
+        (just $ts1)
+          (case (unparse (rep $g) (con list $vs))
+            nothing nothing
+            (just $ts2) (just (append $ts1 $ts2))))
+
+-- Composition: Grammar is a pushout of Token and GrammarF
+lang GrammarLang := Grammar + Parser + Printer

@@ -1,0 +1,75 @@
+-- Quotient.lego: Quotient Types
+-- Types quotiented by equivalence relations
+-- Composes: Base
+
+import Base
+
+lang Quotient (Base) :=
+
+-----------------------------------------------------
+-- Quotient type former
+-----------------------------------------------------
+piece QuotientType
+  qtype ::= "Quot" term term
+
+-----------------------------------------------------
+-- Introduction
+-----------------------------------------------------
+piece QuotientIntro
+  qintro ::= "qclass" term
+
+-----------------------------------------------------
+-- Elimination
+-----------------------------------------------------
+piece QuotientElim
+  qelim ::= "quot-rec" term term term term
+
+-----------------------------------------------------
+-- Set quotient
+-----------------------------------------------------
+piece SetQuotient
+  setquot ::= "SetQuot" term term
+  setquot_in ::= "setquot-in" term
+  setquot_rec ::= "setquot-rec" term term term term term
+
+-----------------------------------------------------
+-- Common quotients
+-----------------------------------------------------
+piece CommonQuotients
+  intdef ::= "Int"
+  ratdef ::= "Rat"
+
+-----------------------------------------------------
+-- Application (for rule results)
+-----------------------------------------------------
+piece App
+  app ::= "(" term term ")"
+  term ::= name | app
+
+-----------------------------------------------------
+-- Rules
+-----------------------------------------------------
+rule quot_rec_class:
+  (quot-rec $P $f $resp (qclass $a)) ~> ($f $a)
+
+rule setquot_rec_in:
+  (setquot-rec $P $f $resp $isset (setquot-in $a)) ~> ($f $a)
+
+-----------------------------------------------------
+-- Tests
+-----------------------------------------------------
+test "quot_type": (Quot Nat R)
+test "quot_class": (qclass zero)
+test "setquot_type": (SetQuot Nat R)
+test "setquot_in": (setquot-in zero)
+test "quot_rec_test": (quot-rec P f resp (qclass a)) ~~> result
+test "setquot_rec_test": (setquot-rec P f resp isset (setquot-in a)) ~~> result
+test "int_type": Int
+test "rat_type": Rat
+
+-- =============================================================================
+-- TODO: Executable Language Checklist for Quotient
+-- [x] Grammar
+-- [x] Rules: quot-rec
+-- [x] Normalization
+-- =============================================================================
