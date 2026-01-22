@@ -873,7 +873,8 @@ def extractRule (ruleDecl : Term) : Option Rule :=
     -- Structure varies based on whether patterns have outer parens
     -- Filter out keywords, punctuation, and empty guard
     let filtered := args.filter (· != .lit "rule") |>.filter (· != .lit ":")
-                       |>.filter (· != .lit "~>") |>.filter (· != .lit ";")
+                       |>.filter (· != .lit "~>") |>.filter (· != .lit "~~>")
+                       |>.filter (· != .lit ";")
                        |>.filter (· != .lit "(") |>.filter (· != .lit ")")
                        |>.filter (· != .lit "$")
                        |>.filter (· != .con "unit" [])  -- empty guard

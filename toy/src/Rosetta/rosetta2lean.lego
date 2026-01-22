@@ -1,85 +1,98 @@
 -----------------------------------------------------
--- rosetta2lean.lego: Translator from Rosetta to Lean
+-- rosetta2lean.lego: Transform Lego AST to Lean Code
 --
--- Transforms Rosetta AST to Lean AST using rewrite rules.
--- Simplified version for testing pipeline flow.
+-- Transforms the parsed AST from .lego files into 
+-- Lean 4 syntax for code generation.
+-- Patterns match the actual Bootstrap.lego parse output.
 -----------------------------------------------------
-import Rosetta
-import Lean
 
 lang RosettaToLean :=
 
 -----------------------------------------------------
--- TransformPrimitives
--- Basic transformation: Rosetta terms to Lean exprs.
+-- GrammarTransform
+-- Transform DGrammar rules to inductive types
+-- Actual AST: (DGrammar (ident name) "::=" body ";")
 -----------------------------------------------------
-piece TransformPrimitives
-  rule transformConst: (transform (Const $lit)) ~~> $lit ;
-  rule transformVar: (transform (Var $id)) ~~> $id ;
-  rule transformLam: (transform (Lam $x $body)) ~~> (fun $x => (transform $body)) ;
-  rule transformApp: (transform (App $f $a)) ~~> ((transform $f) (transform $a)) ;
-  rule transformPair: (transform (Pair $a $b)) ~~> ($a , $b) ;
-  rule transformFst: (transform (Fst $p)) ~~> (fst $p) ;
-  rule transformSnd: (transform (Snd $p)) ~~> (snd $p) ;
+piece GrammarTransform
+  rule transformGrammar: (DGrammar (ident $name) $defn $body $semi) ~~>
+    (inductive $name $body) ;
 
 -----------------------------------------------------
--- AdtTransform
--- Transform 'adtDef name constrs' to 'inductive name where constrs'.
+-- AltTransform
+-- Transform alt nodes to choice
 -----------------------------------------------------
-piece AdtTransform
-  rule transformAdt: (transform (adtDef $name $constrs)) ~~> (inductive $name where (transformConstrs $constrs)) ;
-  rule transformConstrsEmpty: (transformConstrs ()) ~~> () ;
-  rule transformConstrsCons: (transformConstrs ($c $rest)) ~~> ((transformConstr $c) (transformConstrs $rest)) ;
-  rule transformConstr: (transformConstr (constr $name $ty)) ~~> (ctor $name (transform $ty)) ;
+piece AltTransform
+  rule transformAlt: (alt $left $bar $right) ~~> (choice $left $right) ;
 
 -----------------------------------------------------
--- RewriteTransform
--- Transform 'rewriteRule name pat repl' to 'def name ...'.
+-- StarTransform  
+-- Transform star nodes to many
 -----------------------------------------------------
-piece RewriteTransform
-  rule transformRewrite: (transform (rewriteRule $name $pat $repl)) ~~>
-    (def $name (matchReduce (transform $pat) (transform $repl))) ;
+piece StarTransform
+  rule transformStar: (star $inner $op) ~~> (many $inner) ;
+
+-----------------------------------------------------
+-- OptTransform
+-- Transform opt nodes to optional
+-----------------------------------------------------
+piece OptTransform
+  rule transformOpt: (opt $inner $op) ~~> (optional $inner) ;
+
+-----------------------------------------------------
+-- RefTransform
+-- Transform ref nodes
+-----------------------------------------------------
+piece RefTransform
+  rule transformRef: (ref (ident $name)) ~~> (ref $name) ;
+
+-----------------------------------------------------
+-- LitTransform
+-- Transform lit nodes
+-----------------------------------------------------
+piece LitTransform
+  rule transformLit: (lit (string $s)) ~~> (terminal $s) ;
+
+-----------------------------------------------------
+-- ChrTransform
+-- Transform chr nodes for character classes
+-----------------------------------------------------
+piece ChrTransform
+  rule transformChr: (chr (char $c)) ~~> (char $c) ;
+
+-----------------------------------------------------
+-- RuleTransform
+-- Transform DRule to def
+-- Actual AST: (DRule "rule" (ident name) ":" pat "~~>" tmpl unit ";")
+-----------------------------------------------------
+piece RuleTransform  
+  rule transformRule: (DRule rule (ident $name) $colon $pat $arrow $tmpl $guard $semi) ~~>
+    (def $name $pat $tmpl) ;
 
 -----------------------------------------------------
 -- TestTransform
--- Transform 'testDecl name lhs rhs' to 'example ...'.
+-- Transform DTest to example
+-- Actual AST: (DTest "test" (string name) ":" body unit ";")
 -----------------------------------------------------
 piece TestTransform
-  rule transformTest: (transform (testDecl $name $lhs $rhs)) ~~>
-    (example (eq (transform $lhs) (transform $rhs))) ;
+  rule transformTest: (DTest test (string $name) $colon $body $guard $semi) ~~>
+    (example $name $body) ;
 
 -----------------------------------------------------
--- ModuleTransform
--- Transform 'moduleDecl name decls' to 'namespace name ... end'.
+-- TermTransform
+-- Transform term construction nodes
 -----------------------------------------------------
-piece ModuleTransform
-  rule transformModule: (transform (moduleDecl $name $decls)) ~~>
-    (namespace $name (transformDecls $decls) end $name) ;
-  rule transformDeclsEmpty: (transformDecls ()) ~~> () ;
-  rule transformDeclsCons: (transformDecls ($d $rest)) ~~> ((transform $d) (transformDecls $rest)) ;
-  rule transformImport: (transform (importDecl $mod)) ~~> (import $mod) ;
+piece TermTransform
+  -- Con terms: (con "(" head args... ")")
+  rule transformCon: (con $lp (ident $head) $args $rp) ~~>
+    (app $head $args) ;
+  
+  -- Var terms: (var "$" (ident name))
+  rule transformVar: (var $dollar (ident $name)) ~~>
+    (metavar $name) ;
+  
+  -- Identifier nodes: (ident name) -> just name
+  rule transformIdent: (ident $name) ~~> $name ;
+  
+  -- Unit: empty parens
+  rule transformUnit: (unit) ~~> () ;
 
------------------------------------------------------
--- LangTransform
--- Top-level: 'lang Name contents' → Lean file.
------------------------------------------------------
-piece LangTransform
-  rule transformLang: (transform (lang $name $contents)) ~~>
-    (legoLang $name (transformDecls $contents)) ;
-
------------------------------------------------------
--- TypeTransform
--- Transform types.
------------------------------------------------------
-piece TypeTransform
-  rule transformTypeUniv: (transform Univ) ~~> Type ;
-  rule transformTypePi: (transform (Pi $x $a $b)) ~~> (Pi $x (transform $a) (transform $b)) ;
-  rule transformTypeArr: (transform (Arr $a $b)) ~~> (Arrow (transform $a) (transform $b)) ;
-  rule transformTypeSig: (transform (Sigma $x $a $b)) ~~> (Sigma $x (transform $a) (transform $b)) ;
-
------------------------------------------------------
--- Examples
------------------------------------------------------
-test "transformConst": (transform (Const 42)) ~~> 42 ;
-test "transformVar": (transform (Var x)) ~~> x ;
-test "transformLam": (transform (Lam x (Var x))) ~~> (fun x => x) ;
