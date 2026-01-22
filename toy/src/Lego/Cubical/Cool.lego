@@ -44,8 +44,8 @@ piece Nat
   type zeroType: zero : Nat ;
   type sucType: (suc $n) : Nat when $n : Nat ;
   type natElimType: (natElim $P $z $s $n) : ($P $n)
-    when $P : Nat → U, $z : ($P zero), 
-         $s : Π (k : Nat) . ($P k) → ($P (suc k)), $n : Nat ;
+    when $P : (Nat → U), $z : ($P zero), 
+         $s : (Π (k : Nat) . (($P k) → ($P (suc k)))), $n : Nat ;
 
   test "natElim-zero": (natElim P z s zero) ~~> z ;
   test "natElim-suc": (natElim P z s (suc n)) ~~> (s n (natElim P z s n)) ;
@@ -75,7 +75,7 @@ piece Circle
   type baseType: base : S¹ ;
   type loopType: (loop $i) : S¹ when $i : I ;
   type S1ElimType: (S¹Elim $P $b $l $x) : ($P $x)
-    when $P : S¹ → U, $b : ($P base), 
+    when $P : (S¹ → U), $b : ($P base), 
          $l : (PathP ($i . $P (loop $i)) $b $b), $x : S¹ ;
 
   test "loop-0": (loop 0) ~~> base ;

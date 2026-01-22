@@ -150,7 +150,7 @@ piece FHcom
   rule fhcomBdy: (fhcom $r ~> $s $A [$φ ↦ $i . $u] $a) ~~> [$i := $s] $u when $φ ;
 
   type fhcomType: (fhcom $r ~> $s $A $sys $a) : $A
-    when $A : U fibrant, $sys : (PartialP $φ ($i : $r =I= $s . $A)), $a : $A ;
+    when $A : (U fibrant), $sys : (PartialP $φ ($i : $r =I= $s . $A)), $a : $A ;
 
 -----------------------------------------------------
 -- BoxCap
@@ -190,7 +190,7 @@ piece Coeq
   rule coeqElimIn: (coeqElim $P $h $p (coeqIn $b)) ~~> ($h $b) ;
 
   type CoeqForm: (Coeq $A $B $f $g) : U
-    when $A : U, $B : U, $f : $A → $B, $g : $A → $B ;
+    when $A : U, $B : U, $f : ($A → $B), $g : ($A → $B) ;
   type coeqInType: (coeqIn $b) : (Coeq $A $B $f $g)
     when $b : $B ;
 

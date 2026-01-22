@@ -133,6 +133,7 @@ piece Term
             | "[" term ":=" term "]" term → subst
             | "[" term ":" term "]" term → typedCtx
             | "[" term "]" → bracket
+            | "{" termArg* "}" → brace
             | "(" "[" term ":=" term "]" term ")" → parenSubst
             | "(" "[" term ":" term "]" term ")" → parenTypedCtx
             | "(" term ":" term ")" → ann
@@ -145,6 +146,8 @@ piece Term
   -- termArg: arguments in term applications, supports typed vars ($x : A)
   termArg ::= "$" ident "." term → binder
             | "$" ident ":" term → typedVar
+            | "$" ident ":=" term → assign
+            | ident ":=" term → assign
             | ident ":" term → labeledArg
             | ident "." term → objBinder
             | "~>" → con
@@ -154,6 +157,9 @@ piece Term
             | "=I=" → con
             | "@@" → con
             | "-" → con
+            | "↾" → con
+            | "@" → con
+            | "." → con
             | term ;
   -- conname: constructor names can be idents or reserved keywords (as symbols)
   -- Multi-char operators that can appear as constructor heads
@@ -170,17 +176,21 @@ piece Pattern
             | "$" ident → var
             | "[" pattern ":=" pattern "]" pattern → subst
             | "[" patternArg* "]" → bracket
+            | "{" patternArg* "}" → brace
             | "(" pattern "," pattern ")" → tuple
             | "(" ")" → unit
             | "(" "$" ident "." pattern ")" → binderParen
             | "(" ident "." pattern ")" → objBinderParen
             | "(" pattern ":" pattern ")" → ann
+            | "(" "(" patternHead patternArg* ")" patternArg+ ")" → app
             | "(" patternHead patternArg* ")" → con
             | string → lit
             | number → num
             | ident → con ;
   patternArg ::= "$" ident "." pattern → binder
                | "$" ident ":" pattern → typedVar
+               | "$" ident ":=" pattern → assign
+               | ident ":=" pattern → assign
                | ident ":" pattern → labeledArg
                | ident "." pattern → objBinder
                | "~>" → con
@@ -190,6 +200,9 @@ piece Pattern
                | "=I=" → con
                | "@@" → con
                | "-" → con
+               | "↾" → con
+               | "@" → con
+               | "." → con
                | pattern ;
   patternHead ::= "$" ident → var
                 | number → num
@@ -206,6 +219,7 @@ piece Template
              | "$" ident → var
              | "[" template ":=" template "]" template → subst
              | "[" templateArg* "]" → bracket
+             | "{" templateArg* "}" → brace
              | "(" template "," template ")" → tuple
              | "(" ")" → unit
              | "(" "case" template caseArm+ ")" → caseExpr
@@ -219,6 +233,8 @@ piece Template
             | ident "=>" template → arm ;
   templateArg ::= "$" ident "." template → binder
                 | "$" ident ":" template → typedVar
+                | "$" ident ":=" template → assign
+                | ident ":=" template → assign
                 | ident ":" template → labeledArg
                 | ident "." template → objBinder
                 | "~>" → con
@@ -228,6 +244,9 @@ piece Template
                 | "=I=" → con
                 | "@@" → con
                 | "-" → con
+                | "↾" → con
+                | "@" → con
+                | "." → con
                 | template ;
   headTerm ::= "$" ident → var
              | ident
@@ -292,6 +311,7 @@ piece File
                   | pattern "boundary" pattern → boundary
                   | pattern "holds" → holds
                   | pattern "declared" → declared
+                  | pattern "=" pattern → eq
                   | pattern → sidePattern ;
   testDecl   ::= "test" string ":" annotatedTerm ("~~>" annotatedTerm)? ";" → DTest ;
   annotatedTerm ::= term ":" term → ann | term ;
