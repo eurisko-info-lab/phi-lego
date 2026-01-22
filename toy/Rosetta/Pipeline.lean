@@ -731,6 +731,7 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
       match t with
       | .con "DToken" _ => some t
       | .con "DPiece" _ => some t
+      | .con "DDerive" _ => some t  -- Include derive declarations
       | _ => none
     s!"{pad}namespace {name}\n\n{body.map (termToLean · (indent + 1)) |> String.intercalate "\n\n"}\n\n{pad}end {name}"
   | .con "DToken" args =>
@@ -744,6 +745,7 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
       match t with
       | .con "DRule" _ => true  -- Include rules
       | .con "DTest" _ => true  -- Include tests
+      | .con "DDerive" _ => true  -- Include derive declarations
       | _ => false  -- Comment out grammar/inductive definitions
     s!"{pad}section {name}\n\n{contents.map (termToLean · (indent + 1)) |> String.intercalate "\n\n"}\n\n{pad}end {name}"
   | .con "DRule" args =>
@@ -774,19 +776,127 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
     s!"{pad}-- Test: {name}\n{pad}-- {termToLean body 0}"
   | .con "DDerive" args =>
     -- Derive traversal operations from grammar
-    -- Structure: [lit "derive", deriveKind, lit "for", ident grammarName, lit ";"]
+    -- Structure: [lit "derive", deriveKind, lit "for", ident grammarName, deriveWith?, lit ";"]
     let kind := match args[1]? with
       | some (.con "DSubst" _) => "subst"
       | some (.con "DShift" _) => "shift"
       | some (.con "DMap" _) => "map"
       | some (.con "DFold" _) => "fold"
       | some (.con "DCata" _) => "cata"
+      | some (.con "DAna" _) => "ana"
+      | some (.con "DHylo" _) => "hylo"
+      | some (.con "DPara" _) => "para"
+      | some (.con "DNormalize" _) => "normalize"
+      | some (.con "DConv" _) => "conv"
+      | some (.con "DInfer" _) => "infer"
+      | some (.con "DCheck" _) => "check"
+      | some (.con "DEval" _) => "eval"
+      | some (.con "DEq" _) => "eq"
       | _ => "cata"
     let grammarName := match args[3]? with
       | some (.con "ident" [.var n]) => n
       | some (.var n) => n
       | _ => "Term"
-    s!"{pad}-- Derived {kind} operations for {grammarName}\n{pad}-- (Catamorphism automatically generated from grammar definition)"
+    -- Extract binder list from deriveWith if present
+    let binders : List String := match args[4]? with
+      | some (Term.con "deriveWith" mods) =>
+        let extracted : List (List String) := mods.filterMap fun m => match m with
+          | Term.con "binderList" ids =>
+            some (ids.filterMap fun i => match i with
+              | Term.con "ident" [Term.var n] => some n
+              | Term.var n => some n
+              | _ => none)
+          | _ => none
+        extracted.flatten
+      | _ => binderCtors  -- Default binders
+    let binderList := String.intercalate ", " (binders.map (fun b => "\"" ++ b ++ "\""))
+    -- Generate actual code based on kind
+    match kind with
+    | "subst" =>
+      let lines := [
+        s!"-- Derived substitution for {grammarName}",
+        s!"-- Binders: {binders}",
+        "mutual",
+        s!"partial def subst{grammarName} (k : Nat) (v : Term) (t : Term) : Term :=",
+        "  match t with",
+        "  | Term.con \"ix\" [Term.con \"number\" [Term.lit n]] =>",
+        "    let idx := n.toNat!",
+        "    if idx == k then v",
+        "    else if idx > k then Term.con \"ix\" [Term.con \"number\" [Term.lit (toString (idx - 1))]]",
+        "    else t",
+        "  | Term.con tag args =>",
+        s!"    let isBinder := [{binderList}].contains tag",
+        "    if isBinder && args.length > 0 then",
+        s!"      Term.con tag (args.dropLast.map (subst{grammarName} k v) ++ [subst{grammarName} (k + 1) (shift{grammarName} 0 1 v) args.getLast!])",
+        "    else",
+        s!"      Term.con tag (args.map (subst{grammarName} k v))",
+        "  | _ => t",
+        "",
+        s!"partial def shift{grammarName} (c : Nat) (n : Int) (t : Term) : Term :=",
+        "  match t with",
+        "  | Term.con \"ix\" [Term.con \"number\" [Term.lit m]] =>",
+        "    let idx := m.toNat!",
+        "    if idx >= c then Term.con \"ix\" [Term.con \"number\" [Term.lit (toString (Int.toNat (idx + n)))]]",
+        "    else t",
+        "  | Term.con tag args =>",
+        s!"    let isBinder := [{binderList}].contains tag",
+        "    if isBinder && args.length > 0 then",
+        s!"      Term.con tag (args.dropLast.map (shift{grammarName} c n) ++ [shift{grammarName} (c + 1) n args.getLast!])",
+        "    else",
+        s!"      Term.con tag (args.map (shift{grammarName} c n))",
+        "  | _ => t",
+        "end"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "shift" =>
+      s!"{pad}-- Derived shift for {grammarName} (included with subst)"
+    | "normalize" =>
+      let fuelVal : String := match args[4]? with
+        | some (Term.con "deriveWith" mods) =>
+          let found := mods.filterMap fun m => match m with
+            | Term.con "fuelMod" [Term.con "number" [Term.lit n]] => some n
+            | _ => none
+          match found with
+          | h :: _ => h
+          | [] => "1000"
+        | _ => "1000"
+      let lines := [
+        s!"-- Derived normalizer for {grammarName} with fuel={fuelVal}",
+        "mutual",
+        s!"partial def normalize{grammarName} (fuel : Nat) (t : Term) : Term :=",
+        "  if fuel == 0 then t else",
+        s!"  let t' := step{grammarName} t",
+        s!"  if t' == t then t else normalize{grammarName} (fuel - 1) t'",
+        "",
+        s!"partial def step{grammarName} (t : Term) : Term :=",
+        "  match t with",
+        s!"  | Term.con \"app\" [Term.con \"lam\" [body], arg] => subst{grammarName} 0 arg body",
+        "  | Term.con \"fst\" [Term.con \"pair\" [a, _]] => a",
+        "  | Term.con \"snd\" [Term.con \"pair\" [_, b]] => b",
+        s!"  | Term.con tag args => Term.con tag (args.map step{grammarName})",
+        "  | _ => t",
+        "end"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "cata" =>
+      let lines := [
+        s!"-- Derived catamorphism for {grammarName}",
+        s!"def cata{grammarName} (alg : String → List α → α) (varF : String → α) (t : Term) : α :=",
+        "  match t with",
+        "  | Term.var n => varF n",
+        "  | Term.lit s => alg \"lit\" []",
+        s!"  | Term.con tag args => alg tag (args.map (cata{grammarName} alg varF))"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "conv" =>
+      let lines := [
+        s!"-- Derived conversion check for {grammarName}",
+        s!"def conv{grammarName} (t1 t2 : Term) : Bool :=",
+        s!"  normalize{grammarName} 1000 t1 == normalize{grammarName} 1000 t2"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | _ =>
+      s!"{pad}-- Derived {kind} for {grammarName}\n{pad}-- (TODO: implement {kind} generation)"
   -- Grammar algebra operations (categorical constructions)
   | .con "DPushout" args =>
     let g1 := args[1]?.bind Term.getVarName |>.getD "G1"

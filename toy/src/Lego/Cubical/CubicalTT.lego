@@ -139,6 +139,15 @@ piece Lambda
   test "dbeta": (dapp (dlam i . (dapp f i)) 0) ~~> (dapp f 0) ;
 
 -----------------------------------------------------
+-- Derived Operations
+-- Automatically generate substitution and normalization
+-----------------------------------------------------
+
+derive subst for term with binders = [lam, dlam, Pi, Sigma, PathP] ;
+derive normalize for term with fuel = 1000 ;
+derive cata for term ;
+
+-----------------------------------------------------
 -- Pi
 -- Dependent function types: Π (x : A) . B
 -- Binder: x binds in B
