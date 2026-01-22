@@ -281,7 +281,102 @@ namespace Redtt
 
   section RunML
 
+    def beta-lam (t : Term) : Term :=
+      match t with
+      | (con ( App (con ( Lam $x $body )) $arg )) => (con ( subst $body $x $arg ))
+      | _ => t
 
+    def beta-fst (t : Term) : Term :=
+      match t with
+      | () => ()
+      | _ => t
+
+    def beta-snd (t : Term) : Term :=
+      match t with
+      | () => ()
+      | _ => t
+
+    def beta-let (t : Term) : Term :=
+      match t with
+      | (con ( Let $x $val $body )) => (con ( subst $body $x $val ))
+      | _ => t
+
+    def beta-extapp-0 (t : Term) : Term :=
+      match t with
+      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim0 )) )) => (con ( subst $body $i (con ( Dim0 )) ))
+      | _ => t
+
+    def beta-extapp-1 (t : Term) : Term :=
+      match t with
+      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim1 )) )) => (con ( subst $body $i (con ( Dim1 )) ))
+      | _ => t
+
+    def coe-refl (t : Term) : Term :=
+      match t with
+      | (con ( Coe $r $r $ty $tm )) => (con ( Coe $r $r $ty $tm ))
+      | _ => t
+
+    def hcom-refl (t : Term) : Term :=
+      match t with
+      | (con ( HCom $r $r $ty $cap $sys )) => (con ( HCom $r $r $ty $cap $sys ))
+      | _ => t
+
+    def coe-const (t : Term) : Term :=
+      match t with
+      | (con ( Coe $r $r' (const $A) $tm )) => (con ( Coe $r $r' (const $A) $tm ))
+      | _ => t
+
+    def path-app-refl (t : Term) : Term :=
+      match t with
+      | (con ( ExtApp (Refl $a) $r )) => (con ( ExtApp (Refl $a) $r ))
+      | _ => t
+
+    def path-0 (t : Term) : Term :=
+      match t with
+      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim0 )) )) => (con ( subst $body $i (con ( Dim0 )) ))
+      | _ => t
+
+    def path-1 (t : Term) : Term :=
+      match t with
+      | (con ( ExtApp (con ( ExtLam $i $body )) (con ( Dim1 )) )) => (con ( subst $body $i (con ( Dim1 )) ))
+      | _ => t
+
+    def v-0 (t : Term) : Term :=
+      match t with
+      | (con ( V (con ( Dim0 )) $ty0 $ty1 $equiv )) => (con ( V (con ( Dim0 )) $ty0 $ty1 $equiv ))
+      | _ => t
+
+    def v-1 (t : Term) : Term :=
+      match t with
+      | (con ( V (con ( Dim1 )) $ty0 $ty1 $equiv )) => (con ( V (con ( Dim1 )) $ty0 $ty1 $equiv ))
+      | _ => t
+
+    def vin-0 (t : Term) : Term :=
+      match t with
+      | (con ( VIn (con ( Dim0 )) $tm0 $tm1 )) => (con ( VIn (con ( Dim0 )) $tm0 $tm1 ))
+      | _ => t
+
+    def vin-1 (t : Term) : Term :=
+      match t with
+      | (con ( VIn (con ( Dim1 )) $tm0 $tm1 )) => (con ( VIn (con ( Dim1 )) $tm0 $tm1 ))
+      | _ => t
+
+    def elim-intro (t : Term) : Term :=
+      match t with
+      | (con ( Elim (con ( Intro $dlbl $clbl $args )) $mot $clauses )) => (con ( apply-clause (con ( lookup $clbl $clauses )) $args ))
+      | _ => t
+
+    -- Test: test
+    -- ()
+
+    -- Test: test
+    -- (con ( import (var prelude) (var path) ))
+
+    -- Test: test
+    -- (con ( def (var id) (var x) (var x) ))
+
+    -- Test: test
+    -- (con ( def (var id) (con ( x (var COLON) (var A) )) (var COLON) (var A) (var x) ))
 
   end RunML
 

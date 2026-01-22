@@ -54,8 +54,22 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
       | .con "inductive" _ => true
       | .con "def" _ => true
       | .con "example" _ => true
+      | .con "DRule" _ => true  -- Include rules
+      | .con "DTest" _ => true  -- Include tests
       | _ => false
     s!"{pad}section {name}\n\n{contents.map (termToLean · (indent + 1)) |> String.intercalate "\n\n"}\n\n{pad}end {name}"
+  | .con "DRule" args =>
+    -- Transform DRule directly in printer
+    -- Structure: [lit "rule", ident name, lit ":", pat, lit "~~>", tmpl, unit, lit ";"]
+    let name := args.find? Term.isVar |>.bind Term.getVarName |>.getD "rule"
+    let pat := args.find? (fun t => match t with | .con "con" _ => true | _ => false) |>.getD (.con "unit" [])
+    let tmpl := args.reverse.find? (fun t => match t with | .con "con" _ => true | _ => false) |>.getD (.con "unit" [])
+    s!"{pad}def {name} (t : Term) : Term :=\n{pad}  match t with\n{pad}  | {termToLean pat 0} => {termToLean tmpl 0}\n{pad}  | _ => t"
+  | .con "DTest" args =>
+    -- Transform DTest directly in printer
+    let name := args.find? (fun t => match t with | .lit s => s.startsWith "\"" | _ => false) |>.map (fun t => match t with | .lit s => s | _ => "") |>.getD "test"
+    let body := args.find? (fun t => match t with | .con "con" _ => true | _ => false) |>.getD (.con "unit" [])
+    s!"{pad}-- Test: {name}\n{pad}-- {termToLean body 0}"
   | .con "inductive" [.var name, body] =>
     s!"{pad}def {name} : Parser :=\n{pad}  {termToLean body 0}"
   | .con "inductive" args =>

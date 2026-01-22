@@ -60,24 +60,6 @@ piece ChrTransform
   rule transformChr: (chr (char $c)) ~~> (char $c) ;
 
 -----------------------------------------------------
--- RuleTransform
--- Transform DRule to def
--- Actual AST: (DRule "rule" (ident name) ":" pat "~~>" tmpl unit ";")
------------------------------------------------------
-piece RuleTransform  
-  rule transformRule: (DRule rule (ident $name) $colon $pat $arrow $tmpl $guard $semi) ~~>
-    (def $name $pat $tmpl) ;
-
------------------------------------------------------
--- TestTransform
--- Transform DTest to example
--- Actual AST: (DTest "test" (string name) ":" body unit ";")
------------------------------------------------------
-piece TestTransform
-  rule transformTest: (DTest test (string $name) $colon $body $guard $semi) ~~>
-    (example $name $body) ;
-
------------------------------------------------------
 -- TermTransform
 -- Transform term construction nodes
 -----------------------------------------------------
