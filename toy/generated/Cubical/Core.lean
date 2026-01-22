@@ -375,13 +375,6 @@ namespace Core
       | _ => t
     end
 
-    -- Derived catamorphism for term
-    def cataterm (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
-      match t with
-      | Term.var n => varF n
-      | Term.lit s => alg "lit" []
-      | Term.con tag args => alg tag (args.map (cataterm alg varF))
-
     -- Derived conversion check for term
     def convterm (t1 t2 : Term) : Bool :=
       normalizeterm 1000 t1 == normalizeterm 1000 t2

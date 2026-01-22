@@ -403,7 +403,7 @@ namespace Cofibration
     end
 
     -- Derived catamorphism for cof
-    def catacof (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
+    partial def catacof [Inhabited α] (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
       match t with
       | Term.var n => varF n
       | Term.lit s => alg "lit" []

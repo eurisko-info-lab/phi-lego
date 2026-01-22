@@ -136,3 +136,10 @@ piece Equiv
          | "(" "equivFun" term ")" → equivFun ;
 
   rule equivFunId: (equivFun (idEquiv $A)) ~> (lam x x) ;
+
+
+-- Derived operations
+derive subst for term ;
+derive normalize for term ;
+derive cata for term ;
+derive eq for term ;

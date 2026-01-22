@@ -360,12 +360,13 @@ piece File
   langBody   ::= innerDecl* ;
   innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl 
                | deriveDecl | algebraDecl | effectDecl | opticsDecl | adjunctionDecl 
-               | kanDecl | operadDecl | natDecl ;
+               | kanDecl | operadDecl | natDecl | macroDecl | lawsDecl ;
   tokenDecl  ::= "token" ident tokenItem+ → DToken ;
   tokenItem  ::= prodDecl ;
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
   pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl | algebraDecl 
-               | effectDecl | opticsDecl | adjunctionDecl | kanDecl | operadDecl | natDecl ;
+               | effectDecl | opticsDecl | adjunctionDecl | kanDecl | operadDecl | natDecl 
+               | macroDecl | lawsDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":"? pattern ruleArrow template ruleGuard? ";" → DRule ;
   ruleArrow  ::= "~~>" | "~>" ;
@@ -380,6 +381,13 @@ piece File
   deriveMod  ::= "binders" "=" "[" ident ("," ident)* "]" → binderList
                | "fuel" "=" <number> → fuelMod
                | "base" "=" pattern → baseMod ;
+  -- Macro: syntactic abbreviation (definitional expansion)
+  macroDecl  ::= "macro" ident macroParams? ":=" expr ";" → DMacro ;
+  macroParams ::= ident+ → macroParams ;
+  -- Algebra laws: named equations for a sort
+  lawsDecl   ::= "algebra" ident "for" ident "{" lawItem* "}" → DAlgebra ;
+  lawItem    ::= ident ":" expr "=" expr ";" → lawEq
+               | ident ":" expr "=" expr "," expr "=" expr ";" → lawEq2 ;
   -- Grammar algebra: pushout, pullback, quotient
   algebraDecl ::= "pushout" ident ident "along" ident ";" → DPushout
                 | "pullback" ident ident "over" ident ";" → DPullback

@@ -88,3 +88,10 @@ end
 -- Original Core.lego: ~280 lines, 65 explicit traversal rules
 -- CoreDerived.lego: ~90 lines, 6 derive statements
 -- Code reduction: ~70%
+
+
+-- Derived operations
+derive subst for term ;
+derive normalize for term ;
+derive cata for term ;
+derive eq for term ;

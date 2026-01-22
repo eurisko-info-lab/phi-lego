@@ -273,3 +273,10 @@ piece StdEnv
      let env5 = (globalEnvDeclareDatatype env4 unitDesc) in
      env5) ;
 
+
+
+-- Derived operations
+derive subst for term ;
+derive normalize for term ;
+derive cata for term ;
+derive eq for term ;

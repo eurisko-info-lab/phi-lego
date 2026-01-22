@@ -419,3 +419,4 @@ piece Fiber
 
   type FiberForm: (Fiber $f $b) : U
     when $f : ($A → $B), $b : $B ;
+derive eq for term ;

@@ -660,3 +660,5 @@ test "def typed": (def id (x COLON A) COLON A x) ;
 --   - RedPRL/cooltt: src/core/*.ml (newer implementation)
 --   - test/elab.cooltt, test/path.cooltt (examples)
 -- =============================================================================
+
+derive eq for expr ;

@@ -416,13 +416,6 @@ namespace Module
       | _ => t
     end
 
-    -- Derived catamorphism for term
-    def cataterm (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
-      match t with
-      | Term.var n => varF n
-      | Term.lit s => alg "lit" []
-      | Term.con tag args => alg tag (args.map (cataterm alg varF))
-
   end QualifiedName
 
 end Module

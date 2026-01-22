@@ -239,4 +239,4 @@ piece HITNormalize
 
 derive subst for term ;
 derive normalize for term with fuel = 100 ;
-derive cata for term ;
+

@@ -234,7 +234,7 @@ namespace CubicalTT
     end
 
     -- Derived catamorphism for term
-    def cataterm (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
+    partial def cataterm [Inhabited α] (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
       match t with
       | Term.var n => varF n
       | Term.lit s => alg "lit" []
@@ -454,7 +454,14 @@ namespace CubicalTT
 
   section Fiber
 
-
+    -- Derived structural equality for term
+    partial def eqterm (t1 t2 : Term) : Bool :=
+      match t1, t2 with
+      | Term.var n1, Term.var n2 => n1 == n2
+      | Term.lit s1, Term.lit s2 => s1 == s2
+      | Term.con tag1 args1, Term.con tag2 args2 =>
+        tag1 == tag2 && args1.length == args2.length && (args1.zip args2).all fun (a, b) => eqterm a b
+      | _, _ => false
 
   end Fiber
 

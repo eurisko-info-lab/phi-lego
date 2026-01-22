@@ -222,3 +222,5 @@ piece Pushout
 derive subst for term with binders = [lam, dlam, extLam, Pi, Sigma, PathP, Ext, twin] ;
 derive normalize for term with fuel = 1000 ;
 derive cata for term ;
+
+derive eq for term ;

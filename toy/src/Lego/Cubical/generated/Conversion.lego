@@ -333,5 +333,5 @@ piece Helpers
 
 derive subst for term ;
 derive normalize for term with fuel = 100 ;
-derive cata for term ;
 derive conv for term ;
+

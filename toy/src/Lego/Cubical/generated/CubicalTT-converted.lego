@@ -378,3 +378,10 @@ piece Equiv
 
 piece Fiber
   term ::= "Fiber" term term           → Fiber ;
+
+
+-- Derived operations
+derive subst for term ;
+derive normalize for term ;
+derive cata for term ;
+derive eq for term ;

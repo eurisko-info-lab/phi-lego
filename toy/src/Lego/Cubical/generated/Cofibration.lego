@@ -196,3 +196,4 @@ piece Forall
 derive subst for cof ;
 derive normalize for cof with fuel = 100 ;
 derive cata for cof ;
+

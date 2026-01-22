@@ -881,11 +881,110 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
     | "cata" =>
       let lines := [
         s!"-- Derived catamorphism for {grammarName}",
-        s!"def cata{grammarName} (alg : String → List α → α) (varF : String → α) (t : Term) : α :=",
+        s!"partial def cata{grammarName} [Inhabited α] (alg : String → List α → α) (varF : String → α) (t : Term) : α :=",
         "  match t with",
         "  | Term.var n => varF n",
         "  | Term.lit s => alg \"lit\" []",
         s!"  | Term.con tag args => alg tag (args.map (cata{grammarName} alg varF))"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "ana" =>
+      let lines := [
+        s!"-- Derived anamorphism for {grammarName}",
+        s!"partial def ana{grammarName} (coalg : α → (String × List α)) (seed : α) : Term :=",
+        "  let (tag, children) := coalg seed",
+        s!"  Term.con tag (children.map (ana{grammarName} coalg))"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "hylo" =>
+      let lines := [
+        s!"-- Derived hylomorphism for {grammarName} (ana then cata)",
+        s!"def hylo{grammarName} [Inhabited α] [Inhabited β] (alg : String → List β → β) (coalg : α → (String × List α)) (depth : Nat) (seed : α) : β :=",
+        "  if depth == 0 then alg \"⊥\" [] else",
+        "  let (tag, children) := coalg seed",
+        s!"  alg tag (children.map (hylo{grammarName} alg coalg (depth - 1)))"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "para" =>
+      let lines := [
+        s!"-- Derived paramorphism for {grammarName} (cata with original)",
+        s!"partial def para{grammarName} [Inhabited α] (alg : String → List (Term × α) → α) (varF : String → α) (t : Term) : α :=",
+        "  match t with",
+        "  | Term.var n => varF n",
+        "  | Term.lit s => alg \"lit\" []",
+        s!"  | Term.con tag args => alg tag (args.map fun a => (a, para{grammarName} alg varF a))"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "map" =>
+      let lines := [
+        s!"-- Derived functor map for {grammarName}",
+        s!"partial def map{grammarName} (f : Term → Term) (t : Term) : Term :=",
+        "  match t with",
+        "  | Term.var n => f (Term.var n)",
+        "  | Term.lit s => f (Term.lit s)",
+        s!"  | Term.con tag args => f (Term.con tag (args.map (map{grammarName} f)))"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "fold" =>
+      let lines := [
+        s!"-- Derived fold for {grammarName}",
+        s!"partial def fold{grammarName} (f : Term → Term → Term) (z : Term) (t : Term) : Term :=",
+        "  match t with",
+        "  | Term.var _ => z",
+        "  | Term.lit _ => z",
+        s!"  | Term.con _ args => args.foldl (fun acc a => f acc (fold{grammarName} f z a)) z"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "eq" =>
+      let lines := [
+        s!"-- Derived structural equality for {grammarName}",
+        s!"partial def eq{grammarName} (t1 t2 : Term) : Bool :=",
+        "  match t1, t2 with",
+        "  | Term.var n1, Term.var n2 => n1 == n2",
+        "  | Term.lit s1, Term.lit s2 => s1 == s2",
+        "  | Term.con tag1 args1, Term.con tag2 args2 =>",
+        s!"    tag1 == tag2 && args1.length == args2.length && (args1.zip args2).all fun (a, b) => eq{grammarName} a b",
+        "  | _, _ => false"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "infer" =>
+      let lines := [
+        s!"-- Derived type inference for {grammarName}",
+        s!"partial def infer{grammarName} (ctx : List (String × Term)) (t : Term) : Option Term :=",
+        "  match t with",
+        "  | Term.var n => ctx.lookup n",
+        "  | Term.lit _ => some (Term.con \"Lit\" [])",
+        "  | Term.con \"app\" [f, a] =>",
+        s!"    match infer{grammarName} ctx f with",
+        "    | some (Term.con \"Pi\" [_, _, cod]) => some cod",
+        "    | _ => none",
+        "  | Term.con \"lam\" [body] =>",
+        s!"    match infer{grammarName} ((\"x\", Term.con \"_\" []) :: ctx) body with",
+        "    | some bodyTy => some (Term.con \"Pi\" [Term.con \"_\" [], Term.con \"_\" [], bodyTy])",
+        "    | _ => none",
+        "  | Term.con \"pair\" [a, b] =>",
+        s!"    match infer{grammarName} ctx a, infer{grammarName} ctx b with",
+        "    | some aTy, some bTy => some (Term.con \"Sigma\" [aTy, bTy])",
+        "    | _, _ => none",
+        "  | Term.con \"fst\" [p] =>",
+        s!"    match infer{grammarName} ctx p with",
+        "    | some (Term.con \"Sigma\" [a, _]) => some a",
+        "    | _ => none",
+        "  | Term.con \"snd\" [p] =>",
+        s!"    match infer{grammarName} ctx p with",
+        "    | some (Term.con \"Sigma\" [_, b]) => some b",
+        "    | _ => none",
+        "  | Term.con \"U\" [] => some (Term.con \"U\" [])",
+        "  | _ => none"
+      ]
+      lines.map (pad ++ ·) |> String.intercalate "\n"
+    | "check" =>
+      let lines := [
+        s!"-- Derived type checking for {grammarName}",
+        s!"partial def check{grammarName} (ctx : List (String × Term)) (t : Term) (ty : Term) : Bool :=",
+        s!"  match infer{grammarName} ctx t with",
+        s!"  | some inferredTy => conv{grammarName} inferredTy ty",
+        "  | none => false"
       ]
       lines.map (pad ++ ·) |> String.intercalate "\n"
     | "conv" =>
@@ -897,6 +996,35 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
       lines.map (pad ++ ·) |> String.intercalate "\n"
     | _ =>
       s!"{pad}-- Derived {kind} for {grammarName}\n{pad}-- (TODO: implement {kind} generation)"
+  -- Macro: definitional abbreviation (inline expansion)
+  | .con "DMacro" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "macro"
+    let params := match args[2]? with
+      | some (.con "macroParams" ps) => ps.filterMap Term.getVarName
+      | _ => []
+    let body := args.getLast? |>.getD (.con "unit" [])
+    let paramStr := if params.isEmpty then "" else s!" ({String.intercalate " " params} : Term)"
+    let lines := [
+      s!"-- Macro: {name}",
+      s!"@[inline] def {name}{paramStr} : Term :=",
+      s!"  {termToLean body 0}"
+    ]
+    lines.map (pad ++ ·) |> String.intercalate "\n"
+  -- Algebra laws: generate law lemmas (as comments for now)
+  | .con "DAlgebra" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "algebra"
+    let sort := args[3]?.bind Term.getVarName |>.getD "sort"
+    let laws := args.filter fun t => match t with | .con "lawEq" _ => true | .con "lawEq2" _ => true | _ => false
+    let lawLines := laws.map fun law =>
+      match law with
+      | .con "lawEq" [.var n, lhs, _, rhs, _] => s!"  -- {n}: {termToLean lhs 0} = {termToLean rhs 0}"
+      | .con "lawEq2" es => s!"  -- (paired law)"
+      | _ => ""
+    let lines := [
+      s!"-- Algebra {name} for {sort}",
+      s!"-- Laws (used by normalizer):"
+    ] ++ lawLines
+    lines.map (pad ++ ·) |> String.intercalate "\n"
   -- Grammar algebra operations (categorical constructions)
   | .con "DPushout" args =>
     let g1 := args[1]?.bind Term.getVarName |>.getD "G1"

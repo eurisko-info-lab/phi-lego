@@ -317,6 +317,71 @@ namespace Datatype
       | .con "stdEnv" [] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "env0", Term.lit "=", Term.con "globalEnvEmpty" [], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env1", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env0" [], Term.con "natDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env2", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env1" [], Term.con "listDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env3", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env2" [], Term.con "circleDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env4", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env3" [], Term.con "boolDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env5", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env4" [], Term.con "unitDesc" []], Term.lit "in", Term.con "env5" []]]]]], Term.lit ")"]
       | _ => t
 
+    -- Derived substitution for term
+    -- Binders: [lam, pi, sigma, plam, pathLam, extLam, let, glue]
+    mutual
+    partial def substterm (k : Nat) (v : Term) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit n]] =>
+        let idx := n.toNat!
+        if idx == k then v
+        else if idx > k then Term.con "ix" [Term.con "number" [Term.lit (toString (idx - 1))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam", "pi", "sigma", "plam", "pathLam", "extLam", "let", "glue"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (substterm k v) ++ [substterm (k + 1) (shiftterm 0 1 v) args.getLast!])
+        else
+          Term.con tag (args.map (substterm k v))
+      | _ => t
+    
+    partial def shiftterm (c : Nat) (n : Int) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit m]] =>
+        let idx := m.toNat!
+        if idx >= c then Term.con "ix" [Term.con "number" [Term.lit (toString (Int.toNat (idx + n)))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam", "pi", "sigma", "plam", "pathLam", "extLam", "let", "glue"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (shiftterm c n) ++ [shiftterm (c + 1) n args.getLast!])
+        else
+          Term.con tag (args.map (shiftterm c n))
+      | _ => t
+    end
+
+    -- Derived normalizer for term with fuel=1000
+    mutual
+    partial def normalizeterm (fuel : Nat) (t : Term) : Term :=
+      if fuel == 0 then t else
+      let t' := stepterm t
+      if t' == t then t else normalizeterm (fuel - 1) t'
+    
+    partial def stepterm (t : Term) : Term :=
+      match t with
+      | Term.con "app" [Term.con "lam" [body], arg] => substterm 0 arg body
+      | Term.con "fst" [Term.con "pair" [a, _]] => a
+      | Term.con "snd" [Term.con "pair" [_, b]] => b
+      | Term.con tag args => Term.con tag (args.map stepterm)
+      | _ => t
+    end
+
+    -- Derived catamorphism for term
+    partial def cataterm [Inhabited α] (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
+      match t with
+      | Term.var n => varF n
+      | Term.lit s => alg "lit" []
+      | Term.con tag args => alg tag (args.map (cataterm alg varF))
+
+    -- Derived structural equality for term
+    partial def eqterm (t1 t2 : Term) : Bool :=
+      match t1, t2 with
+      | Term.var n1, Term.var n2 => n1 == n2
+      | Term.lit s1, Term.lit s2 => s1 == s2
+      | Term.con tag1 args1, Term.con tag2 args2 =>
+        tag1 == tag2 && args1.length == args2.length && (args1.zip args2).all fun (a, b) => eqterm a b
+      | _, _ => false
+
   end StdEnv
 
 end Datatype

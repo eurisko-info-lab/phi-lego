@@ -95,3 +95,10 @@ end
 -- - Total: ~125 functions, ~3000 Lean lines
 --
 -- Leverage: 63 → 3000 = 47x
+
+
+-- Derived operations
+derive subst for term ;
+derive normalize for term ;
+derive cata for term ;
+derive eq for term ;

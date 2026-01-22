@@ -162,7 +162,6 @@ piece Cubical
 -----------------------------------------------------
 
 -- All traversals are catamorphisms
-derive cata for term ;
 derive cata for type ;
 derive cata for ctx ;
 
@@ -198,3 +197,4 @@ end
 --  but to create a new semantic level in which
 --  one can be absolutely precise." - Dijkstra
 -----------------------------------------------------
+
