@@ -358,11 +358,11 @@ piece File
   imports    ::= "(" ident ("," ident)* ")" → DImports
                | "(" ident+ ")" → DImports ;
   langBody   ::= innerDecl* ;
-  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl | deriveDecl ;
+  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl | deriveDecl | algebraDecl ;
   tokenDecl  ::= "token" ident tokenItem+ → DToken ;
   tokenItem  ::= prodDecl ;
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
-  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl ;
+  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl | algebraDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":"? pattern ruleArrow template ruleGuard? ";" → DRule ;
   ruleArrow  ::= "~~>" | "~>" ;
@@ -377,6 +377,19 @@ piece File
   deriveMod  ::= "binders" "=" "[" ident ("," ident)* "]" → binderList
                | "fuel" "=" <number> → fuelMod
                | "base" "=" pattern → baseMod ;
+  -- Grammar algebra: pushout, pullback, quotient
+  algebraDecl ::= "pushout" ident ident "along" ident ";" → DPushout
+                | "pullback" ident ident "over" ident ";" → DPullback
+                | "quotient" ident "by" ident ";" → DQuotient
+                | "initial" ident ";" → DInitial
+                | "terminal" ident ";" → DTerminal
+                | "coproduct" ident ident ";" → DCoproduct
+                | "product" ident ident ";" → DProduct
+                | ident "extends" ident extendWith? ";" → DExtends ;
+  extendWith ::= "with" extendMod ("," extendMod)* → extendWith ;
+  extendMod  ::= "rename" ident "to" ident → renameMod
+               | "hide" ident → hideMod
+               | "override" ident "=" expr → overrideMod ;
   typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;
   whenClause ::= "when" typeConstraint ("," typeConstraint)* → whenClause ;
   typeConstraint ::= pattern ":" term → constraint

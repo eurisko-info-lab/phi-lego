@@ -787,6 +787,39 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
       | some (.var n) => n
       | _ => "Term"
     s!"{pad}-- Derived {kind} operations for {grammarName}\n{pad}-- (Catamorphism automatically generated from grammar definition)"
+  -- Grammar algebra operations (categorical constructions)
+  | .con "DPushout" args =>
+    let g1 := args[1]?.bind Term.getVarName |>.getD "G1"
+    let g2 := args[2]?.bind Term.getVarName |>.getD "G2"
+    let along := args[4]?.bind Term.getVarName |>.getD "f"
+    s!"{pad}-- Pushout: {g1} +_{along} {g2}\n{pad}-- (Universal property: merge grammars along shared subgrammar)"
+  | .con "DPullback" args =>
+    let g1 := args[1]?.bind Term.getVarName |>.getD "G1"
+    let g2 := args[2]?.bind Term.getVarName |>.getD "G2"
+    let over := args[4]?.bind Term.getVarName |>.getD "f"
+    s!"{pad}-- Pullback: {g1} ×_{over} {g2}\n{pad}-- (Universal property: restrict grammars to common fragment)"
+  | .con "DQuotient" args =>
+    let g := args[1]?.bind Term.getVarName |>.getD "G"
+    let rel := args[3]?.bind Term.getVarName |>.getD "R"
+    s!"{pad}-- Quotient: {g} / {rel}\n{pad}-- (Identify terms related by {rel})"
+  | .con "DCoproduct" args =>
+    let g1 := args[1]?.bind Term.getVarName |>.getD "G1"
+    let g2 := args[2]?.bind Term.getVarName |>.getD "G2"
+    s!"{pad}-- Coproduct: {g1} + {g2}\n{pad}-- (Disjoint union of grammars)"
+  | .con "DProduct" args =>
+    let g1 := args[1]?.bind Term.getVarName |>.getD "G1"
+    let g2 := args[2]?.bind Term.getVarName |>.getD "G2"
+    s!"{pad}-- Product: {g1} × {g2}\n{pad}-- (Paired terms from both grammars)"
+  | .con "DExtends" args =>
+    let child := args[0]?.bind Term.getVarName |>.getD "Child"
+    let parent := args[2]?.bind Term.getVarName |>.getD "Parent"
+    s!"{pad}-- Extension: {child} extends {parent}\n{pad}-- (Inherit all productions and rules from parent)"
+  | .con "DInitial" args =>
+    let g := args[1]?.bind Term.getVarName |>.getD "G"
+    s!"{pad}-- Initial: ⊥ → {g}\n{pad}-- (Empty grammar, unique morphism to any grammar)"
+  | .con "DTerminal" args =>
+    let g := args[1]?.bind Term.getVarName |>.getD "G"
+    s!"{pad}-- Terminal: {g} → ⊤\n{pad}-- (Unit grammar, unique morphism from any grammar)"
   -- Comment out grammar/parser definitions since they're not valid Lean
   | .con "inductive" [.var name, body] =>
     s!"{pad}-- Grammar: {name}"
