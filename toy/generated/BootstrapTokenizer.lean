@@ -46,7 +46,7 @@ def tokenPiece : Piece := {
     ("Token.comment", (((lit "-").seq (lit "-")).seq ((ref "Token.nonnl").star))),
     ("Token.nonnl", ((ref "Token.alpha").alt ((ref "Token.digit").alt ((ref "Token.symch").alt ((lit " ").alt ((lit "\t").alt ((lit "'").alt (lit "\"")))))))),
     ("Token.op3", ((((empty.seq (lit ":")).seq (lit ":")).seq (lit "=")).alt (((empty.seq (lit "=")).seq (lit "I")).seq (lit "=")))),
-    ("Token.op2", ((((empty.seq (lit "~")).seq (lit "~")).seq (lit ">")).alt (((empty.seq (lit ":")).seq (lit "=")).alt (((empty.seq (lit "~")).seq (lit ">")).alt (((empty.seq (lit "-")).seq (lit ">")).alt (((empty.seq (lit "<")).seq (lit "-")).alt ((empty.seq (lit "@")).seq (lit "@")))))))),
+    ("Token.op2", ((((empty.seq (lit "~")).seq (lit "~")).seq (lit ">")).alt (((empty.seq (lit ":")).seq (lit "=")).alt (((empty.seq (lit "~")).seq (lit ">")).alt (((empty.seq (lit "-")).seq (lit ">")).alt (((empty.seq (lit "<")).seq (lit "-")).alt (((empty.seq (lit "=")).seq (lit ">")).alt ((empty.seq (lit "@")).seq (lit "@"))))))))),
     ("Token.special", (((lit "<").seq ((ref "Token.alpha").seq ((ref "Token.alpha").star))).seq (lit ">"))),
     ("Token.sym", (ref "Token.symch"))
   ]

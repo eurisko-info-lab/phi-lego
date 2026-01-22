@@ -95,6 +95,7 @@ token Token
             | '~' '>'        -- ~>
             | '-' '>'        -- ->
             | '<' '-'        -- <-
+            | '=' '>'        -- =>
             | '@' '@' ;      -- @@
 
   -- Special <name> syntax
@@ -160,6 +161,11 @@ piece Term
             | "↾" → con
             | "@" → con
             | "." → con
+            | "|" → con
+            | "=>" → con
+            | "←" → con
+            | "with" → con
+            | "where" → con
             | term ;
   -- conname: constructor names can be idents or reserved keywords (as symbols)
   -- Multi-char operators that can appear as constructor heads
@@ -203,6 +209,11 @@ piece Pattern
                | "↾" → con
                | "@" → con
                | "." → con
+               | "|" → con
+               | "=>" → con
+               | "←" → con
+               | "with" → con
+               | "where" → con
                | pattern ;
   patternHead ::= "$" ident → var
                 | number → num
@@ -247,6 +258,11 @@ piece Template
                 | "↾" → con
                 | "@" → con
                 | "." → con
+                | "|" → con
+                | "=>" → con
+                | "←" → con
+                | "with" → con
+                | "where" → con
                 | template ;
   headTerm ::= "$" ident → var
              | ident
@@ -281,11 +297,12 @@ piece GrammarExpr
 
 piece File
   legoFile   ::= decl* ;
-  decl       ::= importDecl | langDecl | tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl ;
-  importDecl ::= "import" modulePath ";" → DImport ;
+  decl       ::= importDecl | langDecl | tokenDecl | pieceDecl | vocabDecl | ruleDecl | typeDecl | testDecl | attrsDecl ;
+  importDecl ::= "import" modulePath ";"? → DImport ;
+  vocabDecl  ::= "vocab" ident ident* → DVocab ;
   modulePath ::= ident ("." ident)* → modulePath ;
   langDecl   ::= "lang" ident imports? ":=" langBody → DLang ;
-  imports    ::= "(" ident ("," ident)* ")" → DImports ;
+  imports    ::= "(" ident+ ")" → DImports ;
   langBody   ::= innerDecl* ;
   innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl ;
   tokenDecl  ::= "token" ident tokenItem+ → DToken ;
@@ -311,6 +328,7 @@ piece File
                   | pattern "boundary" pattern → boundary
                   | pattern "holds" → holds
                   | pattern "declared" → declared
+                  | "bound" pattern ":" pattern → bound
                   | pattern "=" pattern → eq
                   | pattern → sidePattern ;
   testDecl   ::= "test" string ":" annotatedTerm ("~~>" annotatedTerm)? ";" → DTest ;

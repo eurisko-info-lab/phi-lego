@@ -270,15 +270,15 @@ piece Subst
 
 -----------------------------------------------------
 -- Tests
--- Example validations
+-- Example validations (using simplified term syntax)
 -----------------------------------------------------
-test "defEx": (def reduce (t : Term) : Term := match t with | Fst (Pair a b) => a | _ => t) ;
-test "inductiveEx": (inductive Term where | Univ : Term | Lam : Term → Term) ;
-test "structEx": (structure Point where x : Nat y : Nat) ;
-test "namespaceEx": (namespace Core inductive Term where | Univ : Term end Core) ;
+test "defEx": (defDecl reduce (params (t : Term)) (typeAnn Term) (body (match t with | (Fst (Pair a b)) => a | _ => t))) ;
+test "inductiveEx": (inductiveDecl Term (ctors (ctor Univ Term) (ctor Lam (arrow Term Term)))) ;
+test "structEx": (structDecl Point (fields (field x Nat) (field y Nat))) ;
+test "namespaceEx": (namespace Core (inductiveDecl Term (ctors (ctor Univ Term)))) ;
 test "importEx": (import Prelude) ;
 test "funEx": (fun x => x) ;
-test "forallEx": (∀ (x : Type), x → x) ;
-test "matchEx": (match x with | 0 => 1 | n + 1 => n) ;
-test "doEx": (do let x ← getLine ; pure x) ;
-test "tacticEx": (by intro x ; exact x) ;
+test "forallEx": (forall (x : Type) (arrow x x)) ;
+test "matchEx": (match x with | 0 => 1 | (add n 1) => n) ;
+test "doEx": (do (bind x getLine) (pure x)) ;
+test "tacticEx": (by (intro x) (exact x)) ;
