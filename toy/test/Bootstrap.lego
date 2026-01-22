@@ -358,11 +358,11 @@ piece File
   imports    ::= "(" ident ("," ident)* ")" → DImports
                | "(" ident+ ")" → DImports ;
   langBody   ::= innerDecl* ;
-  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl | deriveDecl | algebraDecl ;
+  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl | deriveDecl | algebraDecl | effectDecl ;
   tokenDecl  ::= "token" ident tokenItem+ → DToken ;
   tokenItem  ::= prodDecl ;
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
-  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl | algebraDecl ;
+  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl | algebraDecl | effectDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":"? pattern ruleArrow template ruleGuard? ";" → DRule ;
   ruleArrow  ::= "~~>" | "~>" ;
@@ -390,6 +390,23 @@ piece File
   extendMod  ::= "rename" ident "to" ident → renameMod
                | "hide" ident → hideMod
                | "override" ident "=" expr → overrideMod ;
+  -- Effect algebra: monads, applicatives, free constructions
+  effectDecl ::= "effect" ident effectBody → DEffect
+               | "handler" ident "for" ident effectBody → DHandler
+               | "free" ident "over" ident ";" → DFree
+               | "cofree" ident "over" ident ";" → DCofree
+               | "monad" ident "=" monadSpec ";" → DMonad ;
+  effectBody ::= "{" effectOp* "}" ;
+  effectOp   ::= "op" ident ":" term "→" term ";" → DOp
+               | "return" ":" term ";" → DReturn
+               | "bind" ":" term ";" → DBind ;
+  monadSpec  ::= "State" ident → stateMonad
+               | "Reader" ident → readerMonad
+               | "Writer" ident → writerMonad
+               | "Error" ident → errorMonad
+               | "IO" → ioMonad
+               | monadSpec "×" monadSpec → productMonad
+               | monadSpec "∘" monadSpec → composeMonad ;
   typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;
   whenClause ::= "when" typeConstraint ("," typeConstraint)* → whenClause ;
   typeConstraint ::= pattern ":" term → constraint

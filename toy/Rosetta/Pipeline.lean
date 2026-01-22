@@ -820,6 +820,25 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
   | .con "DTerminal" args =>
     let g := args[1]?.bind Term.getVarName |>.getD "G"
     s!"{pad}-- Terminal: {g} → ⊤\n{pad}-- (Unit grammar, unique morphism from any grammar)"
+  -- Effect algebra handlers
+  | .con "DEffect" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "Effect"
+    s!"{pad}-- Effect: {name}\n{pad}-- (Algebraic effect with operations and handlers)"
+  | .con "DHandler" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "Handler"
+    let eff := args[3]?.bind Term.getVarName |>.getD "Effect"
+    s!"{pad}-- Handler: {name} for {eff}\n{pad}-- (Effect handler interpreting operations)"
+  | .con "DFree" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "Free"
+    let functor := args[3]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Free monad: {name} over {functor}\n{pad}-- (Initial algebra: μX. A + F X)"
+  | .con "DCofree" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "Cofree"
+    let functor := args[3]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Cofree comonad: {name} over {functor}\n{pad}-- (Terminal coalgebra: νX. A × F X)"
+  | .con "DMonad" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "M"
+    s!"{pad}-- Monad: {name}\n{pad}-- (Generates return, bind, and monad laws)"
   -- Comment out grammar/parser definitions since they're not valid Lean
   | .con "inductive" [.var name, body] =>
     s!"{pad}-- Grammar: {name}"
