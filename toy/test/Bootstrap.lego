@@ -310,7 +310,8 @@ piece File
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
   pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
-  ruleDecl   ::= "rule" ident ":" pattern "~~>" template ruleGuard? ";" → DRule ;
+  ruleDecl   ::= "rule" ident ":" pattern ruleArrow template ruleGuard? ";" → DRule ;
+  ruleArrow  ::= "~~>" | "~>" ;
   ruleGuard  ::= "when" sideCondition ("," sideCondition)* → guard ;
   typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;
   whenClause ::= "when" typeConstraint ("," typeConstraint)* → whenClause ;
