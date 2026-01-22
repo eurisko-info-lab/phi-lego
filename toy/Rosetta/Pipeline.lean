@@ -909,6 +909,101 @@ partial def termToLean (t : Term) (indent : Nat := 0) : String :=
     let f := args[3]?.bind Term.getVarName |>.getD "F"
     let g := args[5]?.bind Term.getVarName |>.getD "G"
     s!"{pad}-- Dinatural transformation: {name} : {f} ⤇ {g}\n{pad}-- Wedge condition for profunctors"
+  | .con "DExtranat" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "ε"
+    let f := args[3]?.bind Term.getVarName |>.getD "F"
+    let g := args[5]?.bind Term.getVarName |>.getD "G"
+    s!"{pad}-- Extranatural transformation: {name} : {f} ⟾ {g}\n{pad}-- Extranatural in both variance positions"
+  -- RosettaMath: Layer 1 - Initial Algebras
+  | .con "DFunctor" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Functor: {name} : Type → Type\n{pad}-- Defines shape of recursive data"
+  | .con "DMu" args =>
+    let f := args[1]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Initial algebra: μ{f}\n{pad}-- Least fixed point: μF ≅ F(μF)"
+  | .con "DNu" args =>
+    let f := args[1]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Terminal coalgebra: ν{f}\n{pad}-- Greatest fixed point: νF ≅ F(νF)"
+  | .con "DCata" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "fold"
+    let target := args[3]?.bind Term.getVarName |>.getD "Term"
+    s!"{pad}-- Catamorphism: {name} for {target}\n{pad}-- The universal fold: (F A → A) → μF → A"
+  | .con "DAna" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "unfold"
+    let target := args[3]?.bind Term.getVarName |>.getD "Term"
+    s!"{pad}-- Anamorphism: {name} for {target}\n{pad}-- The universal unfold: (A → F A) → A → νF"
+  | .con "DHylo" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "hylo"
+    s!"{pad}-- Hylomorphism: {name}\n{pad}-- ana ; cata with no intermediate data structure"
+  | .con "DPara" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "para"
+    let target := args[3]?.bind Term.getVarName |>.getD "Term"
+    s!"{pad}-- Paramorphism: {name} for {target}\n{pad}-- Fold with access to original: (F (μF × A) → A) → μF → A"
+  | .con "DBisim" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "bisim"
+    s!"{pad}-- Bisimulation: {name}\n{pad}-- Equality for coalgebras (observational equivalence)"
+  -- RosettaMath: Layer 4 - Comonads
+  | .con "DComonad" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "W"
+    s!"{pad}-- Comonad: {name}\n{pad}-- Generates extract, extend, duplicate"
+  -- RosettaMath: Layer 5 - Profunctors
+  | .con "DProfunctor" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "P"
+    let c := args[3]?.bind Term.getVarName |>.getD "C"
+    let d := args[5]?.bind Term.getVarName |>.getD "D"
+    s!"{pad}-- Profunctor: {name} : {c}^op × {d} → Set\n{pad}-- Bifunctor contravariant in first arg"
+  | .con "DAffine" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "affine"
+    let s := args[3]?.bind Term.getVarName |>.getD "S"
+    let a := args[5]?.bind Term.getVarName |>.getD "A"
+    s!"{pad}-- Affine: {name} : {s} ⤳ {a}\n{pad}-- At most one target (0 or 1)"
+  | .con "DGetter" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "getter"
+    let s := args[3]?.bind Term.getVarName |>.getD "S"
+    let a := args[5]?.bind Term.getVarName |>.getD "A"
+    s!"{pad}-- Getter: {name} : {s} → {a}\n{pad}-- Read-only access"
+  | .con "DSetter" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "setter"
+    let s := args[3]?.bind Term.getVarName |>.getD "S"
+    let a := args[5]?.bind Term.getVarName |>.getD "A"
+    s!"{pad}-- Setter: {name} : {s} ← {a}\n{pad}-- Write-only access"
+  | .con "DReview" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "review"
+    let a := args[3]?.bind Term.getVarName |>.getD "A"
+    let s := args[5]?.bind Term.getVarName |>.getD "S"
+    s!"{pad}-- Review: {name} : {a} ↩ {s}\n{pad}-- Construct whole from part"
+  -- RosettaMath: Layer 6 - Free/Forgetful
+  | .con "DFreeAdj" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "Free"
+    let target := args[3]?.bind Term.getVarName |>.getD "Alg"
+    s!"{pad}-- Free construction: {name} for {target}\n{pad}-- Left adjoint to forgetful"
+  | .con "DForgetful" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "U"
+    let source := args[3]?.bind Term.getVarName |>.getD "Alg"
+    let target := args[5]?.bind Term.getVarName |>.getD "Set"
+    s!"{pad}-- Forgetful: {name} : {source} → {target}\n{pad}-- Forgets algebraic structure"
+  -- RosettaMath: Layer 7 - More Kan
+  | .con "DCoYoneda" args =>
+    let c := args[1]?.bind Term.getVarName |>.getD "C"
+    s!"{pad}-- CoYoneda: {c} → [C, Set]^op\n{pad}-- Density comonad representation"
+  | .con "DDensity" args =>
+    let f := args[1]?.bind Term.getVarName |>.getD "F"
+    s!"{pad}-- Density comonad: Lan_{f} {f}\n{pad}-- Always a comonad"
+  -- RosettaMath: Judgments
+  | .con "DJudgment" args =>
+    let name := args[1]?.bind Term.getVarName |>.getD "J"
+    s!"{pad}-- Judgment: {name}\n{pad}-- Typing rules with premises and conclusions"
+  -- RosettaMath: Properties and Examples
+  | .con "DProperty" args =>
+    let name := match args[1]? with
+      | some (.lit s) => s
+      | _ => "property"
+    s!"{pad}-- Property: {name}\n{pad}-- QuickCheck-style universal property"
+  | .con "DExample" args =>
+    let name := match args[1]? with
+      | some (.lit s) => s
+      | _ => "example"
+    s!"{pad}-- Example: {name}"
   -- Comment out grammar/parser definitions since they're not valid Lean
   | .con "inductive" [.var name, body] =>
     s!"{pad}-- Grammar: {name}"
