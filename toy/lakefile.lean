@@ -48,6 +48,11 @@ lean_lib «CoolGenerated» where
   srcDir := "generated"
   globs := #[.submodules `Cool]
 
+-- Generated Rosetta Grammars (from Lean.lego, etc.)
+lean_lib «RosettaGenerated» where
+  srcDir := "generated"
+  globs := #[.submodules `Rosetta]
+
 @[default_target]
 lean_exe «lego» where
   root := `Main
