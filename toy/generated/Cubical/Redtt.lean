@@ -145,6 +145,62 @@ namespace Redtt
 
   section RunML
 
+    -- Derived substitution for expr
+    -- Binders: [lam]
+    mutual
+    partial def substexpr (k : Nat) (v : Term) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit n]] =>
+        let idx := n.toNat!
+        if idx == k then v
+        else if idx > k then Term.con "ix" [Term.con "number" [Term.lit (toString (idx - 1))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (substexpr k v) ++ [substexpr (k + 1) (shiftexpr 0 1 v) args.getLast!])
+        else
+          Term.con tag (args.map (substexpr k v))
+      | _ => t
+    
+    partial def shiftexpr (c : Nat) (n : Int) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit m]] =>
+        let idx := m.toNat!
+        if idx >= c then Term.con "ix" [Term.con "number" [Term.lit (toString (Int.toNat (idx + n)))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (shiftexpr c n) ++ [shiftexpr (c + 1) n args.getLast!])
+        else
+          Term.con tag (args.map (shiftexpr c n))
+      | _ => t
+    end
+
+    -- Derived normalizer for expr with fuel=1000
+    mutual
+    partial def normalizeexpr (fuel : Nat) (t : Term) : Term :=
+      if fuel == 0 then t else
+      let t' := stepexpr t
+      if t' == t then t else normalizeexpr (fuel - 1) t'
+    
+    partial def stepexpr (t : Term) : Term :=
+      match t with
+      | Term.con "app" [Term.con "lam" [body], arg] => substexpr 0 arg body
+      | Term.con "fst" [Term.con "pair" [a, _]] => a
+      | Term.con "snd" [Term.con "pair" [_, b]] => b
+      | Term.con tag args => Term.con tag (args.map stepexpr)
+      | _ => t
+    end
+
+    -- Derived catamorphism for expr
+    def cataexpr (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
+      match t with
+      | Term.var n => varF n
+      | Term.lit s => alg "lit" []
+      | Term.con tag args => alg tag (args.map (cataexpr alg varF))
+
     def beta_lam (t : Term) : Term :=
       match t with
       | .con "App" [.con "Lam" [x, body], arg] => Term.con "subst" [body, x, arg]

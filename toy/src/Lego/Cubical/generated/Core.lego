@@ -279,3 +279,14 @@ piece Normalize
   rule normalizeStep: (normalizeStep $fuel (some $t)) ~> (normalize $fuel $t) ;
   rule normalizeStepNone: (normalizeStep $fuel none) ~> $t ;
 
+
+
+-----------------------------------------------------
+-- Derived Operations  
+-----------------------------------------------------
+
+derive subst for term with binders = [lam, pi, sg] ;
+derive shift for term ;
+derive normalize for term with fuel = 1000 ;
+derive cata for term ;
+derive conv for term ;

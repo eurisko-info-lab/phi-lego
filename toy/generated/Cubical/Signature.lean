@@ -426,6 +426,62 @@ namespace Signature
       | .con "mcomTele" [r, r', .con "kTelescope" [cells, c], φ, tubes, cap] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "comFirst", Term.lit "=", Term.con "com" [Term.con "app" [Term.var "kCellCode", c], r, r', φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "structGetAt" [Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "num" [Term.con "number" [Term.lit "0"]]]]], Term.con "structGetAt" [cap, Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.lit "in", Term.con "structExtend" [Term.con "mcomTele" [r, r', Term.con "app" [Term.var "kTelescope", cells], φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "structTail", Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "app" [Term.var "structTail", cap]], Term.con "app" [Term.var "kCellLabel", c], Term.var "comFirst"], Term.lit ")"]
       | _ => t
 
+    -- Derived substitution for term
+    -- Binders: [lam, pi, sigma, plam, pathLam, extLam, let, glue]
+    mutual
+    partial def substterm (k : Nat) (v : Term) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit n]] =>
+        let idx := n.toNat!
+        if idx == k then v
+        else if idx > k then Term.con "ix" [Term.con "number" [Term.lit (toString (idx - 1))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam", "pi", "sigma", "plam", "pathLam", "extLam", "let", "glue"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (substterm k v) ++ [substterm (k + 1) (shiftterm 0 1 v) args.getLast!])
+        else
+          Term.con tag (args.map (substterm k v))
+      | _ => t
+    
+    partial def shiftterm (c : Nat) (n : Int) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit m]] =>
+        let idx := m.toNat!
+        if idx >= c then Term.con "ix" [Term.con "number" [Term.lit (toString (Int.toNat (idx + n)))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam", "pi", "sigma", "plam", "pathLam", "extLam", "let", "glue"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (shiftterm c n) ++ [shiftterm (c + 1) n args.getLast!])
+        else
+          Term.con tag (args.map (shiftterm c n))
+      | _ => t
+    end
+
+    -- Derived normalizer for term with fuel=1000
+    mutual
+    partial def normalizeterm (fuel : Nat) (t : Term) : Term :=
+      if fuel == 0 then t else
+      let t' := stepterm t
+      if t' == t then t else normalizeterm (fuel - 1) t'
+    
+    partial def stepterm (t : Term) : Term :=
+      match t with
+      | Term.con "app" [Term.con "lam" [body], arg] => substterm 0 arg body
+      | Term.con "fst" [Term.con "pair" [a, _]] => a
+      | Term.con "snd" [Term.con "pair" [_, b]] => b
+      | Term.con tag args => Term.con tag (args.map stepterm)
+      | _ => t
+    end
+
+    -- Derived catamorphism for term
+    def cataterm (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
+      match t with
+      | Term.var n => varF n
+      | Term.lit s => alg "lit" []
+      | Term.con tag args => alg tag (args.map (cataterm alg varF))
+
   end SignatureKan
 
 end Signature

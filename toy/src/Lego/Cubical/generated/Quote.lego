@@ -216,3 +216,11 @@ piece NbE
   test "nbe-beta": (nbe (app (lam (ix 0)) (lit "y"))) ~~> (lit "y") ;
   test "nbe-pair-fst": (nbe (fst (pair (lit "a") (lit "b")))) ~~> (lit "a") ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

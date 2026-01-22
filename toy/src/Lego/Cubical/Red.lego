@@ -214,3 +214,11 @@ piece Pushout
 
   type PushoutForm: (Pushout $C $A $B $f $g) : U
     when $C : U, $A : U, $B : U, $f : ($C → $A), $g : ($C → $B) ;
+
+-----------------------------------------------------
+-- Derived Operations for Red
+-----------------------------------------------------
+
+derive subst for term with binders = [lam, dlam, extLam, Pi, Sigma, PathP, Ext, twin] ;
+derive normalize for term with fuel = 1000 ;
+derive cata for term ;

@@ -232,3 +232,11 @@ piece HITNormalize
   rule normalizeCircleLoop0: (normalizeHIT circleHIT (intro (loop dim0))) ~> (intro base) ;
   rule normalizeCircleLoop1: (normalizeHIT circleHIT (intro (loop dim1))) ~> (intro base) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

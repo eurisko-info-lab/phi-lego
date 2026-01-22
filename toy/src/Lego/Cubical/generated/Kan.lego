@@ -194,3 +194,11 @@ piece GCom
   rule gcomBdy: (gcom $r $r' $line (sysCons ($phi, $tube) $rest) $cap) ~> (substDim0' $r' $tube)
     when (cofTrue $phi) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

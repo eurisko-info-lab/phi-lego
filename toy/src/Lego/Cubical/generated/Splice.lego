@@ -226,3 +226,11 @@ piece SpliceEval
   rule substManyCons: (substMany $term ($v $rest)) ~>
     (substMany (subst 0 $v $term) $rest) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

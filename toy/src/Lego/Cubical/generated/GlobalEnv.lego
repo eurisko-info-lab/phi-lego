@@ -231,3 +231,11 @@ piece Print
     (concat "meta " (gnameName $nm) " : " (show $ty)) ;
   rule printEntryNone: (printEntry $nm none) ~> (concat "unknown " (gnameName $nm)) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

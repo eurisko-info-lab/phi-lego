@@ -191,3 +191,11 @@ piece UnfoldFHCom
   rule unfoldBoxAt1: (unfoldBoxAt (box dim1 $r' $cap $sys) dim1) ~> $cap ;
   rule unfoldBoxAtOther: (unfoldBoxAt $bx $r) ~> $bx ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

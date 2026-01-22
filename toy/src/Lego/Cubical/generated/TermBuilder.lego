@@ -232,3 +232,11 @@ piece LetBuilder
   rule buildLet: (buildLet $ty $val $k $ctx) ~>
     (letE ($ty $ctx) ($val $ctx) ($k (bctxFreshVar $ctx) (bctxNext $ctx))) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

@@ -272,3 +272,11 @@ piece BiDirect
             (tacOk ((app (fst (ix 1)) (ix 0)) , (subst 0 $x $cod)))))
         _ => (tacError "expected function type")))) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

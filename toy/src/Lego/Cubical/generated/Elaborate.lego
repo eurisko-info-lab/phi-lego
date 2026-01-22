@@ -455,3 +455,11 @@ piece Examples
   rule sucSurface: (sucSurface $n) ~> (intro Nat . suc ($n)) ;
   rule twoSurface: twoSurface ~> (sucSurface (sucSurface zeroSurface)) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

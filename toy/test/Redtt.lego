@@ -465,6 +465,14 @@ piece RunML
   runml      ::= ltr mlcmd rtr ;
 
 -----------------------------------------------------
+-- Derived Operations for Redtt
+-----------------------------------------------------
+
+derive subst for expr with binders = [lam, let, pi, sg, path, ext] ;
+derive normalize for expr with fuel = 1000 ;
+derive cata for expr ;
+
+-----------------------------------------------------
 -- =====================================================
 -- TRANSFORMATION RULES: Surface AST → Core IR
 -- =====================================================

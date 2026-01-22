@@ -187,3 +187,12 @@ piece Forall
   -- ∃i. φ is true iff φ[0/i] ∨ φ[1/i]
   rule existsCof: (existsDim $i $φ) ~> (cof_or (substCof $i dim0 $φ) (substCof $i dim1 $φ)) ;
 
+
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for cof ;
+derive normalize for cof with fuel = 100 ;
+derive cata for cof ;

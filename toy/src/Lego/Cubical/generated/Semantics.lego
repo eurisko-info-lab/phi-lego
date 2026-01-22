@@ -316,3 +316,11 @@ piece Instantiation
   rule instClo: (instClo $ctx $body $v) ~> (eval $ctx (subst 0 $v $body)) ;
   rule instTpClo: (instTpClo $ctx $body $v) ~> (instClo $ctx $body $v) ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;

@@ -353,6 +353,62 @@ namespace Cofibration
       | .con "existsDim" [i, φ] => Term.con "cof_or" [Term.con "substCof" [i, Term.con "dim0" [], φ], Term.con "substCof" [i, Term.con "dim1" [], φ]]
       | _ => t
 
+    -- Derived substitution for cof
+    -- Binders: [lam, pi, sigma, plam, pathLam, extLam, let, glue]
+    mutual
+    partial def substcof (k : Nat) (v : Term) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit n]] =>
+        let idx := n.toNat!
+        if idx == k then v
+        else if idx > k then Term.con "ix" [Term.con "number" [Term.lit (toString (idx - 1))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam", "pi", "sigma", "plam", "pathLam", "extLam", "let", "glue"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (substcof k v) ++ [substcof (k + 1) (shiftcof 0 1 v) args.getLast!])
+        else
+          Term.con tag (args.map (substcof k v))
+      | _ => t
+    
+    partial def shiftcof (c : Nat) (n : Int) (t : Term) : Term :=
+      match t with
+      | Term.con "ix" [Term.con "number" [Term.lit m]] =>
+        let idx := m.toNat!
+        if idx >= c then Term.con "ix" [Term.con "number" [Term.lit (toString (Int.toNat (idx + n)))]]
+        else t
+      | Term.con tag args =>
+        let isBinder := ["lam", "pi", "sigma", "plam", "pathLam", "extLam", "let", "glue"].contains tag
+        if isBinder && args.length > 0 then
+          Term.con tag (args.dropLast.map (shiftcof c n) ++ [shiftcof (c + 1) n args.getLast!])
+        else
+          Term.con tag (args.map (shiftcof c n))
+      | _ => t
+    end
+
+    -- Derived normalizer for cof with fuel=1000
+    mutual
+    partial def normalizecof (fuel : Nat) (t : Term) : Term :=
+      if fuel == 0 then t else
+      let t' := stepcof t
+      if t' == t then t else normalizecof (fuel - 1) t'
+    
+    partial def stepcof (t : Term) : Term :=
+      match t with
+      | Term.con "app" [Term.con "lam" [body], arg] => substcof 0 arg body
+      | Term.con "fst" [Term.con "pair" [a, _]] => a
+      | Term.con "snd" [Term.con "pair" [_, b]] => b
+      | Term.con tag args => Term.con tag (args.map stepcof)
+      | _ => t
+    end
+
+    -- Derived catamorphism for cof
+    def catacof (alg : String → List α → α) (varF : String → α) (t : Term) : α :=
+      match t with
+      | Term.var n => varF n
+      | Term.lit s => alg "lit" []
+      | Term.con tag args => alg tag (args.map (catacof alg varF))
+
   end Forall
 
 end Cofibration

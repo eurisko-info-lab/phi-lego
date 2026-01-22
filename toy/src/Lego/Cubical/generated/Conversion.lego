@@ -325,3 +325,13 @@ piece Helpers
   rule equal: (equal $tp $t1 $t2) ~> (toBool (checkEq $tp $t1 $t2)) ;
   rule equalTp: (equalTp $tp1 $tp2) ~> (toBool (checkTpEq $tp1 $tp2)) ;
 
+
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;
+derive conv for term ;

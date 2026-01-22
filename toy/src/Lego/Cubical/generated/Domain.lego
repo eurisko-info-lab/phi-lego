@@ -252,3 +252,11 @@ piece Operations
   test "apply": (dApply (dlam (dclo (ix 0) denvNil)) (dlit "x")) ~~> (dlit "x") ;
   test "fst": (dFst (dpair (dlit "a") (dlit "b"))) ~~> (dlit "a") ;
 
+
+-----------------------------------------------------
+-- Derived Operations
+-----------------------------------------------------
+
+derive subst for term ;
+derive normalize for term with fuel = 100 ;
+derive cata for term ;
