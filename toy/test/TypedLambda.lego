@@ -21,7 +21,7 @@ piece Term
 -- Reduction Rules
 -----------------------------------------------------
 
-rule beta: (app (lam $x $t $body) $arg) ~> (subst $x $arg $body) ;
+rule beta: (app (lam $x $t $body) $arg) ~~> (subst $x $arg $body) ;
 
 -----------------------------------------------------
 -- Typing Rules

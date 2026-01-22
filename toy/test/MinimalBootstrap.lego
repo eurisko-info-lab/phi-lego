@@ -159,18 +159,18 @@ piece File
 -- Interpreter Rules
 -----------------------------------------------------
 
-rule combine-seq-seq: (combineSeq (seq $ts1) (seq $ts2)) ~> (seq (append $ts1 $ts2)) ;
-rule combine-seq-left: (combineSeq (seq $ts) $t) ~> (seq (append $ts (list $t))) ;
-rule combine-seq-right: (combineSeq $t (seq $ts)) ~> (seq (cons $t $ts)) ;
-rule combine-seq-unit-l: (combineSeq (unit) $t) ~> $t ;
-rule combine-seq-unit-r: (combineSeq $t (unit)) ~> $t ;
-rule combine-seq-default: (combineSeq $t1 $t2) ~> (seq (list $t1 $t2)) ;
-rule split-seq: (splitSeq (seq (cons $h $rest))) ~> (pair $h (seq $rest)) ;
-rule split-single: (splitSeq $t) ~> (pair $t (unit)) ;
-rule wrap-seq: (wrapNode $name (seq $ts)) ~> (con $name $ts) ;
-rule wrap-other: (wrapNode $name $t) ~> (con $name (list $t)) ;
-rule unwrap-match: (unwrapNode $name (con $name $ts)) ~> (seq $ts) ;
-rule unwrap-nomatch: (unwrapNode $name $t) ~> $t ;
+rule combine-seq-seq: (combineSeq (seq $ts1) (seq $ts2)) ~~> (seq (append $ts1 $ts2)) ;
+rule combine-seq-left: (combineSeq (seq $ts) $t) ~~> (seq (append $ts (list $t))) ;
+rule combine-seq-right: (combineSeq $t (seq $ts)) ~~> (seq (cons $t $ts)) ;
+rule combine-seq-unit-l: (combineSeq (unit) $t) ~~> $t ;
+rule combine-seq-unit-r: (combineSeq $t (unit)) ~~> $t ;
+rule combine-seq-default: (combineSeq $t1 $t2) ~~> (seq (list $t1 $t2)) ;
+rule split-seq: (splitSeq (seq (cons $h $rest))) ~~> (pair $h (seq $rest)) ;
+rule split-single: (splitSeq $t) ~~> (pair $t (unit)) ;
+rule wrap-seq: (wrapNode $name (seq $ts)) ~~> (con $name $ts) ;
+rule wrap-other: (wrapNode $name $t) ~~> (con $name (list $t)) ;
+rule unwrap-match: (unwrapNode $name (con $name $ts)) ~~> (seq $ts) ;
+rule unwrap-nomatch: (unwrapNode $name $t) ~~> $t ;
 
 -----------------------------------------------------
 -- Tests

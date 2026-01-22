@@ -526,61 +526,61 @@ piece RunML
 -- β-reduction rules (Core → Core)
 -----------------------------------------------------
 -- Function application
-rule beta-lam: (App (Lam $x $body) $arg) ~> (subst $body $x $arg) ;
+rule beta-lam: (App (Lam $x $body) $arg) ~~> (subst $body $x $arg) ;
 
 -- Pair projections
-rule beta-fst: (Fst (Cons $a $b)) ~> $a ;
-rule beta-snd: (Snd (Cons $a $b)) ~> $b ;
+rule beta-fst: (Fst (Cons $a $b)) ~~> $a ;
+rule beta-snd: (Snd (Cons $a $b)) ~~> $b ;
 
 -- Let binding (inline)
-rule beta-let: (Let $x $val $body) ~> (subst $body $x $val) ;
+rule beta-let: (Let $x $val $body) ~~> (subst $body $x $val) ;
 
 -- Extension application at endpoints
-rule beta-extapp-0: (ExtApp (ExtLam $i $body) (Dim0)) ~> (subst $body $i (Dim0)) ;
-rule beta-extapp-1: (ExtApp (ExtLam $i $body) (Dim1)) ~> (subst $body $i (Dim1)) ;
+rule beta-extapp-0: (ExtApp (ExtLam $i $body) (Dim0)) ~~> (subst $body $i (Dim0)) ;
+rule beta-extapp-1: (ExtApp (ExtLam $i $body) (Dim1)) ~~> (subst $body $i (Dim1)) ;
 
 -----------------------------------------------------
 -- Kan operation computation rules
 -----------------------------------------------------
 -- Coercion at same point is identity
-rule coe-refl: (Coe $r $r $ty $tm) ~> $tm ;
+rule coe-refl: (Coe $r $r $ty $tm) ~~> $tm ;
 
 -- HCom at same point is cap
-rule hcom-refl: (HCom $r $r $ty $cap $sys) ~> $cap ;
+rule hcom-refl: (HCom $r $r $ty $cap $sys) ~~> $cap ;
 
 -- Coercion through constant type is identity
-rule coe-const: (Coe $r $r' (const $A) $tm) ~> $tm ;
+rule coe-const: (Coe $r $r' (const $A) $tm) ~~> $tm ;
 
 -----------------------------------------------------
 -- Path computation rules
 -----------------------------------------------------
 -- Path application to refl
-rule path-app-refl: (ExtApp (Refl $a) $r) ~> $a ;
+rule path-app-refl: (ExtApp (Refl $a) $r) ~~> $a ;
 
 -- Path endpoints
-rule path-0: (ExtApp (ExtLam $i $body) (Dim0)) ~> (subst $body $i (Dim0)) ;
-rule path-1: (ExtApp (ExtLam $i $body) (Dim1)) ~> (subst $body $i (Dim1)) ;
+rule path-0: (ExtApp (ExtLam $i $body) (Dim0)) ~~> (subst $body $i (Dim0)) ;
+rule path-1: (ExtApp (ExtLam $i $body) (Dim1)) ~~> (subst $body $i (Dim1)) ;
 
 -----------------------------------------------------
 -- V-type computation (univalence)
 -----------------------------------------------------
 -- V at 0 gives ty0
-rule v-0: (V (Dim0) $ty0 $ty1 $equiv) ~> $ty0 ;
+rule v-0: (V (Dim0) $ty0 $ty1 $equiv) ~~> $ty0 ;
 
 -- V at 1 gives ty1  
-rule v-1: (V (Dim1) $ty0 $ty1 $equiv) ~> $ty1 ;
+rule v-1: (V (Dim1) $ty0 $ty1 $equiv) ~~> $ty1 ;
 
 -- VIn at 0 gives tm0
-rule vin-0: (VIn (Dim0) $tm0 $tm1) ~> $tm0 ;
+rule vin-0: (VIn (Dim0) $tm0 $tm1) ~~> $tm0 ;
 
 -- VIn at 1 gives tm1
-rule vin-1: (VIn (Dim1) $tm0 $tm1) ~> $tm1 ;
+rule vin-1: (VIn (Dim1) $tm0 $tm1) ~~> $tm1 ;
 
 -----------------------------------------------------
 -- Data elimination rules
 -----------------------------------------------------
 -- Elim Intro computes to clause body
-rule elim-intro: (Elim (Intro $dlbl $clbl $args) $mot $clauses) ~>
+rule elim-intro: (Elim (Intro $dlbl $clbl $args) $mot $clauses) ~~>
   (apply-clause (lookup $clbl $clauses) $args) ;
 
 -----------------------------------------------------

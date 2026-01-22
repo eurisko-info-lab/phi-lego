@@ -38,7 +38,7 @@ piece CorePrimitives
          | "App" term term             → app      -- Application
          | "Subst" <ident> term term   → subst ;  -- subst x t body
 
-  rule appSubst: (App (Subst $x $s $f) $a) ~> (Subst $x $s (App $f $a)) ;
+  rule appSubst: (App (Subst $x $s $f) $a) ~~> (Subst $x $s (App $f $a)) ;
   
   type univForm: Univ : Univ ;
   type varType: (Var $x) : $T when bound $x : $T ;
@@ -52,7 +52,7 @@ piece CorePrimitives
 piece Binders
   term ::= "Lam" <ident> "." term      → lam ;    -- BINDER: $x scopes $body
 
-  rule beta: (App (Lam $x . $body) $arg) ~> (Subst $x $arg $body) ;
+  rule beta: (App (Lam $x . $body) $arg) ~~> (Subst $x $arg $body) ;
 
   type lamForm: (Lam $x . $body) : (Arrow $A $B)
     when [$x : $A] $body : $B ;
@@ -67,9 +67,9 @@ piece Products
          | "Fst" term                  → fst
          | "Snd" term                  → snd ;
 
-  rule fstPair: (Fst (Pair $a $b)) ~> $a ;
-  rule sndPair: (Snd (Pair $a $b)) ~> $b ;
-  rule pairEta: (Pair (Fst $p) (Snd $p)) ~> $p ;
+  rule fstPair: (Fst (Pair $a $b)) ~~> $a ;
+  rule sndPair: (Snd (Pair $a $b)) ~~> $b ;
+  rule pairEta: (Pair (Fst $p) (Snd $p)) ~~> $p ;
 
   type pairType: (Pair $a $b) : (Prod $A $B)
     when $a : $A, $b : $B ;
@@ -146,8 +146,8 @@ piece Errors
          | "Stuck" term                → stuck ;
 
   -- Error propagates
-  rule appError: (App (Error $msg) $a) ~> (Error $msg) ;
-  rule fstError: (Fst (Error $msg)) ~> (Error $msg) ;
+  rule appError: (App (Error $msg) $a) ~~> (Error $msg) ;
+  rule fstError: (Fst (Error $msg)) ~~> (Error $msg) ;
 
 -----------------------------------------------------
 -- Annotations
@@ -158,7 +158,7 @@ piece Annotations
   term ::= "Ann" term term             → ann      -- Ann t T : annotated term
          | "Loc" <int> <int> term      → loc ;    -- Loc line col t : positioned
 
-  rule annErase: (Ann $t $T) ~> $t ;  -- For evaluation
+  rule annErase: (Ann $t $T) ~~> $t ;  -- For evaluation
 
 -----------------------------------------------------
 -- Builtins
@@ -174,8 +174,8 @@ piece Builtins
          | "zero"                      → zero
          | "succ" term                 → succ ;
 
-  rule ifTrue: (if true $t $f) ~> $t ;
-  rule ifFalse: (if false $t $f) ~> $f ;
+  rule ifTrue: (if true $t $f) ~~> $t ;
+  rule ifFalse: (if false $t $f) ~~> $f ;
 
   type boolForm: Bool : Univ ;
   type trueType: true : Bool ;

@@ -26,15 +26,15 @@ lang RosettaToLean :=
 -----------------------------------------------------
 piece TransformPrimitives
   -- Transform term: Recurse.
-  rule transformTermApp: (transform ($func $args)) ~> ($func $transArgs)
+  rule transformTermApp: (transform ($func $args)) ~~> ($func $transArgs)
     when $transArgs = (transform $args) ;  -- App f a → f a (Lean app)
-  rule transformTermConst: (transform (Const $lit)) ~> $lit ;  -- Const 0 → 0
-  rule transformTermVar: (transform (Var $id)) ~> $id ;
-  rule transformTermLam: (transform (Lam $x . $body)) ~> (fun $x => (transform $body)) ;
-  rule transformTermDLam: (transform (DLam $i . $body)) ~> (fun $i => (transform $body)) ;  -- Abstract dimension as fun
-  rule transformTermSubst: (transform (Subst $x $t $body)) ~> ((transform $body) [$x := (transform $t)]) ;  -- Lean subst notation
+  rule transformTermConst: (transform (Const $lit)) ~~> $lit ;  -- Const 0 → 0
+  rule transformTermVar: (transform (Var $id)) ~~> $id ;
+  rule transformTermLam: (transform (Lam $x . $body)) ~~> (fun $x => (transform $body)) ;
+  rule transformTermDLam: (transform (DLam $i . $body)) ~~> (fun $i => (transform $body)) ;  -- Abstract dimension as fun
+  rule transformTermSubst: (transform (Subst $x $t $body)) ~~> ((transform $body) [$x := (transform $t)]) ;  -- Lean subst notation
   -- Pattern transform similar, but for match arms: $pat ~> $repl → | pat => repl
-  rule transformPat: (transformPat $pat) ~> (transform $pat) ;
+  rule transformPat: (transformPat $pat) ~~> (transform $pat) ;
 
 -----------------------------------------------------
 -- AdtTransform
@@ -43,11 +43,11 @@ piece TransformPrimitives
 -- Namespace: If in module Mod, inductive Mod.name.
 -----------------------------------------------------
 piece AdtTransform
-  rule transformAdt: (transform (adtDef $name { $constrs })) ~> (inductive $nsName | $transConstrs)
+  rule transformAdt: (transform (adtDef $name { $constrs })) ~~> (inductive $nsName | $transConstrs)
     when inModule $modName, $nsName = ($modName ++ "." ++ $name),
          $transConstrs = (forEach $c in $constrs: (transformConstr $c)) ;
-  rule transformConstr: (transformConstr $cname : $ty) ~> ($cname : (transformType $ty)) ;
-  rule transformType: (transformType $t) ~> (transform $t) ;  -- Recurse, e.g., Term → Term → Term → Term → Term → Term
+  rule transformConstr: (transformConstr $cname : $ty) ~~> ($cname : (transformType $ty)) ;
+  rule transformType: (transformType $t) ~~> (transform $t) ;  -- Recurse, e.g., Term → Term → Term → Term → Term → Term
 
 -----------------------------------------------------
 -- RewriteTransform
@@ -57,7 +57,7 @@ piece AdtTransform
 -- For simplicity, each rule as a partial def, assume post-processing to combine.
 -----------------------------------------------------
 piece RewriteTransform
-  rule transformRewrite: (transform (rewriteRule $name: $pat ~> $repl)) ~> (def $nsName (t : Term) : Term := match t with | (transformPat $pat) => (transform $repl) | _ => t)
+  rule transformRewrite: (transform (rewriteRule $name: $pat ~~> $repl)) ~~> (def $nsName (t : Term) : Term := match t with | (transformPat $pat) => (transform $repl) | _ => t)
     when inModule $modName, $nsName = ($modName ++ "." ++ $name ++ "Reduce") ;
 
 -----------------------------------------------------
@@ -68,12 +68,12 @@ piece RewriteTransform
 -- Here, use theorem for declarative style.
 -----------------------------------------------------
 piece JudgeTransform
-  rule transformJudge: (transform (judgeDecl $name: $term : $ty when $conds)) ~> (theorem $nsName : ∀ $vars, $premises → (transform $term) : (transform $ty)
+  rule transformJudge: (transform (judgeDecl $name: $term : $ty when $conds)) ~~> (theorem $nsName : ∀ $vars, $premises → (transform $term) : (transform $ty)
     when inModule $modName, $nsName = ($modName ++ "." ++ $name),
          ($vars, $premises) = (extractVarsAndPremises $conds) ;
   -- Extract: cond a : b → a : b, ctxCond [binds] body : ty → ∀ binds, body : ty
-  rule extractSimple: (extractVarsAndPremises (cond $lhs : $rhs)) ~> ([], (transform $lhs) : (transform $rhs)) ;
-  rule extractCtx: (extractVarsAndPremises (ctxCond $binds $body : $ty)) ~> ($transBinds, (transform $body) : (transform $ty))
+  rule extractSimple: (extractVarsAndPremises (cond $lhs : $rhs)) ~~> ([], (transform $lhs) : (transform $rhs)) ;
+  rule extractCtx: (extractVarsAndPremises (ctxCond $binds $body : $ty)) ~~> ($transBinds, (transform $body) : (transform $ty))
     when $transBinds = (forEach $b in $binds: ($b.x : (transform $b.ty))) ;
 
 -----------------------------------------------------
@@ -82,7 +82,7 @@ piece JudgeTransform
 -- Use theorem for equality after reduction.
 -----------------------------------------------------
 piece TestTransform
-  rule transformTest: (transform (testDecl $name: $lhs ~~> $rhs)) ~> (theorem $nsName : (reduce (transform $lhs)) = (transform $rhs) := by rfl)  -- Assume reduce normalizes
+  rule transformTest: (transform (testDecl $name: $lhs ~~> $rhs)) ~~> (theorem $nsName : (reduce (transform $lhs)) = (transform $rhs) := by rfl)  -- Assume reduce normalizes
     when inModule $modName, $nsName = ($modName ++ "." ++ $name ++ "Test") ;
 
 -----------------------------------------------------
@@ -91,16 +91,16 @@ piece TestTransform
 -- Apply transforms within namespace.
 -----------------------------------------------------
 piece ModuleTransform
-  rule transformModule: (transform (moduleDecl $name { $decls })) ~> (namespace $name $transDecls end $name)
+  rule transformModule: (transform (moduleDecl $name { $decls })) ~~> (namespace $name $transDecls end $name)
     when pushContext (inModule $name), $transDecls = (forEach $decl in $decls: (transform $decl)), popContext ;
-  rule transformImport: (transform (importDecl $mod)) ~> (import $mod) ;
+  rule transformImport: (transform (importDecl $mod)) ~~> (import $mod) ;
 
 -----------------------------------------------------
 -- LangTransform
 -- Top-level: 'lang Name := contents' → Full Lean file with imports and namespaces.
 -----------------------------------------------------
 piece LangTransform
-  rule transformLang: (transform (lang $name := $contents)) ~> (import PreludeLean ; $transContents)
+  rule transformLang: (transform (lang $name := $contents)) ~~> (import PreludeLean ; $transContents)
     when $transContents = (forEach $content in $contents: (transform $content)) ;  -- Add prelude import
 
 -----------------------------------------------------
@@ -108,14 +108,14 @@ piece LangTransform
 -- Meta-rules for context (inModule), string ops.
 -----------------------------------------------------
 piece ContextHelpers
-  rule concat: ($a ++ $b) ~> $combined ;
-  rule forEach: (forEach $item in $list: $expr) ~> $resultList ;
-  rule extractVarsAndPremises: (extractVarsAndPremises $conds) ~> ($vars $prems) ;
+  rule concat: ($a ++ $b) ~~> $combined ;
+  rule forEach: (forEach $item in $list: $expr) ~~> $resultList ;
+  rule extractVarsAndPremises: (extractVarsAndPremises $conds) ~~> ($vars $prems) ;
 
 -----------------------------------------------------
 -- Examples
 -- Built-in tests for generic Rosetta transforms.
 -----------------------------------------------------
 test "transformAdtEx": transform (adtDef "Term" { Univ : Term }) ~~> (inductive Core.Term | Univ : Core.Term) when inModule "Core" ;
-test "transformRewriteEx": transform (rewriteRule "fstPair": (Fst (Pair $a $b)) ~> $a) ~~> (def Core.fstPairReduce (t : Term) : Term := match t with | Fst (Pair a b) => a | _ => t) ;
+test "transformRewriteEx": transform (rewriteRule "fstPair": (Fst (Pair $a $b)) ~~> $a) ~~> (def Core.fstPairReduce (t : Term) : Term := match t with | Fst (Pair a b) => a | _ => t) ;
 test "transformJudgeEx": transform (judgeDecl "univForm": Univ : Univ) ~~> (theorem Core.univForm : Univ : Univ) ;

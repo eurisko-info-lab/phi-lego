@@ -88,12 +88,14 @@ token Token
   nonnl   ::= alpha | digit | symch | ' ' | '\t' | '\'' | '"' ;
 
   -- Multi-character operators (ordered longest first)
-  op3     ::= ':' ':' '=' ;  -- ::=
+  op3     ::= ':' ':' '='    -- ::=
+            | '=' 'I' '=' ;  -- =I=
   op2     ::= '~' '~' '>'    -- ~~>
             | ':' '='        -- :=
             | '~' '>'        -- ~>
             | '-' '>'        -- ->
-            | '<' '-' ;      -- <-
+            | '<' '-'        -- <-
+            | '@' '@' ;      -- @@
 
   -- Special <name> syntax
   special ::= '<' alpha+ '>' ;
@@ -128,12 +130,34 @@ piece Term
             | "(" "Π" "(" "_" ":" term ")" "." term ")" → piType
             | "(" "Σ" "(" ident ":" term ")" "." term ")" → sigmaType
             | "(" "Σ" "(" "_" ":" term ")" "." term ")" → sigmaType
+            | "[" term ":=" term "]" term → subst
+            | "[" term ":" term "]" term → typedCtx
             | "[" term "]" → bracket
+            | "(" "[" term ":=" term "]" term ")" → parenSubst
+            | "(" "[" term ":" term "]" term ")" → parenTypedCtx
+            | "(" term ":" term ")" → ann
+            | "(" "$" ident "." term ")" → binderParen
+            | "(" ident "." term ")" → objBinderParen
             | "(" conname "$" ident ":" term "." term ")" → binderCon
             | "(" conname ident ":" term "." term ")" → binderCon
-            | "(" conname term* ")" → con ;
+            | "(" "(" conname termArg* ")" termArg+ ")" → app
+            | "(" conname termArg* ")" → con ;
+  -- termArg: arguments in term applications, supports typed vars ($x : A)
+  termArg ::= "$" ident "." term → binder
+            | "$" ident ":" term → typedVar
+            | ident ":" term → labeledArg
+            | ident "." term → objBinder
+            | "~>" → con
+            | "→" → con
+            | "×" → con
+            | "↦" → con
+            | "=I=" → con
+            | "@@" → con
+            | "-" → con
+            | term ;
   -- conname: constructor names can be idents or reserved keywords (as symbols)
-  conname ::= ident | <sym> ;
+  -- Multi-char operators that can appear as constructor heads
+  conname ::= "=I=" | "@@" | "~>" | "→" | "×" | "↦" | ident | <sym> ;
 
 -----------------------------------------------------
 -- Pattern: Match patterns for rules
@@ -145,16 +169,30 @@ piece Pattern
   pattern ::= "$" ident "." pattern → binder
             | "$" ident → var
             | "[" pattern ":=" pattern "]" pattern → subst
+            | "[" patternArg* "]" → bracket
             | "(" pattern "," pattern ")" → tuple
             | "(" ")" → unit
+            | "(" "$" ident "." pattern ")" → binderParen
+            | "(" ident "." pattern ")" → objBinderParen
+            | "(" pattern ":" pattern ")" → ann
             | "(" patternHead patternArg* ")" → con
             | string → lit
             | number → num
             | ident → con ;
   patternArg ::= "$" ident "." pattern → binder
+               | "$" ident ":" pattern → typedVar
                | ident ":" pattern → labeledArg
+               | ident "." pattern → objBinder
+               | "~>" → con
+               | "→" → con
+               | "×" → con
+               | "↦" → con
+               | "=I=" → con
+               | "@@" → con
+               | "-" → con
                | pattern ;
   patternHead ::= "$" ident → var
+                | number → num
                 | conname ;
 
 -----------------------------------------------------
@@ -167,9 +205,12 @@ piece Template
   template ::= "$" ident "." template → binder
              | "$" ident → var
              | "[" template ":=" template "]" template → subst
+             | "[" templateArg* "]" → bracket
              | "(" template "," template ")" → tuple
              | "(" ")" → unit
              | "(" "case" template caseArm+ ")" → caseExpr
+             | "(" "$" ident "." template ")" → binderParen
+             | "(" ident "." template ")" → objBinderParen
              | "(" headTerm templateArg* ")" → con
              | string → lit
              | number → num
@@ -177,10 +218,20 @@ piece Template
   caseArm ::= "(" patternHead patternArg* ")" "=>" template → arm
             | ident "=>" template → arm ;
   templateArg ::= "$" ident "." template → binder
+                | "$" ident ":" template → typedVar
                 | ident ":" template → labeledArg
+                | ident "." template → objBinder
+                | "~>" → con
+                | "→" → con
+                | "×" → con
+                | "↦" → con
+                | "=I=" → con
+                | "@@" → con
+                | "-" → con
                 | template ;
   headTerm ::= "$" ident → var
-             | ident ;
+             | ident
+             | "(" template templateArg* ")" → app ;
 
 -----------------------------------------------------
 -- GrammarExpr: Grammar expressions
@@ -223,14 +274,27 @@ piece File
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
   pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
-  ruleDecl   ::= "rule" ident ":" pattern "~>" template ruleGuard? ";" → DRule ;
-  ruleGuard  ::= "when" pattern → guard ;
+  ruleDecl   ::= "rule" ident ":" pattern "~~>" template ruleGuard? ";" → DRule ;
+  ruleGuard  ::= "when" sideCondition ("," sideCondition)* → guard ;
   typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;
   whenClause ::= "when" typeConstraint ("," typeConstraint)* → whenClause ;
   typeConstraint ::= pattern ":" term → constraint
                    | "[" pattern ":" term "]" pattern ":" term → bracketConstraint
-                   | "[" pattern ":=" pattern "]" pattern "=" term → substConstraint ;
-  testDecl   ::= "test" string ":" term ("~~>" term)? ";" → DTest ;
+                   | "[" pattern ":" term ("," pattern ":" term)+ "]" pattern ":" term → multiBracketConstraint
+                   | "[" pattern ":=" pattern "]" pattern "=" term → substConstraint
+                   | "[" pattern "=" pattern "]" pattern ":" term → eqCtxConstraint
+                   | "[" pattern "]" pattern ":" term → ctxConstraint
+                   | "[" pattern "]" term "=" term → eqConstraint
+                   | sideCondition ;
+  sideCondition ::= pattern "not" "free" "in" pattern → notFree
+                  | pattern "agree" "on" "overlaps" → agreeOverlaps
+                  | pattern "agrees" pattern → agrees
+                  | pattern "boundary" pattern → boundary
+                  | pattern "holds" → holds
+                  | pattern "declared" → declared
+                  | pattern → sidePattern ;
+  testDecl   ::= "test" string ":" annotatedTerm ("~~>" annotatedTerm)? ";" → DTest ;
+  annotatedTerm ::= term ":" term → ann | term ;
   -- Attribute Grammar section (groups syn/inh declarations and rules)
   attrsDecl  ::= "attrs" ident attrBody → DAttrs ;
   attrBody   ::= attrItem* ;
@@ -247,28 +311,28 @@ piece File
 
 -- combineSeq: Combine two terms into a sequence
 -- seq + seq → merge lists
-rule combine-seq-seq: (combineSeq (seq $ts1) (seq $ts2)) ~> (seq (append $ts1 $ts2)) ;
+rule combine-seq-seq: (combineSeq (seq $ts1) (seq $ts2)) ~~> (seq (append $ts1 $ts2)) ;
 -- seq + other → append to seq
-rule combine-seq-left: (combineSeq (seq $ts) $t) ~> (seq (append $ts (list $t))) ;
+rule combine-seq-left: (combineSeq (seq $ts) $t) ~~> (seq (append $ts (list $t))) ;
 -- other + seq → prepend to seq  
-rule combine-seq-right: (combineSeq $t (seq $ts)) ~> (seq (cons $t $ts)) ;
+rule combine-seq-right: (combineSeq $t (seq $ts)) ~~> (seq (cons $t $ts)) ;
 -- unit is identity
-rule combine-seq-unit-l: (combineSeq (unit) $t) ~> $t ;
-rule combine-seq-unit-r: (combineSeq $t (unit)) ~> $t ;
+rule combine-seq-unit-l: (combineSeq (unit) $t) ~~> $t ;
+rule combine-seq-unit-r: (combineSeq $t (unit)) ~~> $t ;
 -- default: make a new seq
-rule combine-seq-default: (combineSeq $t1 $t2) ~> (seq (list $t1 $t2)) ;
+rule combine-seq-default: (combineSeq $t1 $t2) ~~> (seq (list $t1 $t2)) ;
 
 -- splitSeq: Split first element from a sequence
-rule split-seq: (splitSeq (seq (cons $h $rest))) ~> (pair $h (seq $rest)) ;
-rule split-single: (splitSeq $t) ~> (pair $t (unit)) ;
+rule split-seq: (splitSeq (seq (cons $h $rest))) ~~> (pair $h (seq $rest)) ;
+rule split-single: (splitSeq $t) ~~> (pair $t (unit)) ;
 
 -- wrapNode: Wrap a term with a node name
-rule wrap-seq: (wrapNode $name (seq $ts)) ~> (con $name $ts) ;
-rule wrap-other: (wrapNode $name $t) ~> (con $name (list $t)) ;
+rule wrap-seq: (wrapNode $name (seq $ts)) ~~> (con $name $ts) ;
+rule wrap-other: (wrapNode $name $t) ~~> (con $name (list $t)) ;
 
 -- unwrapNode: Unwrap a node if name matches
-rule unwrap-match: (unwrapNode $name (con $name $ts)) ~> (seq $ts) ;
-rule unwrap-nomatch: (unwrapNode $name $t) ~> $t ;
+rule unwrap-match: (unwrapNode $name (con $name $ts)) ~~> (seq $ts) ;
+rule unwrap-nomatch: (unwrapNode $name $t) ~~> $t ;
 
 -----------------------------------------------------
 -- Tests (only Term syntax - not Pattern syntax)

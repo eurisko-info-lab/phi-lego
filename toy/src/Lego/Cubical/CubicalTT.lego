@@ -36,22 +36,22 @@ piece Dimension
         | "~" dim                      → inv ;
 
   -- De Morgan algebra laws
-  rule join0L: (join 0 $r) ~> $r ;
-  rule join0R: (join $r 0) ~> $r ;
-  rule join1L: (join 1 $r) ~> 1 ;
-  rule join1R: (join $r 1) ~> 1 ;
-  rule joinIdem: (join $r $r) ~> $r ;
-  rule meet0L: (meet 0 $r) ~> 0 ;
-  rule meet0R: (meet $r 0) ~> 0 ;
-  rule meet1L: (meet 1 $r) ~> $r ;
-  rule meet1R: (meet $r 1) ~> $r ;
-  rule meetIdem: (meet $r $r) ~> $r ;
-  rule inv0: (inv 0) ~> 1 ;
-  rule inv1: (inv 1) ~> 0 ;
-  rule invInv: (inv (inv $r)) ~> $r ;
+  rule join0L: (join 0 $r) ~~> $r ;
+  rule join0R: (join $r 0) ~~> $r ;
+  rule join1L: (join 1 $r) ~~> 1 ;
+  rule join1R: (join $r 1) ~~> 1 ;
+  rule joinIdem: (join $r $r) ~~> $r ;
+  rule meet0L: (meet 0 $r) ~~> 0 ;
+  rule meet0R: (meet $r 0) ~~> 0 ;
+  rule meet1L: (meet 1 $r) ~~> $r ;
+  rule meet1R: (meet $r 1) ~~> $r ;
+  rule meetIdem: (meet $r $r) ~~> $r ;
+  rule inv0: (inv 0) ~~> 1 ;
+  rule inv1: (inv 1) ~~> 0 ;
+  rule invInv: (inv (inv $r)) ~~> $r ;
   -- De Morgan: ~(r ∨ s) = ~r ∧ ~s
-  rule deMorganOr: (inv (join $r $s)) ~> (meet (inv $r) (inv $s)) ;
-  rule deMorganAnd: (inv (meet $r $s)) ~> (join (inv $r) (inv $s)) ;
+  rule deMorganOr: (inv (join $r $s)) ~~> (meet (inv $r) (inv $s)) ;
+  rule deMorganAnd: (inv (meet $r $s)) ~~> (join (inv $r) (inv $s)) ;
 
   type dimForm: $r : I ;
 
@@ -73,17 +73,17 @@ piece Cofibration
         | cof "∧" cof                  → cofAnd ;
         
   -- Lattice laws
-  rule cof0Or: (cofOr cof0 $φ) ~> $φ ;
-  rule cof1Or: (cofOr cof1 $φ) ~> cof1 ;
-  rule cofOrIdem: (cofOr $φ $φ) ~> $φ ;
-  rule cof0And: (cofAnd cof0 $φ) ~> cof0 ;
-  rule cof1And: (cofAnd cof1 $φ) ~> $φ ;
-  rule cofAndIdem: (cofAnd $φ $φ) ~> $φ ;
+  rule cof0Or: (cofOr cof0 $φ) ~~> $φ ;
+  rule cof1Or: (cofOr cof1 $φ) ~~> cof1 ;
+  rule cofOrIdem: (cofOr $φ $φ) ~~> $φ ;
+  rule cof0And: (cofAnd cof0 $φ) ~~> cof0 ;
+  rule cof1And: (cofAnd cof1 $φ) ~~> $φ ;
+  rule cofAndIdem: (cofAnd $φ $φ) ~~> $φ ;
   
   -- Equation rules
-  rule eqRefl: (eq $r $r) ~> cof1 ;
-  rule eq01: (eq 0 1) ~> cof0 ;
-  rule eq10: (eq 1 0) ~> cof0 ;
+  rule eqRefl: (eq $r $r) ~~> cof1 ;
+  rule eq01: (eq 0 1) ~~> cof0 ;
+  rule eq10: (eq 1 0) ~~> cof0 ;
 
   type cofForm: $φ : 𝔽 ;
 
@@ -100,10 +100,10 @@ piece Core
          | term ".fst"                 → fst
          | term ".snd"                 → snd ;
 
-  rule fstPair: (fst (pair $a $b)) ~> $a ;
-  rule sndPair: (snd (pair $a $b)) ~> $b ;
+  rule fstPair: (fst (pair $a $b)) ~~> $a ;
+  rule sndPair: (snd (pair $a $b)) ~~> $b ;
   -- η for pairs (requires type info in full impl)
-  -- rule pairEta: (pair (fst $p) (snd $p)) ~> $p ;
+  -- rule pairEta: (pair (fst $p) (snd $p)) ~~> $p ;
     
   type univForm: U : U ;
 
@@ -122,11 +122,11 @@ piece Lambda
          | "λᵢ" <ident> "." term       → dlam      -- binds dim in body
          | term "@" dim                → dapp ;
 
-  rule beta: (app (lam $x . $body) $arg) ~> [$x := $arg] $body ;
-  rule dbeta: (dapp (dlam $i . $body) $r) ~> [$i := $r] $body ;
+  rule beta: (app (lam $x . $body) $arg) ~~> [$x := $arg] $body ;
+  rule dbeta: (dapp (dlam $i . $body) $r) ~~> [$i := $r] $body ;
   -- η rules (require type info)
-  -- rule lamEta: (lam $x . (app $f $x)) ~> $f when $x not free in $f ;
-  -- rule dlamEta: (dlam $i . (dapp $f $i)) ~> $f when $i not free in $f ;
+  -- rule lamEta: (lam $x . (app $f $x)) ~~> $f when $x not free in $f ;
+  -- rule dlamEta: (dlam $i . (dapp $f $i)) ~~> $f when $i not free in $f ;
     
   type lamForm: (lam $x . $body) : (Pi $x : $A . $B)
     when [$x : $A] $body : $B ;
@@ -149,7 +149,7 @@ piece Pi
          | term "→" term                          → arr ;
 
   -- Non-dependent arrow is sugar
-  rule arrSugar: ($A → $B) ~> (Pi _ : $A . $B) ;
+  rule arrSugar: ($A → $B) ~~> (Pi _ : $A . $B) ;
 
   type PiForm: (Pi $x : $A . $B) : U
     when $A : U, [$x : $A] $B : U ;
@@ -167,7 +167,7 @@ piece Sigma
          | term "×" term                          → prod ;
 
   -- Non-dependent product is sugar
-  rule prodSugar: ($A × $B) ~> (Sigma _ : $A . $B) ;
+  rule prodSugar: ($A × $B) ~~> (Sigma _ : $A . $B) ;
 
   type SigmaForm: (Σ $x : $A . $B) : U
     when $A : U, [$x : $A] $B : U ;
@@ -189,7 +189,7 @@ piece Path
          | "PathP" <ident> "." term term term  → PathP ;  -- binds i in A
 
   -- Path is sugar for PathP with constant type
-  rule pathSugar: (Path $A $a $b) ~> (PathP _ . $A . $a . $b) ;
+  rule pathSugar: (Path $A $a $b) ~~> (PathP _ . $A . $a . $b) ;
 
   type PathForm: (Path $A $a $b) : U
     when $A : U, $a : $A, $b : $A ;
@@ -212,7 +212,7 @@ piece System
   sysbranch ::= cof "↦" term           → branch ;
 
   -- Systems must agree on overlaps
-  type sysType: (sys $branches) : Partial $φ $A
+  type sysType: (sys $branches) : (Partial $φ $A)
     when $branches agree on overlaps ;
 
 -----------------------------------------------------
@@ -225,9 +225,9 @@ piece System
 piece Coe
   term ::= "coe" dim "~>" dim "(" <ident> "." term ")" term  → coe ;  -- binds i in A
 
-  rule coeRefl: (coe $r ~> $r ($i . $A) $a) ~> $a ;
+  rule coeRefl: (coe $r ~> $r ($i . $A) $a) ~~> $a ;
   -- Coercion in constant type
-  rule coeConst: (coe $r ~> $s ($i . $A) $a) ~> $a
+  rule coeConst: (coe $r ~> $s ($i . $A) $a) ~~> $a
     when $i not free in $A ;
     
   type coeType: (coe $r ~> $s ($i . $A) $a) : [$i := $s] $A
@@ -244,9 +244,9 @@ piece Coe
 piece Hcom
   term ::= "hcom" dim "~>" dim term system term  → hcom ;
 
-  rule hcomRefl: (hcom $r ~> $r $A $sys $a) ~> $a ;
+  rule hcomRefl: (hcom $r ~> $r $A $sys $a) ~~> $a ;
   -- When φ = ⊤, the system determines the result
-  rule hcomTotal: (hcom $r ~> $s $A (sys [(cof1 ↦ $u)]) $a) ~> [$j := $s] $u ;
+  rule hcomTotal: (hcom $r ~> $s $A (sys [(cof1 ↦ $u)]) $a) ~~> [$j := $s] $u ;
     
   type hcomType: (hcom $r ~> $s $A $sys $a) : $A
     when $a : $A, 
@@ -263,7 +263,7 @@ piece Hcom
 piece Com
   term ::= "com" dim "~>" dim "(" <ident> "." term ")" system term  → com ;  -- binds i in A
 
-  rule comRefl: (com $r ~> $r ($i . $A) $sys $a) ~> $a ;
+  rule comRefl: (com $r ~> $r ($i . $A) $sys $a) ~~> $a ;
   -- Com can be defined in terms of coe and hcom
   -- com r~>s (i.A) [φ ↦ u] a = hcom r~>s A[s/i] [φ ↦ coe j~>s (i.A) u(j)] (coe r~>s (i.A) a)
 
@@ -283,15 +283,15 @@ piece VType
          | "Vproj" dim term term       → Vproj ;
 
   -- At r=0: V 0 A B e ≅ A, at r=1: V 1 A B e ≅ B
-  rule V0: (V 0 $A $B $e) ~> $A ;
-  rule V1: (V 1 $A $B $e) ~> $B ;
-  rule Vin0: (Vin 0 $a) ~> (fst $a) ;
-  rule Vin1: (Vin 1 $a) ~> $a ;
-  rule Vproj0: (Vproj 0 $v $e) ~> (app $e (snd $v)) ;
-  rule Vproj1: (Vproj 1 $v $e) ~> $v ;
+  rule V0: (V 0 $A $B $e) ~~> $A ;
+  rule V1: (V 1 $A $B $e) ~~> $B ;
+  rule Vin0: (Vin 0 $a) ~~> (fst $a) ;
+  rule Vin1: (Vin 1 $a) ~~> $a ;
+  rule Vproj0: (Vproj 0 $v $e) ~~> (app $e (snd $v)) ;
+  rule Vproj1: (Vproj 1 $v $e) ~~> $v ;
     
   type VForm: (V $r $A $B $e) : U
-    when $A : U, $B : U, $e : Equiv $A $B ;
+    when $A : U, $B : U, $e : (Equiv $A $B) ;
   type VinType: (Vin $r $a) : (V $r $A $B $e)
     when [$r = 0] $a : ($A × Fiber $e (snd $a)),
          [$r = 1] $a : $B ;
@@ -307,7 +307,7 @@ piece Sub
          | "inS" term                  → inS
          | "outS" term                 → outS ;
 
-  rule outInS: (outS (inS $a)) ~> $a ;
+  rule outInS: (outS (inS $a)) ~~> $a ;
     
   type SubForm: (Sub $A $φ $u) : U
     when $A : U, [$φ] $u : $A ;
@@ -327,7 +327,7 @@ piece Glue
          | "unglue" cof term           → unglue ;
 
   -- When φ holds, Glue [φ ↦ (T,e)] A ≅ T
-  rule unglueGlue: (unglue $φ (glue $sys $a)) ~> $a when $φ ;
+  rule unglueGlue: (unglue $φ (glue $sys $a)) ~~> $a when $φ ;
 
   type GlueForm: (Glue $sys $A) : U
     when $A : U, $sys : (Partial $φ (Σ T : U . Equiv T A)) ;
@@ -342,23 +342,23 @@ piece Conversion
   -- conv A B : true iff A and B are definitionally equal
   
   -- Structural rules
-  rule convRefl: (conv $A $A) ~> true ;
-  rule convSym: (conv $A $B) ~> (conv $B $A) ;
+  rule convRefl: (conv $A $A) ~~> true ;
+  rule convSym: (conv $A $B) ~~> (conv $B $A) ;
   
   -- Universe conversion
-  rule convU: (conv U U) ~> true ;
+  rule convU: (conv U U) ~~> true ;
   
   -- Pi conversion (contravariant in domain)
   rule convPi: (conv (Pi $x : $A1 . $B1) (Pi $x : $A2 . $B2)) 
-    ~> (and (conv $A2 $A1) (conv $B1 $B2)) ;
+    ~~> (and (conv $A2 $A1) (conv $B1 $B2)) ;
   
   -- Sigma conversion
   rule convSigma: (conv (Σ $x : $A1 . $B1) (Σ $x : $A2 . $B2))
-    ~> (and (conv $A1 $A2) (conv $B1 $B2)) ;
+    ~~> (and (conv $A1 $A2) (conv $B1 $B2)) ;
     
   -- Path conversion
   rule convPath: (conv (PathP $i . $A1 . $a01 . $a11) (PathP $i . $A2 . $a02 . $a12))
-    ~> (and (conv $A1 $A2) (and (conv $a01 $a02) (conv $a11 $a12))) ;
+    ~~> (and (conv $A1 $A2) (and (conv $a01 $a02) (conv $a11 $a12))) ;
 
 -----------------------------------------------------
 -- Neutral
@@ -370,15 +370,15 @@ piece Neutral
   -- A term is neutral if it's blocked on a variable
   -- Variables, applications to neutrals, projections from neutrals
   
-  rule isNeutralVar: (neutral (var $x)) ~> true ;
-  rule isNeutralApp: (neutral (app $f $a)) ~> (neutral $f) ;
-  rule isNeutralFst: (neutral (fst $p)) ~> (neutral $p) ;
-  rule isNeutralSnd: (neutral (snd $p)) ~> (neutral $p) ;
-  rule isNeutralDApp: (neutral (dapp $p $r)) ~> (neutral $p) ;
+  rule isNeutralVar: (neutral (var $x)) ~~> true ;
+  rule isNeutralApp: (neutral (app $f $a)) ~~> (neutral $f) ;
+  rule isNeutralFst: (neutral (fst $p)) ~~> (neutral $p) ;
+  rule isNeutralSnd: (neutral (snd $p)) ~~> (neutral $p) ;
+  rule isNeutralDApp: (neutral (dapp $p $r)) ~~> (neutral $p) ;
   rule isNeutralCoe: (neutral (coe $r ~> $s ($i . $A) $a)) 
-    ~> (or (neutral $A) (neutral $a)) ;
+    ~~> (or (neutral $A) (neutral $a)) ;
   rule isNeutralHcom: (neutral (hcom $r ~> $s $A $sys $a))
-    ~> (or (neutral $A) (neutral $a)) ;
+    ~~> (or (neutral $A) (neutral $a)) ;
 
 -----------------------------------------------------
 -- Equiv
@@ -392,7 +392,7 @@ piece Equiv
          | "equivFun" term             → equivFun ;
 
   -- Identity equivalence
-  rule equivFunId: (equivFun (idEquiv $A)) ~> (lam x . x) ;
+  rule equivFunId: (equivFun (idEquiv $A)) ~~> (lam x . x) ;
 
   type EquivForm: (Equiv $A $B) : U
     when $A : U, $B : U ;

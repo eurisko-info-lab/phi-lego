@@ -33,12 +33,12 @@ piece Nat
          | "natElim" term term term term  → natElim ;
 
   -- Elimination rules: dependent eliminator
-  rule natElimZero: (natElim $P $z $s zero) ~> $z ;
-  rule natElimSuc: (natElim $P $z $s (suc $n)) ~> ($s $n (natElim $P $z $s $n)) ;
+  rule natElimZero: (natElim $P $z $s zero) ~~> $z ;
+  rule natElimSuc: (natElim $P $z $s (suc $n)) ~~> ($s $n (natElim $P $z $s $n)) ;
   
   -- Derived: primitive recursion (non-dependent)
-  rule natRec: (natRec $z $s zero) ~> $z ;
-  rule natRecSuc: (natRec $z $s (suc $n)) ~> ($s $n (natRec $z $s $n)) ;
+  rule natRec: (natRec $z $s zero) ~~> $z ;
+  rule natRecSuc: (natRec $z $s (suc $n)) ~~> ($s $n (natRec $z $s $n)) ;
 
   type NatForm: Nat : U ;
   type zeroType: zero : Nat ;
@@ -99,10 +99,10 @@ piece Signature
   assign ::= <ident> ":=" term         → assign ;
 
   -- Projection: extract field from struct
-  rule projStruct: ((struct { $x := $a $rest }) . $x) ~> $a ;
+  rule projStruct: ((struct { $x := $a $rest }) . $x) ~~> $a ;
   
   -- Eta for structs: a struct equals its projections reassembled
-  rule sigEta: (struct { $fs }) ~> $r when $r = (reassemble $fs) ;
+  rule sigEta: (struct { $fs }) ~~> $r when $r = (reassemble $fs) ;
 
   type sigForm: (sig { $f1 : $A1 $fs }) : U
     when $A1 : U, [$f1 : $A1] (sig { $fs }) : U ;
@@ -124,7 +124,7 @@ piece El
          | "code" term                 → code ;
 
   -- Decode then encode is identity
-  rule ElCode: (El (code $A)) ~> $A ;
+  rule ElCode: (El (code $A)) ~~> $A ;
 
   type ElForm: (El $a) : U
     when $a : (Code U) ;
@@ -148,10 +148,10 @@ piece CofExt
   rule boundary0: (∂ 0) ~> cof0 ;
   rule boundary1: (∂ 1) ~> cof0 ;
   -- Boundary of variable is disjunction
-  rule boundaryVar: (∂ $i) ~> (($i = 0) ∨ ($i = 1)) ;
+  rule boundaryVar: (∂ $i) ~~> (($i = 0) ∨ ($i = 1)) ;
   
   -- Strict: marks cofibration as decidable (for evaluation)
-  rule strictEval: (strict $φ) ~> $φ when $φ decidable ;
+  rule strictEval: (strict $φ) ~~> $φ when $φ decidable ;
 
   test "boundary-0": (∂ 0) ~~> cof0 ;
   test "boundary-var": (∂ i) ~~> ((i = 0) ∨ (i = 1)) ;
@@ -192,7 +192,7 @@ piece LockedCof
   term ::= "lock" cof term             → lock
          | "unlock" cof term           → unlock ;
 
-  rule unlockLock: (unlock $φ (lock $φ $a)) ~> $a when $φ ;
+  rule unlockLock: (unlock $φ (lock $φ $a)) ~~> $a when $φ ;
 
   type lockType: (lock $φ $a) : (Locked $φ $A)
     when [$φ] $a : $A ;
@@ -210,8 +210,8 @@ piece Int
          | "neg" term                  → neg  -- neg (suc n) = -(n+1)
          | "intElim" term term term term  → intElim ;
 
-  rule intElimPos: (intElim $P $p $n (pos $k)) ~> ($p $k) ;
-  rule intElimNeg: (intElim $P $p $n (neg $k)) ~> ($n $k) ;
+  rule intElimPos: (intElim $P $p $n (pos $k)) ~~> ($p $k) ;
+  rule intElimNeg: (intElim $P $p $n (neg $k)) ~~> ($n $k) ;
 
   type IntForm: Int : U ;
   type posType: (pos $n) : Int when $n : Nat ;
@@ -269,8 +269,8 @@ piece Susp
 
   rule merid0: (merid $a 0) ~> north ;
   rule merid1: (merid $a 1) ~> south ;
-  rule SuspElimNorth: (SuspElim $P $n $s $m north) ~> $n ;
-  rule SuspElimSouth: (SuspElim $P $n $s $m south) ~> $s ;
+  rule SuspElimNorth: (SuspElim $P $n $s $m north) ~~> $n ;
+  rule SuspElimSouth: (SuspElim $P $n $s $m south) ~~> $s ;
 
   type SuspForm: (Susp $A) : U when $A : U ;
   type northType: north : (Susp $A) ;
@@ -293,7 +293,7 @@ piece Trunc
   -- squash is a path
   rule squash0: (squash $a $b 0) ~> $a ;
   rule squash1: (squash $a $b 1) ~> $b ;
-  rule TruncElimIn: (TruncElim $P $h $t (trIn $a)) ~> ($h $a) ;
+  rule TruncElimIn: (TruncElim $P $h $t (trIn $a)) ~~> ($h $a) ;
 
   type TruncForm: (Trunc $n $A) : U
     when $n : Level, $A : U ;
