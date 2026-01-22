@@ -1,37 +1,39 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath Domain) ;)
+import Lego.Algebra
+
+open Lego
 
 namespace Quote
 
   section QuoteEnv
 
-    def qenv : Parser :=
-      (annotated str "qenv" (special <number>) (special <number>) → qenv)
-
     def qenvEmpty (t : Term) : Term :=
       match t with
-      | (qenvEmpty) => (qenv (num (number 0)) (num (number 0)))
+      | .con "qenvEmpty" [] => Term.con "qenv" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "0"]]]
       | _ => t
 
     def qenvSucc (t : Term) : Term :=
       match t with
-      | (qenvSucc (qenv $l $dl)) => (qenv (suc $l) $dl)
+      | .con "app" [.var "qenvSucc", .con "qenv" [l, dl]] => Term.con "qenv" [Term.con "app" [Term.var "suc", l], dl]
       | _ => t
 
     def qenvSuccDim (t : Term) : Term :=
       match t with
-      | (qenvSuccDim (qenv $l $dl)) => (qenv $l (suc $dl))
+      | .con "app" [.var "qenvSuccDim", .con "qenv" [l, dl]] => Term.con "qenv" [l, Term.con "app" [Term.var "suc", dl]]
       | _ => t
 
     def levelToIndex (t : Term) : Term :=
       match t with
-      | (levelToIndex (qenv $l $dl) $lvl) => (sub (sub $l $lvl) (num (number 1)))
+      | .con "levelToIndex" [.con "qenv" [l, dl], lvl] => Term.con "sub" [Term.con "sub" [l, lvl], Term.con "num" [Term.con "number" [Term.lit "1"]]]
       | _ => t
 
     def dimLevelToIndex (t : Term) : Term :=
       match t with
-      | (dimLevelToIndex (qenv $l $dl) $lvl) => (sub (sub $dl $lvl) (num (number 1)))
+      | .con "dimLevelToIndex" [.con "qenv" [l, dl], lvl] => Term.con "sub" [Term.con "sub" [dl, lvl], Term.con "num" [Term.con "number" [Term.lit "1"]]]
       | _ => t
 
     -- Test: test
@@ -43,12 +45,12 @@ namespace Quote
 
     def generic (t : Term) : Term :=
       match t with
-      | (generic (qenv $l $dl)) => (ix $l)
+      | .con "app" [.var "generic", .con "qenv" [l, dl]] => Term.con "app" [Term.var "ix", l]
       | _ => t
 
     def genericDim (t : Term) : Term :=
       match t with
-      | (genericDim (qenv $l $dl)) => (dimVar $dl)
+      | .con "app" [.var "genericDim", .con "qenv" [l, dl]] => Term.con "app" [Term.var "dimVar", dl]
       | _ => t
 
   end Generic
@@ -57,67 +59,67 @@ namespace Quote
 
     def shiftFromIx (t : Term) : Term :=
       match t with
-      | (shiftFrom (ix $k) $n $cutoff) => (if (geq $k $cutoff) (ix (add $k $n)) (ix $k))
+      | .con "shiftFrom" [.con "app" [.var "ix", k], n, cutoff] => Term.con "if" [Term.con "geq" [k, cutoff], Term.con "app" [Term.var "ix", Term.con "add" [k, n]], Term.con "app" [Term.var "ix", k]]
       | _ => t
 
     def shiftFromLam (t : Term) : Term :=
       match t with
-      | (shiftFrom (lam $body) $n $cutoff) => (lam (shiftFrom $body $n (suc $cutoff)))
+      | .con "shiftFrom" [.con "app" [.var "lam", body], n, cutoff] => Term.con "app" [Term.var "lam", Term.con "shiftFrom" [body, n, Term.con "app" [Term.var "suc", cutoff]]]
       | _ => t
 
     def shiftFromApp (t : Term) : Term :=
       match t with
-      | (shiftFrom (app $f $a) $n $cutoff) => (app (shiftFrom $f $n $cutoff) (shiftFrom $a $n $cutoff))
+      | .con "shiftFrom" [.con "app" [f, a], n, cutoff] => Term.con "app" [Term.con "shiftFrom" [f, n, cutoff], Term.con "shiftFrom" [a, n, cutoff]]
       | _ => t
 
     def shiftFromPi (t : Term) : Term :=
       match t with
-      | (shiftFrom (pi $A $B) $n $cutoff) => (pi (shiftFrom $A $n $cutoff) (shiftFrom $B $n (suc $cutoff)))
+      | .con "shiftFrom" [.con "pi" [A, B], n, cutoff] => Term.con "pi" [Term.con "shiftFrom" [A, n, cutoff], Term.con "shiftFrom" [B, n, Term.con "app" [Term.var "suc", cutoff]]]
       | _ => t
 
     def shiftFromSigma (t : Term) : Term :=
       match t with
-      | (shiftFrom (sigma $A $B) $n $cutoff) => (sigma (shiftFrom $A $n $cutoff) (shiftFrom $B $n (suc $cutoff)))
+      | .con "shiftFrom" [.con "sigma" [A, B], n, cutoff] => Term.con "sigma" [Term.con "shiftFrom" [A, n, cutoff], Term.con "shiftFrom" [B, n, Term.con "app" [Term.var "suc", cutoff]]]
       | _ => t
 
     def shiftFromPair (t : Term) : Term :=
       match t with
-      | (shiftFrom (pair $a $b) $n $cutoff) => (pair (shiftFrom $a $n $cutoff) (shiftFrom $b $n $cutoff))
+      | .con "shiftFrom" [.con "pair" [a, b], n, cutoff] => Term.con "pair" [Term.con "shiftFrom" [a, n, cutoff], Term.con "shiftFrom" [b, n, cutoff]]
       | _ => t
 
     def shiftFromFst (t : Term) : Term :=
       match t with
-      | (shiftFrom (fst $p) $n $cutoff) => (fst (shiftFrom $p $n $cutoff))
+      | .con "shiftFrom" [.con "app" [.var "fst", p], n, cutoff] => Term.con "app" [Term.var "fst", Term.con "shiftFrom" [p, n, cutoff]]
       | _ => t
 
     def shiftFromSnd (t : Term) : Term :=
       match t with
-      | (shiftFrom (snd $p) $n $cutoff) => (snd (shiftFrom $p $n $cutoff))
+      | .con "shiftFrom" [.con "app" [.var "snd", p], n, cutoff] => Term.con "app" [Term.var "snd", Term.con "shiftFrom" [p, n, cutoff]]
       | _ => t
 
     def shiftFromPlam (t : Term) : Term :=
       match t with
-      | (shiftFrom (plam $body) $n $cutoff) => (plam (shiftFrom $body $n $cutoff))
+      | .con "shiftFrom" [.con "app" [.var "plam", body], n, cutoff] => Term.con "app" [Term.var "plam", Term.con "shiftFrom" [body, n, cutoff]]
       | _ => t
 
     def shiftFromPapp (t : Term) : Term :=
       match t with
-      | (shiftFrom (papp $p $r) $n $cutoff) => (papp (shiftFrom $p $n $cutoff) $r)
+      | .con "shiftFrom" [.con "papp" [p, r], n, cutoff] => Term.con "papp" [Term.con "shiftFrom" [p, n, cutoff], r]
       | _ => t
 
     def shiftFromLit (t : Term) : Term :=
       match t with
-      | (shiftFrom (lit $s) $n $cutoff) => (lit $s)
+      | .con "shiftFrom" [.con "app" [.var "lit", s], n, cutoff] => Term.con "app" [Term.var "lit", s]
       | _ => t
 
     def shiftFromUniv (t : Term) : Term :=
       match t with
-      | (shiftFrom (univ $l) $n $cutoff) => (univ $l)
+      | .con "shiftFrom" [.con "app" [.var "univ", l], n, cutoff] => Term.con "app" [Term.var "univ", l]
       | _ => t
 
     def shiftFromDim (t : Term) : Term :=
       match t with
-      | (shiftFrom $d $n $cutoff) => $d
+      | .con "shiftFrom" [d, n, cutoff] => d
       | _ => t
 
   end Shift
@@ -126,82 +128,82 @@ namespace Quote
 
     def quoteLit (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dlit $s)) => (lit $s)
+      | .con "quoteCon" [env, .con "app" [.var "dlit", s]] => Term.con "app" [Term.var "lit", s]
       | _ => t
 
     def quoteLam (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dlam (dclo $body $cloEnv))) => (lam (quoteCon (qenvSucc $env) (deval (denvCons (dneu (dcut (dneuVar (qenvLevel $env)) (dtpUnknown))) $cloEnv) $body)))
+      | .con "quoteCon" [env, .con "app" [.var "dlam", .con "dclo" [body, cloEnv]]] => Term.con "app" [Term.var "lam", Term.con "quoteCon" [Term.con "app" [Term.var "qenvSucc", env], Term.con "deval" [Term.con "denvCons" [Term.con "app" [Term.var "dneu", Term.con "dcut" [Term.con "app" [Term.var "dneuVar", Term.con "app" [Term.var "qenvLevel", env]], Term.con "dtpUnknown" []]], cloEnv], body]]]
       | _ => t
 
     def quotePair (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dpair $a $b)) => (pair (quoteCon $env $a) (quoteCon $env $b))
+      | .con "quoteCon" [env, .con "dpair" [a, b]] => Term.con "pair" [Term.con "quoteCon" [env, a], Term.con "quoteCon" [env, b]]
       | _ => t
 
     def quoteUniv (t : Term) : Term :=
       match t with
-      | (quoteCon $env (duniv $l)) => (univ (quoteLevel $l))
+      | .con "quoteCon" [env, .con "app" [.var "duniv", l]] => Term.con "app" [Term.var "univ", Term.con "app" [Term.var "quoteLevel", l]]
       | _ => t
 
     def quotePi (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dpi $A (dclo $B $cloEnv))) => (pi (quoteTp $env $A) (quoteCon (qenvSucc $env) (deval (denvCons (dneu (dcut (dneuVar (qenvLevel $env)) $A)) $cloEnv) $B)))
+      | .con "quoteCon" [env, .con "dpi" [A, .con "dclo" [B, cloEnv]]] => Term.con "pi" [Term.con "quoteTp" [env, A], Term.con "quoteCon" [Term.con "app" [Term.var "qenvSucc", env], Term.con "deval" [Term.con "denvCons" [Term.con "app" [Term.var "dneu", Term.con "dcut" [Term.con "app" [Term.var "dneuVar", Term.con "app" [Term.var "qenvLevel", env]], A]], cloEnv], B]]]
       | _ => t
 
     def quoteSigma (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dsigma $A (dclo $B $cloEnv))) => (sigma (quoteTp $env $A) (quoteCon (qenvSucc $env) (deval (denvCons (dneu (dcut (dneuVar (qenvLevel $env)) $A)) $cloEnv) $B)))
+      | .con "quoteCon" [env, .con "dsigma" [A, .con "dclo" [B, cloEnv]]] => Term.con "sigma" [Term.con "quoteTp" [env, A], Term.con "quoteCon" [Term.con "app" [Term.var "qenvSucc", env], Term.con "deval" [Term.con "denvCons" [Term.con "app" [Term.var "dneu", Term.con "dcut" [Term.con "app" [Term.var "dneuVar", Term.con "app" [Term.var "qenvLevel", env]], A]], cloEnv], B]]]
       | _ => t
 
     def quotePath (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dpath $A $a $b)) => (path (quoteTp $env $A) (quoteCon $env $a) (quoteCon $env $b))
+      | .con "quoteCon" [env, .con "dpath" [A, a, b]] => Term.con "path" [Term.con "quoteTp" [env, A], Term.con "quoteCon" [env, a], Term.con "quoteCon" [env, b]]
       | _ => t
 
     def quotePlam (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dplam (dclo $body $cloEnv))) => (plam (quoteCon (qenvSuccDim $env) (deval (denvCons (dneu (dcut (dneuVar (qenvDimLevel $env)) (dtpI))) $cloEnv) $body)))
+      | .con "quoteCon" [env, .con "app" [.var "dplam", .con "dclo" [body, cloEnv]]] => Term.con "app" [Term.var "plam", Term.con "quoteCon" [Term.con "app" [Term.var "qenvSuccDim", env], Term.con "deval" [Term.con "denvCons" [Term.con "app" [Term.var "dneu", Term.con "dcut" [Term.con "app" [Term.var "dneuVar", Term.con "app" [Term.var "qenvDimLevel", env]], Term.con "dtpI" []]], cloEnv], body]]]
       | _ => t
 
     def quoteRefl (t : Term) : Term :=
       match t with
-      | (quoteCon $env (drefl $a)) => (refl (quoteCon $env $a))
+      | .con "quoteCon" [env, .con "app" [.var "drefl", a]] => Term.con "app" [Term.var "refl", Term.con "quoteCon" [env, a]]
       | _ => t
 
     def quoteNat (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dnat)) => (nat)
+      | .con "quoteCon" [env, .con "dnat" []] => Term.con "nat" []
       | _ => t
 
     def quoteZero (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dzeroN)) => (zero)
+      | .con "quoteCon" [env, .con "dzeroN" []] => Term.con "zero" []
       | _ => t
 
     def quoteSuc (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dsucN $n)) => (suc (quoteCon $env $n))
+      | .con "quoteCon" [env, .con "app" [.var "dsucN", n]] => Term.con "app" [Term.var "suc", Term.con "quoteCon" [env, n]]
       | _ => t
 
     def quoteCircle (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dcircle)) => (circle)
+      | .con "quoteCon" [env, .con "dcircle" []] => Term.con "circle" []
       | _ => t
 
     def quoteBase (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dbase)) => (base)
+      | .con "quoteCon" [env, .con "dbase" []] => Term.con "base" []
       | _ => t
 
     def quoteLoop (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dloop $d)) => (loop (quoteDim $d))
+      | .con "quoteCon" [env, .con "app" [.var "dloop", d]] => Term.con "app" [Term.var "loop", Term.con "app" [Term.var "quoteDim", d]]
       | _ => t
 
     def quoteNeu (t : Term) : Term :=
       match t with
-      | (quoteCon $env (dneu $cut)) => (quoteNeutral $env $cut)
+      | .con "quoteCon" [env, .con "app" [.var "dneu", cut]] => Term.con "quoteNeutral" [env, cut]
       | _ => t
 
   end QuoteCon
@@ -210,37 +212,37 @@ namespace Quote
 
     def quoteTpUniv (t : Term) : Term :=
       match t with
-      | (quoteTp $env (dtpUniv $l)) => (univ (quoteLevel $l))
+      | .con "quoteTp" [env, .con "app" [.var "dtpUniv", l]] => Term.con "app" [Term.var "univ", Term.con "app" [Term.var "quoteLevel", l]]
       | _ => t
 
     def quoteTpPi (t : Term) : Term :=
       match t with
-      | (quoteTp $env (dtpPi $A $clo)) => (pi (quoteTp $env $A) (quoteTpClo (qenvSucc $env) $clo))
+      | .con "quoteTp" [env, .con "dtpPi" [A, clo]] => Term.con "pi" [Term.con "quoteTp" [env, A], Term.con "quoteTpClo" [Term.con "app" [Term.var "qenvSucc", env], clo]]
       | _ => t
 
     def quoteTpSigma (t : Term) : Term :=
       match t with
-      | (quoteTp $env (dtpSigma $A $clo)) => (sigma (quoteTp $env $A) (quoteTpClo (qenvSucc $env) $clo))
+      | .con "quoteTp" [env, .con "dtpSigma" [A, clo]] => Term.con "sigma" [Term.con "quoteTp" [env, A], Term.con "quoteTpClo" [Term.con "app" [Term.var "qenvSucc", env], clo]]
       | _ => t
 
     def quoteTpPath (t : Term) : Term :=
       match t with
-      | (quoteTp $env (dtpPath $A $a $b)) => (path (quoteTp $env $A) (quoteCon $env $a) (quoteCon $env $b))
+      | .con "quoteTp" [env, .con "dtpPath" [A, a, b]] => Term.con "path" [Term.con "quoteTp" [env, A], Term.con "quoteCon" [env, a], Term.con "quoteCon" [env, b]]
       | _ => t
 
     def quoteTpNat (t : Term) : Term :=
       match t with
-      | (quoteTp $env (dtpNat)) => (nat)
+      | .con "quoteTp" [env, .con "dtpNat" []] => Term.con "nat" []
       | _ => t
 
     def quoteTpCircle (t : Term) : Term :=
       match t with
-      | (quoteTp $env (dtpCircle)) => (circle)
+      | .con "quoteTp" [env, .con "dtpCircle" []] => Term.con "circle" []
       | _ => t
 
     def quoteTpNeu (t : Term) : Term :=
       match t with
-      | (quoteTp $env (dtpNeu $cut)) => (quoteNeutral $env $cut)
+      | .con "quoteTp" [env, .con "app" [.var "dtpNeu", cut]] => Term.con "quoteNeutral" [env, cut]
       | _ => t
 
   end QuoteTp
@@ -249,37 +251,37 @@ namespace Quote
 
     def quoteNeuVar (t : Term) : Term :=
       match t with
-      | (quoteNeutral $env (dcut (dneuVar $l) $tp)) => (ix (levelToIndex $env $l))
+      | .con "quoteNeutral" [env, .con "dcut" [.con "app" [.var "dneuVar", l], tp]] => Term.con "app" [Term.var "ix", Term.con "levelToIndex" [env, l]]
       | _ => t
 
     def quoteNeuApp (t : Term) : Term :=
       match t with
-      | (quoteNeutral $env (dcut (dneuApp $neu $arg) $tp)) => (app (quoteNeutral $env (dcut $neu (dtpUnknown))) (quoteCon $env $arg))
+      | .con "quoteNeutral" [env, .con "dcut" [.con "dneuApp" [neu, arg], tp]] => Term.con "app" [Term.con "quoteNeutral" [env, Term.con "dcut" [neu, Term.con "dtpUnknown" []]], Term.con "quoteCon" [env, arg]]
       | _ => t
 
     def quoteNeuFst (t : Term) : Term :=
       match t with
-      | (quoteNeutral $env (dcut (dneuFst $neu) $tp)) => (fst (quoteNeutral $env (dcut $neu (dtpUnknown))))
+      | .con "quoteNeutral" [env, .con "dcut" [.con "app" [.var "dneuFst", neu], tp]] => Term.con "app" [Term.var "fst", Term.con "quoteNeutral" [env, Term.con "dcut" [neu, Term.con "dtpUnknown" []]]]
       | _ => t
 
     def quoteNeuSnd (t : Term) : Term :=
       match t with
-      | (quoteNeutral $env (dcut (dneuSnd $neu) $tp)) => (snd (quoteNeutral $env (dcut $neu (dtpUnknown))))
+      | .con "quoteNeutral" [env, .con "dcut" [.con "app" [.var "dneuSnd", neu], tp]] => Term.con "app" [Term.var "snd", Term.con "quoteNeutral" [env, Term.con "dcut" [neu, Term.con "dtpUnknown" []]]]
       | _ => t
 
     def quoteNeuPApp (t : Term) : Term :=
       match t with
-      | (quoteNeutral $env (dcut (dneuPApp $neu $d) $tp)) => (papp (quoteNeutral $env (dcut $neu (dtpUnknown))) (quoteDim $d))
+      | .con "quoteNeutral" [env, .con "dcut" [.con "dneuPApp" [neu, d], tp]] => Term.con "papp" [Term.con "quoteNeutral" [env, Term.con "dcut" [neu, Term.con "dtpUnknown" []]], Term.con "app" [Term.var "quoteDim", d]]
       | _ => t
 
     def quoteNeuNatElim (t : Term) : Term :=
       match t with
-      | (quoteNeutral $env (dcut (dneuNatElim $P $z $s $neu) $tp)) => (natElim (quoteCon $env $P) (quoteCon $env $z) (quoteCon $env $s) (quoteNeutral $env (dcut $neu (dtpNat))))
+      | .con "quoteNeutral" [env, .con "dcut" [.con "dneuNatElim" [P, z, s, neu], tp]] => Term.con "natElim" [Term.con "quoteCon" [env, P], Term.con "quoteCon" [env, z], Term.con "quoteCon" [env, s], Term.con "quoteNeutral" [env, Term.con "dcut" [neu, Term.con "dtpNat" []]]]
       | _ => t
 
     def quoteNeuCircleElim (t : Term) : Term :=
       match t with
-      | (quoteNeutral $env (dcut (dneuCircleElim $P $b $l $neu) $tp)) => (circleElim (quoteCon $env $P) (quoteCon $env $b) (quoteCon $env $l) (quoteNeutral $env (dcut $neu (dtpCircle))))
+      | .con "quoteNeutral" [env, .con "dcut" [.con "dneuCircleElim" [P, b, l, neu], tp]] => Term.con "circleElim" [Term.con "quoteCon" [env, P], Term.con "quoteCon" [env, b], Term.con "quoteCon" [env, l], Term.con "quoteNeutral" [env, Term.con "dcut" [neu, Term.con "dtpCircle" []]]]
       | _ => t
 
   end QuoteNeutral
@@ -288,32 +290,32 @@ namespace Quote
 
     def quoteLevelConst (t : Term) : Term :=
       match t with
-      | (quoteLevel (dconst $n)) => (ofNat $n)
+      | .con "app" [.var "quoteLevel", .con "app" [.var "dconst", n]] => Term.con "app" [Term.var "ofNat", n]
       | _ => t
 
     def quoteLevelVar (t : Term) : Term :=
       match t with
-      | (quoteLevel (dlvar $n)) => (lvar $n)
+      | .con "app" [.var "quoteLevel", .con "app" [.var "dlvar", n]] => Term.con "app" [Term.var "lvar", n]
       | _ => t
 
     def quoteLevelMax (t : Term) : Term :=
       match t with
-      | (quoteLevel (dmax $l1 $l2)) => (lmax (quoteLevel $l1) (quoteLevel $l2))
+      | .con "app" [.var "quoteLevel", .con "dmax" [l1, l2]] => Term.con "lmax" [Term.con "app" [Term.var "quoteLevel", l1], Term.con "app" [Term.var "quoteLevel", l2]]
       | _ => t
 
     def quoteLevelSuc (t : Term) : Term :=
       match t with
-      | (quoteLevel (dsuc $l)) => (lsuc (quoteLevel $l))
+      | .con "app" [.var "quoteLevel", .con "app" [.var "dsuc", l]] => Term.con "app" [Term.var "lsuc", Term.con "app" [Term.var "quoteLevel", l]]
       | _ => t
 
     def ofNat0 (t : Term) : Term :=
       match t with
-      | (ofNat (num (number 0))) => (lzero)
+      | .con "app" [.var "ofNat", .con "num" [.con "number" [.lit "0"]]] => Term.con "lzero" []
       | _ => t
 
     def ofNatS (t : Term) : Term :=
       match t with
-      | (ofNat (suc $n)) => (lsuc (ofNat $n))
+      | .con "app" [.var "ofNat", .con "app" [.var "suc", n]] => Term.con "app" [Term.var "lsuc", Term.con "app" [Term.var "ofNat", n]]
       | _ => t
 
   end QuoteLevel
@@ -322,17 +324,17 @@ namespace Quote
 
     def quoteDim0 (t : Term) : Term :=
       match t with
-      | (quoteDim (ddim0)) => (dim0)
+      | .con "app" [.var "quoteDim", .con "ddim0" []] => Term.con "dim0" []
       | _ => t
 
     def quoteDim1 (t : Term) : Term :=
       match t with
-      | (quoteDim (ddim1)) => (dim1)
+      | .con "app" [.var "quoteDim", .con "ddim1" []] => Term.con "dim1" []
       | _ => t
 
     def quoteDimVar (t : Term) : Term :=
       match t with
-      | (quoteDim (dvar $n)) => (dimVar $n)
+      | .con "app" [.var "quoteDim", .con "app" [.var "dvar", n]] => Term.con "app" [Term.var "dimVar", n]
       | _ => t
 
   end QuoteDim
@@ -341,12 +343,12 @@ namespace Quote
 
     def nbe (t : Term) : Term :=
       match t with
-      | (nbe $t) => (quoteCon (qenvEmpty (deval (denvNil) $t)))
+      | .con "app" [.var "nbe", t] => Term.con "app" [Term.var "quoteCon", Term.con "qenvEmpty" [Term.con "deval" [Term.con "denvNil" [], t]]]
       | _ => t
 
     def nbeEnv (t : Term) : Term :=
       match t with
-      | (nbeWithEnv $env $t) => (quoteCon (qenvEmpty (deval $env $t)))
+      | .con "nbeWithEnv" [env, t] => Term.con "app" [Term.var "quoteCon", Term.con "qenvEmpty" [Term.con "deval" [env, t]]]
       | _ => t
 
     -- Test: test

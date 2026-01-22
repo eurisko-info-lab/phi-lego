@@ -1,55 +1,54 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath Kan) ;)
+import Lego.Algebra
+
+open Lego
 
 namespace FHCom
 
   section FHComInfo
 
-    def fhcomInfo : Parser :=
-      (annotated str "fhcomInfo" str "r:" (special <expr>) str "r':" (special <expr>) str "cap:" (special <expr>) str "sys:" many ((special <sysEntry>)) → fhcomInfo)
-
-    def sysEntry : Parser :=
-      (annotated str "[" (special <expr>) str "↦" (special <expr>) str "]" → sysEntry)
-
     def fhcomInfoR (t : Term) : Term :=
       match t with
-      | (fhcomInfoR (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $r
+      | .con "app" [.var "fhcomInfoR", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => r
       | _ => t
 
     def fhcomInfoR' (t : Term) : Term :=
       match t with
-      | (fhcomInfoR' (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $r'
+      | .con "app" [.var "fhcomInfoR'", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => r'
       | _ => t
 
     def fhcomInfoCap (t : Term) : Term :=
       match t with
-      | (fhcomInfoCap (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $c
+      | .con "app" [.var "fhcomInfoCap", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => c
       | _ => t
 
     def fhcomInfoSys (t : Term) : Term :=
       match t with
-      | (fhcomInfoSys (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $s
+      | .con "app" [.var "fhcomInfoSys", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => s
       | _ => t
 
     def fhcomInfoIsDegenerate (t : Term) : Term :=
       match t with
-      | (fhcomInfoIsDegenerate (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => (eq $r $r')
+      | .con "app" [.var "fhcomInfoIsDegenerate", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => Term.con "eq" [r, r']
       | _ => t
 
     def fhcomInfoAtR (t : Term) : Term :=
       match t with
-      | (fhcomInfoAtR (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $c
+      | .con "app" [.var "fhcomInfoAtR", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => c
       | _ => t
 
     def fhcomInfoAtR' (t : Term) : Term :=
       match t with
-      | (fhcomInfoAtR' (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => (caseExpr ( case (eq $r $r') (arm true => $c) (arm false => $c) ))
+      | .con "app" [.var "fhcomInfoAtR'", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [r, r'], Term.con "arm" [Term.var "true", Term.lit "=>", c], Term.con "arm" [Term.var "false", Term.lit "=>", c], Term.lit ")"]
       | _ => t
 
     def fhcomInfoReduce (t : Term) : Term :=
       match t with
-      | (fhcomInfoReduce (fhcomInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => (caseExpr ( case (eq $r $r') (arm true => (some $c)) (arm false => (none)) ))
+      | .con "app" [.var "fhcomInfoReduce", .con "fhcomInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [r, r'], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "app" [Term.var "some", c]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
   end FHComInfo
@@ -58,49 +57,46 @@ namespace FHCom
 
     def mkFHCom (t : Term) : Term :=
       match t with
-      | (mkFHCom $r $r' $cap $sys) => (caseExpr ( case (eq $r $r') (arm true => $cap) (arm false => (fhcom $r $r' $cap $sys)) ))
+      | .con "mkFHCom" [r, r', cap, sys] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [r, r'], Term.con "arm" [Term.var "true", Term.lit "=>", cap], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "fhcom" [r, r', cap, sys]], Term.lit ")"]
       | _ => t
 
   end MkFHCom
 
   section BoxInfo
 
-    def boxInfo : Parser :=
-      (annotated str "boxInfo" str "r:" (special <expr>) str "r':" (special <expr>) str "cap:" (special <expr>) str "sys:" many ((special <sysEntry>)) → boxInfo)
-
     def boxInfoR (t : Term) : Term :=
       match t with
-      | (boxInfoR (boxInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $r
+      | .con "app" [.var "boxInfoR", .con "boxInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => r
       | _ => t
 
     def boxInfoR' (t : Term) : Term :=
       match t with
-      | (boxInfoR' (boxInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $r'
+      | .con "app" [.var "boxInfoR'", .con "boxInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => r'
       | _ => t
 
     def boxInfoCap (t : Term) : Term :=
       match t with
-      | (boxInfoCap (boxInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $c
+      | .con "app" [.var "boxInfoCap", .con "boxInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => c
       | _ => t
 
     def boxInfoSys (t : Term) : Term :=
       match t with
-      | (boxInfoSys (boxInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $s
+      | .con "app" [.var "boxInfoSys", .con "boxInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => s
       | _ => t
 
     def boxInfoIsDegenerate (t : Term) : Term :=
       match t with
-      | (boxInfoIsDegenerate (boxInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => (eq $r $r')
+      | .con "app" [.var "boxInfoIsDegenerate", .con "boxInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => Term.con "eq" [r, r']
       | _ => t
 
     def boxInfoGetCap (t : Term) : Term :=
       match t with
-      | (boxInfoGetCap (boxInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => $c
+      | .con "app" [.var "boxInfoGetCap", .con "boxInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => c
       | _ => t
 
     def boxInfoReduce (t : Term) : Term :=
       match t with
-      | (boxInfoReduce (boxInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg cap : $c) (labeledArg sys : $s))) => (caseExpr ( case (eq $r $r') (arm true => (some $c)) (arm false => (none)) ))
+      | .con "app" [.var "boxInfoReduce", .con "boxInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "cap", .lit ":", c], .con "labeledArg" [.var "sys", .lit ":", s]]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [r, r'], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "app" [Term.var "some", c]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
   end BoxInfo
@@ -109,39 +105,36 @@ namespace FHCom
 
     def mkBox (t : Term) : Term :=
       match t with
-      | (mkBox $r $r' $cap $sys) => (caseExpr ( case (eq $r $r') (arm true => $cap) (arm false => (box $r $r' $cap $sys)) ))
+      | .con "mkBox" [r, r', cap, sys] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [r, r'], Term.con "arm" [Term.var "true", Term.lit "=>", cap], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "box" [r, r', cap, sys]], Term.lit ")"]
       | _ => t
 
   end MkBox
 
   section CapInfo
 
-    def capInfo : Parser :=
-      (annotated str "capInfo" str "r:" (special <expr>) str "r':" (special <expr>) str "ty:" (special <expr>) str "sys:" many ((special <sysEntry>)) str "el:" (special <expr>) → capInfo)
-
     def capInfoR (t : Term) : Term :=
       match t with
-      | (capInfoR (capInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg ty : $t) (labeledArg sys : $s) (labeledArg el : $e))) => $r
+      | .con "app" [.var "capInfoR", .con "capInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "ty", .lit ":", t], .con "labeledArg" [.var "sys", .lit ":", s], .con "labeledArg" [.var "el", .lit ":", e]]] => r
       | _ => t
 
     def capInfoR' (t : Term) : Term :=
       match t with
-      | (capInfoR' (capInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg ty : $t) (labeledArg sys : $s) (labeledArg el : $e))) => $r'
+      | .con "app" [.var "capInfoR'", .con "capInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "ty", .lit ":", t], .con "labeledArg" [.var "sys", .lit ":", s], .con "labeledArg" [.var "el", .lit ":", e]]] => r'
       | _ => t
 
     def capInfoTy (t : Term) : Term :=
       match t with
-      | (capInfoTy (capInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg ty : $t) (labeledArg sys : $s) (labeledArg el : $e))) => $t
+      | .con "app" [.var "capInfoTy", .con "capInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "ty", .lit ":", t], .con "labeledArg" [.var "sys", .lit ":", s], .con "labeledArg" [.var "el", .lit ":", e]]] => t
       | _ => t
 
     def capInfoSys (t : Term) : Term :=
       match t with
-      | (capInfoSys (capInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg ty : $t) (labeledArg sys : $s) (labeledArg el : $e))) => $s
+      | .con "app" [.var "capInfoSys", .con "capInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "ty", .lit ":", t], .con "labeledArg" [.var "sys", .lit ":", s], .con "labeledArg" [.var "el", .lit ":", e]]] => s
       | _ => t
 
     def capInfoEl (t : Term) : Term :=
       match t with
-      | (capInfoEl (capInfo (labeledArg r : $r) (labeledArg r' : $r') (labeledArg ty : $t) (labeledArg sys : $s) (labeledArg el : $e))) => $e
+      | .con "app" [.var "capInfoEl", .con "capInfo" [.con "labeledArg" [.var "r", .lit ":", r], .con "labeledArg" [.var "r'", .lit ":", r'], .con "labeledArg" [.var "ty", .lit ":", t], .con "labeledArg" [.var "sys", .lit ":", s], .con "labeledArg" [.var "el", .lit ":", e]]] => e
       | _ => t
 
   end CapInfo
@@ -150,17 +143,17 @@ namespace FHCom
 
     def mkCapBox (t : Term) : Term :=
       match t with
-      | (mkCap $r $r' $ty $sys (box $r $r' $cap $sysBx)) => $cap
+      | .con "mkCap" [r, r', ty, sys, .con "box" [r_dup, r'_dup, cap, sysBx]] => cap
       | _ => t
 
     def mkCapDegenerate (t : Term) : Term :=
       match t with
-      | (mkCap $r $r $ty $sys $v) => $v
+      | .con "mkCap" [r, r_dup, ty, sys, v] => v
       | _ => t
 
     def mkCapOther (t : Term) : Term :=
       match t with
-      | (mkCap $r $r' $ty $sys $v) => (cap $r $r' $ty $sys $v)
+      | .con "mkCap" [r, r', ty, sys, v] => Term.con "cap" [r, r', ty, sys, v]
       | _ => t
 
   end MkCap
@@ -169,37 +162,37 @@ namespace FHCom
 
     def reduceFHComDegenerate (t : Term) : Term :=
       match t with
-      | (reduceFHCom (fhcom $r $r $cap $sys)) => (some $cap)
+      | .con "app" [.var "reduceFHCom", .con "fhcom" [r, r_dup, cap, sys]] => Term.con "app" [Term.var "some", cap]
       | _ => t
 
     def reduceFHComOther (t : Term) : Term :=
       match t with
-      | (reduceFHCom $e) => (none)
+      | .con "app" [.var "reduceFHCom", e] => Term.con "none" []
       | _ => t
 
     def reduceBoxDegenerate (t : Term) : Term :=
       match t with
-      | (reduceBox (box $r $r $cap $sys)) => (some $cap)
+      | .con "app" [.var "reduceBox", .con "box" [r, r_dup, cap, sys]] => Term.con "app" [Term.var "some", cap]
       | _ => t
 
     def reduceBoxOther (t : Term) : Term :=
       match t with
-      | (reduceBox $e) => (none)
+      | .con "app" [.var "reduceBox", e] => Term.con "none" []
       | _ => t
 
     def reduceCapBeta (t : Term) : Term :=
       match t with
-      | (reduceCap (cap $r $r' $ty $sys (box $r $r' $cap $sysBx))) => (some $cap)
+      | .con "app" [.var "reduceCap", .con "cap" [r, r', ty, sys, .con "box" [r_dup, r'_dup, cap, sysBx]]] => Term.con "app" [Term.var "some", cap]
       | _ => t
 
     def reduceCapDegenerate (t : Term) : Term :=
       match t with
-      | (reduceCap (cap $r $r $ty $sys $v)) => (some $v)
+      | .con "app" [.var "reduceCap", .con "cap" [r, r_dup, ty, sys, v]] => Term.con "app" [Term.var "some", v]
       | _ => t
 
     def reduceCapOther (t : Term) : Term :=
       match t with
-      | (reduceCap $e) => (none)
+      | .con "app" [.var "reduceCap", e] => Term.con "none" []
       | _ => t
 
   end ReduceFHCom
@@ -208,42 +201,42 @@ namespace FHCom
 
     def hcomFHCom (t : Term) : Term :=
       match t with
-      | (hcomFHCom $r $r' (fhcom $rTy $r'Ty $capTy $sysTy) $φ $tubes $cap) => (mkBox $r $r' (hcom $capTy $r $r' $φ (lam (lam (mkCap $rTy $r'Ty $capTy $sysTy (app (app (shift (num (number 0)) (num (number 2)) $tubes) (ix (num (number 1)))) (ix (num (number 0))))))) (mkCap $rTy $r'Ty $capTy $sysTy $cap)) (hcomSys $sysTy $φ $tubes $cap $r $r'))
+      | .con "hcomFHCom" [r, r', .con "fhcom" [rTy, r'Ty, capTy, sysTy], φ, tubes, cap] => Term.con "mkBox" [r, r', Term.con "hcom" [capTy, r, r', φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "mkCap" [rTy, r'Ty, capTy, sysTy, Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "mkCap" [rTy, r'Ty, capTy, sysTy, cap]], Term.con "hcomSys" [sysTy, φ, tubes, cap, r, r']]
       | _ => t
 
     def hcomSys (t : Term) : Term :=
       match t with
-      | (hcomSys (unit ( )) $φ $tubes $cap $r $r') => (unit ( ))
+      | .con "hcomSys" [.con "unit" [.lit "(", .lit ")"], φ, tubes, cap, r, r'] => Term.con "unit" [Term.lit "(", Term.lit ")"]
       | _ => t
 
     def hcomSysCons (t : Term) : Term :=
       match t with
-      | (hcomSys (( ( [ $φSys (↦) $tube ] ) $rest )) $φ $tubes $cap $r $r') => ((( (bracket [ $φSys (↦) (lam (lam (getSide (app (app (shift (num (number 0)) (num (number 2)) $tubes) (ix (num (number 1)))) (ix (num (number 0)))) $φSys))) ]) )) (hcomSys $rest $φ $tubes $cap $r $r'))
+      | .con "hcomSys" [.con "app" [.lit "(", .lit "(", .lit "[", φSys, .lit "↦", tube, .lit "]", .lit ")", rest, .lit ")"], φ, tubes, cap, r, r'] => Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "bracket" [Term.lit "[", φSys, Term.lit "↦", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "getSide" [Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], φSys]]], Term.lit "]"], Term.lit ")"], Term.con "hcomSys" [rest, φ, tubes, cap, r, r']]
       | _ => t
 
     def getSide (t : Term) : Term :=
       match t with
-      | (getSide (box $r $r' $cap $sys) $φ) => (lookupSys $sys $φ)
+      | .con "getSide" [.con "box" [r, r', cap, sys], φ] => Term.con "lookupSys" [sys, φ]
       | _ => t
 
     def getSideOther (t : Term) : Term :=
       match t with
-      | (getSide $e $φ) => $e
+      | .con "getSide" [e, φ] => e
       | _ => t
 
     def lookupSysNil (t : Term) : Term :=
       match t with
-      | (lookupSys (unit ( )) $φ) => (lit str "side-not-found")
+      | .con "lookupSys" [.con "unit" [.lit "(", .lit ")"], φ] => Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "side-not-found"]]
       | _ => t
 
     def lookupSysMatch (t : Term) : Term :=
       match t with
-      | (lookupSys (( ( [ $φ (↦) $side ] ) $rest )) $φ) => $side
+      | .con "lookupSys" [.con "app" [.lit "(", .lit "(", .lit "[", φ, .lit "↦", side, .lit "]", .lit ")", rest, .lit ")"], φ_dup] => side
       | _ => t
 
     def lookupSysMiss (t : Term) : Term :=
       match t with
-      | (lookupSys (( ( $entry ) $rest )) $φ) => (lookupSys $rest $φ)
+      | .con "lookupSys" [.con "app" [.lit "(", .lit "(", entry, .lit ")", rest, .lit ")"], φ] => Term.con "lookupSys" [rest, φ]
       | _ => t
 
   end HComFHCom
@@ -252,7 +245,7 @@ namespace FHCom
 
     def coeFHCom (t : Term) : Term :=
       match t with
-      | (coeFHCom $r $r' (lam (fhcom $rTy $r'Ty $capTy $sysTy)) $v) => (mkBox $r $r' (com (lam $capTy) $r $r' (cof_bot (paren ( (lam (paren ( (lam (lit str "no-tube")) ))) )) (mkCap $rTy $r'Ty (subst (num (number 0)) $r $capTy) $sysTy $v))) (unit ( )))
+      | .con "coeFHCom" [r, r', .con "app" [.var "lam", .con "fhcom" [rTy, r'Ty, capTy, sysTy]], v] => Term.con "mkBox" [r, r', Term.con "com" [Term.con "app" [Term.var "lam", capTy], r, r', Term.con "cof_bot" [Term.con "paren" [Term.lit "(", Term.con "lam" [Term.con "paren" [Term.lit "(", Term.con "lam" [Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "no-tube"]]], Term.lit ")"]], Term.lit ")"], Term.con "mkCap" [rTy, r'Ty, Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], r, capTy], sysTy, v]]], Term.con "unit" [Term.lit "(", Term.lit ")"]]
       | _ => t
 
   end CoeFHCom
@@ -261,7 +254,7 @@ namespace FHCom
 
     def vprojFHCom (t : Term) : Term :=
       match t with
-      | (vprojFHCom $r (fhcom $rTy $r'Ty $A $sys) $B $equiv $v) => (mkCap $rTy $r'Ty $A $sys (vproj $r $A $B $equiv $v))
+      | .con "vprojFHCom" [r, .con "fhcom" [rTy, r'Ty, A, sys], B, equiv, v] => Term.con "mkCap" [rTy, r'Ty, A, sys, Term.con "vproj" [r, A, B, equiv, v]]
       | _ => t
 
   end VProjFHCom
@@ -270,32 +263,32 @@ namespace FHCom
 
     def unfoldFHComAt0 (t : Term) : Term :=
       match t with
-      | (unfoldFHComAt (fhcom (dim0) $r' $cap $sys) (dim0)) => $cap
+      | .con "unfoldFHComAt" [.con "fhcom" [.con "dim0" [], r', cap, sys], .con "dim0" []] => cap
       | _ => t
 
     def unfoldFHComAt1 (t : Term) : Term :=
       match t with
-      | (unfoldFHComAt (fhcom (dim1) $r' $cap $sys) (dim1)) => $cap
+      | .con "unfoldFHComAt" [.con "fhcom" [.con "dim1" [], r', cap, sys], .con "dim1" []] => cap
       | _ => t
 
     def unfoldFHComAtOther (t : Term) : Term :=
       match t with
-      | (unfoldFHComAt $fh $r) => $fh
+      | .con "unfoldFHComAt" [fh, r] => fh
       | _ => t
 
     def unfoldBoxAt0 (t : Term) : Term :=
       match t with
-      | (unfoldBoxAt (box (dim0) $r' $cap $sys) (dim0)) => $cap
+      | .con "unfoldBoxAt" [.con "box" [.con "dim0" [], r', cap, sys], .con "dim0" []] => cap
       | _ => t
 
     def unfoldBoxAt1 (t : Term) : Term :=
       match t with
-      | (unfoldBoxAt (box (dim1) $r' $cap $sys) (dim1)) => $cap
+      | .con "unfoldBoxAt" [.con "box" [.con "dim1" [], r', cap, sys], .con "dim1" []] => cap
       | _ => t
 
     def unfoldBoxAtOther (t : Term) : Term :=
       match t with
-      | (unfoldBoxAt $bx $r) => $bx
+      | .con "unfoldBoxAt" [bx, r] => bx
       | _ => t
 
   end UnfoldFHCom

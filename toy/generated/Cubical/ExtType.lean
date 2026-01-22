@@ -1,65 +1,69 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
+
+import Lego.Algebra
+
+open Lego
 
 namespace ExtType
 
   section ExtInfo
 
-    def extInfo : Parser :=
-      (annotated str "extInfo" str "arity:" (special <number>) str "family:" (special <expr>) str "cof:" (special <expr>) str "boundary:" (special <expr>) → extInfo)
-
     def extInfoArity (t : Term) : Term :=
       match t with
-      | (extInfoArity (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => $n
+      | .con "app" [.var "extInfoArity", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => n
       | _ => t
 
     def extInfoFamily (t : Term) : Term :=
       match t with
-      | (extInfoFamily (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => $f
+      | .con "app" [.var "extInfoFamily", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => f
       | _ => t
 
     def extInfoCof (t : Term) : Term :=
       match t with
-      | (extInfoCof (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => $c
+      | .con "app" [.var "extInfoCof", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => c
       | _ => t
 
     def extInfoBoundary (t : Term) : Term :=
       match t with
-      | (extInfoBoundary (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => $b
+      | .con "app" [.var "extInfoBoundary", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => b
       | _ => t
 
     def extInfoFromExpr (t : Term) : Term :=
       match t with
-      | (extInfoFromExpr (ext $n $fam $cof $bdry)) => (some (extInfo (labeledArg arity : $n) (labeledArg family : $fam) (labeledArg cof : $cof) (labeledArg boundary : $bdry)))
+      | .con "app" [.var "extInfoFromExpr", .con "ext" [n, fam, cof, bdry]] => Term.con "app" [Term.var "some", Term.con "extInfo" [Term.con "labeledArg" [Term.var "arity", Term.lit ":", n], Term.con "labeledArg" [Term.var "family", Term.lit ":", fam], Term.con "labeledArg" [Term.var "cof", Term.lit ":", cof], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", bdry]]]
       | _ => t
 
     def extInfoFromExprOther (t : Term) : Term :=
       match t with
-      | (extInfoFromExpr $e) => (none)
+      | .con "app" [.var "extInfoFromExpr", e] => Term.con "none" []
       | _ => t
 
     def extInfoToExpr (t : Term) : Term :=
       match t with
-      | (extInfoToExpr (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => (ext $n $f $c $b)
+      | .con "app" [.var "extInfoToExpr", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => Term.con "ext" [n, f, c, b]
       | _ => t
 
     def extInfoIsNullary (t : Term) : Term :=
       match t with
-      | (extInfoIsNullary (extInfo (labeledArg arity : (num (number 0))) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => (true)
+      | .con "app" [.var "extInfoIsNullary", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", .con "num" [.con "number" [.lit "0"]]], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => Term.con "true" []
       | _ => t
 
     def extInfoIsNullaryN (t : Term) : Term :=
       match t with
-      | (extInfoIsNullary (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => (false)
+      | .con "app" [.var "extInfoIsNullary", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => Term.con "false" []
       | _ => t
 
     def extInfoHasTrivialBoundary (t : Term) : Term :=
       match t with
-      | (extInfoHasTrivialBoundary (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : (cof_bot)) (labeledArg boundary : $b))) => (true)
+      | .con "app" [.var "extInfoHasTrivialBoundary", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", .con "cof_bot" []], .con "labeledArg" [.var "boundary", .lit ":", b]]] => Term.con "true" []
       | _ => t
 
     def extInfoHasTrivialBoundaryOther (t : Term) : Term :=
       match t with
-      | (extInfoHasTrivialBoundary (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b))) => (false)
+      | .con "app" [.var "extInfoHasTrivialBoundary", .con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]]] => Term.con "false" []
       | _ => t
 
   end ExtInfo
@@ -68,17 +72,17 @@ namespace ExtType
 
     def applyFamily (t : Term) : Term :=
       match t with
-      | (applyFamily (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b)) $dims) => (caseExpr ( case (eq (length $dims) $n) (arm true => (foldr (fun (dim) (acc) (=>) (subst (num (number 0)) (dim) (acc))) $f $dims)) (arm false => $f) ))
+      | .con "applyFamily" [.con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]], dims] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [Term.con "app" [Term.var "length", dims], n], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "foldr" [Term.con "fun" [Term.con "dim" [], Term.con "acc" [], Term.lit "=>", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "dim" [], Term.con "acc" []]], f, dims]], Term.con "arm" [Term.var "false", Term.lit "=>", f], Term.lit ")"]
       | _ => t
 
     def applyCof (t : Term) : Term :=
       match t with
-      | (applyCof (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b)) $dims) => (caseExpr ( case (eq (length $dims) $n) (arm true => (foldr (fun (dim) (acc) (=>) (subst (num (number 0)) (dim) (acc))) $c $dims)) (arm false => $c) ))
+      | .con "applyCof" [.con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]], dims] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [Term.con "app" [Term.var "length", dims], n], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "foldr" [Term.con "fun" [Term.con "dim" [], Term.con "acc" [], Term.lit "=>", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "dim" [], Term.con "acc" []]], c, dims]], Term.con "arm" [Term.var "false", Term.lit "=>", c], Term.lit ")"]
       | _ => t
 
     def applyBoundary (t : Term) : Term :=
       match t with
-      | (applyBoundary (extInfo (labeledArg arity : $n) (labeledArg family : $f) (labeledArg cof : $c) (labeledArg boundary : $b)) $dims) => (caseExpr ( case (eq (length $dims) $n) (arm true => (foldr (fun (dim) (acc) (=>) (subst (num (number 0)) (dim) (acc))) $b $dims)) (arm false => $b) ))
+      | .con "applyBoundary" [.con "extInfo" [.con "labeledArg" [.var "arity", .lit ":", n], .con "labeledArg" [.var "family", .lit ":", f], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "boundary", .lit ":", b]], dims] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [Term.con "app" [Term.var "length", dims], n], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "foldr" [Term.con "fun" [Term.con "dim" [], Term.con "acc" [], Term.lit "=>", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "dim" [], Term.con "acc" []]], b, dims]], Term.con "arm" [Term.var "false", Term.lit "=>", b], Term.lit ")"]
       | _ => t
 
   end ApplyDims
@@ -87,7 +91,7 @@ namespace ExtType
 
     def mkExt (t : Term) : Term :=
       match t with
-      | (mkExt $arity $fam $cof $bdry) => (caseExpr ( case $cof (arm cof_bot => (ext $arity $fam (cof_bot) $bdry)) (arm cof_top => (ext $arity $fam (cof_top) $bdry)) (arm _ => (ext $arity $fam $cof $bdry)) ))
+      | .con "mkExt" [arity, fam, cof, bdry] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", cof, Term.con "arm" [Term.var "cof_bot", Term.lit "=>", Term.con "ext" [arity, fam, Term.con "cof_bot" [], bdry]], Term.con "arm" [Term.var "cof_top", Term.lit "=>", Term.con "ext" [arity, fam, Term.con "cof_top" [], bdry]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "ext" [arity, fam, cof, bdry]], Term.lit ")"]
       | _ => t
 
   end MkExt
@@ -96,7 +100,7 @@ namespace ExtType
 
     def mkExtLam (t : Term) : Term :=
       match t with
-      | (mkExtLam $arity $body) => (extLam $arity $body)
+      | .con "mkExtLam" [arity, body] => Term.con "extLam" [arity, body]
       | _ => t
 
   end MkExtLam
@@ -105,12 +109,12 @@ namespace ExtType
 
     def mkExtApp (t : Term) : Term :=
       match t with
-      | (mkExtApp (extLam $n $body) $dims) => (caseExpr ( case (eq (length $dims) $n) (arm true => (foldr (fun (dim) (acc) (=>) (subst (num (number 0)) (dim) (acc))) $body $dims)) (arm false => (extApp (extLam $n $body) $dims)) ))
+      | .con "mkExtApp" [.con "extLam" [n, body], dims] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [Term.con "app" [Term.var "length", dims], n], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "foldr" [Term.con "fun" [Term.con "dim" [], Term.con "acc" [], Term.lit "=>", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "dim" [], Term.con "acc" []]], body, dims]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "extApp" [Term.con "extLam" [n, body], dims]], Term.lit ")"]
       | _ => t
 
     def mkExtAppOther (t : Term) : Term :=
       match t with
-      | (mkExtApp $e $dims) => (extApp $e $dims)
+      | .con "mkExtApp" [e, dims] => Term.con "extApp" [e, dims]
       | _ => t
 
   end MkExtApp
@@ -119,27 +123,27 @@ namespace ExtType
 
     def reduceExtExpr (t : Term) : Term :=
       match t with
-      | (reduceExtExpr (extApp (extLam $n $body) $dims)) => (caseExpr ( case (eq (length $dims) $n) (arm true => (some (foldr (fun (dim) (acc) (=>) (subst (num (number 0)) (dim) (acc))) $body $dims))) (arm false => (none)) ))
+      | .con "app" [.var "reduceExtExpr", .con "extApp" [.con "extLam" [n, body], dims]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [Term.con "app" [Term.var "length", dims], n], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "app" [Term.var "some", Term.con "foldr" [Term.con "fun" [Term.con "dim" [], Term.con "acc" [], Term.lit "=>", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "dim" [], Term.con "acc" []]], body, dims]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def reduceExtExprOther (t : Term) : Term :=
       match t with
-      | (reduceExtExpr $e) => (none)
+      | .con "app" [.var "reduceExtExpr", e] => Term.con "none" []
       | _ => t
 
     def normalizeExt (t : Term) : Term :=
       match t with
-      | (normalizeExt $fuel $e) => (normalizeExt' $fuel $e)
+      | .con "normalizeExt" [fuel, e] => Term.con "normalizeExt'" [fuel, e]
       | _ => t
 
     def normalizeExt'0 (t : Term) : Term :=
       match t with
-      | (normalizeExt' (num (number 0)) $e) => $e
+      | .con "normalizeExt'" [.con "num" [.con "number" [.lit "0"]], e] => e
       | _ => t
 
     def normalizeExt' (t : Term) : Term :=
       match t with
-      | (normalizeExt' (suc $fuel) $e) => (caseExpr ( case (reduceExtExpr $e) (arm ( some $e' ) => (normalizeExt' $fuel $e')) (arm none => $e) ))
+      | .con "normalizeExt'" [.con "app" [.var "suc", fuel], e] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "reduceExtExpr", e], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "e'", Term.lit ")", Term.lit "=>", Term.con "normalizeExt'" [fuel, Term.var "e'"]], Term.con "arm" [Term.var "none", Term.lit "=>", e], Term.lit ")"]
       | _ => t
 
   end ReduceExt
@@ -148,27 +152,27 @@ namespace ExtType
 
     def pathToExt (t : Term) : Term :=
       match t with
-      | (pathToExt (path $A $a $b)) => (ext (num (number 1)) (lam $A) (cof_or (cof_eq (ix (num (number 0))) (dim0)) (cof_eq (ix (num (number 0))) (dim1))) (lam (caseExpr ( case (ix (num (number 0))) (arm dim0 => (shift (num (number 0)) (num (number 1)) $a)) (arm dim1 => (shift (num (number 0)) (num (number 1)) $b)) ))))
+      | .con "app" [.var "pathToExt", .con "path" [A, a, b]] => Term.con "ext" [Term.con "num" [Term.con "number" [Term.lit "1"]], Term.con "app" [Term.var "lam", A], Term.con "cof_or" [Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim0" []], Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim1" []]], Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "arm" [Term.var "dim0", Term.lit "=>", Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], a]], Term.con "arm" [Term.var "dim1", Term.lit "=>", Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], b]], Term.lit ")"]]]
       | _ => t
 
     def extToPath (t : Term) : Term :=
       match t with
-      | (extToPath (ext (num (number 1)) (lam $A) $cof $bdry)) => (some (path $A (evalAtDim0 $bdry) (evalAtDim1 $bdry)))
+      | .con "app" [.var "extToPath", .con "ext" [.con "num" [.con "number" [.lit "1"]], .con "app" [.var "lam", A], cof, bdry]] => Term.con "app" [Term.var "some", Term.con "path" [A, Term.con "app" [Term.var "evalAtDim0", bdry], Term.con "app" [Term.var "evalAtDim1", bdry]]]
       | _ => t
 
     def extToPathOther (t : Term) : Term :=
       match t with
-      | (extToPath $e) => (none)
+      | .con "app" [.var "extToPath", e] => Term.con "none" []
       | _ => t
 
     def evalAtDim0 (t : Term) : Term :=
       match t with
-      | (evalAtDim0 (lam $body)) => (subst (num (number 0)) (dim0) $body)
+      | .con "app" [.var "evalAtDim0", .con "app" [.var "lam", body]] => Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "dim0" [], body]
       | _ => t
 
     def evalAtDim1 (t : Term) : Term :=
       match t with
-      | (evalAtDim1 (lam $body)) => (subst (num (number 0)) (dim1) $body)
+      | .con "app" [.var "evalAtDim1", .con "app" [.var "lam", body]] => Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "dim1" [], body]
       | _ => t
 
   end PathAsExt
@@ -177,22 +181,22 @@ namespace ExtType
 
     def hcomExt (t : Term) : Term :=
       match t with
-      | (hcomExt $r $r' (ext $n $fam $cof $bdry) $φ $tubes $cap) => (extLam $n (hcom (mkExtApp $fam (dimVarsN $n)) $r $r' (cof_or $φ (mkExtApp $cof (dimVarsN $n))) (lam (lam (caseExpr ( case (meetsCof (ix (num (number 1))) $φ) (arm true => (mkExtApp (app (app (shift (num (number 0)) (num (number 2)) $tubes) (ix (num (number 1)))) (ix (num (number 0)))) (dimVarsN $n))) (arm false => (mkExtApp (shift (num (number 0)) (num (number 2)) $bdry) (dimVarsN $n))) )))) (mkExtApp $cap (dimVarsN $n))))
+      | .con "hcomExt" [r, r', .con "ext" [n, fam, cof, bdry], φ, tubes, cap] => Term.con "extLam" [n, Term.con "hcom" [Term.con "mkExtApp" [fam, Term.con "app" [Term.var "dimVarsN", n]], r, r', Term.con "cof_or" [φ, Term.con "mkExtApp" [cof, Term.con "app" [Term.var "dimVarsN", n]]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "meetsCof" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], φ], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "mkExtApp" [Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "app" [Term.var "dimVarsN", n]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "mkExtApp" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], bdry], Term.con "app" [Term.var "dimVarsN", n]]], Term.lit ")"]]], Term.con "mkExtApp" [cap, Term.con "app" [Term.var "dimVarsN", n]]]]
       | _ => t
 
     def dimVarsN (t : Term) : Term :=
       match t with
-      | (dimVarsN $n) => (dimVarsN' $n (unit ( )))
+      | .con "app" [.var "dimVarsN", n] => Term.con "dimVarsN'" [n, Term.con "unit" [Term.lit "(", Term.lit ")"]]
       | _ => t
 
     def dimVarsN'0 (t : Term) : Term :=
       match t with
-      | (dimVarsN' (num (number 0)) $acc) => $acc
+      | .con "dimVarsN'" [.con "num" [.con "number" [.lit "0"]], acc] => acc
       | _ => t
 
     def dimVarsN' (t : Term) : Term :=
       match t with
-      | (dimVarsN' (suc $n) $acc) => (dimVarsN' $n ((( (ix) $n )) $acc))
+      | .con "dimVarsN'" [.con "app" [.var "suc", n], acc] => Term.con "dimVarsN'" [n, Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "ix" [], n, Term.lit ")"], acc]]
       | _ => t
 
   end HComExt
@@ -201,7 +205,7 @@ namespace ExtType
 
     def coeExt (t : Term) : Term :=
       match t with
-      | (coeExt $r $r' (lam (ext $n $fam $cof $bdry)) $e) => (extLam $n (com (lam (mkExtApp $fam (dimVarsN $n))) $r $r' (mkExtApp $cof (dimVarsN $n)) (lam (lam (mkExtApp (shift (num (number 0)) (num (number 2)) $bdry) (dimVarsN $n)))) (mkExtApp $e (dimVarsN $n))))
+      | .con "coeExt" [r, r', .con "app" [.var "lam", .con "ext" [n, fam, cof, bdry]], e] => Term.con "extLam" [n, Term.con "com" [Term.con "app" [Term.var "lam", Term.con "mkExtApp" [fam, Term.con "app" [Term.var "dimVarsN", n]]], r, r', Term.con "mkExtApp" [cof, Term.con "app" [Term.var "dimVarsN", n]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "mkExtApp" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], bdry], Term.con "app" [Term.var "dimVarsN", n]]]], Term.con "mkExtApp" [e, Term.con "app" [Term.var "dimVarsN", n]]]]
       | _ => t
 
   end CoeExt
@@ -210,12 +214,12 @@ namespace ExtType
 
     def extCurry (t : Term) : Term :=
       match t with
-      | (extCurry $n $m $e) => (extLam $n (extLam $m (mkExtApp $e (append (dimVarsN $n) (dimVarsN $m)))))
+      | .con "extCurry" [n, m, e] => Term.con "extLam" [n, Term.con "extLam" [m, Term.con "mkExtApp" [e, Term.con "append" [Term.con "app" [Term.var "dimVarsN", n], Term.con "app" [Term.var "dimVarsN", m]]]]]
       | _ => t
 
     def extUncurry (t : Term) : Term :=
       match t with
-      | (extUncurry $n $m $e) => (extLam (plus $n $m) (mkExtApp (mkExtApp $e (takeN $n (dimVarsN (plus $n $m)))) (dropN $n (dimVarsN (plus $n $m)))))
+      | .con "extUncurry" [n, m, e] => Term.con "extLam" [Term.con "plus" [n, m], Term.con "mkExtApp" [Term.con "mkExtApp" [e, Term.con "takeN" [n, Term.con "app" [Term.var "dimVarsN", Term.con "plus" [n, m]]]], Term.con "dropN" [n, Term.con "app" [Term.var "dimVarsN", Term.con "plus" [n, m]]]]]
       | _ => t
 
   end ExtCurry
@@ -224,7 +228,7 @@ namespace ExtType
 
     def extRestrict (t : Term) : Term :=
       match t with
-      | (extRestrict (ext $n $fam $cof $bdry) $dim $val) => (ext (minus $n (num (number 1))) (lam (subst $dim $val $fam)) (subst $dim $val $cof) (lam (subst $dim $val $bdry)))
+      | .con "extRestrict" [.con "ext" [n, fam, cof, bdry], dim, val] => Term.con "ext" [Term.con "minus" [n, Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.con "app" [Term.var "lam", Term.con "subst" [dim, val, fam]], Term.con "subst" [dim, val, cof], Term.con "app" [Term.var "lam", Term.con "subst" [dim, val, bdry]]]
       | _ => t
 
   end ExtRestrict

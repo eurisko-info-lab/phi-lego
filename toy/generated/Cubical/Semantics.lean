@@ -1,52 +1,46 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath Cofibration) ;)
+import Lego.Algebra
 
-(DImport import (modulePath TermBuilder) ;)
-
-(DImport import (modulePath Visitor) ;)
+open Lego
 
 namespace Semantics
 
   section EvalCtx
 
-    def evalCtx : Parser :=
-      (annotated str "evalCtx" str "env:" many ((special <expr>)) str "fuel:" (special <number>) → evalCtx)
-
     def evalCtxEmpty (t : Term) : Term :=
       match t with
-      | (evalCtxEmpty) => (evalCtx (labeledArg env : (unit ( ))) (labeledArg fuel : (num (number 1000))))
+      | .con "evalCtxEmpty" [] => Term.con "evalCtx" [Term.con "labeledArg" [Term.var "env", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "fuel", Term.lit ":", Term.con "num" [Term.con "number" [Term.lit "1000"]]]]
       | _ => t
 
     def evalCtxExtend (t : Term) : Term :=
       match t with
-      | (evalCtxExtend (evalCtx (labeledArg env : $env) (labeledArg fuel : $f)) $v) => (evalCtx (labeledArg env : ($env $v)) (labeledArg fuel : $f))
+      | .con "evalCtxExtend" [.con "evalCtx" [.con "labeledArg" [.var "env", .lit ":", env], .con "labeledArg" [.var "fuel", .lit ":", f]], v] => Term.con "evalCtx" [Term.con "labeledArg" [Term.var "env", Term.lit ":", Term.con "tuple" [env, v]], Term.con "labeledArg" [Term.var "fuel", Term.lit ":", f]]
       | _ => t
 
     def evalCtxLookup (t : Term) : Term :=
       match t with
-      | (evalCtxLookup (evalCtx (labeledArg env : $env) (labeledArg fuel : $f)) $ix) => (lookupAt $env (minus (length $env) (num (number 1)) $ix))
+      | .con "evalCtxLookup" [.con "evalCtx" [.con "labeledArg" [.var "env", .lit ":", env], .con "labeledArg" [.var "fuel", .lit ":", f]], ix] => Term.con "lookupAt" [env, Term.con "minus" [Term.con "app" [Term.var "length", env], Term.con "num" [Term.con "number" [Term.lit "1"]], ix]]
       | _ => t
 
     def evalCtxDecFuel (t : Term) : Term :=
       match t with
-      | (evalCtxDecFuel (evalCtx (labeledArg env : $env) (labeledArg fuel : (suc $f)))) => (evalCtx (labeledArg env : $env) (labeledArg fuel : $f))
+      | .con "app" [.var "evalCtxDecFuel", .con "evalCtx" [.con "labeledArg" [.var "env", .lit ":", env], .con "labeledArg" [.var "fuel", .lit ":", .con "app" [.var "suc", f]]]] => Term.con "evalCtx" [Term.con "labeledArg" [Term.var "env", Term.lit ":", env], Term.con "labeledArg" [Term.var "fuel", Term.lit ":", f]]
       | _ => t
 
     def evalCtxDecFuel0 (t : Term) : Term :=
       match t with
-      | (evalCtxDecFuel (evalCtx (labeledArg env : $env) (labeledArg fuel : (num (number 0))))) => (evalCtx (labeledArg env : $env) (labeledArg fuel : (num (number 0))))
+      | .con "app" [.var "evalCtxDecFuel", .con "evalCtx" [.con "labeledArg" [.var "env", .lit ":", env], .con "labeledArg" [.var "fuel", .lit ":", .con "num" [.con "number" [.lit "0"]]]]] => Term.con "evalCtx" [Term.con "labeledArg" [Term.var "env", Term.lit ":", env], Term.con "labeledArg" [Term.var "fuel", Term.lit ":", Term.con "num" [Term.con "number" [Term.lit "0"]]]]
       | _ => t
 
   end EvalCtx
 
   section DispatchResult
 
-    def dispatchDone : Parser :=
-      (annotated str "done" → dispatchResult)
 
-    def dispatchReduce : Parser :=
-      (annotated str "reduce" → dispatchResult)
 
   end DispatchResult
 
@@ -54,62 +48,62 @@ namespace Semantics
 
     def isStablePi (t : Term) : Term :=
       match t with
-      | (isStableCode (pi $A $B)) => (true)
+      | .con "app" [.var "isStableCode", .con "pi" [A, B]] => Term.con "true" []
       | _ => t
 
     def isStableSigma (t : Term) : Term :=
       match t with
-      | (isStableCode (sigma $A $B)) => (true)
+      | .con "app" [.var "isStableCode", .con "sigma" [A, B]] => Term.con "true" []
       | _ => t
 
     def isStablePath (t : Term) : Term :=
       match t with
-      | (isStableCode (path $A $l $r)) => (true)
+      | .con "app" [.var "isStableCode", .con "path" [A, l, r]] => Term.con "true" []
       | _ => t
 
     def isStableNat (t : Term) : Term :=
       match t with
-      | (isStableCode (nat)) => (true)
+      | .con "app" [.var "isStableCode", .con "nat" []] => Term.con "true" []
       | _ => t
 
     def isStableCircle (t : Term) : Term :=
       match t with
-      | (isStableCode (circle)) => (true)
+      | .con "app" [.var "isStableCode", .con "circle" []] => Term.con "true" []
       | _ => t
 
     def isStableUniv (t : Term) : Term :=
       match t with
-      | (isStableCode (univ $l)) => (true)
+      | .con "app" [.var "isStableCode", .con "app" [.var "univ", l]] => Term.con "true" []
       | _ => t
 
     def isStableSub (t : Term) : Term :=
       match t with
-      | (isStableCode (sub $A $φ $a)) => (true)
+      | .con "app" [.var "isStableCode", .con "sub" [A, φ, a]] => Term.con "true" []
       | _ => t
 
     def isStableOther (t : Term) : Term :=
       match t with
-      | (isStableCode $other) => (false)
+      | .con "app" [.var "isStableCode", other] => Term.con "false" []
       | _ => t
 
     def isVCode (t : Term) : Term :=
       match t with
-      | (isVCode (vtype $r $A $B $equiv)) => (true)
+      | .con "app" [.var "isVCode", .con "vtype" [r, A, B, equiv]] => Term.con "true" []
       | _ => t
 
     def isVCodeOther (t : Term) : Term :=
       match t with
-      | (isVCode $other) => (false)
+      | .con "app" [.var "isVCode", other] => Term.con "false" []
       | _ => t
 
     def isHComCode (t : Term) : Term :=
       match t with
-      | (isHComCode (hcom $r $s $A $φ $u)) => (true)
+      | .con "app" [.var "isHComCode", .con "hcom" [r, s, A, φ, u]] => Term.con "true" []
       | _ => t
 
     def isHComCodeOther (t : Term) : Term :=
       match t with
-      | (isHComCode $other) => (false)
+      | .con "app" [.var "isHComCode", other] => Term.con "false" []
       | _ => t
 
   end StableCode
@@ -118,22 +112,22 @@ namespace Semantics
 
     def dimEq00 (t : Term) : Term :=
       match t with
-      | (dimEq (dim0) (dim0)) => (true)
+      | .con "dimEq" [.con "dim0" [], .con "dim0" []] => Term.con "true" []
       | _ => t
 
     def dimEq11 (t : Term) : Term :=
       match t with
-      | (dimEq (dim1) (dim1)) => (true)
+      | .con "dimEq" [.con "dim1" [], .con "dim1" []] => Term.con "true" []
       | _ => t
 
     def dimEqIx (t : Term) : Term :=
       match t with
-      | (dimEq (ix $n) (ix $n)) => (true)
+      | .con "dimEq" [.con "app" [.var "ix", n], .con "app" [.var "ix", n_dup]] => Term.con "true" []
       | _ => t
 
     def dimEqOther (t : Term) : Term :=
       match t with
-      | (dimEq $r $s) => (false)
+      | .con "dimEq" [r, s] => Term.con "false" []
       | _ => t
 
   end DimEq
@@ -142,22 +136,22 @@ namespace Semantics
 
     def cofTrueTop (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_top)) => (true)
+      | .con "app" [.var "cofTrue", .con "cof_top" []] => Term.con "true" []
       | _ => t
 
     def cofTrueEq (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_eq $r $s)) => (dimEq $r $s)
+      | .con "app" [.var "cofTrue", .con "cof_eq" [r, s]] => Term.con "dimEq" [r, s]
       | _ => t
 
     def cofTrueOrL (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_or $φ $ψ)) => (or (cofTrue $φ) (cofTrue $ψ))
+      | .con "app" [.var "cofTrue", .con "cof_or" [φ, ψ]] => Term.con "or" [Term.con "app" [Term.var "cofTrue", φ], Term.con "app" [Term.var "cofTrue", ψ]]
       | _ => t
 
     def cofTrueOther (t : Term) : Term :=
       match t with
-      | (cofTrue $φ) => (false)
+      | .con "app" [.var "cofTrue", φ] => Term.con "false" []
       | _ => t
 
   end CofTrue
@@ -166,77 +160,77 @@ namespace Semantics
 
     def evalNoFuel (t : Term) : Term :=
       match t with
-      | (eval (evalCtx (labeledArg env : $env) (labeledArg fuel : (num (number 0)))) $e) => $e
+      | .con "eval" [.con "evalCtx" [.con "labeledArg" [.var "env", .lit ":", env], .con "labeledArg" [.var "fuel", .lit ":", .con "num" [.con "number" [.lit "0"]]]], e] => e
       | _ => t
 
     def evalIx (t : Term) : Term :=
       match t with
-      | (eval $ctx (ix $n)) => (caseExpr ( case (evalCtxLookup $ctx $n) (arm ( some $v ) => (eval (evalCtxDecFuel $ctx) $v)) (arm none => (ix $n)) ))
+      | .con "eval" [ctx, .con "app" [.var "ix", n]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "evalCtxLookup" [ctx, n], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "v", Term.lit ")", Term.lit "=>", Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], Term.var "v"]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "app" [Term.var "ix", n]], Term.lit ")"]
       | _ => t
 
     def evalLam (t : Term) : Term :=
       match t with
-      | (eval $ctx (lam $body)) => (lam $body)
+      | .con "eval" [ctx, .con "app" [.var "lam", body]] => Term.con "app" [Term.var "lam", body]
       | _ => t
 
     def evalApp (t : Term) : Term :=
       match t with
-      | (eval $ctx (app (lam $body) $arg)) => (eval (evalCtxDecFuel $ctx) (subst (num (number 0)) (eval (evalCtxDecFuel $ctx) $arg) $body))
+      | .con "eval" [ctx, .con "app" [.con "app" [.var "lam", body], arg]] => Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], arg], body]]
       | _ => t
 
     def evalAppNeutral (t : Term) : Term :=
       match t with
-      | (eval $ctx (app $f $arg)) => (app (eval (evalCtxDecFuel $ctx) $f) (eval (evalCtxDecFuel $ctx) $arg))
+      | .con "eval" [ctx, .con "app" [f, arg]] => Term.con "app" [Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], f], Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], arg]]
       | _ => t
 
     def evalPair (t : Term) : Term :=
       match t with
-      | (eval $ctx (pair $a $b)) => (pair (eval (evalCtxDecFuel $ctx) $a) (eval (evalCtxDecFuel $ctx) $b))
+      | .con "eval" [ctx, .con "pair" [a, b]] => Term.con "pair" [Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], a], Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], b]]
       | _ => t
 
     def evalFst (t : Term) : Term :=
       match t with
-      | (eval $ctx (fst (pair $a $b))) => (eval (evalCtxDecFuel $ctx) $a)
+      | .con "eval" [ctx, .con "app" [.var "fst", .con "pair" [a, b]]] => Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], a]
       | _ => t
 
     def evalFstNeutral (t : Term) : Term :=
       match t with
-      | (eval $ctx (fst $p)) => (fst (eval (evalCtxDecFuel $ctx) $p))
+      | .con "eval" [ctx, .con "app" [.var "fst", p]] => Term.con "app" [Term.var "fst", Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], p]]
       | _ => t
 
     def evalSnd (t : Term) : Term :=
       match t with
-      | (eval $ctx (snd (pair $a $b))) => (eval (evalCtxDecFuel $ctx) $b)
+      | .con "eval" [ctx, .con "app" [.var "snd", .con "pair" [a, b]]] => Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], b]
       | _ => t
 
     def evalSndNeutral (t : Term) : Term :=
       match t with
-      | (eval $ctx (snd $p)) => (snd (eval (evalCtxDecFuel $ctx) $p))
+      | .con "eval" [ctx, .con "app" [.var "snd", p]] => Term.con "app" [Term.var "snd", Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], p]]
       | _ => t
 
     def evalPlam (t : Term) : Term :=
       match t with
-      | (eval $ctx (plam $body)) => (plam $body)
+      | .con "eval" [ctx, .con "app" [.var "plam", body]] => Term.con "app" [Term.var "plam", body]
       | _ => t
 
     def evalPapp (t : Term) : Term :=
       match t with
-      | (eval $ctx (papp (plam $body) $r)) => (eval (evalCtxDecFuel $ctx) (dimSubst (num (number 0)) $r $body))
+      | .con "eval" [ctx, .con "papp" [.con "app" [.var "plam", body], r]] => Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], Term.con "dimSubst" [Term.con "num" [Term.con "number" [Term.lit "0"]], r, body]]
       | _ => t
 
     def evalPappNeutral (t : Term) : Term :=
       match t with
-      | (eval $ctx (papp $p $r)) => (papp (eval (evalCtxDecFuel $ctx) $p) $r)
+      | .con "eval" [ctx, .con "papp" [p, r]] => Term.con "papp" [Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], p], r]
       | _ => t
 
     def evalCoe (t : Term) : Term :=
       match t with
-      | (eval $ctx (coe $line $r $s $t)) => (caseExpr ( case (dimEq $r $s) (arm true => (eval (evalCtxDecFuel $ctx) $t)) (arm false => (doRigidCoe (evalCtxDecFuel $ctx) (eval (evalCtxDecFuel $ctx) $line) $r $s (eval (evalCtxDecFuel $ctx) $t))) ))
+      | .con "eval" [ctx, .con "coe" [line, r, s, t]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "dimEq" [r, s], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], t]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "doRigidCoe" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], line], r, s, Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], t]]], Term.lit ")"]
       | _ => t
 
     def evalHCom (t : Term) : Term :=
       match t with
-      | (eval $ctx (hcom $A $r $s $φ $u)) => (caseExpr ( case (or (dimEq $r $s) (cofTrue $φ)) (arm true => (eval (evalCtxDecFuel $ctx) (app (app $u $s) (prf)))) (arm false => (doRigidHCom (evalCtxDecFuel $ctx) (eval (evalCtxDecFuel $ctx) $A) $r $s $φ (eval (evalCtxDecFuel $ctx) $u))) ))
+      | .con "eval" [ctx, .con "hcom" [A, r, s, φ, u]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "or" [Term.con "dimEq" [r, s], Term.con "app" [Term.var "cofTrue", φ]], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], Term.con "app" [Term.con "app" [u, s], Term.con "prf" []]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "doRigidHCom" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], A], r, s, φ, Term.con "eval" [Term.con "app" [Term.var "evalCtxDecFuel", ctx], u]]], Term.lit ")"]
       | _ => t
 
   end Eval
@@ -245,37 +239,37 @@ namespace Semantics
 
     def doRigidCoeNat (t : Term) : Term :=
       match t with
-      | (doRigidCoe $ctx (lam (nat)) $r $s $con) => $con
+      | .con "doRigidCoe" [ctx, .con "app" [.var "lam", .con "nat" []], r, s, con] => con
       | _ => t
 
     def doRigidCoeCircle (t : Term) : Term :=
       match t with
-      | (doRigidCoe $ctx (lam (circle)) $r $s $con) => $con
+      | .con "doRigidCoe" [ctx, .con "app" [.var "lam", .con "circle" []], r, s, con] => con
       | _ => t
 
     def doRigidCoeUniv (t : Term) : Term :=
       match t with
-      | (doRigidCoe $ctx (lam (univ $l)) $r $s $con) => $con
+      | .con "doRigidCoe" [ctx, .con "app" [.var "lam", .con "app" [.var "univ", l]], r, s, con] => con
       | _ => t
 
     def doRigidCoePi (t : Term) : Term :=
       match t with
-      | (doRigidCoe $ctx (lam (pi $A $B)) $r $s $f) => (lam (coe (lam (app (shift (num (number 0)) (num (number 1)) $B) (coe (lam $A) $s (ix (num (number 0))) (ix (num (number 0)))))) $r $s (app $f (coe (lam $A) $s $r (ix (num (number 0)))))))
+      | .con "doRigidCoe" [ctx, .con "app" [.var "lam", .con "pi" [A, B]], r, s, f] => Term.con "app" [Term.var "lam", Term.con "coe" [Term.con "app" [Term.var "lam", Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], B], Term.con "coe" [Term.con "app" [Term.var "lam", A], s, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]], r, s, Term.con "app" [f, Term.con "coe" [Term.con "app" [Term.var "lam", A], s, r, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]
       | _ => t
 
     def doRigidCoeSigma (t : Term) : Term :=
       match t with
-      | (doRigidCoe $ctx (lam (sigma $A $B)) $r $s (pair $a $b)) => (pair (coe (lam $A) $r $s $a) (coe (lam (app (shift (num (number 0)) (num (number 1)) $B) (coe (lam $A) $r (ix (num (number 0))) (shift (num (number 0)) (num (number 1)) $a)))) $r $s $b))
+      | .con "doRigidCoe" [ctx, .con "app" [.var "lam", .con "sigma" [A, B]], r, s, .con "pair" [a, b]] => Term.con "pair" [Term.con "coe" [Term.con "app" [Term.var "lam", A], r, s, a], Term.con "coe" [Term.con "app" [Term.var "lam", Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], B], Term.con "coe" [Term.con "app" [Term.var "lam", A], r, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], a]]]], r, s, b]]
       | _ => t
 
     def doRigidCoePath (t : Term) : Term :=
       match t with
-      | (doRigidCoe $ctx (lam (path $A $l $r)) $r' $s' $p) => (plam (com (lam $A) $r' $s' (cof_or (cof_eq (ix (num (number 0))) (dim0)) (cof_eq (ix (num (number 0))) (dim1))) (lam (lam (caseExpr ( case (ix (num (number 1))) (arm dim0 => $l) (arm dim1 => $r) )))) (papp $p (ix (num (number 0))))))
+      | .con "doRigidCoe" [ctx, .con "app" [.var "lam", .con "path" [A, l, r]], r', s', p] => Term.con "app" [Term.var "plam", Term.con "com" [Term.con "app" [Term.var "lam", A], r', s', Term.con "cof_or" [Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim0" []], Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim1" []]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.con "arm" [Term.var "dim0", Term.lit "=>", l], Term.con "arm" [Term.var "dim1", Term.lit "=>", r], Term.lit ")"]]], Term.con "papp" [p, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]
       | _ => t
 
     def doRigidCoeDefault (t : Term) : Term :=
       match t with
-      | (doRigidCoe $ctx $line $r $s $con) => (coe $line $r $s $con)
+      | .con "doRigidCoe" [ctx, line, r, s, con] => Term.con "coe" [line, r, s, con]
       | _ => t
 
   end RigidCoe
@@ -284,57 +278,51 @@ namespace Semantics
 
     def doRigidHComPi (t : Term) : Term :=
       match t with
-      | (doRigidHCom $ctx (pi $A $B) $r $s $φ $u) => (lam (hcom (app (shift (num (number 0)) (num (number 1)) $B) (ix (num (number 0)))) $r $s $φ (lam (lam (app (app (app (shift (num (number 0)) (num (number 2)) $u) (ix (num (number 1)))) (ix (num (number 0)))) (ix (num (number 2))))))))
+      | .con "doRigidHCom" [ctx, .con "pi" [A, B], r, s, φ, u] => Term.con "app" [Term.var "lam", Term.con "hcom" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], B], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], r, s, φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], u], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "2"]]]]]]]]
       | _ => t
 
     def doRigidHComSigma (t : Term) : Term :=
       match t with
-      | (doRigidHCom $ctx (sigma $A $B) $r $s $φ $u) => (pair (hcom $A $r $s $φ (lam (lam (fst (app (app (shift (num (number 0)) (num (number 2)) $u) (ix (num (number 1)))) (ix (num (number 0)))))))) (com (lam (app (shift (num (number 0)) (num (number 1)) $B) (hcom $A $r (ix (num (number 0))) $φ (lam (lam (fst (app (app (shift (num (number 0)) (num (number 2)) $u) (ix (num (number 1)))) (ix (num (number 0)))))))))) $r $s $φ (lam (lam (snd (app (app (shift (num (number 0)) (num (number 2)) $u) (ix (num (number 1)))) (ix (num (number 0))))))) (snd (app (app $u $r) (prf)))))
+      | .con "doRigidHCom" [ctx, .con "sigma" [A, B], r, s, φ, u] => Term.con "pair" [Term.con "hcom" [A, r, s, φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "fst", Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], u], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]], Term.con "com" [Term.con "app" [Term.var "lam", Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], B], Term.con "hcom" [A, r, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "fst", Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], u], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]]]], r, s, φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "snd", Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], u], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "app" [Term.var "snd", Term.con "app" [Term.con "app" [u, r], Term.con "prf" []]]]]
       | _ => t
 
     def doRigidHComPath (t : Term) : Term :=
       match t with
-      | (doRigidHCom $ctx (path $A $l $ep) $r $s $φ $u) => (plam (hcom $A $r $s (cof_or $φ (cof_or (cof_eq (ix (num (number 0))) (dim0)) (cof_eq (ix (num (number 0))) (dim1)))) (lam (lam (caseExpr ( case (meetsCof (ix (num (number 1))) $φ) (arm true => (papp (app (app (shift (num (number 0)) (num (number 2)) $u) (ix (num (number 1)))) (ix (num (number 0)))) (ix (num (number 2))))) (arm false => (caseExpr ( case (ix (num (number 2))) (arm dim0 => $l) (arm dim1 => $ep) ))) ))))))
+      | .con "doRigidHCom" [ctx, .con "path" [A, l, ep], r, s, φ, u] => Term.con "app" [Term.var "plam", Term.con "hcom" [A, r, s, Term.con "cof_or" [φ, Term.con "cof_or" [Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim0" []], Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim1" []]]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "meetsCof" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], φ], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "papp" [Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], u], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "2"]]]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "2"]]], Term.con "arm" [Term.var "dim0", Term.lit "=>", l], Term.con "arm" [Term.var "dim1", Term.lit "=>", ep], Term.lit ")"]], Term.lit ")"]]]]]
       | _ => t
 
     def doRigidHComNat (t : Term) : Term :=
       match t with
-      | (doRigidHCom $ctx (nat) $r $s $φ $u) => (hcom (nat) $r $s $φ $u)
+      | .con "doRigidHCom" [ctx, .con "nat" [], r, s, φ, u] => Term.con "hcom" [Term.con "nat" [], r, s, φ, u]
       | _ => t
 
     def doRigidHComCircle (t : Term) : Term :=
       match t with
-      | (doRigidHCom $ctx (circle) $r $s $φ $u) => (hcom (circle) $r $s $φ $u)
+      | .con "doRigidHCom" [ctx, .con "circle" [], r, s, φ, u] => Term.con "hcom" [Term.con "circle" [], r, s, φ, u]
       | _ => t
 
     def doRigidHComUniv (t : Term) : Term :=
       match t with
-      | (doRigidHCom $ctx (univ $l) $r $s $φ $u) => (hcom (univ $l) $r $s $φ $u)
+      | .con "doRigidHCom" [ctx, .con "app" [.var "univ", l], r, s, φ, u] => Term.con "hcom" [Term.con "app" [Term.var "univ", l], r, s, φ, u]
       | _ => t
 
     def doRigidHComDefault (t : Term) : Term :=
       match t with
-      | (doRigidHCom $ctx $code $r $s $φ $u) => (hcom $code $r $s $φ $u)
+      | .con "doRigidHCom" [ctx, code, r, s, φ, u] => Term.con "hcom" [code, r, s, φ, u]
       | _ => t
 
   end RigidHCom
 
   section SpliceCtx
 
-    def spliceCtx : Parser :=
-      (annotated str "spliceCtx" many ((special <binding>)) str "level:" (special <number>) → spliceCtx)
-
-    def binding : Parser :=
-      (annotated str "(" (special <symbol>) str "," (special <expr>) str ")" → binding)
-
     def spliceCtxEmpty (t : Term) : Term :=
       match t with
-      | (spliceCtxEmpty) => (spliceCtx (unit ( )) (labeledArg level : (num (number 0))))
+      | .con "spliceCtxEmpty" [] => Term.con "spliceCtx" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "num" [Term.con "number" [Term.lit "0"]]]]
       | _ => t
 
     def spliceCtxBind (t : Term) : Term :=
       match t with
-      | (spliceCtxBind (spliceCtx $bindings (labeledArg level : $l)) $name $v) => (record ( result : (spliceCtx ($bindings (tuple ( $name , $v ))) (labeledArg level : (suc $l))) (labeledArg var : (ix $l)) ))
+      | .con "spliceCtxBind" [.con "spliceCtx" [bindings, .con "labeledArg" [.var "level", .lit ":", l]], name, v] => Term.con "record" [Term.lit "(", Term.var "result", Term.lit ":", Term.con "spliceCtx" [Term.con "tuple" [bindings, Term.con "tuple" [Term.lit "(", name, Term.lit ",", v, Term.lit ")"]], Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "app" [Term.var "suc", l]]], Term.con "labeledArg" [Term.var "var", Term.lit ":", Term.con "app" [Term.var "ix", l]], Term.lit ")"]
       | _ => t
 
   end SpliceCtx
@@ -343,17 +331,17 @@ namespace Semantics
 
     def spliceDim0 (t : Term) : Term :=
       match t with
-      | (spliceDim $ctx (dim0) $k) => ($k $ctx (dim0))
+      | .con "spliceDim" [ctx, .con "dim0" [], k] => Term.con "tuple" [k, ctx, Term.con "dim0" []]
       | _ => t
 
     def spliceDim1 (t : Term) : Term :=
       match t with
-      | (spliceDim $ctx (dim1) $k) => ($k $ctx (dim1))
+      | .con "spliceDim" [ctx, .con "dim1" [], k] => Term.con "tuple" [k, ctx, Term.con "dim1" []]
       | _ => t
 
     def spliceDimVar (t : Term) : Term :=
       match t with
-      | (spliceDim $ctx $d $k) => (caseExpr ( case (spliceCtxBind $ctx str "i" $d) (arm ( result (:) $ctx' (labeledArg var : $var) ) => ($k $ctx' $var)) ))
+      | .con "spliceDim" [ctx, d, k] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "spliceCtxBind" [ctx, Term.con "terminal" [Term.lit "i"], d], Term.con "arm" [Term.lit "(", Term.var "result", Term.lit ":", Term.var "ctx'", Term.con "labeledArg" [Term.var "var", Term.lit ":", Term.var "var"], Term.lit ")", Term.lit "=>", Term.con "tuple" [k, Term.var "ctx'", Term.var "var"]], Term.lit ")"]
       | _ => t
 
   end SpliceDim
@@ -362,17 +350,17 @@ namespace Semantics
 
     def spliceCofTop (t : Term) : Term :=
       match t with
-      | (spliceCof $ctx (cof_top) $k) => ($k $ctx (cof_top))
+      | .con "spliceCof" [ctx, .con "cof_top" [], k] => Term.con "tuple" [k, ctx, Term.con "cof_top" []]
       | _ => t
 
     def spliceCofBot (t : Term) : Term :=
       match t with
-      | (spliceCof $ctx (cof_bot) $k) => ($k $ctx (cof_bot))
+      | .con "spliceCof" [ctx, .con "cof_bot" [], k] => Term.con "tuple" [k, ctx, Term.con "cof_bot" []]
       | _ => t
 
     def spliceCofVar (t : Term) : Term :=
       match t with
-      | (spliceCof $ctx $φ $k) => (caseExpr ( case (spliceCtxBind $ctx str "φ" $φ) (arm ( result (:) $ctx' (labeledArg var : $var) ) => ($k $ctx' $var)) ))
+      | .con "spliceCof" [ctx, φ, k] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "spliceCtxBind" [ctx, Term.con "terminal" [Term.lit "φ"], φ], Term.con "arm" [Term.lit "(", Term.var "result", Term.lit ":", Term.var "ctx'", Term.con "labeledArg" [Term.var "var", Term.lit ":", Term.var "var"], Term.lit ")", Term.lit "=>", Term.con "tuple" [k, Term.var "ctx'", Term.var "var"]], Term.lit ")"]
       | _ => t
 
   end SpliceCof
@@ -381,7 +369,7 @@ namespace Semantics
 
     def spliceCon (t : Term) : Term :=
       match t with
-      | (spliceCon $ctx $con $k) => (caseExpr ( case (spliceCtxBind $ctx str "x" $con) (arm ( result (:) $ctx' (labeledArg var : $var) ) => ($k $ctx' $var)) ))
+      | .con "spliceCon" [ctx, con, k] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "spliceCtxBind" [ctx, Term.con "terminal" [Term.lit "x"], con], Term.con "arm" [Term.lit "(", Term.var "result", Term.lit ":", Term.var "ctx'", Term.con "labeledArg" [Term.var "var", Term.lit ":", Term.var "var"], Term.lit ")", Term.lit "=>", Term.con "tuple" [k, Term.var "ctx'", Term.var "var"]], Term.lit ")"]
       | _ => t
 
   end SpliceCon
@@ -390,32 +378,32 @@ namespace Semantics
 
     def doAp (t : Term) : Term :=
       match t with
-      | (doAp $ctx $f $a) => (eval $ctx (app $f $a))
+      | .con "doAp" [ctx, f, a] => Term.con "eval" [ctx, Term.con "app" [f, a]]
       | _ => t
 
     def doAp2 (t : Term) : Term :=
       match t with
-      | (doAp2 $ctx $f $a $b) => (doAp $ctx (doAp $ctx $f $a) $b)
+      | .con "doAp2" [ctx, f, a, b] => Term.con "doAp" [ctx, Term.con "doAp" [ctx, f, a], b]
       | _ => t
 
     def doFst (t : Term) : Term :=
       match t with
-      | (doFst $ctx $p) => (eval $ctx (fst $p))
+      | .con "doFst" [ctx, p] => Term.con "eval" [ctx, Term.con "app" [Term.var "fst", p]]
       | _ => t
 
     def doSnd (t : Term) : Term :=
       match t with
-      | (doSnd $ctx $p) => (eval $ctx (snd $p))
+      | .con "doSnd" [ctx, p] => Term.con "eval" [ctx, Term.con "app" [Term.var "snd", p]]
       | _ => t
 
     def doPApp (t : Term) : Term :=
       match t with
-      | (doPApp $ctx $p $r) => (eval $ctx (papp $p $r))
+      | .con "doPApp" [ctx, p, r] => Term.con "eval" [ctx, Term.con "papp" [p, r]]
       | _ => t
 
     def doSubOut (t : Term) : Term :=
       match t with
-      | (doSubOut $ctx $t) => (eval $ctx (subOut $t))
+      | .con "doSubOut" [ctx, t] => Term.con "eval" [ctx, Term.con "app" [Term.var "subOut", t]]
       | _ => t
 
   end DoOps
@@ -424,17 +412,17 @@ namespace Semantics
 
     def doElNat (t : Term) : Term :=
       match t with
-      | (doEl $ctx (lit str "nat-code")) => (nat)
+      | .con "doEl" [ctx, .con "app" [.var "lit", .con "terminal" [.lit "nat-code"]]] => Term.con "nat" []
       | _ => t
 
     def doElCircle (t : Term) : Term :=
       match t with
-      | (doEl $ctx (lit str "circle-code")) => (circle)
+      | .con "doEl" [ctx, .con "app" [.var "lit", .con "terminal" [.lit "circle-code"]]] => Term.con "circle" []
       | _ => t
 
     def doElDefault (t : Term) : Term :=
       match t with
-      | (doEl $ctx $code) => (eval $ctx $code)
+      | .con "doEl" [ctx, code] => Term.con "eval" [ctx, code]
       | _ => t
 
   end El
@@ -443,7 +431,7 @@ namespace Semantics
 
     def doRigidCap (t : Term) : Term :=
       match t with
-      | (doRigidCap $ctx $r $s $φ $code $box) => (lit (concat str "cap(" $r str "," $s str "," $φ str "," $code str "," (eval $ctx $box) str ")"))
+      | .con "doRigidCap" [ctx, r, s, φ, code, box] => Term.con "app" [Term.var "lit", Term.con "concat" [Term.con "terminal" [Term.lit "cap("], r, Term.con "terminal" [Term.lit ","], s, Term.con "terminal" [Term.lit ","], φ, Term.con "terminal" [Term.lit ","], code, Term.con "terminal" [Term.lit ","], Term.con "eval" [ctx, box], Term.con "terminal" [Term.lit ")"]]]
       | _ => t
 
   end RigidCap
@@ -452,12 +440,12 @@ namespace Semantics
 
     def doRigidVProjVIn (t : Term) : Term :=
       match t with
-      | (doRigidVProj $ctx $r $pcode $code $pequiv (vin $r' $a $base)) => $base
+      | .con "doRigidVProj" [ctx, r, pcode, code, pequiv, .con "vin" [r', a, base]] => base
       | _ => t
 
     def doRigidVProjDefault (t : Term) : Term :=
       match t with
-      | (doRigidVProj $ctx $r $pcode $code $pequiv $v) => (vproj $r $pcode $code $pequiv (eval $ctx $v))
+      | .con "doRigidVProj" [ctx, r, pcode, code, pequiv, v] => Term.con "vproj" [r, pcode, code, pequiv, Term.con "eval" [ctx, v]]
       | _ => t
 
   end RigidVProj
@@ -466,17 +454,17 @@ namespace Semantics
 
     def evaluate (t : Term) : Term :=
       match t with
-      | (evaluate $e) => (eval (evalCtxEmpty) $e)
+      | .con "app" [.var "evaluate", e] => Term.con "eval" [Term.con "evalCtxEmpty" [], e]
       | _ => t
 
     def whnf (t : Term) : Term :=
       match t with
-      | (whnf $e) => (eval (evalCtxEmpty) $e)
+      | .con "app" [.var "whnf", e] => Term.con "eval" [Term.con "evalCtxEmpty" [], e]
       | _ => t
 
     def whnfTp (t : Term) : Term :=
       match t with
-      | (whnfTp $tp) => (whnf $tp)
+      | .con "app" [.var "whnfTp", tp] => Term.con "app" [Term.var "whnf", tp]
       | _ => t
 
   end TopLevel
@@ -485,12 +473,12 @@ namespace Semantics
 
     def instClo (t : Term) : Term :=
       match t with
-      | (instClo $ctx $body $v) => (eval $ctx (subst (num (number 0)) $v $body))
+      | .con "instClo" [ctx, body, v] => Term.con "eval" [ctx, Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], v, body]]
       | _ => t
 
     def instTpClo (t : Term) : Term :=
       match t with
-      | (instTpClo $ctx $body $v) => (instClo $ctx $body $v)
+      | .con "instTpClo" [ctx, body, v] => Term.con "instClo" [ctx, body, v]
       | _ => t
 
   end Instantiation

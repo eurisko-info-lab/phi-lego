@@ -1,138 +1,132 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath Cofibration) ;)
+import Lego.Algebra
 
-(DImport import (modulePath Splice) ;)
+open Lego
 
 namespace Tactic
 
   section TacResult
 
-    def tacResult : Parser :=
-      ((annotated str "tacOk" (special <any>) → tacOk) <|> (annotated str "tacError" (special <name>) → tacError))
-
     def isTacOk (t : Term) : Term :=
       match t with
-      | (isTacOk (tacOk $a)) => (true)
+      | .con "app" [.var "isTacOk", .con "app" [.var "tacOk", a]] => Term.con "true" []
       | _ => t
 
     def isTacOkErr (t : Term) : Term :=
       match t with
-      | (isTacOk (tacError $msg)) => (false)
+      | .con "app" [.var "isTacOk", .con "app" [.var "tacError", msg]] => Term.con "false" []
       | _ => t
 
     def tacResultMap (t : Term) : Term :=
       match t with
-      | (tacResultMap $f (tacOk $a)) => (tacOk ($f $a))
+      | .con "tacResultMap" [f, .con "app" [.var "tacOk", a]] => Term.con "app" [Term.var "tacOk", Term.con "tuple" [f, a]]
       | _ => t
 
     def tacResultMapErr (t : Term) : Term :=
       match t with
-      | (tacResultMap $f (tacError $msg)) => (tacError $msg)
+      | .con "tacResultMap" [f, .con "app" [.var "tacError", msg]] => Term.con "app" [Term.var "tacError", msg]
       | _ => t
 
     def tacResultBind (t : Term) : Term :=
       match t with
-      | (tacResultBind (tacOk $a) $f) => ($f $a)
+      | .con "tacResultBind" [.con "app" [.var "tacOk", a], f] => Term.con "tuple" [f, a]
       | _ => t
 
     def tacResultBindErr (t : Term) : Term :=
       match t with
-      | (tacResultBind (tacError $msg) $f) => (tacError $msg)
+      | .con "tacResultBind" [.con "app" [.var "tacError", msg], f] => Term.con "app" [Term.var "tacError", msg]
       | _ => t
 
     def tacResultPure (t : Term) : Term :=
       match t with
-      | (tacResultPure $a) => (tacOk $a)
+      | .con "app" [.var "tacResultPure", a] => Term.con "app" [Term.var "tacOk", a]
       | _ => t
 
     def tacResultGetOrElse (t : Term) : Term :=
       match t with
-      | (tacResultGetOrElse (tacOk $a) $default) => $a
+      | .con "tacResultGetOrElse" [.con "app" [.var "tacOk", a], default] => a
       | _ => t
 
     def tacResultGetOrElseErr (t : Term) : Term :=
       match t with
-      | (tacResultGetOrElse (tacError $msg) $default) => $default
+      | .con "tacResultGetOrElse" [.con "app" [.var "tacError", msg], default] => default
       | _ => t
 
   end TacResult
 
   section TpCtx
 
-    def tpCtx : Parser :=
-      (annotated str "tpCtx" str "types:" many ((special <expr>)) str "cofs:" many ((special <expr>)) → tpCtx)
-
     def tpCtxEmpty (t : Term) : Term :=
       match t with
-      | (tpCtxEmpty) => (tpCtx (labeledArg types : (unit ( ))) (labeledArg cofs : (unit ( ))))
+      | .con "tpCtxEmpty" [] => Term.con "tpCtx" [Term.con "labeledArg" [Term.var "types", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "cofs", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]]]
       | _ => t
 
     def tpCtxExtend (t : Term) : Term :=
       match t with
-      | (tpCtxExtend (tpCtx (labeledArg types : $ts) (labeledArg cofs : $cs)) $ty) => (tpCtx (labeledArg types : ($ty $ts)) (labeledArg cofs : $cs))
+      | .con "tpCtxExtend" [.con "tpCtx" [.con "labeledArg" [.var "types", .lit ":", ts], .con "labeledArg" [.var "cofs", .lit ":", cs]], ty] => Term.con "tpCtx" [Term.con "labeledArg" [Term.var "types", Term.lit ":", Term.con "tuple" [ty, ts]], Term.con "labeledArg" [Term.var "cofs", Term.lit ":", cs]]
       | _ => t
 
     def tpCtxLookup (t : Term) : Term :=
       match t with
-      | (tpCtxLookup (tpCtx (labeledArg types : $ts) (labeledArg cofs : $cs)) $n) => (listGet $ts $n)
+      | .con "tpCtxLookup" [.con "tpCtx" [.con "labeledArg" [.var "types", .lit ":", ts], .con "labeledArg" [.var "cofs", .lit ":", cs]], n] => Term.con "listGet" [ts, n]
       | _ => t
 
     def tpCtxSize (t : Term) : Term :=
       match t with
-      | (tpCtxSize (tpCtx (labeledArg types : $ts) (labeledArg cofs : $cs))) => (length $ts)
+      | .con "app" [.var "tpCtxSize", .con "tpCtx" [.con "labeledArg" [.var "types", .lit ":", ts], .con "labeledArg" [.var "cofs", .lit ":", cs]]] => Term.con "app" [Term.var "length", ts]
       | _ => t
 
     def tpCtxAssume (t : Term) : Term :=
       match t with
-      | (tpCtxAssume (tpCtx (labeledArg types : $ts) (labeledArg cofs : $cs)) $φ) => (tpCtx (labeledArg types : $ts) (labeledArg cofs : ($φ $cs)))
+      | .con "tpCtxAssume" [.con "tpCtx" [.con "labeledArg" [.var "types", .lit ":", ts], .con "labeledArg" [.var "cofs", .lit ":", cs]], φ] => Term.con "tpCtx" [Term.con "labeledArg" [Term.var "types", Term.lit ":", ts], Term.con "labeledArg" [Term.var "cofs", Term.lit ":", Term.con "tuple" [φ, cs]]]
       | _ => t
 
     def tpCtxIsConsistent (t : Term) : Term :=
       match t with
-      | (tpCtxIsConsistent (tpCtx (labeledArg types : $ts) (labeledArg cofs : $cs))) => (cofIsConsistent (meetAll $cs))
+      | .con "app" [.var "tpCtxIsConsistent", .con "tpCtx" [.con "labeledArg" [.var "types", .lit ":", ts], .con "labeledArg" [.var "cofs", .lit ":", cs]]] => Term.con "app" [Term.var "cofIsConsistent", Term.con "app" [Term.var "meetAll", cs]]
       | _ => t
 
     def meetAll (t : Term) : Term :=
       match t with
-      | (meetAll (unit ( ))) => (cof_top)
+      | .con "app" [.var "meetAll", .con "unit" [.lit "(", .lit ")"]] => Term.con "cof_top" []
       | _ => t
 
     def meetAllCons (t : Term) : Term :=
       match t with
-      | (meetAll ($φ $rest)) => (cof_and $φ (meetAll $rest))
+      | .con "app" [.var "meetAll", .con "tuple" [φ, rest]] => Term.con "cof_and" [φ, Term.con "app" [Term.var "meetAll", rest]]
       | _ => t
 
   end TpCtx
 
   section ChkGoal
 
-    def chkGoal : Parser :=
-      (annotated str "chkGoal" str "tp:" (special <expr>) str "cof:" (special <expr>) str "bdry:" (special <expr>) → chkGoal)
-
     def chkGoalSimple (t : Term) : Term :=
       match t with
-      | (chkGoalSimple $ty) => (chkGoal (labeledArg tp : $ty) (labeledArg cof : (cof_top)) (labeledArg bdry : (lit str "unit")))
+      | .con "app" [.var "chkGoalSimple", ty] => Term.con "chkGoal" [Term.con "labeledArg" [Term.var "tp", Term.lit ":", ty], Term.con "labeledArg" [Term.var "cof", Term.lit ":", Term.con "cof_top" []], Term.con "labeledArg" [Term.var "bdry", Term.lit ":", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "unit"]]]]
       | _ => t
 
     def chkGoalWithBoundary (t : Term) : Term :=
       match t with
-      | (chkGoalWithBoundary $ty $φ $bdry) => (chkGoal (labeledArg tp : $ty) (labeledArg cof : $φ) (labeledArg bdry : $bdry))
+      | .con "chkGoalWithBoundary" [ty, φ, bdry] => Term.con "chkGoal" [Term.con "labeledArg" [Term.var "tp", Term.lit ":", ty], Term.con "labeledArg" [Term.var "cof", Term.lit ":", φ], Term.con "labeledArg" [Term.var "bdry", Term.lit ":", bdry]]
       | _ => t
 
     def chkGoalTp (t : Term) : Term :=
       match t with
-      | (chkGoalTp (chkGoal (labeledArg tp : $t) (labeledArg cof : $c) (labeledArg bdry : $b))) => $t
+      | .con "app" [.var "chkGoalTp", .con "chkGoal" [.con "labeledArg" [.var "tp", .lit ":", t], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", b]]] => t
       | _ => t
 
     def chkGoalCof (t : Term) : Term :=
       match t with
-      | (chkGoalCof (chkGoal (labeledArg tp : $t) (labeledArg cof : $c) (labeledArg bdry : $b))) => $c
+      | .con "app" [.var "chkGoalCof", .con "chkGoal" [.con "labeledArg" [.var "tp", .lit ":", t], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", b]]] => c
       | _ => t
 
     def chkGoalBdry (t : Term) : Term :=
       match t with
-      | (chkGoalBdry (chkGoal (labeledArg tp : $t) (labeledArg cof : $c) (labeledArg bdry : $b))) => $b
+      | .con "app" [.var "chkGoalBdry", .con "chkGoal" [.con "labeledArg" [.var "tp", .lit ":", t], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", b]]] => b
       | _ => t
 
   end ChkGoal
@@ -141,62 +135,62 @@ namespace Tactic
 
     def tpTacRun (t : Term) : Term :=
       match t with
-      | (tpTacRun $tac $ctx) => ($tac $ctx)
+      | .con "tpTacRun" [tac, ctx] => Term.con "tuple" [tac, ctx]
       | _ => t
 
     def tpTacPure (t : Term) : Term :=
       match t with
-      | (tpTacPure $e $ctx) => (tacOk $e)
+      | .con "tpTacPure" [e, ctx] => Term.con "app" [Term.var "tacOk", e]
       | _ => t
 
     def tpTacNat (t : Term) : Term :=
       match t with
-      | (tpTacNat $ctx) => (tacOk (nat))
+      | .con "app" [.var "tpTacNat", ctx] => Term.con "app" [Term.var "tacOk", Term.con "nat" []]
       | _ => t
 
     def tpTacCircle (t : Term) : Term :=
       match t with
-      | (tpTacCircle $ctx) => (tacOk (S1))
+      | .con "app" [.var "tpTacCircle", ctx] => Term.con "app" [Term.var "tacOk", Term.con "S1" []]
       | _ => t
 
     def tpTacUniv (t : Term) : Term :=
       match t with
-      | (tpTacUniv $ctx) => (tacOk (univ (num (number 0))))
+      | .con "app" [.var "tpTacUniv", ctx] => Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "univ", Term.con "num" [Term.con "number" [Term.lit "0"]]]]
       | _ => t
 
     def tpTacDim (t : Term) : Term :=
       match t with
-      | (tpTacDim $ctx) => (tacOk (lit str "𝕀"))
+      | .con "app" [.var "tpTacDim", ctx] => Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]]
       | _ => t
 
     def tpTacCof (t : Term) : Term :=
       match t with
-      | (tpTacCof $ctx) => (tacOk (lit str "Cof"))
+      | .con "app" [.var "tpTacCof", ctx] => Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "Cof"]]]
       | _ => t
 
     def tpTacPi (t : Term) : Term :=
       match t with
-      | (tpTacPi $domTac $codTac $ctx) => (tacResultBind ($domTac $ctx) (lam (letIn ( let $ ctx' = (tpCtxExtend $ctx (ix (num (number 0)))) in (tacResultBind ($codTac (ix (num (number 0))) $ctx') (lam (tacOk (pi (ix (num (number 1))) (ix (num (number 0))))))) ))))
+      | .con "tpTacPi" [domTac, codTac, ctx] => Term.con "tacResultBind" [Term.con "tuple" [domTac, ctx], Term.con "app" [Term.var "lam", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxExtend" [ctx, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.lit "in", Term.con "tacResultBind" [Term.con "tuple" [codTac, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "ctx'"], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "pi" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.lit ")"]]]
       | _ => t
 
     def tpTacSigma (t : Term) : Term :=
       match t with
-      | (tpTacSigma $baseTac $famTac $ctx) => (tacResultBind ($baseTac $ctx) (lam (letIn ( let $ ctx' = (tpCtxExtend $ctx (ix (num (number 0)))) in (tacResultBind ($famTac (ix (num (number 0))) $ctx') (lam (tacOk (sigma (ix (num (number 1))) (ix (num (number 0))))))) ))))
+      | .con "tpTacSigma" [baseTac, famTac, ctx] => Term.con "tacResultBind" [Term.con "tuple" [baseTac, ctx], Term.con "app" [Term.var "lam", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxExtend" [ctx, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.lit "in", Term.con "tacResultBind" [Term.con "tuple" [famTac, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "ctx'"], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "sigma" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.lit ")"]]]
       | _ => t
 
     def tpTacPath (t : Term) : Term :=
       match t with
-      | (tpTacPath $tyLineTac $left $right $ctx) => (tacResultBind ($tyLineTac $ctx) (lam (tacOk (path (ix (num (number 0))) $left $right))))
+      | .con "tpTacPath" [tyLineTac, left, right, ctx] => Term.con "tacResultBind" [Term.con "tuple" [tyLineTac, ctx], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "path" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], left, right]]]]
       | _ => t
 
     def tpTacSub (t : Term) : Term :=
       match t with
-      | (tpTacSub $tyTac $φ $tm $ctx) => (tacResultBind ($tyTac $ctx) (lam (tacOk (sub (ix (num (number 0))) $φ $tm))))
+      | .con "tpTacSub" [tyTac, φ, tm, ctx] => Term.con "tacResultBind" [Term.con "tuple" [tyTac, ctx], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "sub" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], φ, tm]]]]
       | _ => t
 
     def tpTacMap (t : Term) : Term :=
       match t with
-      | (tpTacMap $f $tac $ctx) => (tacResultMap $f ($tac $ctx))
+      | .con "tpTacMap" [f, tac, ctx] => Term.con "tacResultMap" [f, Term.con "tuple" [tac, ctx]]
       | _ => t
 
   end TpTac
@@ -205,57 +199,57 @@ namespace Tactic
 
     def chkTacRun (t : Term) : Term :=
       match t with
-      | (chkTacRun $tac $ctx $tp) => ($tac $ctx (chkGoalSimple $tp))
+      | .con "chkTacRun" [tac, ctx, tp] => Term.con "tuple" [tac, ctx, Term.con "app" [Term.var "chkGoalSimple", tp]]
       | _ => t
 
     def chkTacBRun (t : Term) : Term :=
       match t with
-      | (chkTacBRun $tac $ctx $tp $φ $bdry) => ($tac $ctx (chkGoalWithBoundary $tp $φ $bdry))
+      | .con "chkTacBRun" [tac, ctx, tp, φ, bdry] => Term.con "tuple" [tac, ctx, Term.con "chkGoalWithBoundary" [tp, φ, bdry]]
       | _ => t
 
     def chkTacPure (t : Term) : Term :=
       match t with
-      | (chkTacPure $e $ctx $goal) => (tacOk $e)
+      | .con "chkTacPure" [e, ctx, goal] => Term.con "app" [Term.var "tacOk", e]
       | _ => t
 
     def chkTacZero (t : Term) : Term :=
       match t with
-      | (chkTacZero $ctx $goal) => (caseExpr ( case (chkGoalTp $goal) (arm nat => (tacOk (zero))) (arm _ => (tacError str "expected Nat")) ))
+      | .con "chkTacZero" [ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "chkGoalTp", goal], Term.con "arm" [Term.var "nat", Term.lit "=>", Term.con "app" [Term.var "tacOk", Term.con "zero" []]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Nat"]]], Term.lit ")"]
       | _ => t
 
     def chkTacSuc (t : Term) : Term :=
       match t with
-      | (chkTacSuc $tac $ctx $goal) => (caseExpr ( case (chkGoalTp $goal) (arm nat => (tacResultBind ($tac $ctx (chkGoalSimple (nat))) (lam (tacOk (suc (ix (num (number 0)))))))) (arm _ => (tacError str "expected Nat")) ))
+      | .con "chkTacSuc" [tac, ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "chkGoalTp", goal], Term.con "arm" [Term.var "nat", Term.lit "=>", Term.con "tacResultBind" [Term.con "tuple" [tac, ctx, Term.con "app" [Term.var "chkGoalSimple", Term.con "nat" []]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "suc", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Nat"]]], Term.lit ")"]
       | _ => t
 
     def chkTacLam (t : Term) : Term :=
       match t with
-      | (chkTacLam $bodyTac $ctx $goal) => (caseExpr ( case (chkGoalTp $goal) (arm ( pi $dom $cod ) => (letIn ( let $ ctx' = (tpCtxExtend $ctx $dom) in (letIn ( let $ goalCod = (chkGoalSimple $cod) in (tacResultBind ($bodyTac (ix (num (number 0))) $ctx' $goalCod) (lam (tacOk (lam (ix (num (number 0))))))) )) ))) (arm _ => (tacError str "expected Pi type")) ))
+      | .con "chkTacLam" [bodyTac, ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "chkGoalTp", goal], Term.con "arm" [Term.lit "(", Term.var "pi", Term.var "dom", Term.var "cod", Term.lit ")", Term.lit "=>", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxExtend" [ctx, Term.var "dom"], Term.lit "in", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "goalCod", Term.lit "=", Term.con "app" [Term.var "chkGoalSimple", Term.var "cod"], Term.lit "in", Term.con "tacResultBind" [Term.con "tuple" [bodyTac, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "ctx'", Term.var "goalCod"], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.lit ")"], Term.lit ")"]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Pi type"]]], Term.lit ")"]
       | _ => t
 
     def chkTacPair (t : Term) : Term :=
       match t with
-      | (chkTacPair $fstTac $sndTac $ctx $goal) => (caseExpr ( case (chkGoalTp $goal) (arm ( sigma $base $fam ) => (tacResultBind ($fstTac $ctx (chkGoalSimple $base)) (lam (letIn ( let $ famSubst = (subst (num (number 0)) (ix (num (number 0))) $fam) in (tacResultBind ($sndTac $ctx (chkGoalSimple $famSubst)) (lam (tacOk (pair (ix (num (number 1))) (ix (num (number 0))))))) ))))) (arm _ => (tacError str "expected Sigma type")) ))
+      | .con "chkTacPair" [fstTac, sndTac, ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "chkGoalTp", goal], Term.con "arm" [Term.lit "(", Term.var "sigma", Term.var "base", Term.var "fam", Term.lit ")", Term.lit "=>", Term.con "tacResultBind" [Term.con "tuple" [fstTac, ctx, Term.con "app" [Term.var "chkGoalSimple", Term.var "base"]], Term.con "app" [Term.var "lam", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "famSubst", Term.lit "=", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "fam"], Term.lit "in", Term.con "tacResultBind" [Term.con "tuple" [sndTac, ctx, Term.con "app" [Term.var "chkGoalSimple", Term.var "famSubst"]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "pair" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.lit ")"]]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Sigma type"]]], Term.lit ")"]
       | _ => t
 
     def chkTacPlam (t : Term) : Term :=
       match t with
-      | (chkTacPlam $bodyTac $ctx $goal) => (letIn ( let $ ctx' = (tpCtxExtend $ctx (lit str "𝕀")) in (tacResultBind ($bodyTac (ix (num (number 0))) $ctx' (chkGoalSimple (chkGoalTp $goal))) (lam (tacOk (plam (ix (num (number 0))))))) ))
+      | .con "chkTacPlam" [bodyTac, ctx, goal] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxExtend" [ctx, Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]], Term.lit "in", Term.con "tacResultBind" [Term.con "tuple" [bodyTac, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "ctx'", Term.con "app" [Term.var "chkGoalSimple", Term.con "app" [Term.var "chkGoalTp", goal]]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "plam", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.lit ")"]
       | _ => t
 
     def chkTacBase (t : Term) : Term :=
       match t with
-      | (chkTacBase $ctx $goal) => (caseExpr ( case (chkGoalTp $goal) (arm S1 => (tacOk (base))) (arm _ => (tacError str "expected Circle")) ))
+      | .con "chkTacBase" [ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "chkGoalTp", goal], Term.con "arm" [Term.var "S1", Term.lit "=>", Term.con "app" [Term.var "tacOk", Term.con "base" []]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Circle"]]], Term.lit ")"]
       | _ => t
 
     def chkTacLoop (t : Term) : Term :=
       match t with
-      | (chkTacLoop $dimTac $ctx $goal) => (caseExpr ( case (chkGoalTp $goal) (arm S1 => (tacResultBind ($dimTac $ctx (chkGoalSimple (lit str "𝕀"))) (lam (tacOk (loop (ix (num (number 0)))))))) (arm _ => (tacError str "expected Circle")) ))
+      | .con "chkTacLoop" [dimTac, ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "chkGoalTp", goal], Term.con "arm" [Term.var "S1", Term.lit "=>", Term.con "tacResultBind" [Term.con "tuple" [dimTac, ctx, Term.con "app" [Term.var "chkGoalSimple", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "loop", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Circle"]]], Term.lit ")"]
       | _ => t
 
     def chkTacSubIn (t : Term) : Term :=
       match t with
-      | (chkTacSubIn $tac $ctx $goal) => (caseExpr ( case (chkGoalTp $goal) (arm ( sub $a $φ $t ) => (tacResultBind ($tac $ctx (chkGoalSimple $a)) (lam (tacOk (subIn (ix (num (number 0)))))))) (arm _ => (tacError str "expected Sub type")) ))
+      | .con "chkTacSubIn" [tac, ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "chkGoalTp", goal], Term.con "arm" [Term.lit "(", Term.var "sub", Term.var "a", Term.var "φ", Term.var "t", Term.lit ")", Term.lit "=>", Term.con "tacResultBind" [Term.con "tuple" [tac, ctx, Term.con "app" [Term.var "chkGoalSimple", Term.var "a"]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "app" [Term.var "subIn", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Sub type"]]], Term.lit ")"]
       | _ => t
 
   end ChkTac
@@ -264,42 +258,42 @@ namespace Tactic
 
     def synTacRun (t : Term) : Term :=
       match t with
-      | (synTacRun $tac $ctx) => ($tac $ctx)
+      | .con "synTacRun" [tac, ctx] => Term.con "tuple" [tac, ctx]
       | _ => t
 
     def synTacPure (t : Term) : Term :=
       match t with
-      | (synTacPure $e $ty $ctx) => (tacOk (tuple ( $e , $ty )))
+      | .con "synTacPure" [e, ty, ctx] => Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.lit "(", e, Term.lit ",", ty, Term.lit ")"]]
       | _ => t
 
     def synTacVar (t : Term) : Term :=
       match t with
-      | (synTacVar $n $ctx) => (caseExpr ( case (tpCtxLookup $ctx $n) (arm ( some $ty ) => (tacOk (tuple ( (ix $n) , $ty )))) (arm none => (tacError str "unbound variable")) ))
+      | .con "synTacVar" [n, ctx] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "tpCtxLookup" [ctx, n], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "ty", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.lit "(", Term.con "app" [Term.var "ix", n], Term.lit ",", Term.var "ty", Term.lit ")"]]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "unbound variable"]]], Term.lit ")"]
       | _ => t
 
     def synTacApp (t : Term) : Term :=
       match t with
-      | (synTacApp $fnTac $argTac $ctx) => (tacResultBind ($fnTac $ctx) (lam (caseExpr ( case (snd (ix (num (number 0)))) (arm ( pi $dom $cod ) => (tacResultBind ($argTac $ctx (chkGoalSimple $dom)) (lam (letIn ( let $ codSubst = (subst (num (number 0)) (ix (num (number 0))) $cod) in (tacOk (tuple ( (app (fst (ix (num (number 1)))) (ix (num (number 0)))) , $codSubst ))) ))))) (arm _ => (tacError str "expected function type")) ))))
+      | .con "synTacApp" [fnTac, argTac, ctx] => Term.con "tacResultBind" [Term.con "tuple" [fnTac, ctx], Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "snd", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "arm" [Term.lit "(", Term.var "pi", Term.var "dom", Term.var "cod", Term.lit ")", Term.lit "=>", Term.con "tacResultBind" [Term.con "tuple" [argTac, ctx, Term.con "app" [Term.var "chkGoalSimple", Term.var "dom"]], Term.con "app" [Term.var "lam", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "codSubst", Term.lit "=", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "cod"], Term.lit "in", Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.lit "(", Term.con "app" [Term.con "app" [Term.var "fst", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.lit ",", Term.var "codSubst", Term.lit ")"]], Term.lit ")"]]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected function type"]]], Term.lit ")"]]]
       | _ => t
 
     def synTacFst (t : Term) : Term :=
       match t with
-      | (synTacFst $pairTac $ctx) => (tacResultBind ($pairTac $ctx) (lam (caseExpr ( case (snd (ix (num (number 0)))) (arm ( sigma $base $fam ) => (tacOk (tuple ( (fst (fst (ix (num (number 0))))) , $base )))) (arm _ => (tacError str "expected Sigma type")) ))))
+      | .con "synTacFst" [pairTac, ctx] => Term.con "tacResultBind" [Term.con "tuple" [pairTac, ctx], Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "snd", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "arm" [Term.lit "(", Term.var "sigma", Term.var "base", Term.var "fam", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.lit "(", Term.con "app" [Term.var "fst", Term.con "app" [Term.var "fst", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]], Term.lit ",", Term.var "base", Term.lit ")"]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Sigma type"]]], Term.lit ")"]]]
       | _ => t
 
     def synTacSnd (t : Term) : Term :=
       match t with
-      | (synTacSnd $pairTac $ctx) => (tacResultBind ($pairTac $ctx) (lam (caseExpr ( case (snd (ix (num (number 0)))) (arm ( sigma $base $fam ) => (letIn ( let $ fstVal = (fst (fst (ix (num (number 0))))) in (letIn ( let $ famSubst = (subst (num (number 0)) $fstVal $fam) in (tacOk (tuple ( (snd (fst (ix (num (number 0))))) , $famSubst ))) )) ))) (arm _ => (tacError str "expected Sigma type")) ))))
+      | .con "synTacSnd" [pairTac, ctx] => Term.con "tacResultBind" [Term.con "tuple" [pairTac, ctx], Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "snd", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "arm" [Term.lit "(", Term.var "sigma", Term.var "base", Term.var "fam", Term.lit ")", Term.lit "=>", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "fstVal", Term.lit "=", Term.con "app" [Term.var "fst", Term.con "app" [Term.var "fst", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]], Term.lit "in", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "famSubst", Term.lit "=", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.var "fstVal", Term.var "fam"], Term.lit "in", Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.lit "(", Term.con "app" [Term.var "snd", Term.con "app" [Term.var "fst", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]], Term.lit ",", Term.var "famSubst", Term.lit ")"]], Term.lit ")"], Term.lit ")"]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Sigma type"]]], Term.lit ")"]]]
       | _ => t
 
     def synTacPApp (t : Term) : Term :=
       match t with
-      | (synTacPApp $pathTac $dimTac $ctx) => (tacResultBind ($pathTac $ctx) (lam (tacResultBind ($dimTac $ctx (chkGoalSimple (lit str "𝕀"))) (lam (tacOk (tuple ( (papp (fst (ix (num (number 1)))) (ix (num (number 0)))) , (lit str "path-fiber") )))))))
+      | .con "synTacPApp" [pathTac, dimTac, ctx] => Term.con "tacResultBind" [Term.con "tuple" [pathTac, ctx], Term.con "app" [Term.var "lam", Term.con "tacResultBind" [Term.con "tuple" [dimTac, ctx, Term.con "app" [Term.var "chkGoalSimple", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.lit "(", Term.con "papp" [Term.con "app" [Term.var "fst", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.lit ",", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "path-fiber"]], Term.lit ")"]]]]]]
       | _ => t
 
     def synTacSubOut (t : Term) : Term :=
       match t with
-      | (synTacSubOut $subTac $ctx) => (tacResultBind ($subTac $ctx) (lam (caseExpr ( case (snd (ix (num (number 0)))) (arm ( sub $a $φ $t ) => (tacOk (tuple ( (subOut (fst (ix (num (number 0))))) , $a )))) (arm _ => (tacError str "expected Sub type")) ))))
+      | .con "synTacSubOut" [subTac, ctx] => Term.con "tacResultBind" [Term.con "tuple" [subTac, ctx], Term.con "app" [Term.var "lam", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "snd", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "arm" [Term.lit "(", Term.var "sub", Term.var "a", Term.var "φ", Term.var "t", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.lit "(", Term.con "app" [Term.var "subOut", Term.con "app" [Term.var "fst", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]], Term.lit ",", Term.var "a", Term.lit ")"]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "expected Sub type"]]], Term.lit ")"]]]
       | _ => t
 
   end SynTac
@@ -308,17 +302,17 @@ namespace Tactic
 
     def varTacIntro (t : Term) : Term :=
       match t with
-      | (varTacIntro $name $ty $k $ctx) => (letIn ( let $ ctx' = (tpCtxExtend $ctx $ty) in ($k (ix (num (number 0))) $ctx') ))
+      | .con "varTacIntro" [name, ty, k, ctx] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxExtend" [ctx, ty], Term.lit "in", Term.con "tuple" [k, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "ctx'"], Term.lit ")"]
       | _ => t
 
     def varTacDim (t : Term) : Term :=
       match t with
-      | (varTacDim $name $k $ctx) => (letIn ( let $ ctx' = (tpCtxExtend $ctx (lit str "𝕀")) in ($k (ix (num (number 0))) $ctx') ))
+      | .con "varTacDim" [name, k, ctx] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxExtend" [ctx, Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]], Term.lit "in", Term.con "tuple" [k, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "ctx'"], Term.lit ")"]
       | _ => t
 
     def varTacCof (t : Term) : Term :=
       match t with
-      | (varTacCof $φ $k $ctx) => (letIn ( let $ ctx' = (tpCtxAssume $ctx $φ) in ($k $ctx') ))
+      | .con "varTacCof" [φ, k, ctx] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxAssume" [ctx, φ], Term.lit "in", Term.con "tuple" [k, Term.var "ctx'"], Term.lit ")"]
       | _ => t
 
   end VarTac
@@ -327,32 +321,32 @@ namespace Tactic
 
     def tacSequence (t : Term) : Term :=
       match t with
-      | (tacSequence (unit ( )) $ctx $goal) => (tacOk (unit ( )))
+      | .con "tacSequence" [.con "unit" [.lit "(", .lit ")"], ctx, goal] => Term.con "app" [Term.var "tacOk", Term.con "unit" [Term.lit "(", Term.lit ")"]]
       | _ => t
 
     def tacSequenceCons (t : Term) : Term :=
       match t with
-      | (tacSequence ($tac $rest) $ctx $goal) => (tacResultBind ($tac $ctx $goal) (lam (tacResultBind (tacSequence $rest $ctx $goal) (lam (tacOk ((( (ix) (num (number 1)) )) (ix (num (number 0)))))))))
+      | .con "tacSequence" [.con "tuple" [tac, rest], ctx, goal] => Term.con "tacResultBind" [Term.con "tuple" [tac, ctx, goal], Term.con "app" [Term.var "lam", Term.con "tacResultBind" [Term.con "tacSequence" [rest, ctx, goal], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "tacOk", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "ix" [], Term.con "num" [Term.con "number" [Term.lit "1"]], Term.lit ")"], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]]]
       | _ => t
 
     def tacChoice (t : Term) : Term :=
       match t with
-      | (tacChoice (unit ( )) $ctx $goal) => (tacError str "no tactics succeeded")
+      | .con "tacChoice" [.con "unit" [.lit "(", .lit ")"], ctx, goal] => Term.con "app" [Term.var "tacError", Term.con "terminal" [Term.lit "no tactics succeeded"]]
       | _ => t
 
     def tacChoiceCons (t : Term) : Term :=
       match t with
-      | (tacChoice ($tac $rest) $ctx $goal) => (caseExpr ( case ($tac $ctx $goal) (arm ( tacOk $a ) => (tacOk $a)) (arm ( tacError $msg ) => (tacChoice $rest $ctx $goal)) ))
+      | .con "tacChoice" [.con "tuple" [tac, rest], ctx, goal] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "tuple" [tac, ctx, goal], Term.con "arm" [Term.lit "(", Term.var "tacOk", Term.var "a", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "tacOk", Term.var "a"]], Term.con "arm" [Term.lit "(", Term.var "tacError", Term.var "msg", Term.lit ")", Term.lit "=>", Term.con "tacChoice" [rest, ctx, goal]], Term.lit ")"]
       | _ => t
 
     def tacWithFreshVar (t : Term) : Term :=
       match t with
-      | (tacWithFreshVar $ty $bodyTac $ctx $goal) => (letIn ( let $ ctx' = (tpCtxExtend $ctx $ty) in ($bodyTac (ix (num (number 0))) $ctx' $goal) ))
+      | .con "tacWithFreshVar" [ty, bodyTac, ctx, goal] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxExtend" [ctx, ty], Term.lit "in", Term.con "tuple" [bodyTac, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "ctx'", goal], Term.lit ")"]
       | _ => t
 
     def tacWithCofAssump (t : Term) : Term :=
       match t with
-      | (tacWithCofAssump $φ $bodyTac $ctx $goal) => (letIn ( let $ ctx' = (tpCtxAssume $ctx $φ) in ($bodyTac $ctx' $goal) ))
+      | .con "tacWithCofAssump" [φ, bodyTac, ctx, goal] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "ctx'", Term.lit "=", Term.con "tpCtxAssume" [ctx, φ], Term.lit "in", Term.con "tuple" [bodyTac, Term.var "ctx'", goal], Term.lit ")"]
       | _ => t
 
   end TacHelpers

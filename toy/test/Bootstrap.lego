@@ -358,15 +358,25 @@ piece File
   imports    ::= "(" ident ("," ident)* ")" → DImports
                | "(" ident+ ")" → DImports ;
   langBody   ::= innerDecl* ;
-  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl ;
+  innerDecl  ::= tokenDecl | pieceDecl | ruleDecl | typeDecl | testDecl | attrsDecl | deriveDecl ;
   tokenDecl  ::= "token" ident tokenItem+ → DToken ;
   tokenItem  ::= prodDecl ;
   pieceDecl  ::= "piece" ident pieceItem+ → DPiece ;
-  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl ;
+  pieceItem  ::= prodDecl | ruleDecl | typeDecl | testDecl | deriveDecl ;
   prodDecl   ::= ident "::=" expr ";" → DGrammar ;
   ruleDecl   ::= "rule" ident ":"? pattern ruleArrow template ruleGuard? ";" → DRule ;
   ruleArrow  ::= "~~>" | "~>" ;
   ruleGuard  ::= "when" sideCondition ("," sideCondition)* → guard ;
+  -- Derive operations from grammar (algebraic recursion schemes)
+  deriveDecl ::= "derive" deriveKind "for" ident deriveWith? ";" → DDerive ;
+  deriveKind ::= "subst" → DSubst | "shift" → DShift | "map" → DMap | "fold" → DFold
+               | "cata" → DCata | "ana" → DAna | "hylo" → DHylo | "para" → DPara
+               | "conv" → DConv | "eq" → DEq | "infer" → DInfer | "check" → DCheck
+               | "normalize" → DNormalize | "eval" → DEval ;
+  deriveWith ::= "with" deriveMod ("," deriveMod)* → deriveWith ;
+  deriveMod  ::= "binders" "=" "[" ident ("," ident)* "]" → binderList
+               | "fuel" "=" <number> → fuelMod
+               | "base" "=" pattern → baseMod ;
   typeDecl   ::= "type" ident ":" pattern ":" term whenClause? ";" → DType ;
   whenClause ::= "when" typeConstraint ("," typeConstraint)* → whenClause ;
   typeConstraint ::= pattern ":" term → constraint

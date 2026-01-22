@@ -1,60 +1,56 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
+
+import Lego.Algebra
+
+open Lego
 
 namespace Visitor
 
   section VisitorState
 
-    def vstate : Parser :=
-      (annotated str "vstate" (special <number>) → vstate)
-
     def vstateEmpty (t : Term) : Term :=
       match t with
-      | (vstateEmpty) => (vstate (num (number 0)))
+      | .con "vstateEmpty" [] => Term.con "app" [Term.var "vstate", Term.con "num" [Term.con "number" [Term.lit "0"]]]
       | _ => t
 
     def vstateDepth (t : Term) : Term :=
       match t with
-      | (vstateDepth (vstate $d)) => $d
+      | .con "app" [.var "vstateDepth", .con "app" [.var "vstate", d]] => d
       | _ => t
 
     def vstateIncr (t : Term) : Term :=
       match t with
-      | (vstateIncr (vstate $d)) => (vstate (suc $d))
+      | .con "app" [.var "vstateIncr", .con "app" [.var "vstate", d]] => Term.con "app" [Term.var "vstate", Term.con "app" [Term.var "suc", d]]
       | _ => t
 
   end VisitorState
 
   section BinderInfo
 
-    def binfo : Parser :=
-      ((annotated str "binfoNone" → binfoNone) <|> ((annotated str "binfoTerm" (special <number>) → binfoTerm) <|> (annotated str "binfoDim" (special <number>) → binfoDim)))
+
 
   end BinderInfo
 
   section Child
 
-    def child : Parser :=
-      (annotated str "child" term binfo → child)
-
     def childExpr (t : Term) : Term :=
       match t with
-      | (childExpr (child $e $bi)) => $e
+      | .con "app" [.var "childExpr", .con "child" [e, bi]] => e
       | _ => t
 
     def childBinder (t : Term) : Term :=
       match t with
-      | (childBinder (child $e $bi)) => $bi
+      | .con "app" [.var "childBinder", .con "child" [e, bi]] => bi
       | _ => t
 
   end Child
 
   section ExprShape
 
-    def shape : Parser :=
-      (annotated str "shape" children (special <ident>) → shape)
 
-    def children : Parser :=
-      (annotated many (child) → children)
 
   end ExprShape
 
@@ -62,177 +58,177 @@ namespace Visitor
 
     def shapeIx (t : Term) : Term :=
       match t with
-      | (exprShape (ix $n)) => (shape (unit ( )) str "ix")
+      | .con "app" [.var "exprShape", .con "app" [.var "ix", n]] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "ix"]]
       | _ => t
 
     def shapeLit (t : Term) : Term :=
       match t with
-      | (exprShape (lit $s)) => (shape (unit ( )) str "lit")
+      | .con "app" [.var "exprShape", .con "app" [.var "lit", s]] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "lit"]]
       | _ => t
 
     def shapeDim0 (t : Term) : Term :=
       match t with
-      | (exprShape (dim0)) => (shape (unit ( )) str "dim0")
+      | .con "app" [.var "exprShape", .con "dim0" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "dim0"]]
       | _ => t
 
     def shapeDim1 (t : Term) : Term :=
       match t with
-      | (exprShape (dim1)) => (shape (unit ( )) str "dim1")
+      | .con "app" [.var "exprShape", .con "dim1" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "dim1"]]
       | _ => t
 
     def shapeDimVar (t : Term) : Term :=
       match t with
-      | (exprShape (dimVar $n)) => (shape (unit ( )) str "dimVar")
+      | .con "app" [.var "exprShape", .con "app" [.var "dimVar", n]] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "dimVar"]]
       | _ => t
 
     def shapeCofTop (t : Term) : Term :=
       match t with
-      | (exprShape (cof_top)) => (shape (unit ( )) str "cof_top")
+      | .con "app" [.var "exprShape", .con "cof_top" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "cof_top"]]
       | _ => t
 
     def shapeCofBot (t : Term) : Term :=
       match t with
-      | (exprShape (cof_bot)) => (shape (unit ( )) str "cof_bot")
+      | .con "app" [.var "exprShape", .con "cof_bot" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "cof_bot"]]
       | _ => t
 
     def shapeNat (t : Term) : Term :=
       match t with
-      | (exprShape (nat)) => (shape (unit ( )) str "nat")
+      | .con "app" [.var "exprShape", .con "nat" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "nat"]]
       | _ => t
 
     def shapeZero (t : Term) : Term :=
       match t with
-      | (exprShape (zero)) => (shape (unit ( )) str "zero")
+      | .con "app" [.var "exprShape", .con "zero" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "zero"]]
       | _ => t
 
     def shapeCircle (t : Term) : Term :=
       match t with
-      | (exprShape (circle)) => (shape (unit ( )) str "circle")
+      | .con "app" [.var "exprShape", .con "circle" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "circle"]]
       | _ => t
 
     def shapeBase (t : Term) : Term :=
       match t with
-      | (exprShape (base)) => (shape (unit ( )) str "base")
+      | .con "app" [.var "exprShape", .con "base" []] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "base"]]
       | _ => t
 
     def shapeUniv (t : Term) : Term :=
       match t with
-      | (exprShape (univ $l)) => (shape (unit ( )) str "univ")
+      | .con "app" [.var "exprShape", .con "app" [.var "univ", l]] => Term.con "shape" [Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "terminal" [Term.lit "univ"]]
       | _ => t
 
     def shapeFst (t : Term) : Term :=
       match t with
-      | (exprShape (fst $e)) => (shape ((( (child) $e (binfoNone) ))) str "fst")
+      | .con "app" [.var "exprShape", .con "app" [.var "fst", e]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], e, Term.con "binfoNone" [], Term.lit ")"], Term.con "terminal" [Term.lit "fst"]]
       | _ => t
 
     def shapeSnd (t : Term) : Term :=
       match t with
-      | (exprShape (snd $e)) => (shape ((( (child) $e (binfoNone) ))) str "snd")
+      | .con "app" [.var "exprShape", .con "app" [.var "snd", e]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], e, Term.con "binfoNone" [], Term.lit ")"], Term.con "terminal" [Term.lit "snd"]]
       | _ => t
 
     def shapeSuc (t : Term) : Term :=
       match t with
-      | (exprShape (suc $e)) => (shape ((( (child) $e (binfoNone) ))) str "suc")
+      | .con "app" [.var "exprShape", .con "app" [.var "suc", e]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], e, Term.con "binfoNone" [], Term.lit ")"], Term.con "terminal" [Term.lit "suc"]]
       | _ => t
 
     def shapeRefl (t : Term) : Term :=
       match t with
-      | (exprShape (refl $e)) => (shape ((( (child) $e (binfoNone) ))) str "refl")
+      | .con "app" [.var "exprShape", .con "app" [.var "refl", e]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], e, Term.con "binfoNone" [], Term.lit ")"], Term.con "terminal" [Term.lit "refl"]]
       | _ => t
 
     def shapeLoop (t : Term) : Term :=
       match t with
-      | (exprShape (loop $r)) => (shape ((( (child) $r (binfoNone) ))) str "loop")
+      | .con "app" [.var "exprShape", .con "app" [.var "loop", r]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], r, Term.con "binfoNone" [], Term.lit ")"], Term.con "terminal" [Term.lit "loop"]]
       | _ => t
 
     def shapeSubIn (t : Term) : Term :=
       match t with
-      | (exprShape (subIn $e)) => (shape ((( (child) $e (binfoNone) ))) str "subIn")
+      | .con "app" [.var "exprShape", .con "app" [.var "subIn", e]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], e, Term.con "binfoNone" [], Term.lit ")"], Term.con "terminal" [Term.lit "subIn"]]
       | _ => t
 
     def shapeSubOut (t : Term) : Term :=
       match t with
-      | (exprShape (subOut $e)) => (shape ((( (child) $e (binfoNone) ))) str "subOut")
+      | .con "app" [.var "exprShape", .con "app" [.var "subOut", e]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], e, Term.con "binfoNone" [], Term.lit ")"], Term.con "terminal" [Term.lit "subOut"]]
       | _ => t
 
     def shapeLam (t : Term) : Term :=
       match t with
-      | (exprShape (lam $body)) => (shape ((( (child) $body (binfoTerm (num (number 1))) ))) str "lam")
+      | .con "app" [.var "exprShape", .con "app" [.var "lam", body]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], body, Term.con "app" [Term.var "binfoTerm", Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.lit ")"], Term.con "terminal" [Term.lit "lam"]]
       | _ => t
 
     def shapePlam (t : Term) : Term :=
       match t with
-      | (exprShape (plam $body)) => (shape ((( (child) $body (binfoDim (num (number 1))) ))) str "plam")
+      | .con "app" [.var "exprShape", .con "app" [.var "plam", body]] => Term.con "shape" [Term.con "app" [Term.lit "(", Term.con "child" [], body, Term.con "app" [Term.var "binfoDim", Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.lit ")"], Term.con "terminal" [Term.lit "plam"]]
       | _ => t
 
     def shapeApp (t : Term) : Term :=
       match t with
-      | (exprShape (app $f $a)) => (shape ((( (child) $f (binfoNone) )) (child $a (binfoNone))) str "app")
+      | .con "app" [.var "exprShape", .con "app" [f, a]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], f, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [a, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "app"]]
       | _ => t
 
     def shapePair (t : Term) : Term :=
       match t with
-      | (exprShape (pair $a $b)) => (shape ((( (child) $a (binfoNone) )) (child $b (binfoNone))) str "pair")
+      | .con "app" [.var "exprShape", .con "pair" [a, b]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], a, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [b, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "pair"]]
       | _ => t
 
     def shapePapp (t : Term) : Term :=
       match t with
-      | (exprShape (papp $p $r)) => (shape ((( (child) $p (binfoNone) )) (child $r (binfoNone))) str "papp")
+      | .con "app" [.var "exprShape", .con "papp" [p, r]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], p, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [r, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "papp"]]
       | _ => t
 
     def shapeCofEq (t : Term) : Term :=
       match t with
-      | (exprShape (cof_eq $r $s)) => (shape ((( (child) $r (binfoNone) )) (child $s (binfoNone))) str "cof_eq")
+      | .con "app" [.var "exprShape", .con "cof_eq" [r, s]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], r, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [s, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "cof_eq"]]
       | _ => t
 
     def shapeCofAnd (t : Term) : Term :=
       match t with
-      | (exprShape (cof_and $φ $ψ)) => (shape ((( (child) $φ (binfoNone) )) (child $ψ (binfoNone))) str "cof_and")
+      | .con "app" [.var "exprShape", .con "cof_and" [φ, ψ]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], φ, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [ψ, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "cof_and"]]
       | _ => t
 
     def shapeCofOr (t : Term) : Term :=
       match t with
-      | (exprShape (cof_or $φ $ψ)) => (shape ((( (child) $φ (binfoNone) )) (child $ψ (binfoNone))) str "cof_or")
+      | .con "app" [.var "exprShape", .con "cof_or" [φ, ψ]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], φ, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [ψ, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "cof_or"]]
       | _ => t
 
     def shapePi (t : Term) : Term :=
       match t with
-      | (exprShape (pi $dom $cod)) => (shape ((( (child) $dom (binfoNone) )) (child $cod (binfoTerm (num (number 1))))) str "pi")
+      | .con "app" [.var "exprShape", .con "pi" [dom, cod]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], dom, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [cod, Term.con "app" [Term.var "binfoTerm", Term.con "num" [Term.con "number" [Term.lit "1"]]]]], Term.con "terminal" [Term.lit "pi"]]
       | _ => t
 
     def shapeSigma (t : Term) : Term :=
       match t with
-      | (exprShape (sigma $dom $cod)) => (shape ((( (child) $dom (binfoNone) )) (child $cod (binfoTerm (num (number 1))))) str "sigma")
+      | .con "app" [.var "exprShape", .con "sigma" [dom, cod]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], dom, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [cod, Term.con "app" [Term.var "binfoTerm", Term.con "num" [Term.con "number" [Term.lit "1"]]]]], Term.con "terminal" [Term.lit "sigma"]]
       | _ => t
 
     def shapePath (t : Term) : Term :=
       match t with
-      | (exprShape (path $A $a $b)) => (shape ((( (child) $A (binfoNone) )) (child $a (binfoNone)) (child $b (binfoNone))) str "path")
+      | .con "app" [.var "exprShape", .con "path" [A, a, b]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], A, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [a, Term.con "binfoNone" []], Term.con "child" [b, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "path"]]
       | _ => t
 
     def shapeSub (t : Term) : Term :=
       match t with
-      | (exprShape (sub $A $φ $t)) => (shape ((( (child) $A (binfoNone) )) (child $φ (binfoNone)) (child $t (binfoNone))) str "sub")
+      | .con "app" [.var "exprShape", .con "sub" [A, φ, t]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], A, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [φ, Term.con "binfoNone" []], Term.con "child" [t, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "sub"]]
       | _ => t
 
     def shapeLetE (t : Term) : Term :=
       match t with
-      | (exprShape (letE $ty $val $body)) => (shape ((( (child) $ty (binfoNone) )) (child $val (binfoNone)) (child $body (binfoTerm (num (number 1))))) str "letE")
+      | .con "app" [.var "exprShape", .con "letE" [ty, val, body]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], ty, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [val, Term.con "binfoNone" []], Term.con "child" [body, Term.con "app" [Term.var "binfoTerm", Term.con "num" [Term.con "number" [Term.lit "1"]]]]], Term.con "terminal" [Term.lit "letE"]]
       | _ => t
 
     def shapeCoe (t : Term) : Term :=
       match t with
-      | (exprShape (coe $r $r' $A $a)) => (shape ((( (child) $r (binfoNone) )) (child $r' (binfoNone)) (child $A (binfoDim (num (number 1)))) (child $a (binfoNone))) str "coe")
+      | .con "app" [.var "exprShape", .con "coe" [r, r', A, a]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], r, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [r', Term.con "binfoNone" []], Term.con "child" [A, Term.con "app" [Term.var "binfoDim", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "child" [a, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "coe"]]
       | _ => t
 
     def shapeNatElim (t : Term) : Term :=
       match t with
-      | (exprShape (natElim $P $z $s $n)) => (shape ((( (child) $P (binfoNone) )) (child $z (binfoNone)) (child $s (binfoTerm (num (number 2)))) (child $n (binfoNone))) str "natElim")
+      | .con "app" [.var "exprShape", .con "natElim" [P, z, s, n]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], P, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [z, Term.con "binfoNone" []], Term.con "child" [s, Term.con "app" [Term.var "binfoTerm", Term.con "num" [Term.con "number" [Term.lit "2"]]]], Term.con "child" [n, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "natElim"]]
       | _ => t
 
     def shapeCircleElim (t : Term) : Term :=
       match t with
-      | (exprShape (circleElim $P $b $l $x)) => (shape ((( (child) $P (binfoNone) )) (child $b (binfoNone)) (child $l (binfoDim (num (number 1)))) (child $x (binfoNone))) str "circleElim")
+      | .con "app" [.var "exprShape", .con "circleElim" [P, b, l, x]] => Term.con "shape" [Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "child" [], P, Term.con "binfoNone" [], Term.lit ")"], Term.con "child" [b, Term.con "binfoNone" []], Term.con "child" [l, Term.con "app" [Term.var "binfoDim", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "child" [x, Term.con "binfoNone" []]], Term.con "terminal" [Term.lit "circleElim"]]
       | _ => t
 
   end Shape
@@ -241,127 +237,127 @@ namespace Visitor
 
     def reconstructIx (t : Term) : Term :=
       match t with
-      | (reconstruct str "ix" (unit ( )) $orig) => $orig
+      | .con "reconstruct" [.con "terminal" [.lit "ix"], .con "unit" [.lit "(", .lit ")"], orig] => orig
       | _ => t
 
     def reconstructLit (t : Term) : Term :=
       match t with
-      | (reconstruct str "lit" (unit ( )) $orig) => $orig
+      | .con "reconstruct" [.con "terminal" [.lit "lit"], .con "unit" [.lit "(", .lit ")"], orig] => orig
       | _ => t
 
     def reconstructLam (t : Term) : Term :=
       match t with
-      | (reconstruct str "lam" ($body) (lam $oldBody)) => (lam $body)
+      | .con "reconstruct" [.con "terminal" [.lit "lam"], body, .con "app" [.var "lam", oldBody]] => Term.con "app" [Term.var "lam", body]
       | _ => t
 
     def reconstructApp (t : Term) : Term :=
       match t with
-      | (reconstruct str "app" ($f $a) (app $oldF $oldA)) => (app $f $a)
+      | .con "reconstruct" [.con "terminal" [.lit "app"], .con "tuple" [f, a], .con "app" [oldF, oldA]] => Term.con "app" [f, a]
       | _ => t
 
     def reconstructPi (t : Term) : Term :=
       match t with
-      | (reconstruct str "pi" ($dom $cod) (pi $oldDom $oldCod)) => (pi $dom $cod)
+      | .con "reconstruct" [.con "terminal" [.lit "pi"], .con "tuple" [dom, cod], .con "pi" [oldDom, oldCod]] => Term.con "pi" [dom, cod]
       | _ => t
 
     def reconstructSigma (t : Term) : Term :=
       match t with
-      | (reconstruct str "sigma" ($dom $cod) (sigma $oldDom $oldCod)) => (sigma $dom $cod)
+      | .con "reconstruct" [.con "terminal" [.lit "sigma"], .con "tuple" [dom, cod], .con "sigma" [oldDom, oldCod]] => Term.con "sigma" [dom, cod]
       | _ => t
 
     def reconstructPair (t : Term) : Term :=
       match t with
-      | (reconstruct str "pair" ($a $b) (pair $oldA $oldB)) => (pair $a $b)
+      | .con "reconstruct" [.con "terminal" [.lit "pair"], .con "tuple" [a, b], .con "pair" [oldA, oldB]] => Term.con "pair" [a, b]
       | _ => t
 
     def reconstructFst (t : Term) : Term :=
       match t with
-      | (reconstruct str "fst" ($e) (fst $oldE)) => (fst $e)
+      | .con "reconstruct" [.con "terminal" [.lit "fst"], e, .con "app" [.var "fst", oldE]] => Term.con "app" [Term.var "fst", e]
       | _ => t
 
     def reconstructSnd (t : Term) : Term :=
       match t with
-      | (reconstruct str "snd" ($e) (snd $oldE)) => (snd $e)
+      | .con "reconstruct" [.con "terminal" [.lit "snd"], e, .con "app" [.var "snd", oldE]] => Term.con "app" [Term.var "snd", e]
       | _ => t
 
     def reconstructPlam (t : Term) : Term :=
       match t with
-      | (reconstruct str "plam" ($body) (plam $oldBody)) => (plam $body)
+      | .con "reconstruct" [.con "terminal" [.lit "plam"], body, .con "app" [.var "plam", oldBody]] => Term.con "app" [Term.var "plam", body]
       | _ => t
 
     def reconstructPapp (t : Term) : Term :=
       match t with
-      | (reconstruct str "papp" ($p $r) (papp $oldP $oldR)) => (papp $p $r)
+      | .con "reconstruct" [.con "terminal" [.lit "papp"], .con "tuple" [p, r], .con "papp" [oldP, oldR]] => Term.con "papp" [p, r]
       | _ => t
 
     def reconstructPath (t : Term) : Term :=
       match t with
-      | (reconstruct str "path" ($A $a $b) (path $oldA $oldA' $oldB)) => (path $A $a $b)
+      | .con "reconstruct" [.con "terminal" [.lit "path"], .con "tuple" [A, a, b], .con "path" [oldA, oldA', oldB]] => Term.con "path" [A, a, b]
       | _ => t
 
     def reconstructRefl (t : Term) : Term :=
       match t with
-      | (reconstruct str "refl" ($a) (refl $oldA)) => (refl $a)
+      | .con "reconstruct" [.con "terminal" [.lit "refl"], a, .con "app" [.var "refl", oldA]] => Term.con "app" [Term.var "refl", a]
       | _ => t
 
     def reconstructCofEq (t : Term) : Term :=
       match t with
-      | (reconstruct str "cof_eq" ($r $s) (cof_eq $oldR $oldS)) => (cof_eq $r $s)
+      | .con "reconstruct" [.con "terminal" [.lit "cof_eq"], .con "tuple" [r, s], .con "cof_eq" [oldR, oldS]] => Term.con "cof_eq" [r, s]
       | _ => t
 
     def reconstructCofAnd (t : Term) : Term :=
       match t with
-      | (reconstruct str "cof_and" ($φ $ψ) (cof_and $oldPhi $oldPsi)) => (cof_and $φ $ψ)
+      | .con "reconstruct" [.con "terminal" [.lit "cof_and"], .con "tuple" [φ, ψ], .con "cof_and" [oldPhi, oldPsi]] => Term.con "cof_and" [φ, ψ]
       | _ => t
 
     def reconstructCofOr (t : Term) : Term :=
       match t with
-      | (reconstruct str "cof_or" ($φ $ψ) (cof_or $oldPhi $oldPsi)) => (cof_or $φ $ψ)
+      | .con "reconstruct" [.con "terminal" [.lit "cof_or"], .con "tuple" [φ, ψ], .con "cof_or" [oldPhi, oldPsi]] => Term.con "cof_or" [φ, ψ]
       | _ => t
 
     def reconstructCoe (t : Term) : Term :=
       match t with
-      | (reconstruct str "coe" ($r $r' $A $a) (coe $oldR $oldR' $oldA $oldA')) => (coe $r $r' $A $a)
+      | .con "reconstruct" [.con "terminal" [.lit "coe"], .con "tuple" [r, r', A, a], .con "coe" [oldR, oldR', oldA, oldA']] => Term.con "coe" [r, r', A, a]
       | _ => t
 
     def reconstructSuc (t : Term) : Term :=
       match t with
-      | (reconstruct str "suc" ($n) (suc $oldN)) => (suc $n)
+      | .con "reconstruct" [.con "terminal" [.lit "suc"], n, .con "app" [.var "suc", oldN]] => Term.con "app" [Term.var "suc", n]
       | _ => t
 
     def reconstructNatElim (t : Term) : Term :=
       match t with
-      | (reconstruct str "natElim" ($P $z $s $n) (natElim $oldP $oldZ $oldS $oldN)) => (natElim $P $z $s $n)
+      | .con "reconstruct" [.con "terminal" [.lit "natElim"], .con "tuple" [P, z, s, n], .con "natElim" [oldP, oldZ, oldS, oldN]] => Term.con "natElim" [P, z, s, n]
       | _ => t
 
     def reconstructLoop (t : Term) : Term :=
       match t with
-      | (reconstruct str "loop" ($r) (loop $oldR)) => (loop $r)
+      | .con "reconstruct" [.con "terminal" [.lit "loop"], r, .con "app" [.var "loop", oldR]] => Term.con "app" [Term.var "loop", r]
       | _ => t
 
     def reconstructCircleElim (t : Term) : Term :=
       match t with
-      | (reconstruct str "circleElim" ($P $b $l $x) (circleElim $oldP $oldB $oldL $oldX)) => (circleElim $P $b $l $x)
+      | .con "reconstruct" [.con "terminal" [.lit "circleElim"], .con "tuple" [P, b, l, x], .con "circleElim" [oldP, oldB, oldL, oldX]] => Term.con "circleElim" [P, b, l, x]
       | _ => t
 
     def reconstructSub (t : Term) : Term :=
       match t with
-      | (reconstruct str "sub" ($A $φ $t) (sub $oldA $oldPhi $oldT)) => (sub $A $φ $t)
+      | .con "reconstruct" [.con "terminal" [.lit "sub"], .con "tuple" [A, φ, t], .con "sub" [oldA, oldPhi, oldT]] => Term.con "sub" [A, φ, t]
       | _ => t
 
     def reconstructSubIn (t : Term) : Term :=
       match t with
-      | (reconstruct str "subIn" ($e) (subIn $oldE)) => (subIn $e)
+      | .con "reconstruct" [.con "terminal" [.lit "subIn"], e, .con "app" [.var "subIn", oldE]] => Term.con "app" [Term.var "subIn", e]
       | _ => t
 
     def reconstructSubOut (t : Term) : Term :=
       match t with
-      | (reconstruct str "subOut" ($e) (subOut $oldE)) => (subOut $e)
+      | .con "reconstruct" [.con "terminal" [.lit "subOut"], e, .con "app" [.var "subOut", oldE]] => Term.con "app" [Term.var "subOut", e]
       | _ => t
 
     def reconstructLetE (t : Term) : Term :=
       match t with
-      | (reconstruct str "letE" ($ty $val $body) (letE $oldTy $oldVal $oldBody)) => (letE $ty $val $body)
+      | .con "reconstruct" [.con "terminal" [.lit "letE"], .con "tuple" [ty, val, body], .con "letE" [oldTy, oldVal, oldBody]] => Term.con "letE" [ty, val, body]
       | _ => t
 
   end Reconstruct
@@ -370,72 +366,72 @@ namespace Visitor
 
     def freeVarsIx (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (ix $n)) => (if (geq $n $depth) (cons $n (nil)) (nil))
+      | .con "freeVars'" [depth, .con "app" [.var "ix", n]] => Term.con "if" [Term.con "geq" [n, depth], Term.con "cons" [n, Term.con "nil" []], Term.con "nil" []]
       | _ => t
 
     def freeVarsLit (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (lit $s)) => (nil)
+      | .con "freeVars'" [depth, .con "app" [.var "lit", s]] => Term.con "nil" []
       | _ => t
 
     def freeVarsLam (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (lam $body)) => (freeVars' (suc $depth) $body)
+      | .con "freeVars'" [depth, .con "app" [.var "lam", body]] => Term.con "freeVars'" [Term.con "app" [Term.var "suc", depth], body]
       | _ => t
 
     def freeVarsApp (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (app $f $a)) => (append (freeVars' $depth $f) (freeVars' $depth $a))
+      | .con "freeVars'" [depth, .con "app" [f, a]] => Term.con "append" [Term.con "freeVars'" [depth, f], Term.con "freeVars'" [depth, a]]
       | _ => t
 
     def freeVarsPi (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (pi $dom $cod)) => (append (freeVars' $depth $dom) (freeVars' (suc $depth) $cod))
+      | .con "freeVars'" [depth, .con "pi" [dom, cod]] => Term.con "append" [Term.con "freeVars'" [depth, dom], Term.con "freeVars'" [Term.con "app" [Term.var "suc", depth], cod]]
       | _ => t
 
     def freeVarsSigma (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (sigma $dom $cod)) => (append (freeVars' $depth $dom) (freeVars' (suc $depth) $cod))
+      | .con "freeVars'" [depth, .con "sigma" [dom, cod]] => Term.con "append" [Term.con "freeVars'" [depth, dom], Term.con "freeVars'" [Term.con "app" [Term.var "suc", depth], cod]]
       | _ => t
 
     def freeVarsPair (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (pair $a $b)) => (append (freeVars' $depth $a) (freeVars' $depth $b))
+      | .con "freeVars'" [depth, .con "pair" [a, b]] => Term.con "append" [Term.con "freeVars'" [depth, a], Term.con "freeVars'" [depth, b]]
       | _ => t
 
     def freeVarsFst (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (fst $e)) => (freeVars' $depth $e)
+      | .con "freeVars'" [depth, .con "app" [.var "fst", e]] => Term.con "freeVars'" [depth, e]
       | _ => t
 
     def freeVarsSnd (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (snd $e)) => (freeVars' $depth $e)
+      | .con "freeVars'" [depth, .con "app" [.var "snd", e]] => Term.con "freeVars'" [depth, e]
       | _ => t
 
     def freeVarsPlam (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (plam $body)) => (freeVars' $depth $body)
+      | .con "freeVars'" [depth, .con "app" [.var "plam", body]] => Term.con "freeVars'" [depth, body]
       | _ => t
 
     def freeVarsPapp (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (papp $p $r)) => (freeVars' $depth $p)
+      | .con "freeVars'" [depth, .con "papp" [p, r]] => Term.con "freeVars'" [depth, p]
       | _ => t
 
     def freeVarsUniv (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (univ $l)) => (nil)
+      | .con "freeVars'" [depth, .con "app" [.var "univ", l]] => Term.con "nil" []
       | _ => t
 
     def freeVarsPath (t : Term) : Term :=
       match t with
-      | (freeVars' $depth (path $A $a $b)) => (append (freeVars' $depth $A) (append (freeVars' $depth $a) (freeVars' $depth $b)))
+      | .con "freeVars'" [depth, .con "path" [A, a, b]] => Term.con "append" [Term.con "freeVars'" [depth, A], Term.con "append" [Term.con "freeVars'" [depth, a], Term.con "freeVars'" [depth, b]]]
       | _ => t
 
     def freeVars (t : Term) : Term :=
       match t with
-      | (freeVars $e) => (freeVars' (num (number 0)) $e)
+      | .con "app" [.var "freeVars", e] => Term.con "freeVars'" [Term.con "num" [Term.con "number" [Term.lit "0"]], e]
       | _ => t
 
   end FreeVars
@@ -444,7 +440,7 @@ namespace Visitor
 
     def freeIn (t : Term) : Term :=
       match t with
-      | (freeIn $n $e) => (elem $n (freeVars $e))
+      | .con "freeIn" [n, e] => Term.con "elem" [n, Term.con "app" [Term.var "freeVars", e]]
       | _ => t
 
   end FreeIn
@@ -453,72 +449,72 @@ namespace Visitor
 
     def whnfAppLam (t : Term) : Term :=
       match t with
-      | (whnfStep (app (lam $body) $arg)) => (some (subst (num (number 0)) $arg $body))
+      | .con "app" [.var "whnfStep", .con "app" [.con "app" [.var "lam", body], arg]] => Term.con "app" [Term.var "some", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], arg, body]]
       | _ => t
 
     def whnfAppOther (t : Term) : Term :=
       match t with
-      | (whnfStep (app $f $a)) => (none)
+      | .con "app" [.var "whnfStep", .con "app" [f, a]] => Term.con "none" []
       | _ => t
 
     def whnfFstPair (t : Term) : Term :=
       match t with
-      | (whnfStep (fst (pair $a $b))) => (some $a)
+      | .con "app" [.var "whnfStep", .con "app" [.var "fst", .con "pair" [a, b]]] => Term.con "app" [Term.var "some", a]
       | _ => t
 
     def whnfSndPair (t : Term) : Term :=
       match t with
-      | (whnfStep (snd (pair $a $b))) => (some $b)
+      | .con "app" [.var "whnfStep", .con "app" [.var "snd", .con "pair" [a, b]]] => Term.con "app" [Term.var "some", b]
       | _ => t
 
     def whnfFstOther (t : Term) : Term :=
       match t with
-      | (whnfStep (fst $p)) => (none)
+      | .con "app" [.var "whnfStep", .con "app" [.var "fst", p]] => Term.con "none" []
       | _ => t
 
     def whnfSndOther (t : Term) : Term :=
       match t with
-      | (whnfStep (snd $p)) => (none)
+      | .con "app" [.var "whnfStep", .con "app" [.var "snd", p]] => Term.con "none" []
       | _ => t
 
     def whnfPappPlam (t : Term) : Term :=
       match t with
-      | (whnfStep (papp (plam $body) $r)) => (some (substDim (num (number 0)) $r $body))
+      | .con "app" [.var "whnfStep", .con "papp" [.con "app" [.var "plam", body], r]] => Term.con "app" [Term.var "some", Term.con "substDim" [Term.con "num" [Term.con "number" [Term.lit "0"]], r, body]]
       | _ => t
 
     def whnfPappRefl (t : Term) : Term :=
       match t with
-      | (whnfStep (papp (refl $a) $r)) => (some $a)
+      | .con "app" [.var "whnfStep", .con "papp" [.con "app" [.var "refl", a], r]] => Term.con "app" [Term.var "some", a]
       | _ => t
 
     def whnfPappOther (t : Term) : Term :=
       match t with
-      | (whnfStep (papp $p $r)) => (none)
+      | .con "app" [.var "whnfStep", .con "papp" [p, r]] => Term.con "none" []
       | _ => t
 
     def whnfLet (t : Term) : Term :=
       match t with
-      | (whnfStep (letE $ty $val $body)) => (some (subst (num (number 0)) $val $body))
+      | .con "app" [.var "whnfStep", .con "letE" [ty, val, body]] => Term.con "app" [Term.var "some", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], val, body]]
       | _ => t
 
     def whnfStepDefault (t : Term) : Term :=
       match t with
-      | (whnfStep $e) => (none)
+      | .con "app" [.var "whnfStep", e] => Term.con "none" []
       | _ => t
 
     def whnf' (t : Term) : Term :=
       match t with
-      | (whnf' $fuel $e) => (whnfLoop $fuel $e)
+      | .con "whnf'" [fuel, e] => Term.con "whnfLoop" [fuel, e]
       | _ => t
 
     def whnf'Zero (t : Term) : Term :=
       match t with
-      | (whnf' (num (number 0)) $e) => $e
+      | .con "whnf'" [.con "num" [.con "number" [.lit "0"]], e] => e
       | _ => t
 
     def whnfLoop (t : Term) : Term :=
       match t with
-      | (whnfLoop $fuel $e) => (match (whnfStep $e) (with) (|) (some $e') (=>) (whnf' (sub $fuel (num (number 1))) $e') (|) (none) (=>) $e)
+      | .con "whnfLoop" [fuel, e] => Term.con "match" [Term.con "app" [Term.var "whnfStep", e], Term.lit "with", Term.lit "|", Term.con "app" [Term.var "some", Term.var "e'"], Term.lit "=>", Term.con "whnf'" [Term.con "sub" [fuel, Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.var "e'"], Term.lit "|", Term.con "none" [], Term.lit "=>", e]
       | _ => t
 
   end WHNF
@@ -527,32 +523,32 @@ namespace Visitor
 
     def tryBetaApp (t : Term) : Term :=
       match t with
-      | (tryBetaReduce (app (lam $body) $arg)) => (some (subst (num (number 0)) $arg $body))
+      | .con "app" [.var "tryBetaReduce", .con "app" [.con "app" [.var "lam", body], arg]] => Term.con "app" [Term.var "some", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], arg, body]]
       | _ => t
 
     def tryBetaFst (t : Term) : Term :=
       match t with
-      | (tryBetaReduce (fst (pair $a $b))) => (some $a)
+      | .con "app" [.var "tryBetaReduce", .con "app" [.var "fst", .con "pair" [a, b]]] => Term.con "app" [Term.var "some", a]
       | _ => t
 
     def tryBetaSnd (t : Term) : Term :=
       match t with
-      | (tryBetaReduce (snd (pair $a $b))) => (some $b)
+      | .con "app" [.var "tryBetaReduce", .con "app" [.var "snd", .con "pair" [a, b]]] => Term.con "app" [Term.var "some", b]
       | _ => t
 
     def tryBetaPapp (t : Term) : Term :=
       match t with
-      | (tryBetaReduce (papp (plam $body) $r)) => (some (substDim (num (number 0)) $r $body))
+      | .con "app" [.var "tryBetaReduce", .con "papp" [.con "app" [.var "plam", body], r]] => Term.con "app" [Term.var "some", Term.con "substDim" [Term.con "num" [Term.con "number" [Term.lit "0"]], r, body]]
       | _ => t
 
     def tryBetaRefl (t : Term) : Term :=
       match t with
-      | (tryBetaReduce (papp (refl $a) $r)) => (some $a)
+      | .con "app" [.var "tryBetaReduce", .con "papp" [.con "app" [.var "refl", a], r]] => Term.con "app" [Term.var "some", a]
       | _ => t
 
     def tryBetaNone (t : Term) : Term :=
       match t with
-      | (tryBetaReduce $e) => (none)
+      | .con "app" [.var "tryBetaReduce", e] => Term.con "none" []
       | _ => t
 
   end TryBetaReduce

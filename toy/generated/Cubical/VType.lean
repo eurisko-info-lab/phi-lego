@@ -1,128 +1,123 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath Quote) ;)
+import Lego.Algebra
 
-(DImport import (modulePath Kan) ;)
-
-(DImport import (modulePath Visitor) ;)
+open Lego
 
 namespace VType
 
   section VTypeInfo
 
-    def vtypeInfo : Parser :=
-      (annotated str "vtypeInfo" str "dim:" (special <expr>) str "ty0:" (special <expr>) str "ty1:" (special <expr>) str "equiv:" (special <expr>) → vtypeInfo)
-
     def vtypeInfoDim (t : Term) : Term :=
       match t with
-      | (vtypeInfoDim (vtypeInfo (labeledArg dim : $d) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => $d
+      | .con "app" [.var "vtypeInfoDim", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => d
       | _ => t
 
     def vtypeInfoTy0 (t : Term) : Term :=
       match t with
-      | (vtypeInfoTy0 (vtypeInfo (labeledArg dim : $d) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => $a
+      | .con "app" [.var "vtypeInfoTy0", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => a
       | _ => t
 
     def vtypeInfoTy1 (t : Term) : Term :=
       match t with
-      | (vtypeInfoTy1 (vtypeInfo (labeledArg dim : $d) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => $b
+      | .con "app" [.var "vtypeInfoTy1", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => b
       | _ => t
 
     def vtypeInfoEquiv (t : Term) : Term :=
       match t with
-      | (vtypeInfoEquiv (vtypeInfo (labeledArg dim : $d) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => $e
+      | .con "app" [.var "vtypeInfoEquiv", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => e
       | _ => t
 
     def vtypeInfoAtDim0 (t : Term) : Term :=
       match t with
-      | (vtypeInfoAtDim0 (vtypeInfo (labeledArg dim : (dim0)) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => (true)
+      | .con "app" [.var "vtypeInfoAtDim0", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim0" []], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => Term.con "true" []
       | _ => t
 
     def vtypeInfoAtDim0Other (t : Term) : Term :=
       match t with
-      | (vtypeInfoAtDim0 $info) => (false)
+      | .con "app" [.var "vtypeInfoAtDim0", info] => Term.con "false" []
       | _ => t
 
     def vtypeInfoAtDim1 (t : Term) : Term :=
       match t with
-      | (vtypeInfoAtDim1 (vtypeInfo (labeledArg dim : (dim1)) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => (true)
+      | .con "app" [.var "vtypeInfoAtDim1", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim1" []], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => Term.con "true" []
       | _ => t
 
     def vtypeInfoAtDim1Other (t : Term) : Term :=
       match t with
-      | (vtypeInfoAtDim1 $info) => (false)
+      | .con "app" [.var "vtypeInfoAtDim1", info] => Term.con "false" []
       | _ => t
 
     def vtypeInfoReduce (t : Term) : Term :=
       match t with
-      | (vtypeInfoReduce (vtypeInfo (labeledArg dim : (dim0)) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => (some $a)
+      | .con "app" [.var "vtypeInfoReduce", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim0" []], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => Term.con "app" [Term.var "some", a]
       | _ => t
 
     def vtypeInfoReduce1 (t : Term) : Term :=
       match t with
-      | (vtypeInfoReduce (vtypeInfo (labeledArg dim : (dim1)) (labeledArg ty0 : $a) (labeledArg ty1 : $b) (labeledArg equiv : $e))) => (some $b)
+      | .con "app" [.var "vtypeInfoReduce", .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim1" []], .con "labeledArg" [.var "ty0", .lit ":", a], .con "labeledArg" [.var "ty1", .lit ":", b], .con "labeledArg" [.var "equiv", .lit ":", e]]] => Term.con "app" [Term.var "some", b]
       | _ => t
 
     def vtypeInfoReduceOther (t : Term) : Term :=
       match t with
-      | (vtypeInfoReduce $info) => (none)
+      | .con "app" [.var "vtypeInfoReduce", info] => Term.con "none" []
       | _ => t
 
   end VTypeInfo
 
   section VInInfo
 
-    def vinInfo : Parser :=
-      (annotated str "vinInfo" str "dim:" (special <expr>) str "tm0:" (special <expr>) str "tm1:" (special <expr>) → vinInfo)
-
     def vinInfoDim (t : Term) : Term :=
       match t with
-      | (vinInfoDim (vinInfo (labeledArg dim : $d) (labeledArg tm0 : $a) (labeledArg tm1 : $b))) => $d
+      | .con "app" [.var "vinInfoDim", .con "vinInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "tm0", .lit ":", a], .con "labeledArg" [.var "tm1", .lit ":", b]]] => d
       | _ => t
 
     def vinInfoTm0 (t : Term) : Term :=
       match t with
-      | (vinInfoTm0 (vinInfo (labeledArg dim : $d) (labeledArg tm0 : $a) (labeledArg tm1 : $b))) => $a
+      | .con "app" [.var "vinInfoTm0", .con "vinInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "tm0", .lit ":", a], .con "labeledArg" [.var "tm1", .lit ":", b]]] => a
       | _ => t
 
     def vinInfoTm1 (t : Term) : Term :=
       match t with
-      | (vinInfoTm1 (vinInfo (labeledArg dim : $d) (labeledArg tm0 : $a) (labeledArg tm1 : $b))) => $b
+      | .con "app" [.var "vinInfoTm1", .con "vinInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "tm0", .lit ":", a], .con "labeledArg" [.var "tm1", .lit ":", b]]] => b
       | _ => t
 
     def vinInfoAtDim0 (t : Term) : Term :=
       match t with
-      | (vinInfoAtDim0 (vinInfo (labeledArg dim : (dim0)) (labeledArg tm0 : $a) (labeledArg tm1 : $b))) => (true)
+      | .con "app" [.var "vinInfoAtDim0", .con "vinInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim0" []], .con "labeledArg" [.var "tm0", .lit ":", a], .con "labeledArg" [.var "tm1", .lit ":", b]]] => Term.con "true" []
       | _ => t
 
     def vinInfoAtDim0Other (t : Term) : Term :=
       match t with
-      | (vinInfoAtDim0 $info) => (false)
+      | .con "app" [.var "vinInfoAtDim0", info] => Term.con "false" []
       | _ => t
 
     def vinInfoAtDim1 (t : Term) : Term :=
       match t with
-      | (vinInfoAtDim1 (vinInfo (labeledArg dim : (dim1)) (labeledArg tm0 : $a) (labeledArg tm1 : $b))) => (true)
+      | .con "app" [.var "vinInfoAtDim1", .con "vinInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim1" []], .con "labeledArg" [.var "tm0", .lit ":", a], .con "labeledArg" [.var "tm1", .lit ":", b]]] => Term.con "true" []
       | _ => t
 
     def vinInfoAtDim1Other (t : Term) : Term :=
       match t with
-      | (vinInfoAtDim1 $info) => (false)
+      | .con "app" [.var "vinInfoAtDim1", info] => Term.con "false" []
       | _ => t
 
     def vinInfoReduce (t : Term) : Term :=
       match t with
-      | (vinInfoReduce (vinInfo (labeledArg dim : (dim0)) (labeledArg tm0 : $a) (labeledArg tm1 : $b))) => (some $a)
+      | .con "app" [.var "vinInfoReduce", .con "vinInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim0" []], .con "labeledArg" [.var "tm0", .lit ":", a], .con "labeledArg" [.var "tm1", .lit ":", b]]] => Term.con "app" [Term.var "some", a]
       | _ => t
 
     def vinInfoReduce1 (t : Term) : Term :=
       match t with
-      | (vinInfoReduce (vinInfo (labeledArg dim : (dim1)) (labeledArg tm0 : $a) (labeledArg tm1 : $b))) => (some $b)
+      | .con "app" [.var "vinInfoReduce", .con "vinInfo" [.con "labeledArg" [.var "dim", .lit ":", .con "dim1" []], .con "labeledArg" [.var "tm0", .lit ":", a], .con "labeledArg" [.var "tm1", .lit ":", b]]] => Term.con "app" [Term.var "some", b]
       | _ => t
 
     def vinInfoReduceOther (t : Term) : Term :=
       match t with
-      | (vinInfoReduce $info) => (none)
+      | .con "app" [.var "vinInfoReduce", info] => Term.con "none" []
       | _ => t
 
   end VInInfo
@@ -131,22 +126,22 @@ namespace VType
 
     def equivFunc (t : Term) : Term :=
       match t with
-      | (equivFunc $e) => (fst $e)
+      | .con "app" [.var "equivFunc", e] => Term.con "app" [Term.var "fst", e]
       | _ => t
 
     def equivInv (t : Term) : Term :=
       match t with
-      | (equivInv $e) => (fst (snd $e))
+      | .con "app" [.var "equivInv", e] => Term.con "app" [Term.var "fst", Term.con "app" [Term.var "snd", e]]
       | _ => t
 
     def isEquiv (t : Term) : Term :=
       match t with
-      | (isEquiv (pair $f (pair $g $proofs))) => (true)
+      | .con "app" [.var "isEquiv", .con "pair" [f, .con "pair" [g, proofs]]] => Term.con "true" []
       | _ => t
 
     def isEquivOther (t : Term) : Term :=
       match t with
-      | (isEquiv $e) => (false)
+      | .con "app" [.var "isEquiv", e] => Term.con "false" []
       | _ => t
 
   end Equivalence
@@ -155,17 +150,17 @@ namespace VType
 
     def mkVType (t : Term) : Term :=
       match t with
-      | (mkVType (dim0) $A $B $e) => $A
+      | .con "mkVType" [.con "dim0" [], A, B, e] => A
       | _ => t
 
     def mkVType1 (t : Term) : Term :=
       match t with
-      | (mkVType (dim1) $A $B $e) => $B
+      | .con "mkVType" [.con "dim1" [], A, B, e] => B
       | _ => t
 
     def mkVTypeOther (t : Term) : Term :=
       match t with
-      | (mkVType $r $A $B $e) => (vtype $r $A $B $e)
+      | .con "mkVType" [r, A, B, e] => Term.con "vtype" [r, A, B, e]
       | _ => t
 
   end MkVType
@@ -174,17 +169,17 @@ namespace VType
 
     def mkVIn (t : Term) : Term :=
       match t with
-      | (mkVIn (dim0) $a $b) => $a
+      | .con "mkVIn" [.con "dim0" [], a, b] => a
       | _ => t
 
     def mkVIn1 (t : Term) : Term :=
       match t with
-      | (mkVIn (dim1) $a $b) => $b
+      | .con "mkVIn" [.con "dim1" [], a, b] => b
       | _ => t
 
     def mkVInOther (t : Term) : Term :=
       match t with
-      | (mkVIn $r $a $b) => (vin $r $a $b)
+      | .con "mkVIn" [r, a, b] => Term.con "vin" [r, a, b]
       | _ => t
 
   end MkVIn
@@ -193,22 +188,22 @@ namespace VType
 
     def reduceVProj0 (t : Term) : Term :=
       match t with
-      | (reduceVProj (dim0) $ty0 $ty1 $equiv $el) => (app (equivFunc $equiv) $el)
+      | .con "reduceVProj" [.con "dim0" [], ty0, ty1, equiv, el] => Term.con "app" [Term.con "app" [Term.var "equivFunc", equiv], el]
       | _ => t
 
     def reduceVProj1 (t : Term) : Term :=
       match t with
-      | (reduceVProj (dim1) $ty0 $ty1 $equiv $el) => $el
+      | .con "reduceVProj" [.con "dim1" [], ty0, ty1, equiv, el] => el
       | _ => t
 
     def reduceVProjVin (t : Term) : Term :=
       match t with
-      | (reduceVProj $r $ty0 $ty1 $equiv (vin $r' $a $b)) => (caseExpr ( case (eq $r $r') (arm true => $b) (arm false => (vproj $r $ty0 $ty1 $equiv (vin $r' $a $b))) ))
+      | .con "reduceVProj" [r, ty0, ty1, equiv, .con "vin" [r', a, b]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "eq" [r, r'], Term.con "arm" [Term.var "true", Term.lit "=>", b], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "vproj" [r, ty0, ty1, equiv, Term.con "vin" [r', a, b]]], Term.lit ")"]
       | _ => t
 
     def reduceVProjOther (t : Term) : Term :=
       match t with
-      | (reduceVProj $r $ty0 $ty1 $equiv $el) => (vproj $r $ty0 $ty1 $equiv $el)
+      | .con "reduceVProj" [r, ty0, ty1, equiv, el] => Term.con "vproj" [r, ty0, ty1, equiv, el]
       | _ => t
 
   end ReduceVProj
@@ -217,22 +212,22 @@ namespace VType
 
     def coeV (t : Term) : Term :=
       match t with
-      | (coeV $dir (vtypeInfo (labeledArg dim : $d) (labeledArg ty0 : $A) (labeledArg ty1 : $B) (labeledArg equiv : $e)) $el) => (caseExpr ( case (dirIsDegenerate $dir) (arm true => $el) (arm false => (coeVBody $dir $d $A $B $e $el)) ))
+      | .con "coeV" [dir, .con "vtypeInfo" [.con "labeledArg" [.var "dim", .lit ":", d], .con "labeledArg" [.var "ty0", .lit ":", A], .con "labeledArg" [.var "ty1", .lit ":", B], .con "labeledArg" [.var "equiv", .lit ":", e]], el] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "dirIsDegenerate", dir], Term.con "arm" [Term.var "true", Term.lit "=>", el], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "coeVBody" [dir, d, A, B, e, el]], Term.lit ")"]
       | _ => t
 
     def dirIsDegenerate (t : Term) : Term :=
       match t with
-      | (dirIsDegenerate (dir $r $r)) => (true)
+      | .con "app" [.var "dirIsDegenerate", .con "dir" [r, r_dup]] => Term.con "true" []
       | _ => t
 
     def dirIsDegenerateOther (t : Term) : Term :=
       match t with
-      | (dirIsDegenerate $dir) => (false)
+      | .con "app" [.var "dirIsDegenerate", dir] => Term.con "false" []
       | _ => t
 
     def coeVBody (t : Term) : Term :=
       match t with
-      | (coeVBody (dir $r $r') $d $A $B $e $el) => (mkVIn $r' (coe $r $r' (lam $A) (caseExpr ( case $el (arm ( vin $_ $a $_ ) => $a) (arm _ => $el) ))) (coe $r $r' (lam $B) (caseExpr ( case $el (arm ( vin $_ $_ $b ) => $b) (arm _ => (app (equivFunc $e) $el)) ))))
+      | .con "coeVBody" [.con "dir" [r, r'], d, A, B, e, el] => Term.con "mkVIn" [r', Term.con "coe" [r, r', Term.con "app" [Term.var "lam", A], Term.con "caseExpr" [Term.lit "(", Term.lit "case", el, Term.con "arm" [Term.lit "(", Term.var "vin", Term.var "_", Term.var "a", Term.var "_", Term.lit ")", Term.lit "=>", Term.var "a"], Term.con "arm" [Term.var "_", Term.lit "=>", el], Term.lit ")"]], Term.con "coe" [r, r', Term.con "app" [Term.var "lam", B], Term.con "caseExpr" [Term.lit "(", Term.lit "case", el, Term.con "arm" [Term.lit "(", Term.var "vin", Term.var "_", Term.var "_", Term.var "b", Term.lit ")", Term.lit "=>", Term.var "b"], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.con "app" [Term.var "equivFunc", e], el]], Term.lit ")"]]]
       | _ => t
 
   end CoeV
@@ -241,27 +236,27 @@ namespace VType
 
     def hcomV (t : Term) : Term :=
       match t with
-      | (hcomV (vtype $d $A $B $e) $r $r' $φ $tubes $cap) => (mkVIn $d (hcom $A $r $r' $φ (lam (lam (vinProj0 (app (app (shift (num (number 0)) (num (number 2)) $tubes) (ix (num (number 1)))) (ix (num (number 0))))))) (vinProj0 $cap)) (hcom $B $r $r' (cof_disj $φ (cof_eq $d (dim0))) (lam (lam (caseCof (ix (num (number 1))) ($φ (=>) (vinProj1 (app (app (shift (num (number 0)) (num (number 2)) $tubes) (ix (num (number 1)))) (ix (num (number 0)))))) ((( (cof_eq) $d (dim0) )) (=>) (app (equivFunc $e) (vinProj0 (app (app (shift (num (number 0)) (num (number 2)) $tubes) (ix (num (number 1)))) (ix (num (number 0)))))))))) (vinProj1 $cap)))
+      | .con "hcomV" [.con "vtype" [d, A, B, e], r, r', φ, tubes, cap] => Term.con "mkVIn" [d, Term.con "hcom" [A, r, r', φ, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "vinProj0", Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "app" [Term.var "vinProj0", cap]], Term.con "hcom" [B, r, r', Term.con "cof_disj" [φ, Term.con "cof_eq" [d, Term.con "dim0" []]], Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "caseCof" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], Term.con "tuple" [φ, Term.lit "=>", Term.con "app" [Term.var "vinProj1", Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]], Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "cof_eq" [], d, Term.con "dim0" [], Term.lit ")"], Term.lit "=>", Term.con "app" [Term.con "app" [Term.var "equivFunc", e], Term.con "app" [Term.var "vinProj0", Term.con "app" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "2"]], tubes], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]]]], Term.con "app" [Term.var "vinProj1", cap]]]
       | _ => t
 
     def vinProj0 (t : Term) : Term :=
       match t with
-      | (vinProj0 (vin $d $a $b)) => $a
+      | .con "app" [.var "vinProj0", .con "vin" [d, a, b]] => a
       | _ => t
 
     def vinProj0Other (t : Term) : Term :=
       match t with
-      | (vinProj0 $e) => $e
+      | .con "app" [.var "vinProj0", e] => e
       | _ => t
 
     def vinProj1 (t : Term) : Term :=
       match t with
-      | (vinProj1 (vin $d $a $b)) => $b
+      | .con "app" [.var "vinProj1", .con "vin" [d, a, b]] => b
       | _ => t
 
     def vinProj1Other (t : Term) : Term :=
       match t with
-      | (vinProj1 $e) => $e
+      | .con "app" [.var "vinProj1", e] => e
       | _ => t
 
   end HComV
@@ -270,22 +265,22 @@ namespace VType
 
     def ua (t : Term) : Term :=
       match t with
-      | (ua $A $B $e) => (plam (lit str "i") (vtype (ix (num (number 0))) (shift (num (number 0)) (num (number 1)) $A) (shift (num (number 0)) (num (number 1)) $B) (shift (num (number 0)) (num (number 1)) $e)))
+      | .con "ua" [A, B, e] => Term.con "plam" [Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "i"]], Term.con "vtype" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], A], Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], B], Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], e]]]
       | _ => t
 
     def idEquiv (t : Term) : Term :=
       match t with
-      | (idEquiv $A) => (pair (lam (ix (num (number 0)))) (pair (lam (ix (num (number 0)))) (pair (lam (refl)) (pair (lam (refl)) (lit str "contractible-fibers")))))
+      | .con "app" [.var "idEquiv", A] => Term.con "pair" [Term.con "app" [Term.var "lam", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "pair" [Term.con "app" [Term.var "lam", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "pair" [Term.con "app" [Term.var "lam", Term.con "refl" []], Term.con "pair" [Term.con "app" [Term.var "lam", Term.con "refl" []], Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "contractible-fibers"]]]]]]
       | _ => t
 
     def uaβ (t : Term) : Term :=
       match t with
-      | (uaβ $e $a) => (coe (dim0) (dim1 (ua (typeOf $a) (codomain $e) $e)) $a)
+      | .con "uaβ" [e, a] => Term.con "coe" [Term.con "dim0" [], Term.con "dim1" [Term.con "ua" [Term.con "app" [Term.var "typeOf", a], Term.con "app" [Term.var "codomain", e], e]], a]
       | _ => t
 
     def uaη (t : Term) : Term :=
       match t with
-      | (uaη $A) => (plam (lit str "_") $A)
+      | .con "app" [.var "uaη", A] => Term.con "plam" [Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "_"]], A]
       | _ => t
 
   end Univalence
@@ -294,17 +289,17 @@ namespace VType
 
     def quoteVType (t : Term) : Term :=
       match t with
-      | (quoteVType (vtype $r $A $B $e)) => (surface ((string "V") (quoteDim $r) (quote $A) (quote $B) (quote $e)))
+      | .con "app" [.var "quoteVType", .con "vtype" [r, A, B, e]] => Term.con "app" [Term.var "surface", Term.con "tuple" [Term.con "string" [Term.lit "V"], Term.con "app" [Term.var "quoteDim", r], Term.con "app" [Term.var "quote", A], Term.con "app" [Term.var "quote", B], Term.con "app" [Term.var "quote", e]]]
       | _ => t
 
     def quoteVIn (t : Term) : Term :=
       match t with
-      | (quoteVIn (vin $r $a $b)) => (surface ((string "vin") (quoteDim $r) (quote $a) (quote $b)))
+      | .con "app" [.var "quoteVIn", .con "vin" [r, a, b]] => Term.con "app" [Term.var "surface", Term.con "tuple" [Term.con "string" [Term.lit "vin"], Term.con "app" [Term.var "quoteDim", r], Term.con "app" [Term.var "quote", a], Term.con "app" [Term.var "quote", b]]]
       | _ => t
 
     def quoteVProj (t : Term) : Term :=
       match t with
-      | (quoteVProj (vproj $r $A $B $e $v)) => (surface ((string "vproj") (quoteDim $r) (quote $v)))
+      | .con "app" [.var "quoteVProj", .con "vproj" [r, A, B, e, v]] => Term.con "app" [Term.var "surface", Term.con "tuple" [Term.con "string" [Term.lit "vproj"], Term.con "app" [Term.var "quoteDim", r], Term.con "app" [Term.var "quote", v]]]
       | _ => t
 
   end VTypeQuote
@@ -313,52 +308,52 @@ namespace VType
 
     def normalizeVType (t : Term) : Term :=
       match t with
-      | (normalizeVType (vtype (dim0) $A $B $e)) => $A
+      | .con "app" [.var "normalizeVType", .con "vtype" [.con "dim0" [], A, B, e]] => A
       | _ => t
 
     def normalizeVType1 (t : Term) : Term :=
       match t with
-      | (normalizeVType (vtype (dim1) $A $B $e)) => $B
+      | .con "app" [.var "normalizeVType", .con "vtype" [.con "dim1" [], A, B, e]] => B
       | _ => t
 
     def normalizeVTypeOther (t : Term) : Term :=
       match t with
-      | (normalizeVType (vtype $r $A $B $e)) => (vtype (normalizeDim $r) (normalize $A) (normalize $B) (normalize $e))
+      | .con "app" [.var "normalizeVType", .con "vtype" [r, A, B, e]] => Term.con "vtype" [Term.con "app" [Term.var "normalizeDim", r], Term.con "app" [Term.var "normalize", A], Term.con "app" [Term.var "normalize", B], Term.con "app" [Term.var "normalize", e]]
       | _ => t
 
     def normalizeVIn (t : Term) : Term :=
       match t with
-      | (normalizeVIn (vin (dim0) $a $b)) => $a
+      | .con "app" [.var "normalizeVIn", .con "vin" [.con "dim0" [], a, b]] => a
       | _ => t
 
     def normalizeVIn1 (t : Term) : Term :=
       match t with
-      | (normalizeVIn (vin (dim1) $a $b)) => $b
+      | .con "app" [.var "normalizeVIn", .con "vin" [.con "dim1" [], a, b]] => b
       | _ => t
 
     def normalizeVInOther (t : Term) : Term :=
       match t with
-      | (normalizeVIn (vin $r $a $b)) => (vin (normalizeDim $r) (normalize $a) (normalize $b))
+      | .con "app" [.var "normalizeVIn", .con "vin" [r, a, b]] => Term.con "vin" [Term.con "app" [Term.var "normalizeDim", r], Term.con "app" [Term.var "normalize", a], Term.con "app" [Term.var "normalize", b]]
       | _ => t
 
     def normalizeVProj (t : Term) : Term :=
       match t with
-      | (normalizeVProj (vproj (dim0) $A $B $e $v)) => (app (equivFunc $e) $v)
+      | .con "app" [.var "normalizeVProj", .con "vproj" [.con "dim0" [], A, B, e, v]] => Term.con "app" [Term.con "app" [Term.var "equivFunc", e], v]
       | _ => t
 
     def normalizeVProj1 (t : Term) : Term :=
       match t with
-      | (normalizeVProj (vproj (dim1) $A $B $e $v)) => $v
+      | .con "app" [.var "normalizeVProj", .con "vproj" [.con "dim1" [], A, B, e, v]] => v
       | _ => t
 
     def normalizeVProjVin (t : Term) : Term :=
       match t with
-      | (normalizeVProj (vproj $r $A $B $e (vin $r $a $b))) => $b
+      | .con "app" [.var "normalizeVProj", .con "vproj" [r, A, B, e, .con "vin" [r_dup, a, b]]] => b
       | _ => t
 
     def normalizeVProjOther (t : Term) : Term :=
       match t with
-      | (normalizeVProj (vproj $r $A $B $e $v)) => (vproj (normalizeDim $r) (normalize $A) (normalize $B) (normalize $e) (normalize $v))
+      | .con "app" [.var "normalizeVProj", .con "vproj" [r, A, B, e, v]] => Term.con "vproj" [Term.con "app" [Term.var "normalizeDim", r], Term.con "app" [Term.var "normalize", A], Term.con "app" [Term.var "normalize", B], Term.con "app" [Term.var "normalize", e], Term.con "app" [Term.var "normalize", v]]
       | _ => t
 
   end VTypeNormalize

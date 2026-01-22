@@ -48,6 +48,11 @@ lean_lib «CoolGenerated» where
   srcDir := "generated"
   globs := #[.submodules `Cool]
 
+-- Generated Cubical Lean code (from CubicalTT.lego and related files)
+lean_lib «CubicalGenerated» where
+  srcDir := "generated"
+  globs := #[.submodules `Cubical]
+
 -- Generated Rosetta Grammars (from Lean.lego, etc.)
 lean_lib «RosettaGenerated» where
   srcDir := "generated"

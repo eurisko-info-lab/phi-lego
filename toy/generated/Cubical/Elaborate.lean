@@ -1,236 +1,141 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath GlobalEnv) ;)
+import Lego.Algebra
 
-(DImport import (modulePath Unify) ;)
-
-(DImport import (modulePath Quote) ;)
-
-(DImport import (modulePath Datatype) ;)
+open Lego
 
 namespace Elaborate
 
   section Surface
 
-    def surfVar : Parser :=
-      (annotated str "var" (special <symbol>) → surface)
 
-    def surfLit : Parser :=
-      (annotated str "lit" (special <string>) → surface)
-
-    def surfLam : Parser :=
-      (annotated str "λ" (special <symbol>) str "." (special <surface>) → surface)
-
-    def surfApp : Parser :=
-      (annotated str "app" (special <surface>) (special <surface>) → surface)
-
-    def surfAppImpl : Parser :=
-      (annotated str "appImpl" (special <surface>) (special <surface>) → surface)
-
-    def surfPi : Parser :=
-      (annotated str "Π" str "(" (special <symbol>) str ":" (special <surface>) str ")" (special <surface>) → surface)
-
-    def surfPiImpl : Parser :=
-      (annotated str "{" (special <symbol>) str ":" (special <surface>) str "}" str "→" (special <surface>) → surface)
-
-    def surfSigma : Parser :=
-      (annotated str "Σ" str "(" (special <symbol>) str ":" (special <surface>) str ")" (special <surface>) → surface)
-
-    def surfPair : Parser :=
-      (annotated str "⟨" (special <surface>) str "," (special <surface>) str "⟩" → surface)
-
-    def surfFst : Parser :=
-      (annotated str "fst" (special <surface>) → surface)
-
-    def surfSnd : Parser :=
-      (annotated str "snd" (special <surface>) → surface)
-
-    def surfLetIn : Parser :=
-      (annotated str "let" (special <symbol>) str ":" (special <surface>) str "=" (special <surface>) str "in" (special <surface>) → surface)
-
-    def surfUniv : Parser :=
-      (annotated str "Type" (special <number>) → surface)
-
-    def surfHole : Parser :=
-      (annotated str "?" optional ((special <symbol>)) → surface)
-
-    def surfAnn : Parser :=
-      (annotated str "(" (special <surface>) str ":" (special <surface>) str ")" → surface)
-
-    def surfDim0 : Parser :=
-      (annotated str "0" → surface)
-
-    def surfDim1 : Parser :=
-      (annotated str "1" → surface)
-
-    def surfPath : Parser :=
-      (annotated str "Path" (special <surface>) (special <surface>) (special <surface>) → surface)
-
-    def surfPlam : Parser :=
-      (annotated str "λ" (special <symbol>) str "." (special <surface>) → surface)
-
-    def surfPapp : Parser :=
-      (annotated (special <surface>) str "@" (special <surface>) → surface)
-
-    def surfRefl : Parser :=
-      (annotated str "refl" (special <surface>) → surface)
-
-    def surfData : Parser :=
-      (annotated str "data" (special <symbol>) many ((special <surface>)) → surface)
-
-    def surfIntro : Parser :=
-      (annotated str "intro" (special <symbol>) str "." (special <symbol>) many ((special <surface>)) → surface)
-
-    def surfElim : Parser :=
-      (annotated str "elim" (special <surface>) str "motive" (special <surface>) many ((special <elimClause>)) → surface)
-
-    def elimClause : Parser :=
-      (annotated str "|" (special <symbol>) many ((special <symbol>)) str "=>" (special <surface>) → elimClause)
 
   end Surface
 
   section MetaEntry
 
-    def metaEntry : Parser :=
-      (annotated str "meta" str "ty:" (special <expr>) str "solution:" optional ((special <expr>)) → metaEntry)
-
     def metaEntryTy (t : Term) : Term :=
       match t with
-      | (metaEntryTy (meta (labeledArg ty : $ty) (labeledArg solution : $sol))) => $ty
+      | .con "app" [.var "metaEntryTy", .con "meta" [.con "labeledArg" [.var "ty", .lit ":", ty], .con "labeledArg" [.var "solution", .lit ":", sol]]] => ty
       | _ => t
 
     def metaEntrySol (t : Term) : Term :=
       match t with
-      | (metaEntrySol (meta (labeledArg ty : $ty) (labeledArg solution : $sol))) => $sol
+      | .con "app" [.var "metaEntrySol", .con "meta" [.con "labeledArg" [.var "ty", .lit ":", ty], .con "labeledArg" [.var "solution", .lit ":", sol]]] => sol
       | _ => t
 
   end MetaEntry
 
   section MetaCtx
 
-    def metaCtx : Parser :=
-      (annotated str "metaCtx" many ((special <metaBinding>)) → metaCtx)
-
-    def metaBinding : Parser :=
-      (annotated str "(" (special <number>) str "↦" (special <metaEntry>) str ")" → metaBinding)
-
     def metaCtxEmpty (t : Term) : Term :=
       match t with
-      | (metaCtxEmpty) => (metaCtx (unit ( )))
+      | .con "metaCtxEmpty" [] => Term.con "app" [Term.var "metaCtx", Term.con "unit" [Term.lit "(", Term.lit ")"]]
       | _ => t
 
     def metaCtxLookup (t : Term) : Term :=
       match t with
-      | (metaCtxLookup (metaCtx $bindings) $id) => (lookupMeta $bindings $id)
+      | .con "metaCtxLookup" [.con "app" [.var "metaCtx", bindings], id] => Term.con "lookupMeta" [bindings, id]
       | _ => t
 
     def metaCtxInsert (t : Term) : Term :=
       match t with
-      | (metaCtxInsert (metaCtx $bindings) $id $entry) => (metaCtx ($bindings ($id (↦) $entry)))
+      | .con "metaCtxInsert" [.con "app" [.var "metaCtx", bindings], id, entry] => Term.con "app" [Term.var "metaCtx", Term.con "tuple" [bindings, Term.con "tuple" [id, Term.lit "↦", entry]]]
       | _ => t
 
   end MetaCtx
 
   section LocalBinding
 
-    def localBinding : Parser :=
-      (annotated str "local" str "name:" (special <symbol>) str "ty:" (special <expr>) str "isDim:" (special <bool>) → localBinding)
-
     def localBindingName (t : Term) : Term :=
       match t with
-      | (localBindingName (local (labeledArg name : $n) (labeledArg ty : $ty) (labeledArg isDim : $d))) => $n
+      | .con "app" [.var "localBindingName", .con "local" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "ty", .lit ":", ty], .con "labeledArg" [.var "isDim", .lit ":", d]]] => n
       | _ => t
 
     def localBindingTy (t : Term) : Term :=
       match t with
-      | (localBindingTy (local (labeledArg name : $n) (labeledArg ty : $ty) (labeledArg isDim : $d))) => $ty
+      | .con "app" [.var "localBindingTy", .con "local" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "ty", .lit ":", ty], .con "labeledArg" [.var "isDim", .lit ":", d]]] => ty
       | _ => t
 
     def localBindingIsDim (t : Term) : Term :=
       match t with
-      | (localBindingIsDim (local (labeledArg name : $n) (labeledArg ty : $ty) (labeledArg isDim : $d))) => $d
+      | .con "app" [.var "localBindingIsDim", .con "local" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "ty", .lit ":", ty], .con "labeledArg" [.var "isDim", .lit ":", d]]] => d
       | _ => t
 
   end LocalBinding
 
   section ElabCtx
 
-    def elabCtx : Parser :=
-      (annotated str "elabCtx" str "locals:" many ((special <localBinding>)) str "global:" (special <globalEnv>) str "meta:" (special <metaCtx>) str "nextMeta:" (special <number>) → elabCtx)
-
     def elabCtxEmpty (t : Term) : Term :=
       match t with
-      | (elabCtxEmpty) => (elabCtx (labeledArg locals : (unit ( ))) (labeledArg global : (globalEnvEmpty)) (labeledArg meta : (metaCtxEmpty)) (labeledArg nextMeta : (num (number 0))))
+      | .con "elabCtxEmpty" [] => Term.con "elabCtx" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "global", Term.lit ":", Term.con "globalEnvEmpty" []], Term.con "labeledArg" [Term.var "meta", Term.lit ":", Term.con "metaCtxEmpty" []], Term.con "labeledArg" [Term.var "nextMeta", Term.lit ":", Term.con "num" [Term.con "number" [Term.lit "0"]]]]
       | _ => t
 
     def elabCtxWithGlobals (t : Term) : Term :=
       match t with
-      | (elabCtxWithGlobals $env) => (elabCtx (labeledArg locals : (unit ( ))) (labeledArg global : $env) (labeledArg meta : (metaCtxEmpty)) (labeledArg nextMeta : (num (number 0))))
+      | .con "app" [.var "elabCtxWithGlobals", env] => Term.con "elabCtx" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "global", Term.lit ":", env], Term.con "labeledArg" [Term.var "meta", Term.lit ":", Term.con "metaCtxEmpty" []], Term.con "labeledArg" [Term.var "nextMeta", Term.lit ":", Term.con "num" [Term.con "number" [Term.lit "0"]]]]
       | _ => t
 
     def elabCtxExtend (t : Term) : Term :=
       match t with
-      | (elabCtxExtend (elabCtx (labeledArg locals : $locals) (labeledArg global : $g) (labeledArg meta : $m) (labeledArg nextMeta : $n)) $name $ty) => (elabCtx (labeledArg locals : ((( (local) (labeledArg name : $name) (labeledArg ty : $ty) (labeledArg isDim : (false)) )) $locals)) (labeledArg global : $g) (labeledArg meta : $m) (labeledArg nextMeta : $n))
+      | .con "elabCtxExtend" [.con "elabCtx" [.con "labeledArg" [.var "locals", .lit ":", locals], .con "labeledArg" [.var "global", .lit ":", g], .con "labeledArg" [.var "meta", .lit ":", m], .con "labeledArg" [.var "nextMeta", .lit ":", n]], name, ty] => Term.con "elabCtx" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "local" [], Term.con "labeledArg" [Term.var "name", Term.lit ":", name], Term.con "labeledArg" [Term.var "ty", Term.lit ":", ty], Term.con "labeledArg" [Term.var "isDim", Term.lit ":", Term.con "false" []], Term.lit ")"], locals]], Term.con "labeledArg" [Term.var "global", Term.lit ":", g], Term.con "labeledArg" [Term.var "meta", Term.lit ":", m], Term.con "labeledArg" [Term.var "nextMeta", Term.lit ":", n]]
       | _ => t
 
     def elabCtxExtendDim (t : Term) : Term :=
       match t with
-      | (elabCtxExtendDim (elabCtx (labeledArg locals : $locals) (labeledArg global : $g) (labeledArg meta : $m) (labeledArg nextMeta : $n)) $name) => (elabCtx (labeledArg locals : ((( (local) (labeledArg name : $name) (labeledArg ty : (lit str "𝕀")) (labeledArg isDim : (true)) )) $locals)) (labeledArg global : $g) (labeledArg meta : $m) (labeledArg nextMeta : $n))
+      | .con "elabCtxExtendDim" [.con "elabCtx" [.con "labeledArg" [.var "locals", .lit ":", locals], .con "labeledArg" [.var "global", .lit ":", g], .con "labeledArg" [.var "meta", .lit ":", m], .con "labeledArg" [.var "nextMeta", .lit ":", n]], name] => Term.con "elabCtx" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "local" [], Term.con "labeledArg" [Term.var "name", Term.lit ":", name], Term.con "labeledArg" [Term.var "ty", Term.lit ":", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]], Term.con "labeledArg" [Term.var "isDim", Term.lit ":", Term.con "true" []], Term.lit ")"], locals]], Term.con "labeledArg" [Term.var "global", Term.lit ":", g], Term.con "labeledArg" [Term.var "meta", Term.lit ":", m], Term.con "labeledArg" [Term.var "nextMeta", Term.lit ":", n]]
       | _ => t
 
     def elabCtxLookupLocal (t : Term) : Term :=
       match t with
-      | (elabCtxLookupLocal (elabCtx (labeledArg locals : $locals) (labeledArg global : $g) (labeledArg meta : $m) (labeledArg nextMeta : $n)) $name) => (lookupLocal $locals $name (num (number 0)))
+      | .con "elabCtxLookupLocal" [.con "elabCtx" [.con "labeledArg" [.var "locals", .lit ":", locals], .con "labeledArg" [.var "global", .lit ":", g], .con "labeledArg" [.var "meta", .lit ":", m], .con "labeledArg" [.var "nextMeta", .lit ":", n]], name] => Term.con "lookupLocal" [locals, name, Term.con "num" [Term.con "number" [Term.lit "0"]]]
       | _ => t
 
     def lookupLocalNil (t : Term) : Term :=
       match t with
-      | (lookupLocal (unit ( )) $name $idx) => (none)
+      | .con "lookupLocal" [.con "unit" [.lit "(", .lit ")"], name, idx] => Term.con "none" []
       | _ => t
 
     def lookupLocalConsMatch (t : Term) : Term :=
       match t with
-      | (lookupLocal (( ( local (labeledArg name : $name) (labeledArg ty : $ty) (labeledArg isDim : $d) ) $rest )) $name $idx) => (some (tuple ( $idx , $ty )))
+      | .con "lookupLocal" [.con "app" [.lit "(", .lit "(", .var "local", .con "labeledArg" [.var "name", .lit ":", name], .con "labeledArg" [.var "ty", .lit ":", ty], .con "labeledArg" [.var "isDim", .lit ":", d], .lit ")", rest, .lit ")"], name_dup, idx] => Term.con "app" [Term.var "some", Term.con "tuple" [Term.lit "(", idx, Term.lit ",", ty, Term.lit ")"]]
       | _ => t
 
     def lookupLocalConsMiss (t : Term) : Term :=
       match t with
-      | (lookupLocal (( ( local (labeledArg name : $n) (labeledArg ty : $ty) (labeledArg isDim : $d) ) $rest )) $name $idx) => (lookupLocal $rest $name (suc $idx))
+      | .con "lookupLocal" [.con "app" [.lit "(", .lit "(", .var "local", .con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "ty", .lit ":", ty], .con "labeledArg" [.var "isDim", .lit ":", d], .lit ")", rest, .lit ")"], name, idx] => Term.con "lookupLocal" [rest, name, Term.con "app" [Term.var "suc", idx]]
       | _ => t
 
     def elabCtxDepth (t : Term) : Term :=
       match t with
-      | (elabCtxDepth (elabCtx (labeledArg locals : $locals) (labeledArg global : $g) (labeledArg meta : $m) (labeledArg nextMeta : $n))) => (length $locals)
+      | .con "app" [.var "elabCtxDepth", .con "elabCtx" [.con "labeledArg" [.var "locals", .lit ":", locals], .con "labeledArg" [.var "global", .lit ":", g], .con "labeledArg" [.var "meta", .lit ":", m], .con "labeledArg" [.var "nextMeta", .lit ":", n]]] => Term.con "app" [Term.var "length", locals]
       | _ => t
 
     def elabCtxFreshMeta (t : Term) : Term :=
       match t with
-      | (elabCtxFreshMeta (elabCtx (labeledArg locals : $locals) (labeledArg global : $g) (labeledArg meta : $m) (labeledArg nextMeta : $n)) $ty) => (record ( result : (elabCtx (labeledArg locals : $locals) (labeledArg global : $g) (labeledArg meta : (metaCtxInsert $m $n (meta (labeledArg ty : $ty) (labeledArg solution : (none))))) (labeledArg nextMeta : (suc $n))) (labeledArg meta : (lit (concat str "meta." $n))) ))
+      | .con "elabCtxFreshMeta" [.con "elabCtx" [.con "labeledArg" [.var "locals", .lit ":", locals], .con "labeledArg" [.var "global", .lit ":", g], .con "labeledArg" [.var "meta", .lit ":", m], .con "labeledArg" [.var "nextMeta", .lit ":", n]], ty] => Term.con "record" [Term.lit "(", Term.var "result", Term.lit ":", Term.con "elabCtx" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", locals], Term.con "labeledArg" [Term.var "global", Term.lit ":", g], Term.con "labeledArg" [Term.var "meta", Term.lit ":", Term.con "metaCtxInsert" [m, n, Term.con "meta" [Term.con "labeledArg" [Term.var "ty", Term.lit ":", ty], Term.con "labeledArg" [Term.var "solution", Term.lit ":", Term.con "none" []]]]], Term.con "labeledArg" [Term.var "nextMeta", Term.lit ":", Term.con "app" [Term.var "suc", n]]], Term.con "labeledArg" [Term.var "meta", Term.lit ":", Term.con "app" [Term.var "lit", Term.con "concat" [Term.con "terminal" [Term.lit "meta."], n]]], Term.lit ")"]
       | _ => t
 
   end ElabCtx
 
   section ElabResult
 
-    def elabOk : Parser :=
-      (annotated str "ok" str "term:" (special <expr>) str "type:" (special <expr>) str "ctx:" (special <elabCtx>) → elabResult)
-
-    def elabErr : Parser :=
-      (annotated str "error" (special <string>) → elabResult)
-
     def elabResultTerm (t : Term) : Term :=
       match t with
-      | (elabResultTerm (ok (labeledArg term : $t) (labeledArg type : $ty) (labeledArg ctx : $c))) => $t
+      | .con "app" [.var "elabResultTerm", .con "ok" [.con "labeledArg" [.var "term", .lit ":", t], .con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "ctx", .lit ":", c]]] => t
       | _ => t
 
     def elabResultType (t : Term) : Term :=
       match t with
-      | (elabResultType (ok (labeledArg term : $t) (labeledArg type : $ty) (labeledArg ctx : $c))) => $ty
+      | .con "app" [.var "elabResultType", .con "ok" [.con "labeledArg" [.var "term", .lit ":", t], .con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "ctx", .lit ":", c]]] => ty
       | _ => t
 
     def elabResultCtx (t : Term) : Term :=
       match t with
-      | (elabResultCtx (ok (labeledArg term : $t) (labeledArg type : $ty) (labeledArg ctx : $c))) => $c
+      | .con "app" [.var "elabResultCtx", .con "ok" [.con "labeledArg" [.var "term", .lit ":", t], .con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "ctx", .lit ":", c]]] => c
       | _ => t
 
   end ElabResult
@@ -239,82 +144,82 @@ namespace Elaborate
 
     def inferVar (t : Term) : Term :=
       match t with
-      | (infer $ctx (var $name)) => (caseExpr ( case (elabCtxLookupLocal $ctx $name) (arm ( some (tuple ( $idx , $ty )) ) => (ok (labeledArg term : (ix $idx)) (labeledArg type : $ty) (labeledArg ctx : $ctx))) (arm none => (error (concat str "Unknown variable: " $name))) ))
+      | .con "infer" [ctx, .con "app" [.var "var", name]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "elabCtxLookupLocal" [ctx, name], Term.con "arm" [Term.lit "(", Term.var "some", Term.con "tuple" [Term.lit "(", Term.var "idx", Term.lit ",", Term.var "ty", Term.lit ")"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "ix", Term.var "idx"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", ctx]]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "concat" [Term.con "terminal" [Term.lit "Unknown variable: "], name]]], Term.lit ")"]
       | _ => t
 
     def inferLit (t : Term) : Term :=
       match t with
-      | (infer $ctx (lit $s)) => (ok (labeledArg term : (lit $s)) (labeledArg type : (univ (lzero))) (labeledArg ctx : $ctx))
+      | .con "infer" [ctx, .con "app" [.var "lit", s]] => Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "lit", s]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "univ", Term.con "lzero" []]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", ctx]]
       | _ => t
 
     def inferUniv (t : Term) : Term :=
       match t with
-      | (infer $ctx (Type $n)) => (ok (labeledArg term : (univ (levelOfNat $n))) (labeledArg type : (univ (levelOfNat (suc $n)))) (labeledArg ctx : $ctx))
+      | .con "infer" [ctx, .con "app" [.var "Type", n]] => Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "univ", Term.con "app" [Term.var "levelOfNat", n]]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "univ", Term.con "app" [Term.var "levelOfNat", Term.con "app" [Term.var "suc", n]]]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", ctx]]
       | _ => t
 
     def inferPi (t : Term) : Term :=
       match t with
-      | (infer $ctx (Π (ann ( $x : $dom )) $cod)) => (caseExpr ( case (infer $ctx $dom) (arm ( ok (labeledArg term : $domCore) (labeledArg type : $domTy) (labeledArg ctx : $ctx') ) => (caseExpr ( case (infer (elabCtxExtend $ctx' $x $domCore) $cod) (arm ( ok (labeledArg term : $codCore) (labeledArg type : $codTy) (labeledArg ctx : $ctx'') ) => (ok (labeledArg term : (pi $domCore $codCore)) (labeledArg type : (univ (lmax (levelOf $domTy) (levelOf $codTy)))) (labeledArg ctx : $ctx''))) (varArm $ err => $err) ))) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "Π" [.con "ann" [.lit "(", x, .lit ":", dom, .lit ")"], cod]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, dom], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "domCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "domTy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [Term.con "elabCtxExtend" [Term.var "ctx'", x, Term.var "domCore"], cod], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "codCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "codTy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "pi" [Term.var "domCore", Term.var "codCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "univ", Term.con "lmax" [Term.con "app" [Term.var "levelOf", Term.var "domTy"], Term.con "app" [Term.var "levelOf", Term.var "codTy"]]]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferSigma (t : Term) : Term :=
       match t with
-      | (infer $ctx (Σ (ann ( $x : $dom )) $cod)) => (caseExpr ( case (infer $ctx $dom) (arm ( ok (labeledArg term : $domCore) (labeledArg type : $domTy) (labeledArg ctx : $ctx') ) => (caseExpr ( case (infer (elabCtxExtend $ctx' $x $domCore) $cod) (arm ( ok (labeledArg term : $codCore) (labeledArg type : $codTy) (labeledArg ctx : $ctx'') ) => (ok (labeledArg term : (sigma $domCore $codCore)) (labeledArg type : (univ (lmax (levelOf $domTy) (levelOf $codTy)))) (labeledArg ctx : $ctx''))) (varArm $ err => $err) ))) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "Σ" [.con "ann" [.lit "(", x, .lit ":", dom, .lit ")"], cod]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, dom], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "domCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "domTy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [Term.con "elabCtxExtend" [Term.var "ctx'", x, Term.var "domCore"], cod], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "codCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "codTy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "sigma" [Term.var "domCore", Term.var "codCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "univ", Term.con "lmax" [Term.con "app" [Term.var "levelOf", Term.var "domTy"], Term.con "app" [Term.var "levelOf", Term.var "codTy"]]]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferApp (t : Term) : Term :=
       match t with
-      | (infer $ctx (app $f $x)) => (caseExpr ( case (infer $ctx $f) (arm ( ok (labeledArg term : $fCore) (labeledArg type : (pi $dom $cod)) (labeledArg ctx : $ctx') ) => (caseExpr ( case (check $ctx' $x $dom) (arm ( ok (labeledArg term : $xCore) (labeledArg type : (_)) (labeledArg ctx : $ctx'') ) => (ok (labeledArg term : (app $fCore $xCore)) (labeledArg type : (subst (num (number 0)) $xCore $cod)) (labeledArg ctx : $ctx''))) (varArm $ err => $err) ))) (arm ( ok (labeledArg term : (_)) (labeledArg type : $ty) (labeledArg ctx : (_)) ) => (error (concat str "Expected function type, got " $ty))) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "app" [f, x]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, f], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "fCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "pi" [Term.var "dom", Term.var "cod"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [Term.var "ctx'", x, Term.var "dom"], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "xCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "fCore", Term.var "xCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.var "xCore", Term.var "cod"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.con "_" []], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "concat" [Term.con "terminal" [Term.lit "Expected function type, got "], Term.var "ty"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferPair (t : Term) : Term :=
       match t with
-      | (infer $ctx (⟨ $a (,) $b (⟩))) => (caseExpr ( case (infer $ctx $a) (arm ( ok (labeledArg term : $aCore) (labeledArg type : $aTy) (labeledArg ctx : $ctx') ) => (caseExpr ( case (infer $ctx' $b) (arm ( ok (labeledArg term : $bCore) (labeledArg type : $bTy) (labeledArg ctx : $ctx'') ) => (ok (labeledArg term : (pair $aCore $bCore)) (labeledArg type : (sigma $aTy (shift (num (number 0)) (num (number 1)) $bTy))) (labeledArg ctx : $ctx''))) (varArm $ err => $err) ))) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "tuple" [.lit "⟨", a, .lit ",", b, .lit "⟩"]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, a], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "aCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "aTy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [Term.var "ctx'", b], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "bCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "bTy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "pair" [Term.var "aCore", Term.var "bCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "sigma" [Term.var "aTy", Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], Term.var "bTy"]]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferFst (t : Term) : Term :=
       match t with
-      | (infer $ctx (fst $p)) => (caseExpr ( case (infer $ctx $p) (arm ( ok (labeledArg term : $pCore) (labeledArg type : (sigma $dom $cod)) (labeledArg ctx : $ctx') ) => (ok (labeledArg term : (fst $pCore)) (labeledArg type : $dom) (labeledArg ctx : $ctx'))) (arm ( ok (labeledArg term : (_)) (labeledArg type : $ty) (labeledArg ctx : (_)) ) => (error str "Expected sigma type for fst")) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "app" [.var "fst", p]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, p], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "pCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "sigma" [Term.var "dom", Term.var "cod"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "fst", Term.var "pCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "dom"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.con "_" []], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "terminal" [Term.lit "Expected sigma type for fst"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferSnd (t : Term) : Term :=
       match t with
-      | (infer $ctx (snd $p)) => (caseExpr ( case (infer $ctx $p) (arm ( ok (labeledArg term : $pCore) (labeledArg type : (sigma $dom $cod)) (labeledArg ctx : $ctx') ) => (ok (labeledArg term : (snd $pCore)) (labeledArg type : (subst (num (number 0)) (fst $pCore) $cod)) (labeledArg ctx : $ctx'))) (arm ( ok (labeledArg term : (_)) (labeledArg type : $ty) (labeledArg ctx : (_)) ) => (error str "Expected sigma type for snd")) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "app" [.var "snd", p]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, p], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "pCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "sigma" [Term.var "dom", Term.var "cod"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "snd", Term.var "pCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "app" [Term.var "fst", Term.var "pCore"], Term.var "cod"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.con "_" []], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "terminal" [Term.lit "Expected sigma type for snd"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferAnn (t : Term) : Term :=
       match t with
-      | (infer $ctx (ann ( ( $tm : $ty ) ))) => (caseExpr ( case (infer $ctx $ty) (arm ( ok (labeledArg term : $tyCore) (labeledArg type : (_)) (labeledArg ctx : $ctx') ) => (caseExpr ( case (check $ctx' $tm $tyCore) (arm ( ok (labeledArg term : $tmCore) (labeledArg type : (_)) (labeledArg ctx : $ctx'') ) => (ok (labeledArg term : $tmCore) (labeledArg type : $tyCore) (labeledArg ctx : $ctx''))) (varArm $ err => $err) ))) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "ann" [.lit "(", .lit "(", tm, .lit ":", ty, .lit ")", .lit ")"]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, ty], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "tyCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [Term.var "ctx'", tm, Term.var "tyCore"], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "tmCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "tmCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "tyCore"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferHole (t : Term) : Term :=
       match t with
-      | (infer $ctx (? $name)) => (caseExpr ( case (elabCtxFreshMeta $ctx (univ (lzero))) (arm ( result (:) $ctx' (labeledArg meta : $typeMeta) ) => (caseExpr ( case (elabCtxFreshMeta $ctx' $typeMeta) (arm ( result (:) $ctx'' (labeledArg meta : $termMeta) ) => (ok (labeledArg term : $termMeta) (labeledArg type : $typeMeta) (labeledArg ctx : $ctx''))) ))) ))
+      | .con "infer" [ctx, .con "?" [name]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "elabCtxFreshMeta" [ctx, Term.con "app" [Term.var "univ", Term.con "lzero" []]], Term.con "arm" [Term.lit "(", Term.var "result", Term.lit ":", Term.var "ctx'", Term.con "labeledArg" [Term.var "meta", Term.lit ":", Term.var "typeMeta"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "elabCtxFreshMeta" [Term.var "ctx'", Term.var "typeMeta"], Term.con "arm" [Term.lit "(", Term.var "result", Term.lit ":", Term.var "ctx''", Term.con "labeledArg" [Term.var "meta", Term.lit ":", Term.var "termMeta"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "termMeta"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "typeMeta"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.lit ")"]], Term.lit ")"]
       | _ => t
 
     def inferDim0 (t : Term) : Term :=
       match t with
-      | (infer $ctx (num (number 0))) => (ok (labeledArg term : (dim0)) (labeledArg type : (lit str "𝕀")) (labeledArg ctx : $ctx))
+      | .con "infer" [ctx, .con "num" [.con "number" [.lit "0"]]] => Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "dim0" []], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", ctx]]
       | _ => t
 
     def inferDim1 (t : Term) : Term :=
       match t with
-      | (infer $ctx (num (number 1))) => (ok (labeledArg term : (dim1)) (labeledArg type : (lit str "𝕀")) (labeledArg ctx : $ctx))
+      | .con "infer" [ctx, .con "num" [.con "number" [.lit "1"]]] => Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "dim1" []], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", ctx]]
       | _ => t
 
     def inferPath (t : Term) : Term :=
       match t with
-      | (infer $ctx (Path $A $a $b)) => (caseExpr ( case (infer $ctx $A) (arm ( ok (labeledArg term : $ACore) (labeledArg type : $ATy) (labeledArg ctx : $ctx') ) => (caseExpr ( case (infer $ctx' $a) (arm ( ok (labeledArg term : $aCore) (labeledArg type : (_)) (labeledArg ctx : $ctx'') ) => (caseExpr ( case (infer $ctx'' $b) (arm ( ok (labeledArg term : $bCore) (labeledArg type : (_)) (labeledArg ctx : $ctx''') ) => (ok (labeledArg term : (path $ACore $aCore $bCore)) (labeledArg type : (univ (levelOf $ATy))) (labeledArg ctx : $ctx'''))) (varArm $ err => $err) ))) (varArm $ err => $err) ))) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "Path" [A, a, b]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, A], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "ACore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ATy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [Term.var "ctx'", a], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "aCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [Term.var "ctx''", b], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "bCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "path" [Term.var "ACore", Term.var "aCore", Term.var "bCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "univ", Term.con "app" [Term.var "levelOf", Term.var "ATy"]]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferPapp (t : Term) : Term :=
       match t with
-      | (infer $ctx ($p (@) $r)) => (caseExpr ( case (infer $ctx $p) (arm ( ok (labeledArg term : $pCore) (labeledArg type : (path $A $l $ep)) (labeledArg ctx : $ctx') ) => (caseExpr ( case (infer $ctx' $r) (arm ( ok (labeledArg term : $rCore) (labeledArg type : (_)) (labeledArg ctx : $ctx'') ) => (ok (labeledArg term : (papp $pCore $rCore)) (labeledArg type : $A) (labeledArg ctx : $ctx''))) (varArm $ err => $err) ))) (arm ( ok (labeledArg term : (_)) (labeledArg type : $ty) (labeledArg ctx : (_)) ) => (error str "Expected path type for @")) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "tuple" [p, .lit "@", r]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, p], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "pCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "path" [Term.var "A", Term.var "l", Term.var "ep"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [Term.var "ctx'", r], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "rCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "papp" [Term.var "pCore", Term.var "rCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "A"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.con "_" []], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "terminal" [Term.lit "Expected path type for @"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def inferRefl (t : Term) : Term :=
       match t with
-      | (infer $ctx (refl $a)) => (caseExpr ( case (infer $ctx $a) (arm ( ok (labeledArg term : $aCore) (labeledArg type : $aTy) (labeledArg ctx : $ctx') ) => (ok (labeledArg term : (refl $aCore)) (labeledArg type : (path $aTy $aCore $aCore)) (labeledArg ctx : $ctx'))) (varArm $ err => $err) ))
+      | .con "infer" [ctx, .con "app" [.var "refl", a]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, a], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "aCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "aTy"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "refl", Term.var "aCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "path" [Term.var "aTy", Term.var "aCore", Term.var "aCore"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
   end Infer
@@ -323,37 +228,37 @@ namespace Elaborate
 
     def checkLam (t : Term) : Term :=
       match t with
-      | (check $ctx (λ (binder $ x . $body)) (pi $dom $cod)) => (caseExpr ( case (check (elabCtxExtend $ctx $x $dom) $body $cod) (arm ( ok (labeledArg term : $bodyCore) (labeledArg type : (_)) (labeledArg ctx : $ctx') ) => (ok (labeledArg term : (lam $bodyCore)) (labeledArg type : (pi $dom $cod)) (labeledArg ctx : $ctx'))) (varArm $ err => $err) ))
+      | .con "check" [ctx, .con "app" [.var "λ", .con "binder" [.lit "$", .var "x", .lit ".", body]], .con "pi" [dom, cod]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [Term.con "elabCtxExtend" [ctx, Term.var "x", dom], body, cod], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "bodyCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "lam", Term.var "bodyCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "pi" [dom, cod]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def checkPlam (t : Term) : Term :=
       match t with
-      | (check $ctx (λ (binder $ i . $body)) (path $A $l $r)) => (caseExpr ( case (check (elabCtxExtendDim $ctx $i) $body $A) (arm ( ok (labeledArg term : $bodyCore) (labeledArg type : (_)) (labeledArg ctx : $ctx') ) => (ok (labeledArg term : (plam $bodyCore)) (labeledArg type : (path $A $l $r)) (labeledArg ctx : $ctx'))) (varArm $ err => $err) ))
+      | .con "check" [ctx, .con "app" [.var "λ", .con "binder" [.lit "$", .var "i", .lit ".", body]], .con "path" [A, l, r]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [Term.con "elabCtxExtendDim" [ctx, Term.var "i"], body, A], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "bodyCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "plam", Term.var "bodyCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "path" [A, l, r]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def checkPair (t : Term) : Term :=
       match t with
-      | (check $ctx (⟨ $a (,) $b (⟩)) (sigma $dom $cod)) => (caseExpr ( case (check $ctx $a $dom) (arm ( ok (labeledArg term : $aCore) (labeledArg type : (_)) (labeledArg ctx : $ctx') ) => (letIn ( let codSubst = (subst (num (number 0)) $aCore $cod) in (caseExpr case (check $ctx' $b (codSubst)) (arm ( ok (labeledArg term : $bCore) (labeledArg type : (_)) (labeledArg ctx : $ctx'') ) => (ok (labeledArg term : (pair $aCore $bCore)) (labeledArg type : (sigma $dom $cod)) (labeledArg ctx : $ctx''))) (varArm $ err => $err)) ))) (varArm $ err => $err) ))
+      | .con "check" [ctx, .con "tuple" [.lit "⟨", a, .lit ",", b, .lit "⟩"], .con "sigma" [dom, cod]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [ctx, a, dom], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "aCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "codSubst", Term.lit "=", Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.var "aCore", cod], Term.lit "in", Term.con "caseExpr" [Term.lit "case", Term.con "check" [Term.var "ctx'", b, Term.con "codSubst" []], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "bCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "pair" [Term.var "aCore", Term.var "bCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "sigma" [dom, cod]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"]], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def checkLet (t : Term) : Term :=
       match t with
-      | (check $ctx (let (typedVar $ x : $ty) (=) $val (in) $body) $expected) => (caseExpr ( case (infer $ctx $ty) (arm ( ok (labeledArg term : $tyCore) (labeledArg type : (_)) (labeledArg ctx : $ctx') ) => (caseExpr ( case (check $ctx' $val $tyCore) (arm ( ok (labeledArg term : $valCore) (labeledArg type : (_)) (labeledArg ctx : $ctx'') ) => (caseExpr ( case (check (elabCtxExtend $ctx'' $x $tyCore) $body $expected) (arm ( ok (labeledArg term : $bodyCore) (labeledArg type : (_)) (labeledArg ctx : $ctx''') ) => (ok (labeledArg term : (letE $tyCore $valCore $bodyCore)) (labeledArg type : $expected) (labeledArg ctx : $ctx'''))) (varArm $ err => $err) ))) (varArm $ err => $err) ))) (varArm $ err => $err) ))
+      | .con "check" [ctx, .con "let" [.con "typedVar" [.lit "$", .var "x", .lit ":", ty], .lit "=", val, .lit "in", body], expected] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, ty], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "tyCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [Term.var "ctx'", val, Term.var "tyCore"], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "valCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [Term.con "elabCtxExtend" [Term.var "ctx''", Term.var "x", Term.var "tyCore"], body, expected], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "bodyCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'''"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "letE" [Term.var "tyCore", Term.var "valCore", Term.var "bodyCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", expected], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'''"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def checkHole (t : Term) : Term :=
       match t with
-      | (check $ctx (? $name) $expected) => (caseExpr ( case (elabCtxFreshMeta $ctx $expected) (arm ( result (:) $ctx' (labeledArg meta : $termMeta) ) => (ok (labeledArg term : $termMeta) (labeledArg type : $expected) (labeledArg ctx : $ctx'))) ))
+      | .con "check" [ctx, .con "?" [name], expected] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "elabCtxFreshMeta" [ctx, expected], Term.con "arm" [Term.lit "(", Term.var "result", Term.lit ":", Term.var "ctx'", Term.con "labeledArg" [Term.var "meta", Term.lit ":", Term.var "termMeta"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "termMeta"], Term.con "labeledArg" [Term.var "type", Term.lit ":", expected], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.lit ")"]
       | _ => t
 
     def checkRefl (t : Term) : Term :=
       match t with
-      | (check $ctx (refl $a) (path $A $l $r)) => (caseExpr ( case (check $ctx $a $l) (arm ( ok (labeledArg term : $aCore) (labeledArg type : (_)) (labeledArg ctx : $ctx') ) => (ok (labeledArg term : (refl $aCore)) (labeledArg type : (path $A $l $r)) (labeledArg ctx : $ctx'))) (varArm $ err => $err) ))
+      | .con "check" [ctx, .con "app" [.var "refl", a], .con "path" [A, l, r]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [ctx, a, l], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "aCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "app" [Term.var "refl", Term.var "aCore"]], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "path" [A, l, r]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def checkFallback (t : Term) : Term :=
       match t with
-      | (check $ctx $s $expected) => (caseExpr ( case (infer $ctx $s) (arm ( ok (labeledArg term : $core) (labeledArg type : $inferred) (labeledArg ctx : $ctx') ) => (caseExpr ( case (conv $inferred $expected) (arm true => (ok (labeledArg term : $core) (labeledArg type : $expected) (labeledArg ctx : $ctx'))) (arm false => (error (concat str "Type mismatch: expected " $expected str ", got " $inferred))) ))) (varArm $ err => $err) ))
+      | .con "check" [ctx, s, expected] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, s], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "core"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "inferred"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "conv" [Term.var "inferred", expected], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "core"], Term.con "labeledArg" [Term.var "type", Term.lit ":", expected], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "concat" [Term.con "terminal" [Term.lit "Type mismatch: expected "], expected, Term.con "terminal" [Term.lit ", got "], Term.var "inferred"]]], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
   end Check
@@ -362,7 +267,7 @@ namespace Elaborate
 
     def conv (t : Term) : Term :=
       match t with
-      | (conv $t1 $t2) => (letIn ( let t1' = (normalize (num (number 100)) $t1) in (letIn let t2' = (normalize (num (number 100)) $t2) in (eq (t1') (t2'))) ))
+      | .con "conv" [t1, t2] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "t1'", Term.lit "=", Term.con "normalize" [Term.con "num" [Term.con "number" [Term.lit "100"]], t1], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "t2'", Term.lit "=", Term.con "normalize" [Term.con "num" [Term.con "number" [Term.lit "100"]], t2], Term.lit "in", Term.con "eq" [Term.con "t1'" [], Term.con "t2'" []]], Term.lit ")"]
       | _ => t
 
   end Conv
@@ -371,12 +276,12 @@ namespace Elaborate
 
     def elaborate (t : Term) : Term :=
       match t with
-      | (elaborate $env $s $ty) => (caseExpr ( case (check (elabCtxWithGlobals $env) $s $ty) (arm ( ok (labeledArg term : $result) (labeledArg type : (_)) (labeledArg ctx : (_)) ) => (ok $result)) (arm ( error $msg ) => (error $msg)) ))
+      | .con "elaborate" [env, s, ty] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "check" [Term.con "app" [Term.var "elabCtxWithGlobals", env], s, ty], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "result"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.con "_" []], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "ok", Term.var "result"]], Term.con "arm" [Term.lit "(", Term.var "error", Term.var "msg", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "error", Term.var "msg"]], Term.lit ")"]
       | _ => t
 
     def elaborateInfer (t : Term) : Term :=
       match t with
-      | (elaborateInfer $env $s) => (caseExpr ( case (infer (elabCtxWithGlobals $env) $s) (arm ( ok (labeledArg term : $t) (labeledArg type : $ty) (labeledArg ctx : (_)) ) => (ok (tuple ( $t , $ty )))) (arm ( error $msg ) => (error $msg)) ))
+      | .con "elaborateInfer" [env, s] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [Term.con "app" [Term.var "elabCtxWithGlobals", env], s], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "t"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.con "_" []], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "ok", Term.con "tuple" [Term.lit "(", Term.var "t", Term.lit ",", Term.var "ty", Term.lit ")"]]], Term.con "arm" [Term.lit "(", Term.var "error", Term.var "msg", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "error", Term.var "msg"]], Term.lit ")"]
       | _ => t
 
   end TopLevel
@@ -385,104 +290,43 @@ namespace Elaborate
 
     def checkType (t : Term) : Term :=
       match t with
-      | (checkType $ctx $s) => (caseExpr ( case (infer $ctx $s) (arm ( ok (labeledArg term : $tyCore) (labeledArg type : (univ $level)) (labeledArg ctx : $ctx') ) => (ok (record ( type : $tyCore (labeledArg level : $level) (labeledArg ctx : $ctx') )))) (arm ( ok (labeledArg term : (_)) (labeledArg type : $ty) (labeledArg ctx : (_)) ) => (error (concat str "Expected a type, got " $ty))) (varArm $ err => $err) ))
+      | .con "checkType" [ctx, s] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "infer" [ctx, s], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "tyCore"], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.con "app" [Term.var "univ", Term.var "level"]], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "ok", Term.con "record" [Term.lit "(", Term.var "type", Term.lit ":", Term.var "tyCore", Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.var "level"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"], Term.lit ")"]]], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.con "_" []], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "concat" [Term.con "terminal" [Term.lit "Expected a type, got "], Term.var "ty"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def checkTypeAtLevel (t : Term) : Term :=
       match t with
-      | (checkTypeAtLevel $ctx $s $expected) => (caseExpr ( case (checkType $ctx $s) (arm ( ok (type (:) $tyCore (labeledArg level : $level) (labeledArg ctx : $ctx')) ) => (caseExpr ( case (levelLeq $level $expected) (arm true => (ok (labeledArg term : $tyCore) (labeledArg ctx : $ctx'))) (arm false => (error (concat str "Universe level mismatch: expected ≤ " $expected str ", got " $level))) ))) (varArm $ err => $err) ))
+      | .con "checkTypeAtLevel" [ctx, s, expected] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "checkType" [ctx, s], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "type" [Term.lit ":", Term.var "tyCore", Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.var "level"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "levelLeq" [Term.var "level", expected], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "ok" [Term.con "labeledArg" [Term.var "term", Term.lit ":", Term.var "tyCore"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "app" [Term.var "error", Term.con "concat" [Term.con "terminal" [Term.lit "Universe level mismatch: expected ≤ "], expected, Term.con "terminal" [Term.lit ", got "], Term.var "level"]]], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
   end CheckType
 
   section Telescope
 
-    def teleEntry : Parser :=
-      (annotated str "teleEntry" str "name:" (special <symbol>) str "surface:" (special <surface>) → teleEntry)
-
     def checkTelescope (t : Term) : Term :=
       match t with
-      | (checkTelescope $ctx (unit ( ))) => (ok (record ( tele : (unit ( )) (labeledArg ctx : $ctx) )))
+      | .con "checkTelescope" [ctx, .con "unit" [.lit "(", .lit ")"]] => Term.con "app" [Term.var "ok", Term.con "record" [Term.lit "(", Term.var "tele", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", ctx], Term.lit ")"]]
       | _ => t
 
     def checkTelescopeCons (t : Term) : Term :=
       match t with
-      | (checkTelescope $ctx (( ( teleEntry (labeledArg name : $name) (labeledArg surface : $s) ) $rest ))) => (caseExpr ( case (checkType $ctx $s) (arm ( ok (type (:) $tyCore (labeledArg level : (_)) (labeledArg ctx : $ctx')) ) => (caseExpr ( case (checkTelescope (elabCtxExtend $ctx' $name $tyCore) $rest) (arm ( ok (tele (:) $restTele (labeledArg ctx : $ctx'')) ) => (ok (record ( tele : ((tuple ( $name , $tyCore )) $restTele) (labeledArg ctx : $ctx'') )))) (varArm $ err => $err) ))) (varArm $ err => $err) ))
+      | .con "checkTelescope" [ctx, .con "app" [.lit "(", .lit "(", .var "teleEntry", .con "labeledArg" [.var "name", .lit ":", name], .con "labeledArg" [.var "surface", .lit ":", s], .lit ")", rest, .lit ")"]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "checkType" [ctx, s], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "type" [Term.lit ":", Term.var "tyCore", Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "_" []], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx'"]], Term.lit ")", Term.lit "=>", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "checkTelescope" [Term.con "elabCtxExtend" [Term.var "ctx'", name, Term.var "tyCore"], rest], Term.con "arm" [Term.lit "(", Term.var "ok", Term.con "tele" [Term.lit ":", Term.var "restTele", Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"]], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "ok", Term.con "record" [Term.lit "(", Term.var "tele", Term.lit ":", Term.con "tuple" [Term.con "tuple" [Term.lit "(", name, Term.lit ",", Term.var "tyCore", Term.lit ")"], Term.var "restTele"], Term.con "labeledArg" [Term.var "ctx", Term.lit ":", Term.var "ctx''"], Term.lit ")"]]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]], Term.con "varArm" [Term.lit "$", Term.var "err", Term.lit "=>", Term.var "err"], Term.lit ")"]
       | _ => t
 
     def teleToPi (t : Term) : Term :=
       match t with
-      | (teleToPi (unit ( )) $cod) => $cod
+      | .con "teleToPi" [.con "unit" [.lit "(", .lit ")"], cod] => cod
       | _ => t
 
     def teleToPiCons (t : Term) : Term :=
       match t with
-      | (teleToPi (( ( $x (,) $dom ) $rest )) $cod) => (pi $dom (teleToPi $rest $cod))
+      | .con "teleToPi" [.con "app" [.lit "(", .lit "(", x, .lit ",", dom, .lit ")", rest, .lit ")"], cod] => Term.con "pi" [dom, Term.con "teleToPi" [rest, cod]]
       | _ => t
 
   end Telescope
 
   section SurfaceExt
 
-    def surfExtBase : Parser :=
-      (annotated str "base" (special <surface>) → surfaceExt)
 
-    def surfCofEq : Parser :=
-      (annotated str "cof_eq" (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfCofAnd : Parser :=
-      (annotated str "cof_and" (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfCofOr : Parser :=
-      (annotated str "cof_or" (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfCofTop : Parser :=
-      (annotated str "cof_top" → surfaceExt)
-
-    def surfCofBot : Parser :=
-      (annotated str "cof_bot" → surfaceExt)
-
-    def surfBoundary : Parser :=
-      (annotated str "boundary" (special <surfaceExt>) → surfaceExt)
-
-    def surfCoe : Parser :=
-      (annotated str "coe" (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfHcom : Parser :=
-      (annotated str "hcom" (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfCom : Parser :=
-      (annotated str "com" (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) many ((special <sysEntry>)) (special <surfaceExt>) → surfaceExt)
-
-    def sysEntry : Parser :=
-      (annotated str "[" (special <surfaceExt>) str "↦" (special <surfaceExt>) str "]" → sysEntry)
-
-    def surfVType : Parser :=
-      (annotated str "V" (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfVIn : Parser :=
-      (annotated str "vin" (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfVProj : Parser :=
-      (annotated str "vproj" (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfExt : Parser :=
-      (annotated str "ext" (special <number>) (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfExtLam : Parser :=
-      (annotated str "extLam" (special <number>) (special <surfaceExt>) → surfaceExt)
-
-    def surfExtApp : Parser :=
-      (annotated str "extApp" (special <surfaceExt>) many ((special <surfaceExt>)) → surfaceExt)
-
-    def surfSub : Parser :=
-      (annotated str "sub" (special <surfaceExt>) (special <surfaceExt>) (special <surfaceExt>) → surfaceExt)
-
-    def surfSubIn : Parser :=
-      (annotated str "subIn" (special <surfaceExt>) → surfaceExt)
-
-    def surfSubOut : Parser :=
-      (annotated str "subOut" (special <surfaceExt>) → surfaceExt)
 
   end SurfaceExt
 
@@ -490,32 +334,32 @@ namespace Elaborate
 
     def mkPiNil (t : Term) : Term :=
       match t with
-      | (mkPi (unit ( )) $cod) => $cod
+      | .con "mkPi" [.con "unit" [.lit "(", .lit ")"], cod] => cod
       | _ => t
 
     def mkPiCons (t : Term) : Term :=
       match t with
-      | (mkPi (( ( $x (,) $ty ) $rest )) $cod) => (Π (typed ( $x : $ty )) (mkPi $rest $cod))
+      | .con "mkPi" [.con "app" [.lit "(", .lit "(", x, .lit ",", ty, .lit ")", rest, .lit ")"], cod] => Term.con "Π" [Term.con "typed" [Term.lit "(", x, Term.lit ":", ty, Term.lit ")"], Term.con "mkPi" [rest, cod]]
       | _ => t
 
     def mkLamNil (t : Term) : Term :=
       match t with
-      | (mkLam (unit ( )) $body) => $body
+      | .con "mkLam" [.con "unit" [.lit "(", .lit ")"], body] => body
       | _ => t
 
     def mkLamCons (t : Term) : Term :=
       match t with
-      | (mkLam ($x $rest) $body) => (λ (binder $ x . (mkLam $rest $body)))
+      | .con "mkLam" [.con "tuple" [x, rest], body] => Term.con "app" [Term.var "λ", Term.con "binder" [Term.lit "$", Term.var "x", Term.lit ".", Term.con "mkLam" [rest, body]]]
       | _ => t
 
     def mkAppsNil (t : Term) : Term :=
       match t with
-      | (mkApps $f (unit ( ))) => $f
+      | .con "mkApps" [f, .con "unit" [.lit "(", .lit ")"]] => f
       | _ => t
 
     def mkAppsCons (t : Term) : Term :=
       match t with
-      | (mkApps $f ($a $rest)) => (mkApps (app $f $a) $rest)
+      | .con "mkApps" [f, .con "tuple" [a, rest]] => Term.con "mkApps" [Term.con "app" [f, a], rest]
       | _ => t
 
   end Helpers
@@ -524,37 +368,37 @@ namespace Elaborate
 
     def idSurface (t : Term) : Term :=
       match t with
-      | (idSurface) => (lamParen ( λ x . (var (x)) ))
+      | .con "idSurface" [] => Term.con "lamParen" [Term.lit "(", Term.lit "λ", Term.var "x", Term.lit ".", Term.con "app" [Term.var "var", Term.con "x" []], Term.lit ")"]
       | _ => t
 
     def idTypeSurface (t : Term) : Term :=
       match t with
-      | (idTypeSurface) => (Π (typed ( (A) : (Type (num (number 0))) )) (Π (typed ( (x) : (var (A)) )) (var (A))))
+      | .con "idTypeSurface" [] => Term.con "Π" [Term.con "typed" [Term.lit "(", Term.con "A" [], Term.lit ":", Term.con "app" [Term.var "Type", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.lit ")"], Term.con "Π" [Term.con "typed" [Term.lit "(", Term.con "x" [], Term.lit ":", Term.con "app" [Term.var "var", Term.con "A" []], Term.lit ")"], Term.con "app" [Term.var "var", Term.con "A" []]]]
       | _ => t
 
     def constSurface (t : Term) : Term :=
       match t with
-      | (constSurface) => (lamParen ( λ x . (lamParen ( λ y . (var (x)) )) ))
+      | .con "constSurface" [] => Term.con "lamParen" [Term.lit "(", Term.lit "λ", Term.var "x", Term.lit ".", Term.con "lamParen" [Term.lit "(", Term.lit "λ", Term.var "y", Term.lit ".", Term.con "app" [Term.var "var", Term.con "x" []], Term.lit ")"], Term.lit ")"]
       | _ => t
 
     def flipSurface (t : Term) : Term :=
       match t with
-      | (flipSurface) => (lamParen ( λ f . (lamParen ( λ x . (lamParen ( λ y . (app (app (var (f)) (var (y))) (var (x))) )) )) ))
+      | .con "flipSurface" [] => Term.con "lamParen" [Term.lit "(", Term.lit "λ", Term.var "f", Term.lit ".", Term.con "lamParen" [Term.lit "(", Term.lit "λ", Term.var "x", Term.lit ".", Term.con "lamParen" [Term.lit "(", Term.lit "λ", Term.var "y", Term.lit ".", Term.con "app" [Term.con "app" [Term.con "app" [Term.var "var", Term.con "f" []], Term.con "app" [Term.var "var", Term.con "y" []]], Term.con "app" [Term.var "var", Term.con "x" []]], Term.lit ")"], Term.lit ")"], Term.lit ")"]
       | _ => t
 
     def zeroSurface (t : Term) : Term :=
       match t with
-      | (zeroSurface) => (introExpr ( intro Nat . zero (unit ( )) ))
+      | .con "zeroSurface" [] => Term.con "introExpr" [Term.lit "(", Term.var "intro", Term.var "Nat", Term.lit ".", Term.var "zero", Term.con "unit" [Term.lit "(", Term.lit ")"], Term.lit ")"]
       | _ => t
 
     def sucSurface (t : Term) : Term :=
       match t with
-      | (sucSurface $n) => (introExpr ( intro Nat . suc ($n) ))
+      | .con "app" [.var "sucSurface", n] => Term.con "introExpr" [Term.lit "(", Term.var "intro", Term.var "Nat", Term.lit ".", Term.var "suc", n, Term.lit ")"]
       | _ => t
 
     def twoSurface (t : Term) : Term :=
       match t with
-      | (twoSurface) => (sucSurface (sucSurface (zeroSurface)))
+      | .con "twoSurface" [] => Term.con "app" [Term.var "sucSurface", Term.con "app" [Term.var "sucSurface", Term.con "zeroSurface" []]]
       | _ => t
 
   end Examples

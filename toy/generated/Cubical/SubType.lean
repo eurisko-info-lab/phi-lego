@@ -1,70 +1,74 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
+
+import Lego.Algebra
+
+open Lego
 
 namespace SubType
 
   section SubInfo
 
-    def subInfo : Parser :=
-      (annotated str "subInfo" str "base:" (special <expr>) str "cof:" (special <expr>) str "bdry:" (special <expr>) → subInfo)
-
     def subInfoBase (t : Term) : Term :=
       match t with
-      | (subInfoBase (subInfo (labeledArg base : $b) (labeledArg cof : $c) (labeledArg bdry : $d))) => $b
+      | .con "app" [.var "subInfoBase", .con "subInfo" [.con "labeledArg" [.var "base", .lit ":", b], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", d]]] => b
       | _ => t
 
     def subInfoCof (t : Term) : Term :=
       match t with
-      | (subInfoCof (subInfo (labeledArg base : $b) (labeledArg cof : $c) (labeledArg bdry : $d))) => $c
+      | .con "app" [.var "subInfoCof", .con "subInfo" [.con "labeledArg" [.var "base", .lit ":", b], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", d]]] => c
       | _ => t
 
     def subInfoBdry (t : Term) : Term :=
       match t with
-      | (subInfoBdry (subInfo (labeledArg base : $b) (labeledArg cof : $c) (labeledArg bdry : $d))) => $d
+      | .con "app" [.var "subInfoBdry", .con "subInfo" [.con "labeledArg" [.var "base", .lit ":", b], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", d]]] => d
       | _ => t
 
     def subInfoFromExpr (t : Term) : Term :=
       match t with
-      | (subInfoFromExpr (sub $ty $cof $bdry)) => (some (subInfo (labeledArg base : $ty) (labeledArg cof : $cof) (labeledArg bdry : $bdry)))
+      | .con "app" [.var "subInfoFromExpr", .con "sub" [ty, cof, bdry]] => Term.con "app" [Term.var "some", Term.con "subInfo" [Term.con "labeledArg" [Term.var "base", Term.lit ":", ty], Term.con "labeledArg" [Term.var "cof", Term.lit ":", cof], Term.con "labeledArg" [Term.var "bdry", Term.lit ":", bdry]]]
       | _ => t
 
     def subInfoFromExprOther (t : Term) : Term :=
       match t with
-      | (subInfoFromExpr $e) => (none)
+      | .con "app" [.var "subInfoFromExpr", e] => Term.con "none" []
       | _ => t
 
     def subInfoToExpr (t : Term) : Term :=
       match t with
-      | (subInfoToExpr (subInfo (labeledArg base : $b) (labeledArg cof : $c) (labeledArg bdry : $d))) => (sub $b $c $d)
+      | .con "app" [.var "subInfoToExpr", .con "subInfo" [.con "labeledArg" [.var "base", .lit ":", b], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", d]]] => Term.con "sub" [b, c, d]
       | _ => t
 
     def subInfoIsTrivial (t : Term) : Term :=
       match t with
-      | (subInfoIsTrivial (subInfo (labeledArg base : $b) (labeledArg cof : (cof_top)) (labeledArg bdry : $d))) => (true)
+      | .con "app" [.var "subInfoIsTrivial", .con "subInfo" [.con "labeledArg" [.var "base", .lit ":", b], .con "labeledArg" [.var "cof", .lit ":", .con "cof_top" []], .con "labeledArg" [.var "bdry", .lit ":", d]]] => Term.con "true" []
       | _ => t
 
     def subInfoIsTrivialOther (t : Term) : Term :=
       match t with
-      | (subInfoIsTrivial $info) => (false)
+      | .con "app" [.var "subInfoIsTrivial", info] => Term.con "false" []
       | _ => t
 
     def subInfoIsImpossible (t : Term) : Term :=
       match t with
-      | (subInfoIsImpossible (subInfo (labeledArg base : $b) (labeledArg cof : (cof_bot)) (labeledArg bdry : $d))) => (true)
+      | .con "app" [.var "subInfoIsImpossible", .con "subInfo" [.con "labeledArg" [.var "base", .lit ":", b], .con "labeledArg" [.var "cof", .lit ":", .con "cof_bot" []], .con "labeledArg" [.var "bdry", .lit ":", d]]] => Term.con "true" []
       | _ => t
 
     def subInfoIsImpossibleOther (t : Term) : Term :=
       match t with
-      | (subInfoIsImpossible $info) => (false)
+      | .con "app" [.var "subInfoIsImpossible", info] => Term.con "false" []
       | _ => t
 
     def subInfoGetBase (t : Term) : Term :=
       match t with
-      | (subInfoGetBase $info) => (subInfoBase $info)
+      | .con "app" [.var "subInfoGetBase", info] => Term.con "app" [Term.var "subInfoBase", info]
       | _ => t
 
     def subInfoEvalBoundary (t : Term) : Term :=
       match t with
-      | (subInfoEvalBoundary (subInfo (labeledArg base : $b) (labeledArg cof : $c) (labeledArg bdry : $d)) $prf) => (subst (num (number 0)) $prf $d)
+      | .con "subInfoEvalBoundary" [.con "subInfo" [.con "labeledArg" [.var "base", .lit ":", b], .con "labeledArg" [.var "cof", .lit ":", c], .con "labeledArg" [.var "bdry", .lit ":", d]], prf] => Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], prf, d]
       | _ => t
 
   end SubInfo
@@ -73,17 +77,17 @@ namespace SubType
 
     def mkSub (t : Term) : Term :=
       match t with
-      | (mkSub $baseType $cof $boundary) => (sub $baseType $cof $boundary)
+      | .con "mkSub" [baseType, cof, boundary] => Term.con "sub" [baseType, cof, boundary]
       | _ => t
 
     def mkSubTrivial (t : Term) : Term :=
       match t with
-      | (mkSubTrivial $baseType (lam (ix (num (number 0))))) => $baseType
+      | .con "mkSubTrivial" [baseType, .con "app" [.var "lam", .con "app" [.var "ix", .con "num" [.con "number" [.lit "0"]]]]] => baseType
       | _ => t
 
     def mkSubTrivialOther (t : Term) : Term :=
       match t with
-      | (mkSubTrivial $baseType $boundary) => (sub $baseType (cof_top) $boundary)
+      | .con "mkSubTrivial" [baseType, boundary] => Term.con "sub" [baseType, Term.con "cof_top" [], boundary]
       | _ => t
 
   end MkSub
@@ -92,17 +96,17 @@ namespace SubType
 
     def mkSubIn (t : Term) : Term :=
       match t with
-      | (mkSubIn $e) => (subIn $e)
+      | .con "app" [.var "mkSubIn", e] => Term.con "app" [Term.var "subIn", e]
       | _ => t
 
     def mkSubInOut (t : Term) : Term :=
       match t with
-      | (mkSubInOut (subOut $e)) => $e
+      | .con "app" [.var "mkSubInOut", .con "app" [.var "subOut", e]] => e
       | _ => t
 
     def mkSubInOutOther (t : Term) : Term :=
       match t with
-      | (mkSubInOutOther $e) => (subIn $e)
+      | .con "app" [.var "mkSubInOutOther", e] => Term.con "app" [Term.var "subIn", e]
       | _ => t
 
   end MkSubIn
@@ -111,12 +115,12 @@ namespace SubType
 
     def mkSubOut (t : Term) : Term :=
       match t with
-      | (mkSubOut (subIn $inner)) => $inner
+      | .con "app" [.var "mkSubOut", .con "app" [.var "subIn", inner]] => inner
       | _ => t
 
     def mkSubOutOther (t : Term) : Term :=
       match t with
-      | (mkSubOut $e) => (subOut $e)
+      | .con "app" [.var "mkSubOut", e] => Term.con "app" [Term.var "subOut", e]
       | _ => t
 
   end MkSubOut
@@ -125,22 +129,22 @@ namespace SubType
 
     def reduceSubOut (t : Term) : Term :=
       match t with
-      | (reduceSubOut (subOut (subIn $e))) => (some $e)
+      | .con "app" [.var "reduceSubOut", .con "app" [.var "subOut", .con "app" [.var "subIn", e]]] => Term.con "app" [Term.var "some", e]
       | _ => t
 
     def reduceSubOutOther (t : Term) : Term :=
       match t with
-      | (reduceSubOut $e) => (none)
+      | .con "app" [.var "reduceSubOut", e] => Term.con "none" []
       | _ => t
 
     def reduceSubExpr (t : Term) : Term :=
       match t with
-      | (reduceSubExpr (subOut $e)) => (caseExpr ( case $e (arm ( subIn $inner ) => (some $inner)) (arm _ => (none)) ))
+      | .con "app" [.var "reduceSubExpr", .con "app" [.var "subOut", e]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", e, Term.con "arm" [Term.lit "(", Term.var "subIn", Term.var "inner", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "some", Term.var "inner"]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def reduceSubExprOther (t : Term) : Term :=
       match t with
-      | (reduceSubExpr $e) => (none)
+      | .con "app" [.var "reduceSubExpr", e] => Term.con "none" []
       | _ => t
 
   end ReduceSub
@@ -149,32 +153,32 @@ namespace SubType
 
     def normalizeSub (t : Term) : Term :=
       match t with
-      | (normalizeSub (num (number 0)) $e) => $e
+      | .con "normalizeSub" [.con "num" [.con "number" [.lit "0"]], e] => e
       | _ => t
 
     def normalizeSubStep (t : Term) : Term :=
       match t with
-      | (normalizeSub (succ $fuel) $e) => (caseExpr ( case (reduceSubExpr $e) (arm ( some $e' ) => (normalizeSub $fuel $e')) (arm none => (normalizeSubRec $fuel $e)) ))
+      | .con "normalizeSub" [.con "app" [.var "succ", fuel], e] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "app" [Term.var "reduceSubExpr", e], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "e'", Term.lit ")", Term.lit "=>", Term.con "normalizeSub" [fuel, Term.var "e'"]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "normalizeSubRec" [fuel, e]], Term.lit ")"]
       | _ => t
 
     def normalizeSubRec (t : Term) : Term :=
       match t with
-      | (normalizeSubRec $fuel (sub $ty $cof $bdry)) => (sub (normalizeSub $fuel $ty) (normalizeSub $fuel $cof) (normalizeSub $fuel $bdry))
+      | .con "normalizeSubRec" [fuel, .con "sub" [ty, cof, bdry]] => Term.con "sub" [Term.con "normalizeSub" [fuel, ty], Term.con "normalizeSub" [fuel, cof], Term.con "normalizeSub" [fuel, bdry]]
       | _ => t
 
     def normalizeSubRecIn (t : Term) : Term :=
       match t with
-      | (normalizeSubRec $fuel (subIn $inner)) => (subIn (normalizeSub $fuel $inner))
+      | .con "normalizeSubRec" [fuel, .con "app" [.var "subIn", inner]] => Term.con "app" [Term.var "subIn", Term.con "normalizeSub" [fuel, inner]]
       | _ => t
 
     def normalizeSubRecOut (t : Term) : Term :=
       match t with
-      | (normalizeSubRec $fuel (subOut $inner)) => (letIn ( let $ inner' = (normalizeSub $fuel $inner) in (caseExpr ( case $inner' (arm ( subIn $x ) => $x) (arm _ => (subOut $inner')) )) ))
+      | .con "normalizeSubRec" [fuel, .con "app" [.var "subOut", inner]] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "inner'", Term.lit "=", Term.con "normalizeSub" [fuel, inner], Term.lit "in", Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.var "inner'", Term.con "arm" [Term.lit "(", Term.var "subIn", Term.var "x", Term.lit ")", Term.lit "=>", Term.var "x"], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "app" [Term.var "subOut", Term.var "inner'"]], Term.lit ")"], Term.lit ")"]
       | _ => t
 
     def normalizeSubRecOther (t : Term) : Term :=
       match t with
-      | (normalizeSubRec $fuel $e) => $e
+      | .con "normalizeSubRec" [fuel, e] => e
       | _ => t
 
   end NormalizeSub
@@ -183,7 +187,7 @@ namespace SubType
 
     def trivialSubEquiv (t : Term) : Term :=
       match t with
-      | (trivialSubEquiv $ty) => (mkSub $ty (cof_top (paren ( (lam (ix (num (number 0)))) ))))
+      | .con "app" [.var "trivialSubEquiv", ty] => Term.con "mkSub" [ty, Term.con "cof_top" [Term.con "paren" [Term.lit "(", Term.con "lam" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.lit ")"]]]
       | _ => t
 
   end TrivialSub
@@ -192,7 +196,7 @@ namespace SubType
 
     def impossibleSub (t : Term) : Term :=
       match t with
-      | (impossibleSub $ty) => (mkSub $ty (cof_bot (paren ( (lam (lit str "⊥-elim")) ))))
+      | .con "app" [.var "impossibleSub", ty] => Term.con "mkSub" [ty, Term.con "cof_bot" [Term.con "paren" [Term.lit "(", Term.con "lam" [Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "⊥-elim"]]], Term.lit ")"]]]
       | _ => t
 
   end ImpossibleSub
@@ -201,7 +205,7 @@ namespace SubType
 
     def subTypeEquiv (t : Term) : Term :=
       match t with
-      | (subTypeEquiv $s1 $s2) => (and (conv (subInfoBase $s1) (subInfoBase $s2)) (and (conv (subInfoCof $s1) (subInfoCof $s2)) (conv (subInfoBdry $s1) (subInfoBdry $s2))))
+      | .con "subTypeEquiv" [s1, s2] => Term.con "and" [Term.con "conv" [Term.con "app" [Term.var "subInfoBase", s1], Term.con "app" [Term.var "subInfoBase", s2]], Term.con "and" [Term.con "conv" [Term.con "app" [Term.var "subInfoCof", s1], Term.con "app" [Term.var "subInfoCof", s2]], Term.con "conv" [Term.con "app" [Term.var "subInfoBdry", s1], Term.con "app" [Term.var "subInfoBdry", s2]]]]
       | _ => t
 
   end SubTypeEquiv
@@ -210,27 +214,27 @@ namespace SubType
 
     def coeSub (t : Term) : Term :=
       match t with
-      | (coeSub $r $r' (lam (sub $A $φ $t)) (subIn $v)) => (subIn (coe $r $r' (lam $A) $v))
+      | .con "coeSub" [r, r', .con "app" [.var "lam", .con "sub" [A, φ, t]], .con "app" [.var "subIn", v]] => Term.con "app" [Term.var "subIn", Term.con "coe" [r, r', Term.con "app" [Term.var "lam", A], v]]
       | _ => t
 
     def coeSubStuck (t : Term) : Term :=
       match t with
-      | (coeSub $r $r' $line $v) => (coe $r $r' $line $v)
+      | .con "coeSub" [r, r', line, v] => Term.con "coe" [r, r', line, v]
       | _ => t
 
     def hcomSub (t : Term) : Term :=
       match t with
-      | (hcomSub (sub $A $φ $t) $r $r' $ψ $tubes (subIn $cap)) => (subIn (hcom $A $r $r' $ψ (mapSubOut $tubes) $cap))
+      | .con "hcomSub" [.con "sub" [A, φ, t], r, r', ψ, tubes, .con "app" [.var "subIn", cap]] => Term.con "app" [Term.var "subIn", Term.con "hcom" [A, r, r', ψ, Term.con "app" [Term.var "mapSubOut", tubes], cap]]
       | _ => t
 
     def hcomSubStuck (t : Term) : Term :=
       match t with
-      | (hcomSub $subTy $r $r' $ψ $tubes $cap) => (hcom $subTy $r $r' $ψ $tubes $cap)
+      | .con "hcomSub" [subTy, r, r', ψ, tubes, cap] => Term.con "hcom" [subTy, r, r', ψ, tubes, cap]
       | _ => t
 
     def mapSubOut (t : Term) : Term :=
       match t with
-      | (mapSubOut (lam (lam $body))) => (lam (lam (subOut $body)))
+      | .con "app" [.var "mapSubOut", .con "app" [.var "lam", .con "app" [.var "lam", body]]] => Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "subOut", body]]]
       | _ => t
 
   end SubKan
@@ -239,12 +243,12 @@ namespace SubType
 
     def checkSubBoundary (t : Term) : Term :=
       match t with
-      | (checkSubBoundary $e (subInfo (labeledArg base : $A) (labeledArg cof : $φ) (labeledArg bdry : $t))) => (caseExpr ( case $φ (arm cof_bot => (true)) (arm cof_top => (conv $e (subst (num (number 0)) (lit str "trivial") $t))) (arm _ => (checkSubBoundaryGeneral $e $φ $t)) ))
+      | .con "checkSubBoundary" [e, .con "subInfo" [.con "labeledArg" [.var "base", .lit ":", A], .con "labeledArg" [.var "cof", .lit ":", φ], .con "labeledArg" [.var "bdry", .lit ":", t]]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", φ, Term.con "arm" [Term.var "cof_bot", Term.lit "=>", Term.con "true" []], Term.con "arm" [Term.var "cof_top", Term.lit "=>", Term.con "conv" [e, Term.con "subst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "trivial"]], t]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "checkSubBoundaryGeneral" [e, φ, t]], Term.lit ")"]
       | _ => t
 
     def checkSubBoundaryGeneral (t : Term) : Term :=
       match t with
-      | (checkSubBoundaryGeneral $e $φ $t) => (true)
+      | .con "checkSubBoundaryGeneral" [e, φ, t] => Term.con "true" []
       | _ => t
 
   end SubBoundaryCheck
@@ -253,12 +257,12 @@ namespace SubType
 
     def partialToSub (t : Term) : Term :=
       match t with
-      | (partialToSub $A $φ $partial) => (sub $A $φ $partial)
+      | .con "partialToSub" [A, φ, partial_] => Term.con "sub" [A, φ, partial_]
       | _ => t
 
     def subToPartial (t : Term) : Term :=
       match t with
-      | (subToPartial (sub $A $φ $bdry)) => $bdry
+      | .con "app" [.var "subToPartial", .con "sub" [A, φ, bdry]] => bdry
       | _ => t
 
   end SubPartial
@@ -267,7 +271,7 @@ namespace SubType
 
     def extAsSub (t : Term) : Term :=
       match t with
-      | (extAsSub $dim $A $φ $bdry) => (pi $dim (sub (app (shift (num (number 0)) (num (number 1)) $A) (ix (num (number 0)))) (app (shift (num (number 0)) (num (number 1)) $φ) (ix (num (number 0)))) (app (shift (num (number 0)) (num (number 1)) $bdry) (ix (num (number 0))))))
+      | .con "extAsSub" [dim, A, φ, bdry] => Term.con "pi" [dim, Term.con "sub" [Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], A], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], φ], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "app" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], bdry], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]
       | _ => t
 
   end ExtIntegration

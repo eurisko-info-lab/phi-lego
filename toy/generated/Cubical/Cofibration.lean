@@ -1,4 +1,11 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
+
+import Lego.Algebra
+
+open Lego
 
 namespace Cofibration
 
@@ -6,52 +13,52 @@ namespace Cofibration
 
     def isDim0_0 (t : Term) : Term :=
       match t with
-      | (isDim0 (dim0)) => (true)
+      | .con "app" [.var "isDim0", .con "dim0" []] => Term.con "true" []
       | _ => t
 
     def isDim0_1 (t : Term) : Term :=
       match t with
-      | (isDim0 (dim1)) => (false)
+      | .con "app" [.var "isDim0", .con "dim1" []] => Term.con "false" []
       | _ => t
 
     def isDim0_var (t : Term) : Term :=
       match t with
-      | (isDim0 (dimVar $n)) => (false)
+      | .con "app" [.var "isDim0", .con "app" [.var "dimVar", n]] => Term.con "false" []
       | _ => t
 
     def isDim1_0 (t : Term) : Term :=
       match t with
-      | (isDim1 (dim0)) => (false)
+      | .con "app" [.var "isDim1", .con "dim0" []] => Term.con "false" []
       | _ => t
 
     def isDim1_1 (t : Term) : Term :=
       match t with
-      | (isDim1 (dim1)) => (true)
+      | .con "app" [.var "isDim1", .con "dim1" []] => Term.con "true" []
       | _ => t
 
     def isDim1_var (t : Term) : Term :=
       match t with
-      | (isDim1 (dimVar $n)) => (false)
+      | .con "app" [.var "isDim1", .con "app" [.var "dimVar", n]] => Term.con "false" []
       | _ => t
 
     def dimEq00 (t : Term) : Term :=
       match t with
-      | (dimEq (dim0) (dim0)) => (true)
+      | .con "dimEq" [.con "dim0" [], .con "dim0" []] => Term.con "true" []
       | _ => t
 
     def dimEq11 (t : Term) : Term :=
       match t with
-      | (dimEq (dim1) (dim1)) => (true)
+      | .con "dimEq" [.con "dim1" [], .con "dim1" []] => Term.con "true" []
       | _ => t
 
     def dimEqVar (t : Term) : Term :=
       match t with
-      | (dimEq (dimVar $n) (dimVar $m)) => (eq $n $m)
+      | .con "dimEq" [.con "app" [.var "dimVar", n], .con "app" [.var "dimVar", m]] => Term.con "eq" [n, m]
       | _ => t
 
     def dimEqMixed (t : Term) : Term :=
       match t with
-      | (dimEq $r $s) => (false)
+      | .con "dimEq" [r, s] => Term.con "false" []
       | _ => t
 
     -- Test: test
@@ -69,42 +76,42 @@ namespace Cofibration
 
     def top (t : Term) : Term :=
       match t with
-      | (top) => (cof_top)
+      | .con "top" [] => Term.con "cof_top" []
       | _ => t
 
     def bot (t : Term) : Term :=
       match t with
-      | (bot) => (cof_bot)
+      | .con "bot" [] => Term.con "cof_bot" []
       | _ => t
 
     def eqSame (t : Term) : Term :=
       match t with
-      | (cofEq $r $r) => (cof_top)
+      | .con "cofEq" [r, r_dup] => Term.con "cof_top" []
       | _ => t
 
     def eq01 (t : Term) : Term :=
       match t with
-      | (cofEq (dim0) (dim1)) => (cof_bot)
+      | .con "cofEq" [.con "dim0" [], .con "dim1" []] => Term.con "cof_bot" []
       | _ => t
 
     def eq10 (t : Term) : Term :=
       match t with
-      | (cofEq (dim1) (dim0)) => (cof_bot)
+      | .con "cofEq" [.con "dim1" [], .con "dim0" []] => Term.con "cof_bot" []
       | _ => t
 
     def eqGen (t : Term) : Term :=
       match t with
-      | (cofEq $r $s) => (cof_eq $r $s)
+      | .con "cofEq" [r, s] => Term.con "cof_eq" [r, s]
       | _ => t
 
     def le (t : Term) : Term :=
       match t with
-      | (cofLe $r $s) => (cof_or (cof_eq $r (dim0)) (cof_eq $s (dim1)))
+      | .con "cofLe" [r, s] => Term.con "cof_or" [Term.con "cof_eq" [r, Term.con "dim0" []], Term.con "cof_eq" [s, Term.con "dim1" []]]
       | _ => t
 
     def boundary (t : Term) : Term :=
       match t with
-      | (boundary $r) => (cof_or (cof_eq $r (dim0)) (cof_eq $r (dim1)))
+      | .con "app" [.var "boundary", r] => Term.con "cof_or" [Term.con "cof_eq" [r, Term.con "dim0" []], Term.con "cof_eq" [r, Term.con "dim1" []]]
       | _ => t
 
     -- Test: test
@@ -122,27 +129,27 @@ namespace Cofibration
 
     def meetTopL (t : Term) : Term :=
       match t with
-      | (cof_and (cof_top) $φ) => $φ
+      | .con "cof_and" [.con "cof_top" [], φ] => φ
       | _ => t
 
     def meetTopR (t : Term) : Term :=
       match t with
-      | (cof_and $φ (cof_top)) => $φ
+      | .con "cof_and" [φ, .con "cof_top" []] => φ
       | _ => t
 
     def meetBotL (t : Term) : Term :=
       match t with
-      | (cof_and (cof_bot) $φ) => (cof_bot)
+      | .con "cof_and" [.con "cof_bot" [], φ] => Term.con "cof_bot" []
       | _ => t
 
     def meetBotR (t : Term) : Term :=
       match t with
-      | (cof_and $φ (cof_bot)) => (cof_bot)
+      | .con "cof_and" [φ, .con "cof_bot" []] => Term.con "cof_bot" []
       | _ => t
 
     def meetIdem (t : Term) : Term :=
       match t with
-      | (cof_and $φ $φ) => $φ
+      | .con "cof_and" [φ, φ_dup] => φ
       | _ => t
 
     -- Test: test
@@ -160,27 +167,27 @@ namespace Cofibration
 
     def joinBotL (t : Term) : Term :=
       match t with
-      | (cof_or (cof_bot) $φ) => $φ
+      | .con "cof_or" [.con "cof_bot" [], φ] => φ
       | _ => t
 
     def joinBotR (t : Term) : Term :=
       match t with
-      | (cof_or $φ (cof_bot)) => $φ
+      | .con "cof_or" [φ, .con "cof_bot" []] => φ
       | _ => t
 
     def joinTopL (t : Term) : Term :=
       match t with
-      | (cof_or (cof_top) $φ) => (cof_top)
+      | .con "cof_or" [.con "cof_top" [], φ] => Term.con "cof_top" []
       | _ => t
 
     def joinTopR (t : Term) : Term :=
       match t with
-      | (cof_or $φ (cof_top)) => (cof_top)
+      | .con "cof_or" [φ, .con "cof_top" []] => Term.con "cof_top" []
       | _ => t
 
     def joinIdem (t : Term) : Term :=
       match t with
-      | (cof_or $φ $φ) => $φ
+      | .con "cof_or" [φ, φ_dup] => φ
       | _ => t
 
     -- Test: test
@@ -198,27 +205,27 @@ namespace Cofibration
 
     def normTop (t : Term) : Term :=
       match t with
-      | (normCof (cof_top)) => (cof_top)
+      | .con "app" [.var "normCof", .con "cof_top" []] => Term.con "cof_top" []
       | _ => t
 
     def normBot (t : Term) : Term :=
       match t with
-      | (normCof (cof_bot)) => (cof_bot)
+      | .con "app" [.var "normCof", .con "cof_bot" []] => Term.con "cof_bot" []
       | _ => t
 
     def normEq (t : Term) : Term :=
       match t with
-      | (normCof (cof_eq $r $s)) => (cofEq $r $s)
+      | .con "app" [.var "normCof", .con "cof_eq" [r, s]] => Term.con "cofEq" [r, s]
       | _ => t
 
     def normAnd (t : Term) : Term :=
       match t with
-      | (normCof (cof_and $φ $ψ)) => (cof_and (normCof $φ) (normCof $ψ))
+      | .con "app" [.var "normCof", .con "cof_and" [φ, ψ]] => Term.con "cof_and" [Term.con "app" [Term.var "normCof", φ], Term.con "app" [Term.var "normCof", ψ]]
       | _ => t
 
     def normOr (t : Term) : Term :=
       match t with
-      | (normCof (cof_or $φ $ψ)) => (cof_or (normCof $φ) (normCof $ψ))
+      | .con "app" [.var "normCof", .con "cof_or" [φ, ψ]] => Term.con "cof_or" [Term.con "app" [Term.var "normCof", φ], Term.con "app" [Term.var "normCof", ψ]]
       | _ => t
 
   end Normalize
@@ -227,32 +234,32 @@ namespace Cofibration
 
     def cofTrueTop (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_top)) => (true)
+      | .con "app" [.var "cofTrue", .con "cof_top" []] => Term.con "true" []
       | _ => t
 
     def cofTrueBot (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_bot)) => (false)
+      | .con "app" [.var "cofTrue", .con "cof_bot" []] => Term.con "false" []
       | _ => t
 
     def cofTrueEq (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_eq $r $s)) => (dimEq $r $s)
+      | .con "app" [.var "cofTrue", .con "cof_eq" [r, s]] => Term.con "dimEq" [r, s]
       | _ => t
 
     def cofTrueAnd (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_and $φ $ψ)) => (and (cofTrue $φ) (cofTrue $ψ))
+      | .con "app" [.var "cofTrue", .con "cof_and" [φ, ψ]] => Term.con "and" [Term.con "app" [Term.var "cofTrue", φ], Term.con "app" [Term.var "cofTrue", ψ]]
       | _ => t
 
     def cofTrueOr (t : Term) : Term :=
       match t with
-      | (cofTrue (cof_or $φ $ψ)) => (or (cofTrue $φ) (cofTrue $ψ))
+      | .con "app" [.var "cofTrue", .con "cof_or" [φ, ψ]] => Term.con "or" [Term.con "app" [Term.var "cofTrue", φ], Term.con "app" [Term.var "cofTrue", ψ]]
       | _ => t
 
     def cofFalse (t : Term) : Term :=
       match t with
-      | (cofFalse $φ) => (not (cofTrue $φ))
+      | .con "app" [.var "cofFalse", φ] => Term.con "app" [Term.var "not", Term.con "app" [Term.var "cofTrue", φ]]
       | _ => t
 
     -- Test: test
@@ -270,17 +277,17 @@ namespace Cofibration
 
     def entails (t : Term) : Term :=
       match t with
-      | (entails $φ $ψ) => (cofTrue (cof_or (cof_not $φ) $ψ))
+      | .con "entails" [φ, ψ] => Term.con "app" [Term.var "cofTrue", Term.con "cof_or" [Term.con "app" [Term.var "cof_not", φ], ψ]]
       | _ => t
 
     def notTop (t : Term) : Term :=
       match t with
-      | (cof_not (cof_top)) => (cof_bot)
+      | .con "app" [.var "cof_not", .con "cof_top" []] => Term.con "cof_bot" []
       | _ => t
 
     def notBot (t : Term) : Term :=
       match t with
-      | (cof_not (cof_bot)) => (cof_top)
+      | .con "app" [.var "cof_not", .con "cof_bot" []] => Term.con "cof_top" []
       | _ => t
 
   end Sequent
@@ -289,47 +296,47 @@ namespace Cofibration
 
     def substCofTop (t : Term) : Term :=
       match t with
-      | (substCof $n $r (cof_top)) => (cof_top)
+      | .con "substCof" [n, r, .con "cof_top" []] => Term.con "cof_top" []
       | _ => t
 
     def substCofBot (t : Term) : Term :=
       match t with
-      | (substCof $n $r (cof_bot)) => (cof_bot)
+      | .con "substCof" [n, r, .con "cof_bot" []] => Term.con "cof_bot" []
       | _ => t
 
     def substCofEq (t : Term) : Term :=
       match t with
-      | (substCof $n $r (cof_eq $s $t)) => (cof_eq (substDimInDim $n $r $s) (substDimInDim $n $r $t))
+      | .con "substCof" [n, r, .con "cof_eq" [s, t]] => Term.con "cof_eq" [Term.con "substDimInDim" [n, r, s], Term.con "substDimInDim" [n, r, t]]
       | _ => t
 
     def substCofAnd (t : Term) : Term :=
       match t with
-      | (substCof $n $r (cof_and $φ $ψ)) => (cof_and (substCof $n $r $φ) (substCof $n $r $ψ))
+      | .con "substCof" [n, r, .con "cof_and" [φ, ψ]] => Term.con "cof_and" [Term.con "substCof" [n, r, φ], Term.con "substCof" [n, r, ψ]]
       | _ => t
 
     def substCofOr (t : Term) : Term :=
       match t with
-      | (substCof $n $r (cof_or $φ $ψ)) => (cof_or (substCof $n $r $φ) (substCof $n $r $ψ))
+      | .con "substCof" [n, r, .con "cof_or" [φ, ψ]] => Term.con "cof_or" [Term.con "substCof" [n, r, φ], Term.con "substCof" [n, r, ψ]]
       | _ => t
 
     def substDimVar (t : Term) : Term :=
       match t with
-      | (substDimInDim $n $r (dimVar $n)) => $r
+      | .con "substDimInDim" [n, r, .con "app" [.var "dimVar", n_dup]] => r
       | _ => t
 
     def substDimVarOther (t : Term) : Term :=
       match t with
-      | (substDimInDim $n $r (dimVar $m)) => (dimVar $m)
+      | .con "substDimInDim" [n, r, .con "app" [.var "dimVar", m]] => Term.con "app" [Term.var "dimVar", m]
       | _ => t
 
     def substDim0 (t : Term) : Term :=
       match t with
-      | (substDimInDim $n $r (dim0)) => (dim0)
+      | .con "substDimInDim" [n, r, .con "dim0" []] => Term.con "dim0" []
       | _ => t
 
     def substDim1 (t : Term) : Term :=
       match t with
-      | (substDimInDim $n $r (dim1)) => (dim1)
+      | .con "substDimInDim" [n, r, .con "dim1" []] => Term.con "dim1" []
       | _ => t
 
   end DimSubst
@@ -338,12 +345,12 @@ namespace Cofibration
 
     def forallCof (t : Term) : Term :=
       match t with
-      | (forallDim $i $φ) => (cof_and (substCof $i (dim0) $φ) (substCof $i (dim1) $φ))
+      | .con "forallDim" [i, φ] => Term.con "cof_and" [Term.con "substCof" [i, Term.con "dim0" [], φ], Term.con "substCof" [i, Term.con "dim1" [], φ]]
       | _ => t
 
     def existsCof (t : Term) : Term :=
       match t with
-      | (existsDim $i $φ) => (cof_or (substCof $i (dim0) $φ) (substCof $i (dim1) $φ))
+      | .con "existsDim" [i, φ] => Term.con "cof_or" [Term.con "substCof" [i, Term.con "dim0" [], φ], Term.con "substCof" [i, Term.con "dim1" [], φ]]
       | _ => t
 
   end Forall

@@ -1,6 +1,11 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath GlobalEnv) ;)
+import Lego.Algebra
+
+open Lego
 
 namespace Datatype
 
@@ -8,32 +13,32 @@ namespace Datatype
 
     def mkData (t : Term) : Term :=
       match t with
-      | (mkData $dlbl (unit ( ))) => (lit (concat str "data." $dlbl))
+      | .con "mkData" [dlbl, .con "unit" [.lit "(", .lit ")"]] => Term.con "app" [Term.var "lit", Term.con "concat" [Term.con "terminal" [Term.lit "data."], dlbl]]
       | _ => t
 
     def mkDataParams (t : Term) : Term :=
       match t with
-      | (mkData $dlbl ($p $rest)) => (app (mkData $dlbl $rest) $p)
+      | .con "mkData" [dlbl, .con "tuple" [p, rest]] => Term.con "app" [Term.con "mkData" [dlbl, rest], p]
       | _ => t
 
     def isData (t : Term) : Term :=
       match t with
-      | (isData $e) => (getDataHead $e (unit ( )))
+      | .con "app" [.var "isData", e] => Term.con "getDataHead" [e, Term.con "unit" [Term.lit "(", Term.lit ")"]]
       | _ => t
 
     def getDataHeadLit (t : Term) : Term :=
       match t with
-      | (getDataHead (lit $s) $acc) => (caseExpr ( case (startsWith $s str "data.") (arm true => (some (tuple ( (drop (num (number 5)) $s) , $acc )))) (arm false => (none)) ))
+      | .con "getDataHead" [.con "app" [.var "lit", s], acc] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "startsWith" [s, Term.con "terminal" [Term.lit "data."]], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "app" [Term.var "some", Term.con "tuple" [Term.lit "(", Term.con "drop" [Term.con "num" [Term.con "number" [Term.lit "5"]], s], Term.lit ",", acc, Term.lit ")"]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def getDataHeadApp (t : Term) : Term :=
       match t with
-      | (getDataHead (app $f $a) $acc) => (getDataHead $f ($a $acc))
+      | .con "getDataHead" [.con "app" [f, a], acc] => Term.con "getDataHead" [f, Term.con "tuple" [a, acc]]
       | _ => t
 
     def getDataHeadOther (t : Term) : Term :=
       match t with
-      | (getDataHead $e $acc) => (none)
+      | .con "getDataHead" [e, acc] => Term.con "none" []
       | _ => t
 
   end DataType
@@ -42,73 +47,66 @@ namespace Datatype
 
     def mkIntro (t : Term) : Term :=
       match t with
-      | (mkIntro $dlbl $clbl $params $args) => (mkIntro' $dlbl $clbl (length $params) $params $args)
+      | .con "mkIntro" [dlbl, clbl, params, args] => Term.con "mkIntro'" [dlbl, clbl, Term.con "app" [Term.var "length", params], params, args]
       | _ => t
 
     def mkIntro' (t : Term) : Term :=
       match t with
-      | (mkIntro' $dlbl $clbl $paramCount (unit ( )) (unit ( ))) => (lit (concat str "intro." $dlbl str "." $clbl str "." $paramCount))
+      | .con "mkIntro'" [dlbl, clbl, paramCount, .con "unit" [.lit "(", .lit ")"], .con "unit" [.lit "(", .lit ")"]] => Term.con "app" [Term.var "lit", Term.con "concat" [Term.con "terminal" [Term.lit "intro."], dlbl, Term.con "terminal" [Term.lit "."], clbl, Term.con "terminal" [Term.lit "."], paramCount]]
       | _ => t
 
     def mkIntro'Params (t : Term) : Term :=
       match t with
-      | (mkIntro' $dlbl $clbl $paramCount ($p $rest) $args) => (app (mkIntro' $dlbl $clbl $paramCount $rest $args) $p)
+      | .con "mkIntro'" [dlbl, clbl, paramCount, .con "tuple" [p, rest], args] => Term.con "app" [Term.con "mkIntro'" [dlbl, clbl, paramCount, rest, args], p]
       | _ => t
 
     def mkIntro'Args (t : Term) : Term :=
       match t with
-      | (mkIntro' $dlbl $clbl $paramCount (unit ( )) ($a $rest)) => (app (mkIntro' $dlbl $clbl $paramCount (unit ( )) $rest) $a)
+      | .con "mkIntro'" [dlbl, clbl, paramCount, .con "unit" [.lit "(", .lit ")"], .con "tuple" [a, rest]] => Term.con "app" [Term.con "mkIntro'" [dlbl, clbl, paramCount, Term.con "unit" [Term.lit "(", Term.lit ")"], rest], a]
       | _ => t
 
     def isIntro (t : Term) : Term :=
       match t with
-      | (isIntro $e) => (letIn ( let headArgs = (collectArgs $e (unit ( ))) in (parseIntro (fst (headArgs)) (snd (headArgs))) ))
+      | .con "app" [.var "isIntro", e] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "headArgs", Term.lit "=", Term.con "collectArgs" [e, Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.lit "in", Term.con "parseIntro" [Term.con "app" [Term.var "fst", Term.con "headArgs" []], Term.con "app" [Term.var "snd", Term.con "headArgs" []]], Term.lit ")"]
       | _ => t
 
     def collectArgsApp (t : Term) : Term :=
       match t with
-      | (collectArgs (app $f $a) $acc) => (collectArgs $f ($a $acc))
+      | .con "collectArgs" [.con "app" [f, a], acc] => Term.con "collectArgs" [f, Term.con "tuple" [a, acc]]
       | _ => t
 
     def collectArgsOther (t : Term) : Term :=
       match t with
-      | (collectArgs $e $acc) => (tuple ( $e , $acc ))
+      | .con "collectArgs" [e, acc] => Term.con "tuple" [Term.lit "(", e, Term.lit ",", acc, Term.lit ")"]
       | _ => t
 
     def parseIntro (t : Term) : Term :=
       match t with
-      | (parseIntro (lit $s) $allArgs) => (caseExpr ( case (startsWith $s str "intro.") (arm true => (parseIntroRest (drop (num (number 6)) $s) $allArgs)) (arm false => (none)) ))
+      | .con "parseIntro" [.con "app" [.var "lit", s], allArgs] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "startsWith" [s, Term.con "terminal" [Term.lit "intro."]], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "parseIntroRest" [Term.con "drop" [Term.con "num" [Term.con "number" [Term.lit "6"]], s], allArgs]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def parseIntroOther (t : Term) : Term :=
       match t with
-      | (parseIntro $e $args) => (none)
+      | .con "parseIntro" [e, args] => Term.con "none" []
       | _ => t
 
     def parseIntroRest (t : Term) : Term :=
       match t with
-      | (parseIntroRest $rest $allArgs) => (caseExpr ( case (splitOn $rest str ".") (arm ( $dlbl $clbl $countStr ) => (letIn ( let paramCount = (toNat $countStr) in (letIn let params = (take (paramCount) $allArgs) in (letIn let args = (drop (paramCount) $allArgs) in (some (nTuple ( $dlbl , $clbl , (params) ,
-
-(args) ))))) ))) (arm ( $dlbl $clbl ) => (some (nTuple ( $dlbl , $clbl , (unit ( )) ,
-
-$allArgs )))) (arm _ => (none)) ))
+      | .con "parseIntroRest" [rest, allArgs] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "splitOn" [rest, Term.con "terminal" [Term.lit "."]], Term.con "arm" [Term.lit "(", Term.var "dlbl", Term.var "clbl", Term.var "countStr", Term.lit ")", Term.lit "=>", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "paramCount", Term.lit "=", Term.con "app" [Term.var "toNat", Term.var "countStr"], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "params", Term.lit "=", Term.con "take" [Term.con "paramCount" [], allArgs], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "args", Term.lit "=", Term.con "drop" [Term.con "paramCount" [], allArgs], Term.lit "in", Term.con "app" [Term.var "some", Term.con "nTuple" [Term.lit "(", Term.var "dlbl", Term.lit ",", Term.var "clbl", Term.lit ",", Term.con "params" [], Term.con "seq" [Term.lit ",", Term.con "args" []], Term.lit ")"]]]], Term.lit ")"]], Term.con "arm" [Term.lit "(", Term.var "dlbl", Term.var "clbl", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "some", Term.con "nTuple" [Term.lit "(", Term.var "dlbl", Term.lit ",", Term.var "clbl", Term.lit ",", Term.con "unit" [Term.lit "(", Term.lit ")"], Term.con "seq" [Term.lit ",", allArgs], Term.lit ")"]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
   end Intro
 
   section ElimClause
 
-    def elimClause : Parser :=
-      (annotated str "clause" str "clbl:" (special <string>) str "body:" (special <expr>) → elimClause)
-
     def elimClauseClbl (t : Term) : Term :=
       match t with
-      | (elimClauseClbl (clause (labeledArg clbl : $c) (labeledArg body : $b))) => $c
+      | .con "app" [.var "elimClauseClbl", .con "clause" [.con "labeledArg" [.var "clbl", .lit ":", c], .con "labeledArg" [.var "body", .lit ":", b]]] => c
       | _ => t
 
     def elimClauseBody (t : Term) : Term :=
       match t with
-      | (elimClauseBody (clause (labeledArg clbl : $c) (labeledArg body : $b))) => $b
+      | .con "app" [.var "elimClauseBody", .con "clause" [.con "labeledArg" [.var "clbl", .lit ":", c], .con "labeledArg" [.var "body", .lit ":", b]]] => b
       | _ => t
 
   end ElimClause
@@ -117,32 +115,32 @@ $allArgs )))) (arm _ => (none)) ))
 
     def mkElim (t : Term) : Term :=
       match t with
-      | (mkElim $dlbl $params $mot $clauses $scrut) => (letIn ( let base = (lit (concat str "elim." $dlbl)) in (letIn let withParams = (foldl (app) (base) $params) in (letIn let withMot = (app (withParams) $mot) in (letIn let clauseExpr = (encodeClauseList $clauses) in (letIn let withClauses = (app (withMot) (clauseExpr)) in (app (withClauses) $scrut))))) ))
+      | .con "mkElim" [dlbl, params, mot, clauses, scrut] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "base", Term.lit "=", Term.con "app" [Term.var "lit", Term.con "concat" [Term.con "terminal" [Term.lit "elim."], dlbl]], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "withParams", Term.lit "=", Term.con "foldl" [Term.con "app" [], Term.con "base" [], params], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "withMot", Term.lit "=", Term.con "app" [Term.con "withParams" [], mot], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "clauseExpr", Term.lit "=", Term.con "app" [Term.var "encodeClauseList", clauses], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "withClauses", Term.lit "=", Term.con "app" [Term.con "withMot" [], Term.con "clauseExpr" []], Term.lit "in", Term.con "app" [Term.con "withClauses" [], scrut]]]]], Term.lit ")"]
       | _ => t
 
     def encodeClauseListNil (t : Term) : Term :=
       match t with
-      | (encodeClauseList (unit ( ))) => (lit str "clauses.nil")
+      | .con "app" [.var "encodeClauseList", .con "unit" [.lit "(", .lit ")"]] => Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "clauses.nil"]]
       | _ => t
 
     def encodeClauseListCons (t : Term) : Term :=
       match t with
-      | (encodeClauseList (( ( clause (labeledArg clbl : $c) (labeledArg body : $b) ) $rest ))) => (letIn ( let tag = (lit (concat str "clause." $c)) in (letIn let thisClause = (app (tag) $b) in (app (app (lit str "clauses.cons") (thisClause)) (encodeClauseList $rest))) ))
+      | .con "app" [.var "encodeClauseList", .con "app" [.lit "(", .lit "(", .var "clause", .con "labeledArg" [.var "clbl", .lit ":", c], .con "labeledArg" [.var "body", .lit ":", b], .lit ")", rest, .lit ")"]] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "tag", Term.lit "=", Term.con "app" [Term.var "lit", Term.con "concat" [Term.con "terminal" [Term.lit "clause."], c]], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "thisClause", Term.lit "=", Term.con "app" [Term.con "tag" [], b], Term.lit "in", Term.con "app" [Term.con "app" [Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "clauses.cons"]], Term.con "thisClause" []], Term.con "app" [Term.var "encodeClauseList", rest]]], Term.lit ")"]
       | _ => t
 
     def isElim (t : Term) : Term :=
       match t with
-      | (isElim $e) => (letIn ( let headArgs = (collectArgs $e (unit ( ))) in (parseElim (fst (headArgs)) (snd (headArgs))) ))
+      | .con "app" [.var "isElim", e] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "headArgs", Term.lit "=", Term.con "collectArgs" [e, Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.lit "in", Term.con "parseElim" [Term.con "app" [Term.var "fst", Term.con "headArgs" []], Term.con "app" [Term.var "snd", Term.con "headArgs" []]], Term.lit ")"]
       | _ => t
 
     def parseElim (t : Term) : Term :=
       match t with
-      | (parseElim (lit $s) $args) => (caseExpr ( case (startsWith $s str "elim.") (arm true => (some (drop (num (number 5)) $s))) (arm false => (none)) ))
+      | .con "parseElim" [.con "app" [.var "lit", s], args] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "startsWith" [s, Term.con "terminal" [Term.lit "elim."]], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "app" [Term.var "some", Term.con "drop" [Term.con "num" [Term.con "number" [Term.lit "5"]], s]]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def parseElimOther (t : Term) : Term :=
       match t with
-      | (parseElim $e $args) => (none)
+      | .con "parseElim" [e, args] => Term.con "none" []
       | _ => t
 
   end Elim
@@ -151,37 +149,37 @@ $allArgs )))) (arm _ => (none)) ))
 
     def evalIntroZero (t : Term) : Term :=
       match t with
-      | (evalIntro (lit str "intro.Nat.zero.0") (unit ( ))) => (zero)
+      | .con "evalIntro" [.con "app" [.var "lit", .con "terminal" [.lit "intro.Nat.zero.0"]], .con "unit" [.lit "(", .lit ")"]] => Term.con "zero" []
       | _ => t
 
     def evalIntroSuc (t : Term) : Term :=
       match t with
-      | (evalIntro (lit str "intro.Nat.suc.0") ($n)) => (suc $n)
+      | .con "evalIntro" [.con "app" [.var "lit", .con "terminal" [.lit "intro.Nat.suc.0"]], n] => Term.con "app" [Term.var "suc", n]
       | _ => t
 
     def evalIntroNil (t : Term) : Term :=
       match t with
-      | (evalIntro (lit str "intro.List.nil.1") ($A)) => (nil $A)
+      | .con "evalIntro" [.con "app" [.var "lit", .con "terminal" [.lit "intro.List.nil.1"]], A] => Term.con "app" [Term.var "nil", A]
       | _ => t
 
     def evalIntroCons (t : Term) : Term :=
       match t with
-      | (evalIntro (lit str "intro.List.cons.1") ($A $x $xs)) => (cons $A $x $xs)
+      | .con "evalIntro" [.con "app" [.var "lit", .con "terminal" [.lit "intro.List.cons.1"]], .con "tuple" [A, x, xs]] => Term.con "cons" [A, x, xs]
       | _ => t
 
     def evalIntroBase (t : Term) : Term :=
       match t with
-      | (evalIntro (lit str "intro.Circle.base.0") (unit ( ))) => (base)
+      | .con "evalIntro" [.con "app" [.var "lit", .con "terminal" [.lit "intro.Circle.base.0"]], .con "unit" [.lit "(", .lit ")"]] => Term.con "base" []
       | _ => t
 
     def evalIntroLoop (t : Term) : Term :=
       match t with
-      | (evalIntro (lit str "intro.Circle.loop.0") ($r)) => (loop $r)
+      | .con "evalIntro" [.con "app" [.var "lit", .con "terminal" [.lit "intro.Circle.loop.0"]], r] => Term.con "app" [Term.var "loop", r]
       | _ => t
 
     def evalIntroDefault (t : Term) : Term :=
       match t with
-      | (evalIntro $head $args) => (foldl (app) $head $args)
+      | .con "evalIntro" [head, args] => Term.con "foldl" [Term.con "app" [], head, args]
       | _ => t
 
   end EvalIntro
@@ -190,52 +188,52 @@ $allArgs )))) (arm _ => (none)) ))
 
     def evalElimNatZero (t : Term) : Term :=
       match t with
-      | (evalElim str "Nat" $mot $clauses (zero)) => (lookupClause $clauses str "zero")
+      | .con "evalElim" [.con "terminal" [.lit "Nat"], mot, clauses, .con "zero" []] => Term.con "lookupClause" [clauses, Term.con "terminal" [Term.lit "zero"]]
       | _ => t
 
     def evalElimNatSuc (t : Term) : Term :=
       match t with
-      | (evalElim str "Nat" $mot $clauses (suc $n)) => (letIn ( let sucClause = (lookupClause $clauses str "suc") in (letIn let ih = (evalElim str "Nat" $mot $clauses $n) in (app (app (sucClause) $n) (ih))) ))
+      | .con "evalElim" [.con "terminal" [.lit "Nat"], mot, clauses, .con "app" [.var "suc", n]] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "sucClause", Term.lit "=", Term.con "lookupClause" [clauses, Term.con "terminal" [Term.lit "suc"]], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "ih", Term.lit "=", Term.con "evalElim" [Term.con "terminal" [Term.lit "Nat"], mot, clauses, n], Term.lit "in", Term.con "app" [Term.con "app" [Term.con "sucClause" [], n], Term.con "ih" []]], Term.lit ")"]
       | _ => t
 
     def evalElimListNil (t : Term) : Term :=
       match t with
-      | (evalElim str "List" $mot $clauses (nil $A)) => (lookupClause $clauses str "nil")
+      | .con "evalElim" [.con "terminal" [.lit "List"], mot, clauses, .con "app" [.var "nil", A]] => Term.con "lookupClause" [clauses, Term.con "terminal" [Term.lit "nil"]]
       | _ => t
 
     def evalElimListCons (t : Term) : Term :=
       match t with
-      | (evalElim str "List" $mot $clauses (cons $A $x $xs)) => (letIn ( let consClause = (lookupClause $clauses str "cons") in (letIn let ih = (evalElim str "List" $mot $clauses $xs) in (app (app (app (consClause) $x) $xs) (ih))) ))
+      | .con "evalElim" [.con "terminal" [.lit "List"], mot, clauses, .con "cons" [A, x, xs]] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "consClause", Term.lit "=", Term.con "lookupClause" [clauses, Term.con "terminal" [Term.lit "cons"]], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "ih", Term.lit "=", Term.con "evalElim" [Term.con "terminal" [Term.lit "List"], mot, clauses, xs], Term.lit "in", Term.con "app" [Term.con "app" [Term.con "app" [Term.con "consClause" [], x], xs], Term.con "ih" []]], Term.lit ")"]
       | _ => t
 
     def evalElimCircleBase (t : Term) : Term :=
       match t with
-      | (evalElim str "Circle" $mot $clauses (base)) => (lookupClause $clauses str "base")
+      | .con "evalElim" [.con "terminal" [.lit "Circle"], mot, clauses, .con "base" []] => Term.con "lookupClause" [clauses, Term.con "terminal" [Term.lit "base"]]
       | _ => t
 
     def evalElimDefault (t : Term) : Term :=
       match t with
-      | (evalElim $dlbl $mot $clauses $scrut) => (mkElim $dlbl (unit ( )) $mot $clauses $scrut)
+      | .con "evalElim" [dlbl, mot, clauses, scrut] => Term.con "mkElim" [dlbl, Term.con "unit" [Term.lit "(", Term.lit ")"], mot, clauses, scrut]
       | _ => t
 
     def lookupClauseNil (t : Term) : Term :=
       match t with
-      | (lookupClause (lit str "clauses.nil") $clbl) => (lit str "clause-not-found")
+      | .con "lookupClause" [.con "app" [.var "lit", .con "terminal" [.lit "clauses.nil"]], clbl] => Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "clause-not-found"]]
       | _ => t
 
     def lookupClauseCons (t : Term) : Term :=
       match t with
-      | (lookupClause (app (app (lit str "clauses.cons") $clause) $rest) $clbl) => (letIn ( let clauseTag = (getClauseTag $clause) in (caseExpr case (eq (clauseTag) $clbl) (arm true => (getClauseBody $clause)) (arm false => (lookupClause $rest $clbl))) ))
+      | .con "lookupClause" [.con "app" [.con "app" [.con "app" [.var "lit", .con "terminal" [.lit "clauses.cons"]], clause], rest], clbl] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "clauseTag", Term.lit "=", Term.con "app" [Term.var "getClauseTag", clause], Term.lit "in", Term.con "caseExpr" [Term.lit "case", Term.con "eq" [Term.con "clauseTag" [], clbl], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "app" [Term.var "getClauseBody", clause]], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "lookupClause" [rest, clbl]]], Term.lit ")"]
       | _ => t
 
     def getClauseTag (t : Term) : Term :=
       match t with
-      | (getClauseTag (app (lit $tag) $body)) => (drop (num (number 7)) $tag)
+      | .con "app" [.var "getClauseTag", .con "app" [.con "app" [.var "lit", tag], body]] => Term.con "drop" [Term.con "num" [Term.con "number" [Term.lit "7"]], tag]
       | _ => t
 
     def getClauseBody (t : Term) : Term :=
       match t with
-      | (getClauseBody (app (lit $tag) $body)) => $body
+      | .con "app" [.var "getClauseBody", .con "app" [.con "app" [.var "lit", tag], body]] => body
       | _ => t
 
   end EvalElim
@@ -244,32 +242,32 @@ $allArgs )))) (arm _ => (none)) ))
 
     def typeOfIntro (t : Term) : Term :=
       match t with
-      | (typeOfIntro $env $dlbl $clbl $params $args) => (caseExpr ( case (globalEnvLookupDatatype $env (gnameNamed $dlbl)) (arm ( some $desc ) => (typeOfIntro' $desc $clbl $params $args)) (arm none => (none)) ))
+      | .con "typeOfIntro" [env, dlbl, clbl, params, args] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "globalEnvLookupDatatype" [env, Term.con "app" [Term.var "gnameNamed", dlbl]], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "desc", Term.lit ")", Term.lit "=>", Term.con "typeOfIntro'" [Term.var "desc", clbl, params, args]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def typeOfIntro' (t : Term) : Term :=
       match t with
-      | (typeOfIntro' $desc $clbl $params $args) => (caseExpr ( case (findConstructor (gdataDescConstrs $desc) $clbl) (arm ( some $constr ) => (some (computeConstrType $desc $constr $params $args))) (arm none => (none)) ))
+      | .con "typeOfIntro'" [desc, clbl, params, args] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "findConstructor" [Term.con "app" [Term.var "gdataDescConstrs", desc], clbl], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "constr", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "some", Term.con "computeConstrType" [desc, Term.var "constr", params, args]]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def findConstructorNil (t : Term) : Term :=
       match t with
-      | (findConstructor (unit ( )) $clbl) => (none)
+      | .con "findConstructor" [.con "unit" [.lit "(", .lit ")"], clbl] => Term.con "none" []
       | _ => t
 
     def findConstructorMatch (t : Term) : Term :=
       match t with
-      | (findConstructor (( ( constructor (labeledArg name : $clbl) (labeledArg args : $a) (labeledArg boundary : $b) ) $rest )) $clbl) => (some (constructor (labeledArg name : $clbl) (labeledArg args : $a) (labeledArg boundary : $b)))
+      | .con "findConstructor" [.con "app" [.lit "(", .lit "(", .var "constructor", .con "labeledArg" [.var "name", .lit ":", clbl], .con "labeledArg" [.var "args", .lit ":", a], .con "labeledArg" [.var "boundary", .lit ":", b], .lit ")", rest, .lit ")"], clbl_dup] => Term.con "app" [Term.var "some", Term.con "constructor" [Term.con "labeledArg" [Term.var "name", Term.lit ":", clbl], Term.con "labeledArg" [Term.var "args", Term.lit ":", a], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", b]]]
       | _ => t
 
     def findConstructorMiss (t : Term) : Term :=
       match t with
-      | (findConstructor ($c $rest) $clbl) => (findConstructor $rest $clbl)
+      | .con "findConstructor" [.con "tuple" [c, rest], clbl] => Term.con "findConstructor" [rest, clbl]
       | _ => t
 
     def computeConstrType (t : Term) : Term :=
       match t with
-      | (computeConstrType $desc $constr $params $args) => (mkData (gnameName (gdataDescName $desc)) $params)
+      | .con "computeConstrType" [desc, constr, params, args] => Term.con "mkData" [Term.con "app" [Term.var "gnameName", Term.con "app" [Term.var "gdataDescName", desc]], params]
       | _ => t
 
   end TypeOfIntro
@@ -278,7 +276,7 @@ $allArgs )))) (arm _ => (none)) ))
 
     def typeOfElim (t : Term) : Term :=
       match t with
-      | (typeOfElim $env $dlbl $params $mot $clauses $scrut) => (app $mot $scrut)
+      | .con "typeOfElim" [env, dlbl, params, mot, clauses, scrut] => Term.con "app" [mot, scrut]
       | _ => t
 
   end TypeOfElim
@@ -287,27 +285,27 @@ $allArgs )))) (arm _ => (none)) ))
 
     def natDesc (t : Term) : Term :=
       match t with
-      | (natDesc) => (dataDesc (labeledArg name : (gnameNamed str "Nat")) (labeledArg params : (unit ( ))) (labeledArg level : (lzero)) (labeledArg constrs : ((( (constructor) (labeledArg name : str "zero") (labeledArg args : (unit ( ))) (labeledArg boundary : (unit ( ))) )) (constructor (labeledArg name : str "suc") (labeledArg args : ((typed ( str "n" : (recursive) )))) (labeledArg boundary : (unit ( )))))))
+      | .con "natDesc" [] => Term.con "dataDesc" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "app" [Term.var "gnameNamed", Term.con "terminal" [Term.lit "Nat"]]], Term.con "labeledArg" [Term.var "params", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "lzero" []], Term.con "labeledArg" [Term.var "constrs", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "constructor" [], Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "zero"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.lit ")"], Term.con "constructor" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "suc"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "typed" [Term.lit "(", Term.con "terminal" [Term.lit "n"], Term.lit ":", Term.con "recursive" [], Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]]]]]]
       | _ => t
 
     def listDesc (t : Term) : Term :=
       match t with
-      | (listDesc) => (dataDesc (labeledArg name : (gnameNamed str "List")) (labeledArg params : ((typed ( str "A" : (univ (lzero)) )))) (labeledArg level : (lzero)) (labeledArg constrs : ((( (constructor) (labeledArg name : str "nil") (labeledArg args : (unit ( ))) (labeledArg boundary : (unit ( ))) )) (constructor (labeledArg name : str "cons") (labeledArg args : ((typed ( str "x" : (const (ix (num (number 0)))) )) (typed ( str "xs" : (recursive) )))) (labeledArg boundary : (unit ( )))))))
+      | .con "listDesc" [] => Term.con "dataDesc" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "app" [Term.var "gnameNamed", Term.con "terminal" [Term.lit "List"]]], Term.con "labeledArg" [Term.var "params", Term.lit ":", Term.con "typed" [Term.lit "(", Term.con "terminal" [Term.lit "A"], Term.lit ":", Term.con "app" [Term.var "univ", Term.con "lzero" []], Term.lit ")"]], Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "lzero" []], Term.con "labeledArg" [Term.var "constrs", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "constructor" [], Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "nil"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.lit ")"], Term.con "constructor" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "cons"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "tuple" [Term.con "typed" [Term.lit "(", Term.con "terminal" [Term.lit "x"], Term.lit ":", Term.con "app" [Term.var "const", Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.lit ")"], Term.con "typed" [Term.lit "(", Term.con "terminal" [Term.lit "xs"], Term.lit ":", Term.con "recursive" [], Term.lit ")"]]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]]]]]]
       | _ => t
 
     def circleDesc (t : Term) : Term :=
       match t with
-      | (circleDesc) => (dataDesc (labeledArg name : (gnameNamed str "Circle")) (labeledArg params : (unit ( ))) (labeledArg level : (lzero)) (labeledArg constrs : ((( (constructor) (labeledArg name : str "base") (labeledArg args : (unit ( ))) (labeledArg boundary : (unit ( ))) )) (constructor (labeledArg name : str "loop") (labeledArg args : ((typed ( str "i" : (dim) )))) (labeledArg boundary : ((tuple ( (cof_eq (ix (num (number 0))) dim0) , (base) )) (tuple ( (cof_eq (ix (num (number 0))) dim1) , (base) ))))))))
+      | .con "circleDesc" [] => Term.con "dataDesc" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "app" [Term.var "gnameNamed", Term.con "terminal" [Term.lit "Circle"]]], Term.con "labeledArg" [Term.var "params", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "lzero" []], Term.con "labeledArg" [Term.var "constrs", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "constructor" [], Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "base"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.lit ")"], Term.con "constructor" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "loop"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "typed" [Term.lit "(", Term.con "terminal" [Term.lit "i"], Term.lit ":", Term.con "dim" [], Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "tuple" [Term.con "tuple" [Term.lit "(", Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "dim0"], Term.lit ",", Term.con "base" [], Term.lit ")"], Term.con "tuple" [Term.lit "(", Term.con "cof_eq" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.var "dim1"], Term.lit ",", Term.con "base" [], Term.lit ")"]]]]]]]
       | _ => t
 
     def boolDesc (t : Term) : Term :=
       match t with
-      | (boolDesc) => (dataDesc (labeledArg name : (gnameNamed str "Bool")) (labeledArg params : (unit ( ))) (labeledArg level : (lzero)) (labeledArg constrs : ((( (constructor) (labeledArg name : str "true") (labeledArg args : (unit ( ))) (labeledArg boundary : (unit ( ))) )) (constructor (labeledArg name : str "false") (labeledArg args : (unit ( ))) (labeledArg boundary : (unit ( )))))))
+      | .con "boolDesc" [] => Term.con "dataDesc" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "app" [Term.var "gnameNamed", Term.con "terminal" [Term.lit "Bool"]]], Term.con "labeledArg" [Term.var "params", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "lzero" []], Term.con "labeledArg" [Term.var "constrs", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "constructor" [], Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "true"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.lit ")"], Term.con "constructor" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "false"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]]]]]]
       | _ => t
 
     def unitDesc (t : Term) : Term :=
       match t with
-      | (unitDesc) => (dataDesc (labeledArg name : (gnameNamed str "Unit")) (labeledArg params : (unit ( ))) (labeledArg level : (lzero)) (labeledArg constrs : ((( (constructor) (labeledArg name : str "tt") (labeledArg args : (unit ( ))) (labeledArg boundary : (unit ( ))) )))))
+      | .con "unitDesc" [] => Term.con "dataDesc" [Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "app" [Term.var "gnameNamed", Term.con "terminal" [Term.lit "Unit"]]], Term.con "labeledArg" [Term.var "params", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "level", Term.lit ":", Term.con "lzero" []], Term.con "labeledArg" [Term.var "constrs", Term.lit ":", Term.con "app" [Term.lit "(", Term.con "constructor" [], Term.con "labeledArg" [Term.var "name", Term.lit ":", Term.con "terminal" [Term.lit "tt"]], Term.con "labeledArg" [Term.var "args", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "boundary", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.lit ")"]]]
       | _ => t
 
   end BuiltinDatatypes
@@ -316,7 +314,7 @@ $allArgs )))) (arm _ => (none)) ))
 
     def stdEnv (t : Term) : Term :=
       match t with
-      | (stdEnv) => (letIn ( let env0 = (globalEnvEmpty) in (letIn let env1 = (globalEnvDeclareDatatype (env0) (natDesc)) in (letIn let env2 = (globalEnvDeclareDatatype (env1) (listDesc)) in (letIn let env3 = (globalEnvDeclareDatatype (env2) (circleDesc)) in (letIn let env4 = (globalEnvDeclareDatatype (env3) (boolDesc)) in (letIn let env5 = (globalEnvDeclareDatatype (env4) (unitDesc)) in (env5)))))) ))
+      | .con "stdEnv" [] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "env0", Term.lit "=", Term.con "globalEnvEmpty" [], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env1", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env0" [], Term.con "natDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env2", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env1" [], Term.con "listDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env3", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env2" [], Term.con "circleDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env4", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env3" [], Term.con "boolDesc" []], Term.lit "in", Term.con "letIn" [Term.lit "let", Term.var "env5", Term.lit "=", Term.con "globalEnvDeclareDatatype" [Term.con "env4" [], Term.con "unitDesc" []], Term.lit "in", Term.con "env5" []]]]]], Term.lit ")"]
       | _ => t
 
   end StdEnv

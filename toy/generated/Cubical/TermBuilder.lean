@@ -1,30 +1,34 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
+
+import Lego.Algebra
+
+open Lego
 
 namespace TermBuilder
 
   section BuildCtx
 
-    def bctx : Parser :=
-      (annotated str "bctx" (special <number>) → bctx)
-
     def bctxEmpty (t : Term) : Term :=
       match t with
-      | (bctxEmpty) => (bctx (num (number 0)))
+      | .con "bctxEmpty" [] => Term.con "app" [Term.var "bctx", Term.con "num" [Term.con "number" [Term.lit "0"]]]
       | _ => t
 
     def bctxLevel (t : Term) : Term :=
       match t with
-      | (bctxLevel (bctx $l)) => $l
+      | .con "app" [.var "bctxLevel", .con "app" [.var "bctx", l]] => l
       | _ => t
 
     def bctxNext (t : Term) : Term :=
       match t with
-      | (bctxNext (bctx $l)) => (bctx (suc $l))
+      | .con "app" [.var "bctxNext", .con "app" [.var "bctx", l]] => Term.con "app" [Term.var "bctx", Term.con "app" [Term.var "suc", l]]
       | _ => t
 
     def bctxFreshVar (t : Term) : Term :=
       match t with
-      | (bctxFreshVar (bctx $l)) => (ix $l)
+      | .con "app" [.var "bctxFreshVar", .con "app" [.var "bctx", l]] => Term.con "app" [Term.var "ix", l]
       | _ => t
 
   end BuildCtx
@@ -33,22 +37,22 @@ namespace TermBuilder
 
     def runBuild (t : Term) : Term :=
       match t with
-      | (runBuild $ma) => ($ma (bctxEmpty))
+      | .con "app" [.var "runBuild", ma] => Term.con "tuple" [ma, Term.con "bctxEmpty" []]
       | _ => t
 
     def getCtx (t : Term) : Term :=
       match t with
-      | (getCtx $ctx) => $ctx
+      | .con "app" [.var "getCtx", ctx] => ctx
       | _ => t
 
     def getLevel (t : Term) : Term :=
       match t with
-      | (getLevel $ctx) => (bctxLevel $ctx)
+      | .con "app" [.var "getLevel", ctx] => Term.con "app" [Term.var "bctxLevel", ctx]
       | _ => t
 
     def withBinder (t : Term) : Term :=
       match t with
-      | (withBinder $k $ctx) => ($k (bctxFreshVar $ctx) (bctxNext $ctx))
+      | .con "withBinder" [k, ctx] => Term.con "tuple" [k, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]
       | _ => t
 
   end BuildM
@@ -57,7 +61,7 @@ namespace TermBuilder
 
     def buildLam (t : Term) : Term :=
       match t with
-      | (buildLam $k $ctx) => (lam ($k (bctxFreshVar $ctx) (bctxNext $ctx)))
+      | .con "buildLam" [k, ctx] => Term.con "app" [Term.var "lam", Term.con "tuple" [k, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]]
       | _ => t
 
     -- Test: test
@@ -69,12 +73,12 @@ namespace TermBuilder
 
     def buildPi (t : Term) : Term :=
       match t with
-      | (buildPi $dom $k $ctx) => (pi ($dom $ctx) ($k (bctxFreshVar $ctx) (bctxNext $ctx)))
+      | .con "buildPi" [dom, k, ctx] => Term.con "pi" [Term.con "tuple" [dom, ctx], Term.con "tuple" [k, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]]
       | _ => t
 
     def buildArrow (t : Term) : Term :=
       match t with
-      | (buildArrow $dom $cod $ctx) => (pi ($dom $ctx) (shift (num (number 0)) (num (number 1)) ($cod $ctx)))
+      | .con "buildArrow" [dom, cod, ctx] => Term.con "pi" [Term.con "tuple" [dom, ctx], Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], Term.con "tuple" [cod, ctx]]]
       | _ => t
 
   end PiBuilder
@@ -83,12 +87,12 @@ namespace TermBuilder
 
     def buildSigma (t : Term) : Term :=
       match t with
-      | (buildSigma $fst $k $ctx) => (sigma ($fst $ctx) ($k (bctxFreshVar $ctx) (bctxNext $ctx)))
+      | .con "buildSigma" [fst, k, ctx] => Term.con "sigma" [Term.con "tuple" [fst, ctx], Term.con "tuple" [k, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]]
       | _ => t
 
     def buildProd (t : Term) : Term :=
       match t with
-      | (buildProd $A $B $ctx) => (sigma ($A $ctx) (shift (num (number 0)) (num (number 1)) ($B $ctx)))
+      | .con "buildProd" [A, B, ctx] => Term.con "sigma" [Term.con "tuple" [A, ctx], Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], Term.con "tuple" [B, ctx]]]
       | _ => t
 
   end SigmaBuilder
@@ -97,17 +101,17 @@ namespace TermBuilder
 
     def buildPair (t : Term) : Term :=
       match t with
-      | (buildPair $a $b $ctx) => (pair ($a $ctx) ($b $ctx))
+      | .con "buildPair" [a, b, ctx] => Term.con "pair" [Term.con "tuple" [a, ctx], Term.con "tuple" [b, ctx]]
       | _ => t
 
     def buildFst (t : Term) : Term :=
       match t with
-      | (buildFst $p $ctx) => (fst ($p $ctx))
+      | .con "buildFst" [p, ctx] => Term.con "app" [Term.var "fst", Term.con "tuple" [p, ctx]]
       | _ => t
 
     def buildSnd (t : Term) : Term :=
       match t with
-      | (buildSnd $p $ctx) => (snd ($p $ctx))
+      | .con "buildSnd" [p, ctx] => Term.con "app" [Term.var "snd", Term.con "tuple" [p, ctx]]
       | _ => t
 
   end PairBuilder
@@ -116,22 +120,22 @@ namespace TermBuilder
 
     def buildPath (t : Term) : Term :=
       match t with
-      | (buildPath $tp $l $r $ctx) => (path ($tp $ctx) ($l $ctx) ($r $ctx))
+      | .con "buildPath" [tp, l, r, ctx] => Term.con "path" [Term.con "tuple" [tp, ctx], Term.con "tuple" [l, ctx], Term.con "tuple" [r, ctx]]
       | _ => t
 
     def buildPlam (t : Term) : Term :=
       match t with
-      | (buildPlam $k $ctx) => (plam ($k (bctxFreshVar $ctx) (bctxNext $ctx)))
+      | .con "buildPlam" [k, ctx] => Term.con "app" [Term.var "plam", Term.con "tuple" [k, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]]
       | _ => t
 
     def buildPapp (t : Term) : Term :=
       match t with
-      | (buildPapp $p $dim $ctx) => (papp ($p $ctx) $dim)
+      | .con "buildPapp" [p, dim, ctx] => Term.con "papp" [Term.con "tuple" [p, ctx], dim]
       | _ => t
 
     def buildRefl (t : Term) : Term :=
       match t with
-      | (buildRefl $a $ctx) => (refl ($a $ctx))
+      | .con "buildRefl" [a, ctx] => Term.con "app" [Term.var "refl", Term.con "tuple" [a, ctx]]
       | _ => t
 
   end PathBuilder
@@ -140,17 +144,17 @@ namespace TermBuilder
 
     def buildSub (t : Term) : Term :=
       match t with
-      | (buildSub $tp $φ $k $ctx) => (sub ($tp $ctx) ($φ $ctx) ($k (bctxFreshVar $ctx) (bctxNext $ctx)))
+      | .con "buildSub" [tp, φ, k, ctx] => Term.con "sub" [Term.con "tuple" [tp, ctx], Term.con "tuple" [φ, ctx], Term.con "tuple" [k, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]]
       | _ => t
 
     def buildSubIn (t : Term) : Term :=
       match t with
-      | (buildSubIn $e $ctx) => (subIn ($e $ctx))
+      | .con "buildSubIn" [e, ctx] => Term.con "app" [Term.var "subIn", Term.con "tuple" [e, ctx]]
       | _ => t
 
     def buildSubOut (t : Term) : Term :=
       match t with
-      | (buildSubOut $e $ctx) => (subOut ($e $ctx))
+      | .con "buildSubOut" [e, ctx] => Term.con "app" [Term.var "subOut", Term.con "tuple" [e, ctx]]
       | _ => t
 
   end SubBuilder
@@ -159,12 +163,12 @@ namespace TermBuilder
 
     def buildCoe (t : Term) : Term :=
       match t with
-      | (buildCoe $r $r' $line $a $ctx) => (coe $r $r' (plam ($line (bctxFreshVar $ctx) (bctxNext $ctx))) ($a $ctx))
+      | .con "buildCoe" [r, r', line, a, ctx] => Term.con "coe" [r, r', Term.con "app" [Term.var "plam", Term.con "tuple" [line, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]], Term.con "tuple" [a, ctx]]
       | _ => t
 
     def buildCoeSimple (t : Term) : Term :=
       match t with
-      | (buildCoeSimple $r $r' $line $a $ctx) => (coe $r $r' ($line $ctx) ($a $ctx))
+      | .con "buildCoeSimple" [r, r', line, a, ctx] => Term.con "coe" [r, r', Term.con "tuple" [line, ctx], Term.con "tuple" [a, ctx]]
       | _ => t
 
   end CoeBuilder
@@ -173,7 +177,7 @@ namespace TermBuilder
 
     def buildHCom (t : Term) : Term :=
       match t with
-      | (buildHCom $r $r' $A $φ $tube $cap $ctx) => (hcom $r $r' ($A $ctx) ($φ $ctx) ($tube $ctx) ($cap $ctx))
+      | .con "buildHCom" [r, r', A, φ, tube, cap, ctx] => Term.con "hcom" [r, r', Term.con "tuple" [A, ctx], Term.con "tuple" [φ, ctx], Term.con "tuple" [tube, ctx], Term.con "tuple" [cap, ctx]]
       | _ => t
 
   end HComBuilder
@@ -182,7 +186,7 @@ namespace TermBuilder
 
     def buildCom (t : Term) : Term :=
       match t with
-      | (buildCom $r $r' $line $φ $tube $cap $ctx) => (com $r $r' (plam ($line (bctxFreshVar $ctx) (bctxNext $ctx))) ($φ $ctx) ($tube $ctx) ($cap $ctx))
+      | .con "buildCom" [r, r', line, φ, tube, cap, ctx] => Term.con "com" [r, r', Term.con "app" [Term.var "plam", Term.con "tuple" [line, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]], Term.con "tuple" [φ, ctx], Term.con "tuple" [tube, ctx], Term.con "tuple" [cap, ctx]]
       | _ => t
 
   end ComBuilder
@@ -191,17 +195,17 @@ namespace TermBuilder
 
     def buildExt (t : Term) : Term :=
       match t with
-      | (buildExt $n $fam $cof $bdry $ctx) => (ext $n ($fam $ctx) ($cof $ctx) ($bdry $ctx))
+      | .con "buildExt" [n, fam, cof, bdry, ctx] => Term.con "ext" [n, Term.con "tuple" [fam, ctx], Term.con "tuple" [cof, ctx], Term.con "tuple" [bdry, ctx]]
       | _ => t
 
     def buildExtLam (t : Term) : Term :=
       match t with
-      | (buildExtLam $n $body $ctx) => (extLam $n ($body $ctx))
+      | .con "buildExtLam" [n, body, ctx] => Term.con "extLam" [n, Term.con "tuple" [body, ctx]]
       | _ => t
 
     def buildExtApp (t : Term) : Term :=
       match t with
-      | (buildExtApp $e $dims $ctx) => (extApp ($e $ctx) $dims)
+      | .con "buildExtApp" [e, dims, ctx] => Term.con "extApp" [Term.con "tuple" [e, ctx], dims]
       | _ => t
 
   end ExtBuilder
@@ -210,22 +214,22 @@ namespace TermBuilder
 
     def buildNat (t : Term) : Term :=
       match t with
-      | (buildNat $ctx) => (nat)
+      | .con "app" [.var "buildNat", ctx] => Term.con "nat" []
       | _ => t
 
     def buildZero (t : Term) : Term :=
       match t with
-      | (buildZero $ctx) => (zero)
+      | .con "app" [.var "buildZero", ctx] => Term.con "zero" []
       | _ => t
 
     def buildSuc (t : Term) : Term :=
       match t with
-      | (buildSuc $n $ctx) => (suc ($n $ctx))
+      | .con "buildSuc" [n, ctx] => Term.con "app" [Term.var "suc", Term.con "tuple" [n, ctx]]
       | _ => t
 
     def buildNatElim (t : Term) : Term :=
       match t with
-      | (buildNatElim $P $z $s $n $ctx) => (natElim ($P $ctx) ($z $ctx) ($s $ctx) ($n $ctx))
+      | .con "buildNatElim" [P, z, s, n, ctx] => Term.con "natElim" [Term.con "tuple" [P, ctx], Term.con "tuple" [z, ctx], Term.con "tuple" [s, ctx], Term.con "tuple" [n, ctx]]
       | _ => t
 
   end NatBuilder
@@ -234,22 +238,22 @@ namespace TermBuilder
 
     def buildCircle (t : Term) : Term :=
       match t with
-      | (buildCircle $ctx) => (circle)
+      | .con "app" [.var "buildCircle", ctx] => Term.con "circle" []
       | _ => t
 
     def buildBase (t : Term) : Term :=
       match t with
-      | (buildBase $ctx) => (base)
+      | .con "app" [.var "buildBase", ctx] => Term.con "base" []
       | _ => t
 
     def buildLoop (t : Term) : Term :=
       match t with
-      | (buildLoop $r $ctx) => (loop $r)
+      | .con "buildLoop" [r, ctx] => Term.con "app" [Term.var "loop", r]
       | _ => t
 
     def buildCircleElim (t : Term) : Term :=
       match t with
-      | (buildCircleElim $P $b $l $x $ctx) => (circleElim ($P $ctx) ($b $ctx) ($l $ctx) ($x $ctx))
+      | .con "buildCircleElim" [P, b, l, x, ctx] => Term.con "circleElim" [Term.con "tuple" [P, ctx], Term.con "tuple" [b, ctx], Term.con "tuple" [l, ctx], Term.con "tuple" [x, ctx]]
       | _ => t
 
   end CircleBuilder
@@ -258,27 +262,27 @@ namespace TermBuilder
 
     def buildUniv (t : Term) : Term :=
       match t with
-      | (buildUniv $l $ctx) => (univ $l)
+      | .con "buildUniv" [l, ctx] => Term.con "app" [Term.var "univ", l]
       | _ => t
 
     def buildType (t : Term) : Term :=
       match t with
-      | (buildType $ctx) => (univ (lzero))
+      | .con "app" [.var "buildType", ctx] => Term.con "app" [Term.var "univ", Term.con "lzero" []]
       | _ => t
 
     def buildTypeAt (t : Term) : Term :=
       match t with
-      | (buildTypeAt $n $ctx) => (univ (levelOfNat $n))
+      | .con "buildTypeAt" [n, ctx] => Term.con "app" [Term.var "univ", Term.con "app" [Term.var "levelOfNat", n]]
       | _ => t
 
     def levelOfNat0 (t : Term) : Term :=
       match t with
-      | (levelOfNat (num (number 0))) => (lzero)
+      | .con "app" [.var "levelOfNat", .con "num" [.con "number" [.lit "0"]]] => Term.con "lzero" []
       | _ => t
 
     def levelOfNatS (t : Term) : Term :=
       match t with
-      | (levelOfNat (suc $n)) => (lsuc (levelOfNat $n))
+      | .con "app" [.var "levelOfNat", .con "app" [.var "suc", n]] => Term.con "app" [Term.var "lsuc", Term.con "app" [Term.var "levelOfNat", n]]
       | _ => t
 
   end UnivBuilder
@@ -287,17 +291,17 @@ namespace TermBuilder
 
     def buildVType (t : Term) : Term :=
       match t with
-      | (buildVType $r $A $B $equiv $ctx) => (vtype $r ($A $ctx) ($B $ctx) ($equiv $ctx))
+      | .con "buildVType" [r, A, B, equiv, ctx] => Term.con "vtype" [r, Term.con "tuple" [A, ctx], Term.con "tuple" [B, ctx], Term.con "tuple" [equiv, ctx]]
       | _ => t
 
     def buildVIn (t : Term) : Term :=
       match t with
-      | (buildVIn $r $a $b $ctx) => (vin $r ($a $ctx) ($b $ctx))
+      | .con "buildVIn" [r, a, b, ctx] => Term.con "vin" [r, Term.con "tuple" [a, ctx], Term.con "tuple" [b, ctx]]
       | _ => t
 
     def buildVProj (t : Term) : Term :=
       match t with
-      | (buildVProj $r $A $B $equiv $v $ctx) => (vproj $r ($A $ctx) ($B $ctx) ($equiv $ctx) ($v $ctx))
+      | .con "buildVProj" [r, A, B, equiv, v, ctx] => Term.con "vproj" [r, Term.con "tuple" [A, ctx], Term.con "tuple" [B, ctx], Term.con "tuple" [equiv, ctx], Term.con "tuple" [v, ctx]]
       | _ => t
 
   end VTypeBuilder
@@ -306,17 +310,17 @@ namespace TermBuilder
 
     def buildApp (t : Term) : Term :=
       match t with
-      | (buildApp $f $a $ctx) => (app ($f $ctx) ($a $ctx))
+      | .con "buildApp" [f, a, ctx] => Term.con "app" [Term.con "tuple" [f, ctx], Term.con "tuple" [a, ctx]]
       | _ => t
 
     def buildApps0 (t : Term) : Term :=
       match t with
-      | (buildApps $f (unit ( )) $ctx) => ($f $ctx)
+      | .con "buildApps" [f, .con "unit" [.lit "(", .lit ")"], ctx] => Term.con "tuple" [f, ctx]
       | _ => t
 
     def buildApps1 (t : Term) : Term :=
       match t with
-      | (buildApps $f ($a $rest) $ctx) => (buildApps (fun (c) (=>) (app ($f (c)) ($a (c)))) $rest $ctx)
+      | .con "buildApps" [f, .con "tuple" [a, rest], ctx] => Term.con "buildApps" [Term.con "fun" [Term.con "c" [], Term.lit "=>", Term.con "app" [Term.con "tuple" [f, Term.con "c" []], Term.con "tuple" [a, Term.con "c" []]]], rest, ctx]
       | _ => t
 
   end AppBuilder
@@ -325,7 +329,7 @@ namespace TermBuilder
 
     def buildLet (t : Term) : Term :=
       match t with
-      | (buildLet $ty $val $k $ctx) => (letE ($ty $ctx) ($val $ctx) ($k (bctxFreshVar $ctx) (bctxNext $ctx)))
+      | .con "buildLet" [ty, val, k, ctx] => Term.con "letE" [Term.con "tuple" [ty, ctx], Term.con "tuple" [val, ctx], Term.con "tuple" [k, Term.con "app" [Term.var "bctxFreshVar", ctx], Term.con "app" [Term.var "bctxNext", ctx]]]
       | _ => t
 
   end LetBuilder

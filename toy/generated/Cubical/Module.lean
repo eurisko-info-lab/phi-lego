@@ -1,349 +1,322 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath GlobalEnv) ;)
+import Lego.Algebra
 
-(DImport import (modulePath Elaborate) ;)
+open Lego
 
 namespace Module
 
   section Selector
 
-    def selector : Parser :=
-      (annotated str "selector" many ((special <name>)) → selector)
-
     def selectorToPath (t : Term) : Term :=
       match t with
-      | (selectorToPath (selector)) => str ""
+      | .con "app" [.var "selectorToPath", .con "selector" []] => Term.con "terminal" [Term.lit ""]
       | _ => t
 
     def selectorToPathCons (t : Term) : Term :=
       match t with
-      | (selectorToPath (selector $n $rest)) => (strConcat $n str "." (selectorToPath (selector $rest)))
+      | .con "app" [.var "selectorToPath", .con "selector" [n, rest]] => Term.con "strConcat" [n, Term.con "terminal" [Term.lit "."], Term.con "app" [Term.var "selectorToPath", Term.con "app" [Term.var "selector", rest]]]
       | _ => t
 
     def selectorFromPath (t : Term) : Term :=
       match t with
-      | (selectorFromPath $path) => (selector (strSplit $path str "."))
+      | .con "app" [.var "selectorFromPath", path] => Term.con "app" [Term.var "selector", Term.con "strSplit" [path, Term.con "terminal" [Term.lit "."]]]
       | _ => t
 
     def selectorToFilePath (t : Term) : Term :=
       match t with
-      | (selectorToFilePath $base (selector $parts) $ext) => (strConcat $base str "/" (strJoin str "/" $parts) $ext)
+      | .con "selectorToFilePath" [base, .con "app" [.var "selector", parts], ext] => Term.con "strConcat" [base, Term.con "terminal" [Term.lit "/"], Term.con "strJoin" [Term.con "terminal" [Term.lit "/"], parts], ext]
       | _ => t
 
   end Selector
 
   section Visibility
 
-    def visibility : Parser :=
-      ((annotated str "pub" → pub) <|> (annotated str "priv" → priv))
-
     def isPublic (t : Term) : Term :=
       match t with
-      | (isPublic (pub)) => (true)
+      | .con "app" [.var "isPublic", .con "pub" []] => Term.con "true" []
       | _ => t
 
     def isPublicPriv (t : Term) : Term :=
       match t with
-      | (isPublic (priv)) => (false)
+      | .con "app" [.var "isPublic", .con "priv" []] => Term.con "false" []
       | _ => t
 
     def visibilityToString (t : Term) : Term :=
       match t with
-      | (visibilityToString (pub)) => str "public"
+      | .con "app" [.var "visibilityToString", .con "pub" []] => Term.con "terminal" [Term.lit "public"]
       | _ => t
 
     def visibilityToStringPriv (t : Term) : Term :=
       match t with
-      | (visibilityToString (priv)) => str "private"
+      | .con "app" [.var "visibilityToString", .con "priv" []] => Term.con "terminal" [Term.lit "private"]
       | _ => t
 
   end Visibility
 
   section ModDecl
 
-    def modDecl : Parser :=
-      ((annotated str "importMod" (special <visibility>) (special <selector>) → importMod) <|> ((annotated str "define" (special <visibility>) (special <name>) str ":" (special <expr>) str ":=" (special <expr>) → define) <|> ((annotated str "dataDecl" (special <visibility>) (special <dataDesc>) → dataDecl) <|> (annotated str "axiomDecl" (special <visibility>) (special <name>) str ":" (special <expr>) → axiomDecl))))
-
     def modDeclVisibility (t : Term) : Term :=
       match t with
-      | (modDeclVisibility (importMod $v $s)) => $v
+      | .con "app" [.var "modDeclVisibility", .con "importMod" [v, s]] => v
       | _ => t
 
     def modDeclVisibilityDef (t : Term) : Term :=
       match t with
-      | (modDeclVisibility (define $v (typedVar $ n : $t) (:=) $b)) => $v
+      | .con "app" [.var "modDeclVisibility", .con "define" [v, .con "typedVar" [.lit "$", .var "n", .lit ":", t], .lit ":=", b]] => v
       | _ => t
 
     def modDeclVisibilityData (t : Term) : Term :=
       match t with
-      | (modDeclVisibility (dataDecl $v $d)) => $v
+      | .con "app" [.var "modDeclVisibility", .con "dataDecl" [v, d]] => v
       | _ => t
 
     def modDeclVisibilityAxiom (t : Term) : Term :=
       match t with
-      | (modDeclVisibility (axiomDecl $v (typedVar $ n : $t))) => $v
+      | .con "app" [.var "modDeclVisibility", .con "axiomDecl" [v, .con "typedVar" [.lit "$", .var "n", .lit ":", t]]] => v
       | _ => t
 
     def modDeclName (t : Term) : Term :=
       match t with
-      | (modDeclName (define $v (typedVar $ n : $t) (:=) $b)) => (some $n)
+      | .con "app" [.var "modDeclName", .con "define" [v, .con "typedVar" [.lit "$", .var "n", .lit ":", t], .lit ":=", b]] => Term.con "app" [Term.var "some", Term.var "n"]
       | _ => t
 
     def modDeclNameData (t : Term) : Term :=
       match t with
-      | (modDeclName (dataDecl $v $d)) => (some (dataDescName $d))
+      | .con "app" [.var "modDeclName", .con "dataDecl" [v, d]] => Term.con "app" [Term.var "some", Term.con "app" [Term.var "dataDescName", d]]
       | _ => t
 
     def modDeclNameAxiom (t : Term) : Term :=
       match t with
-      | (modDeclName (axiomDecl $v (typedVar $ n : $t))) => (some $n)
+      | .con "app" [.var "modDeclName", .con "axiomDecl" [v, .con "typedVar" [.lit "$", .var "n", .lit ":", t]]] => Term.con "app" [Term.var "some", Term.var "n"]
       | _ => t
 
     def modDeclNameImport (t : Term) : Term :=
       match t with
-      | (modDeclName (importMod $v $s)) => (none)
+      | .con "app" [.var "modDeclName", .con "importMod" [v, s]] => Term.con "none" []
       | _ => t
 
   end ModDecl
 
   section ModuleStruct
 
-    def module : Parser :=
-      (annotated str "module" (special <selector>) str "{" many ((special <modDecl>)) str "}" → module)
-
     def moduleName (t : Term) : Term :=
       match t with
-      | (moduleName (module $sel (brace { $decls }))) => $sel
+      | .con "app" [.var "moduleName", .con "module" [sel, .con "brace" [.lit "{", decls, .lit "}"]]] => sel
       | _ => t
 
     def moduleDecls (t : Term) : Term :=
       match t with
-      | (moduleDecls (module $sel (brace { $decls }))) => $decls
+      | .con "app" [.var "moduleDecls", .con "module" [sel, .con "brace" [.lit "{", decls, .lit "}"]]] => decls
       | _ => t
 
   end ModuleStruct
 
   section Resolution
 
-    def resolution : Parser :=
-      ((annotated str "localIx" (special <nat>) → localIx) <|> (annotated str "globalRes" (special <gname>) → globalRes))
-
     def isLocalResolution (t : Term) : Term :=
       match t with
-      | (isLocalResolution (localIx $n)) => (true)
+      | .con "app" [.var "isLocalResolution", .con "app" [.var "localIx", n]] => Term.con "true" []
       | _ => t
 
     def isLocalResolutionGlobal (t : Term) : Term :=
       match t with
-      | (isLocalResolution (globalRes $g)) => (false)
+      | .con "app" [.var "isLocalResolution", .con "app" [.var "globalRes", g]] => Term.con "false" []
       | _ => t
 
     def isGlobalResolution (t : Term) : Term :=
       match t with
-      | (isGlobalResolution (globalRes $g)) => (true)
+      | .con "app" [.var "isGlobalResolution", .con "app" [.var "globalRes", g]] => Term.con "true" []
       | _ => t
 
     def isGlobalResolutionLocal (t : Term) : Term :=
       match t with
-      | (isGlobalResolution (localIx $n)) => (false)
+      | .con "app" [.var "isGlobalResolution", .con "app" [.var "localIx", n]] => Term.con "false" []
       | _ => t
 
     def resolutionIndex (t : Term) : Term :=
       match t with
-      | (resolutionIndex (localIx $n)) => $n
+      | .con "app" [.var "resolutionIndex", .con "app" [.var "localIx", n]] => n
       | _ => t
 
     def resolutionGName (t : Term) : Term :=
       match t with
-      | (resolutionGName (globalRes $g)) => $g
+      | .con "app" [.var "resolutionGName", .con "app" [.var "globalRes", g]] => g
       | _ => t
 
   end Resolution
 
   section ImportInfo
 
-    def importInfo : Parser :=
-      (annotated str "importInfo" str "name:" (special <gname>) str "vis:" (special <visibility>) str "from:" (special <selector>) → importInfo)
-
     def importInfoName (t : Term) : Term :=
       match t with
-      | (importInfoName (importInfo (labeledArg name : $n) (labeledArg vis : $v) (labeledArg from : $s))) => $n
+      | .con "app" [.var "importInfoName", .con "importInfo" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "vis", .lit ":", v], .con "labeledArg" [.var "from", .lit ":", s]]] => n
       | _ => t
 
     def importInfoVis (t : Term) : Term :=
       match t with
-      | (importInfoVis (importInfo (labeledArg name : $n) (labeledArg vis : $v) (labeledArg from : $s))) => $v
+      | .con "app" [.var "importInfoVis", .con "importInfo" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "vis", .lit ":", v], .con "labeledArg" [.var "from", .lit ":", s]]] => v
       | _ => t
 
     def importInfoFrom (t : Term) : Term :=
       match t with
-      | (importInfoFrom (importInfo (labeledArg name : $n) (labeledArg vis : $v) (labeledArg from : $s))) => $s
+      | .con "app" [.var "importInfoFrom", .con "importInfo" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "vis", .lit ":", v], .con "labeledArg" [.var "from", .lit ":", s]]] => s
       | _ => t
 
   end ImportInfo
 
   section ResEnv
 
-    def resEnv : Parser :=
-      (annotated str "resEnv" str "locals:" many ((special <name>)) str "globals:" many ((special <importEntry>)) str "natives:" many ((special <gname>)) → resEnv)
-
-    def importEntry : Parser :=
-      (annotated str "[" (special <name>) str "↦" (special <importInfo>) str "]" → importEntry)
-
     def resEnvEmpty (t : Term) : Term :=
       match t with
-      | (resEnvEmpty) => (resEnv (labeledArg locals : (unit ( ))) (labeledArg globals : (unit ( ))) (labeledArg natives : (unit ( ))))
+      | .con "resEnvEmpty" [] => Term.con "resEnv" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "globals", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "natives", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]]]
       | _ => t
 
     def resEnvBind (t : Term) : Term :=
       match t with
-      | (resEnvBind $x (resEnv (labeledArg locals : $ls) (labeledArg globals : $gs) (labeledArg natives : $ns))) => (resEnv (labeledArg locals : ($x $ls)) (labeledArg globals : $gs) (labeledArg natives : $ns))
+      | .con "resEnvBind" [x, .con "resEnv" [.con "labeledArg" [.var "locals", .lit ":", ls], .con "labeledArg" [.var "globals", .lit ":", gs], .con "labeledArg" [.var "natives", .lit ":", ns]]] => Term.con "resEnv" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", Term.con "tuple" [x, ls]], Term.con "labeledArg" [Term.var "globals", Term.lit ":", gs], Term.con "labeledArg" [Term.var "natives", Term.lit ":", ns]]
       | _ => t
 
     def resEnvBindN (t : Term) : Term :=
       match t with
-      | (resEnvBindN (unit ( )) $env) => $env
+      | .con "resEnvBindN" [.con "unit" [.lit "(", .lit ")"], env] => env
       | _ => t
 
     def resEnvBindNCons (t : Term) : Term :=
       match t with
-      | (resEnvBindN ($x $xs) $env) => (resEnvBindN $xs (resEnvBind $x $env))
+      | .con "resEnvBindN" [.con "tuple" [x, xs], env] => Term.con "resEnvBindN" [xs, Term.con "resEnvBind" [x, env]]
       | _ => t
 
     def resEnvGet (t : Term) : Term :=
       match t with
-      | (resEnvGet $x (resEnv (labeledArg locals : $ls) (labeledArg globals : $gs) (labeledArg natives : $ns))) => (resEnvLookup $x $ls $gs (num (number 0)))
+      | .con "resEnvGet" [x, .con "resEnv" [.con "labeledArg" [.var "locals", .lit ":", ls], .con "labeledArg" [.var "globals", .lit ":", gs], .con "labeledArg" [.var "natives", .lit ":", ns]]] => Term.con "resEnvLookup" [x, ls, gs, Term.con "num" [Term.con "number" [Term.lit "0"]]]
       | _ => t
 
     def resEnvLookup (t : Term) : Term :=
       match t with
-      | (resEnvLookup $x (unit ( )) $gs $idx) => (resEnvLookupGlobal $x $gs)
+      | .con "resEnvLookup" [x, .con "unit" [.lit "(", .lit ")"], gs, idx] => Term.con "resEnvLookupGlobal" [x, gs]
       | _ => t
 
     def resEnvLookupMatch (t : Term) : Term :=
       match t with
-      | (resEnvLookup $x ($x $rest) $gs $idx) => (some (localIx $idx))
+      | .con "resEnvLookup" [x, .con "tuple" [x_dup, rest], gs, idx] => Term.con "app" [Term.var "some", Term.con "app" [Term.var "localIx", idx]]
       | _ => t
 
     def resEnvLookupMiss (t : Term) : Term :=
       match t with
-      | (resEnvLookup $x ($y $rest) $gs $idx) => (resEnvLookup $x $rest $gs (succ $idx))
+      | .con "resEnvLookup" [x, .con "tuple" [y, rest], gs, idx] => Term.con "resEnvLookup" [x, rest, gs, Term.con "app" [Term.var "succ", idx]]
       | _ => t
 
     def resEnvLookupGlobal (t : Term) : Term :=
       match t with
-      | (resEnvLookupGlobal $x (unit ( ))) => (none)
+      | .con "resEnvLookupGlobal" [x, .con "unit" [.lit "(", .lit ")"]] => Term.con "none" []
       | _ => t
 
     def resEnvLookupGlobalMatch (t : Term) : Term :=
       match t with
-      | (resEnvLookupGlobal $x (( ( [ $x (↦) $info ] ) $rest ))) => (some (globalRes (importInfoName $info)))
+      | .con "resEnvLookupGlobal" [x, .con "app" [.lit "(", .lit "(", .lit "[", x_dup, .lit "↦", info, .lit "]", .lit ")", rest, .lit ")"]] => Term.con "app" [Term.var "some", Term.con "app" [Term.var "globalRes", Term.con "app" [Term.var "importInfoName", info]]]
       | _ => t
 
     def resEnvLookupGlobalMiss (t : Term) : Term :=
       match t with
-      | (resEnvLookupGlobal $x (( ( $entry ) $rest ))) => (resEnvLookupGlobal $x $rest)
+      | .con "resEnvLookupGlobal" [x, .con "app" [.lit "(", .lit "(", entry, .lit ")", rest, .lit ")"]] => Term.con "resEnvLookupGlobal" [x, rest]
       | _ => t
 
     def resEnvAddNative (t : Term) : Term :=
       match t with
-      | (resEnvAddNative $vis $gname (resEnv (labeledArg locals : $ls) (labeledArg globals : $gs) (labeledArg natives : $ns))) => (resEnv (labeledArg locals : $ls) (labeledArg globals : ((( (bracket [ (gnameName $gname) (↦) (importInfo (labeledArg name : $gname) (labeledArg vis : $vis) (labeledArg from : (selector))) ]) )) $gs)) (labeledArg natives : ($gname $ns)))
+      | .con "resEnvAddNative" [vis, gname, .con "resEnv" [.con "labeledArg" [.var "locals", .lit ":", ls], .con "labeledArg" [.var "globals", .lit ":", gs], .con "labeledArg" [.var "natives", .lit ":", ns]]] => Term.con "resEnv" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", ls], Term.con "labeledArg" [Term.var "globals", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "bracket" [Term.lit "[", Term.con "app" [Term.var "gnameName", gname], Term.lit "↦", Term.con "importInfo" [Term.con "labeledArg" [Term.var "name", Term.lit ":", gname], Term.con "labeledArg" [Term.var "vis", Term.lit ":", vis], Term.con "labeledArg" [Term.var "from", Term.lit ":", Term.con "selector" []]], Term.lit "]"], Term.lit ")"], gs]], Term.con "labeledArg" [Term.var "natives", Term.lit ":", Term.con "tuple" [gname, ns]]]
       | _ => t
 
     def resEnvImportGlobal (t : Term) : Term :=
       match t with
-      | (resEnvImportGlobal $vis $gname $fromMod (resEnv (labeledArg locals : $ls) (labeledArg globals : $gs) (labeledArg natives : $ns))) => (resEnv (labeledArg locals : $ls) (labeledArg globals : ((( (bracket [ (gnameName $gname) (↦) (importInfo (labeledArg name : $gname) (labeledArg vis : $vis) (labeledArg from : $fromMod)) ]) )) $gs)) (labeledArg natives : $ns))
+      | .con "resEnvImportGlobal" [vis, gname, fromMod, .con "resEnv" [.con "labeledArg" [.var "locals", .lit ":", ls], .con "labeledArg" [.var "globals", .lit ":", gs], .con "labeledArg" [.var "natives", .lit ":", ns]]] => Term.con "resEnv" [Term.con "labeledArg" [Term.var "locals", Term.lit ":", ls], Term.con "labeledArg" [Term.var "globals", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "bracket" [Term.lit "[", Term.con "app" [Term.var "gnameName", gname], Term.lit "↦", Term.con "importInfo" [Term.con "labeledArg" [Term.var "name", Term.lit ":", gname], Term.con "labeledArg" [Term.var "vis", Term.lit ":", vis], Term.con "labeledArg" [Term.var "from", Term.lit ":", fromMod]], Term.lit "]"], Term.lit ")"], gs]], Term.con "labeledArg" [Term.var "natives", Term.lit ":", ns]]
       | _ => t
 
     def resEnvExports (t : Term) : Term :=
       match t with
-      | (resEnvExports (resEnv (labeledArg locals : $ls) (labeledArg globals : $gs) (labeledArg natives : $ns))) => (resEnvCollectExports $gs (unit ( )))
+      | .con "app" [.var "resEnvExports", .con "resEnv" [.con "labeledArg" [.var "locals", .lit ":", ls], .con "labeledArg" [.var "globals", .lit ":", gs], .con "labeledArg" [.var "natives", .lit ":", ns]]] => Term.con "resEnvCollectExports" [gs, Term.con "unit" [Term.lit "(", Term.lit ")"]]
       | _ => t
 
     def resEnvCollectExports (t : Term) : Term :=
       match t with
-      | (resEnvCollectExports (unit ( )) $acc) => $acc
+      | .con "resEnvCollectExports" [.con "unit" [.lit "(", .lit ")"], acc] => acc
       | _ => t
 
     def resEnvCollectExportsPub (t : Term) : Term :=
       match t with
-      | (resEnvCollectExports (( ( [ $n (↦) (importInfo (labeledArg name : $g) (labeledArg vis : (pub)) (labeledArg from : $f)) ] ) $rest )) $acc) => (resEnvCollectExports $rest ($g $acc))
+      | .con "resEnvCollectExports" [.con "app" [.lit "(", .lit "(", .lit "[", n, .lit "↦", .con "importInfo" [.con "labeledArg" [.var "name", .lit ":", g], .con "labeledArg" [.var "vis", .lit ":", .con "pub" []], .con "labeledArg" [.var "from", .lit ":", f]], .lit "]", .lit ")", rest, .lit ")"], acc] => Term.con "resEnvCollectExports" [rest, Term.con "tuple" [g, acc]]
       | _ => t
 
     def resEnvCollectExportsPriv (t : Term) : Term :=
       match t with
-      | (resEnvCollectExports (( ( [ $n (↦) (importInfo (labeledArg name : $g) (labeledArg vis : (priv)) (labeledArg from : $f)) ] ) $rest )) $acc) => (resEnvCollectExports $rest $acc)
+      | .con "resEnvCollectExports" [.con "app" [.lit "(", .lit "(", .lit "[", n, .lit "↦", .con "importInfo" [.con "labeledArg" [.var "name", .lit ":", g], .con "labeledArg" [.var "vis", .lit ":", .con "priv" []], .con "labeledArg" [.var "from", .lit ":", f]], .lit "]", .lit ")", rest, .lit ")"], acc] => Term.con "resEnvCollectExports" [rest, acc]
       | _ => t
 
   end ResEnv
 
   section ModuleCache
 
-    def moduleCache : Parser :=
-      (annotated str "moduleCache" str "loaded:" many ((special <cacheEntry>)) str "loading:" many ((special <selector>)) → moduleCache)
-
-    def cacheEntry : Parser :=
-      (annotated str "[" (special <selector>) str "↦" (special <resEnv>) str "," (special <globalEnv>) str "]" → cacheEntry)
-
     def moduleCacheEmpty (t : Term) : Term :=
       match t with
-      | (moduleCacheEmpty) => (moduleCache (labeledArg loaded : (unit ( ))) (labeledArg loading : (unit ( ))))
+      | .con "moduleCacheEmpty" [] => Term.con "moduleCache" [Term.con "labeledArg" [Term.var "loaded", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "loading", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]]]
       | _ => t
 
     def moduleCacheIsLoaded (t : Term) : Term :=
       match t with
-      | (moduleCacheIsLoaded $sel (moduleCache (labeledArg loaded : $ls) (labeledArg loading : $ing))) => (cacheContains $sel $ls)
+      | .con "moduleCacheIsLoaded" [sel, .con "moduleCache" [.con "labeledArg" [.var "loaded", .lit ":", ls], .con "labeledArg" [.var "loading", .lit ":", ing]]] => Term.con "cacheContains" [sel, ls]
       | _ => t
 
     def cacheContains (t : Term) : Term :=
       match t with
-      | (cacheContains $sel (unit ( ))) => (false)
+      | .con "cacheContains" [sel, .con "unit" [.lit "(", .lit ")"]] => Term.con "false" []
       | _ => t
 
     def cacheContainsMatch (t : Term) : Term :=
       match t with
-      | (cacheContains $sel (( ( [ $sel (↦) $r (,) $e ] ) $rest ))) => (true)
+      | .con "cacheContains" [sel, .con "app" [.lit "(", .lit "(", .lit "[", sel_dup, .lit "↦", r, .lit ",", e, .lit "]", .lit ")", rest, .lit ")"]] => Term.con "true" []
       | _ => t
 
     def cacheContainsMiss (t : Term) : Term :=
       match t with
-      | (cacheContains $sel (( ( $entry ) $rest ))) => (cacheContains $sel $rest)
+      | .con "cacheContains" [sel, .con "app" [.lit "(", .lit "(", entry, .lit ")", rest, .lit ")"]] => Term.con "cacheContains" [sel, rest]
       | _ => t
 
     def moduleCacheIsCyclic (t : Term) : Term :=
       match t with
-      | (moduleCacheIsCyclic $sel (moduleCache (labeledArg loaded : $ls) (labeledArg loading : $ing))) => (listContains $sel $ing)
+      | .con "moduleCacheIsCyclic" [sel, .con "moduleCache" [.con "labeledArg" [.var "loaded", .lit ":", ls], .con "labeledArg" [.var "loading", .lit ":", ing]]] => Term.con "listContains" [sel, ing]
       | _ => t
 
     def moduleCacheStartLoading (t : Term) : Term :=
       match t with
-      | (moduleCacheStartLoading $sel (moduleCache (labeledArg loaded : $ls) (labeledArg loading : $ing))) => (moduleCache (labeledArg loaded : $ls) (labeledArg loading : ($sel $ing)))
+      | .con "moduleCacheStartLoading" [sel, .con "moduleCache" [.con "labeledArg" [.var "loaded", .lit ":", ls], .con "labeledArg" [.var "loading", .lit ":", ing]]] => Term.con "moduleCache" [Term.con "labeledArg" [Term.var "loaded", Term.lit ":", ls], Term.con "labeledArg" [Term.var "loading", Term.lit ":", Term.con "tuple" [sel, ing]]]
       | _ => t
 
     def moduleCacheStore (t : Term) : Term :=
       match t with
-      | (moduleCacheStore $sel $res $env (moduleCache (labeledArg loaded : $ls) (labeledArg loading : $ing))) => (moduleCache (labeledArg loaded : ((( (bracket [ $sel (↦) $res (,) $env ]) )) $ls)) (labeledArg loading : (listRemove $sel $ing)))
+      | .con "moduleCacheStore" [sel, res, env, .con "moduleCache" [.con "labeledArg" [.var "loaded", .lit ":", ls], .con "labeledArg" [.var "loading", .lit ":", ing]]] => Term.con "moduleCache" [Term.con "labeledArg" [Term.var "loaded", Term.lit ":", Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "bracket" [Term.lit "[", sel, Term.lit "↦", res, Term.lit ",", env, Term.lit "]"], Term.lit ")"], ls]], Term.con "labeledArg" [Term.var "loading", Term.lit ":", Term.con "listRemove" [sel, ing]]]
       | _ => t
 
     def moduleCacheGetModule (t : Term) : Term :=
       match t with
-      | (moduleCacheGetModule $sel (moduleCache (labeledArg loaded : $ls) (labeledArg loading : $ing))) => (cacheLookup $sel $ls)
+      | .con "moduleCacheGetModule" [sel, .con "moduleCache" [.con "labeledArg" [.var "loaded", .lit ":", ls], .con "labeledArg" [.var "loading", .lit ":", ing]]] => Term.con "cacheLookup" [sel, ls]
       | _ => t
 
     def cacheLookup (t : Term) : Term :=
       match t with
-      | (cacheLookup $sel (unit ( ))) => (none)
+      | .con "cacheLookup" [sel, .con "unit" [.lit "(", .lit ")"]] => Term.con "none" []
       | _ => t
 
     def cacheLookupMatch (t : Term) : Term :=
       match t with
-      | (cacheLookup $sel (( ( [ $sel (↦) $r (,) $e ] ) $rest ))) => (some (tuple ( $r , $e )))
+      | .con "cacheLookup" [sel, .con "app" [.lit "(", .lit "(", .lit "[", sel_dup, .lit "↦", r, .lit ",", e, .lit "]", .lit ")", rest, .lit ")"]] => Term.con "app" [Term.var "some", Term.con "tuple" [Term.lit "(", r, Term.lit ",", e, Term.lit ")"]]
       | _ => t
 
     def cacheLookupMiss (t : Term) : Term :=
       match t with
-      | (cacheLookup $sel (( ( $entry ) $rest ))) => (cacheLookup $sel $rest)
+      | .con "cacheLookup" [sel, .con "app" [.lit "(", .lit "(", entry, .lit ")", rest, .lit ")"]] => Term.con "cacheLookup" [sel, rest]
       | _ => t
 
   end ModuleCache
@@ -352,22 +325,22 @@ namespace Module
 
     def processImport (t : Term) : Term :=
       match t with
-      | (processDecl (importMod $vis $sel) $resEnv $globEnv $loadImport) => (letIn ( let $ importedRes = (apply $loadImport $sel) in (tuple ( $resEnv , $globEnv )) ))
+      | .con "processDecl" [.con "importMod" [vis, sel], resEnv, globEnv, loadImport] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "importedRes", Term.lit "=", Term.con "apply" [loadImport, sel], Term.lit "in", Term.con "tuple" [Term.lit "(", resEnv, Term.lit ",", globEnv, Term.lit ")"], Term.lit ")"]
       | _ => t
 
     def processDefine (t : Term) : Term :=
       match t with
-      | (processDecl (define $vis (typedVar $ name : $ty) (:=) $tm) $resEnv $globEnv $loadImport) => (letIn ( let $ gname = (gname $name) in (letIn ( let $ globEnv' = (globalEnvDefine $gname $ty $tm $globEnv) in (letIn ( let $ resEnv' = (resEnvAddNative $vis $gname $resEnv) in (tuple ( $resEnv' , $globEnv' )) )) )) ))
+      | .con "processDecl" [.con "define" [vis, .con "typedVar" [.lit "$", .var "name", .lit ":", ty], .lit ":=", tm], resEnv, globEnv, loadImport] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "gname", Term.lit "=", Term.con "app" [Term.var "gname", Term.var "name"], Term.lit "in", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "globEnv'", Term.lit "=", Term.con "globalEnvDefine" [Term.var "gname", ty, tm, globEnv], Term.lit "in", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "resEnv'", Term.lit "=", Term.con "resEnvAddNative" [vis, Term.var "gname", resEnv], Term.lit "in", Term.con "tuple" [Term.lit "(", Term.var "resEnv'", Term.lit ",", Term.var "globEnv'", Term.lit ")"], Term.lit ")"], Term.lit ")"], Term.lit ")"]
       | _ => t
 
     def processDataDecl (t : Term) : Term :=
       match t with
-      | (processDecl (dataDecl $vis $desc) $resEnv $globEnv $loadImport) => (letIn ( let $ globEnv' = (globalEnvDeclareDatatype $desc $globEnv) in (letIn ( let $ resEnv' = (resEnvAddNative $vis (dataDescName $desc) $resEnv) in (tuple ( $resEnv' , $globEnv' )) )) ))
+      | .con "processDecl" [.con "dataDecl" [vis, desc], resEnv, globEnv, loadImport] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "globEnv'", Term.lit "=", Term.con "globalEnvDeclareDatatype" [desc, globEnv], Term.lit "in", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "resEnv'", Term.lit "=", Term.con "resEnvAddNative" [vis, Term.con "app" [Term.var "dataDescName", desc], resEnv], Term.lit "in", Term.con "tuple" [Term.lit "(", Term.var "resEnv'", Term.lit ",", Term.var "globEnv'", Term.lit ")"], Term.lit ")"], Term.lit ")"]
       | _ => t
 
     def processAxiom (t : Term) : Term :=
       match t with
-      | (processDecl (axiomDecl $vis (typedVar $ name : $ty)) $resEnv $globEnv $loadImport) => (letIn ( let $ gname = (gname $name) in (letIn ( let $ globEnv' = (globalEnvDeclareParam $gname $ty $globEnv) in (letIn ( let $ resEnv' = (resEnvAddNative $vis $gname $resEnv) in (tuple ( $resEnv' , $globEnv' )) )) )) ))
+      | .con "processDecl" [.con "axiomDecl" [vis, .con "typedVar" [.lit "$", .var "name", .lit ":", ty]], resEnv, globEnv, loadImport] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "gname", Term.lit "=", Term.con "app" [Term.var "gname", Term.var "name"], Term.lit "in", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "globEnv'", Term.lit "=", Term.con "globalEnvDeclareParam" [Term.var "gname", ty, globEnv], Term.lit "in", Term.con "letIn" [Term.lit "(", Term.lit "let", Term.lit "$", Term.var "resEnv'", Term.lit "=", Term.con "resEnvAddNative" [vis, Term.var "gname", resEnv], Term.lit "in", Term.con "tuple" [Term.lit "(", Term.var "resEnv'", Term.lit ",", Term.var "globEnv'", Term.lit ")"], Term.lit ")"], Term.lit ")"], Term.lit ")"]
       | _ => t
 
   end ProcessDecl
@@ -376,22 +349,22 @@ namespace Module
 
     def resolveQualified (t : Term) : Term :=
       match t with
-      | (resolveQualified ($name) $env $cache) => (resEnvGet $name $env)
+      | .con "resolveQualified" [name, env, cache] => Term.con "resEnvGet" [name, env]
       | _ => t
 
     def resolveQualifiedMulti (t : Term) : Term :=
       match t with
-      | (resolveQualified ($modPart $rest) $env $cache) => (caseExpr ( case (moduleCacheGetModule (selector ($modPart $rest)) $cache) (arm ( some (tuple ( $res , $genv )) ) => (resEnvGet (last ($modPart $rest)) $res)) (arm none => (none)) ))
+      | .con "resolveQualified" [.con "tuple" [modPart, rest], env, cache] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "moduleCacheGetModule" [Term.con "app" [Term.var "selector", Term.con "tuple" [modPart, rest]], cache], Term.con "arm" [Term.lit "(", Term.var "some", Term.con "tuple" [Term.lit "(", Term.var "res", Term.lit ",", Term.var "genv", Term.lit ")"], Term.lit ")", Term.lit "=>", Term.con "resEnvGet" [Term.con "app" [Term.var "last", Term.con "tuple" [modPart, rest]], Term.var "res"]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def last (t : Term) : Term :=
       match t with
-      | (last ($x)) => $x
+      | .con "app" [.var "last", x] => x
       | _ => t
 
     def lastCons (t : Term) : Term :=
       match t with
-      | (last ($x $y $rest)) => (last ($y $rest))
+      | .con "app" [.var "last", .con "tuple" [x, y, rest]] => Term.con "app" [Term.var "last", Term.con "tuple" [y, rest]]
       | _ => t
 
   end QualifiedName

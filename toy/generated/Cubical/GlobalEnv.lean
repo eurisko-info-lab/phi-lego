@@ -1,220 +1,181 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
+
+import Lego.Algebra
+
+open Lego
 
 namespace GlobalEnv
 
   section GName
 
-    def gname : Parser :=
-      (annotated str "gname" (special <string>) str "source:" optional ((special <string>)) → gname)
-
     def gnameNamed (t : Term) : Term :=
       match t with
-      | (gnameNamed $s) => (gname $s (labeledArg source : (none)))
+      | .con "app" [.var "gnameNamed", s] => Term.con "gname" [s, Term.con "labeledArg" [Term.var "source", Term.lit ":", Term.con "none" []]]
       | _ => t
 
     def gnameFresh (t : Term) : Term :=
       match t with
-      | (gnameFresh $base $counter) => (gname (concat $base str "_" $counter) (labeledArg source : (none)))
+      | .con "gnameFresh" [base, counter] => Term.con "gname" [Term.con "concat" [base, Term.con "terminal" [Term.lit "_"], counter], Term.con "labeledArg" [Term.var "source", Term.lit ":", Term.con "none" []]]
       | _ => t
 
     def gnameAnonymous (t : Term) : Term :=
       match t with
-      | (gnameAnonymous) => (gname str "_" (labeledArg source : (none)))
+      | .con "gnameAnonymous" [] => Term.con "gname" [Term.con "terminal" [Term.lit "_"], Term.con "labeledArg" [Term.var "source", Term.lit ":", Term.con "none" []]]
       | _ => t
 
     def gnameName (t : Term) : Term :=
       match t with
-      | (gnameName (gname $n (labeledArg source : $s))) => $n
+      | .con "app" [.var "gnameName", .con "gname" [n, .con "labeledArg" [.var "source", .lit ":", s]]] => n
       | _ => t
 
     def gnameSource (t : Term) : Term :=
       match t with
-      | (gnameSource (gname $n (labeledArg source : $s))) => $s
+      | .con "app" [.var "gnameSource", .con "gname" [n, .con "labeledArg" [.var "source", .lit ":", s]]] => s
       | _ => t
 
     def gnameEq (t : Term) : Term :=
       match t with
-      | (gnameEq (gname $n1 (labeledArg source : $s1)) (gname $n2 (labeledArg source : $s2))) => (eq $n1 $n2)
+      | .con "gnameEq" [.con "gname" [n1, .con "labeledArg" [.var "source", .lit ":", s1]], .con "gname" [n2, .con "labeledArg" [.var "source", .lit ":", s2]]] => Term.con "eq" [n1, n2]
       | _ => t
 
   end GName
 
   section GArgSpec
 
-    def argConst : Parser :=
-      (annotated str "const" (special <expr>) → gArgSpec)
 
-    def argRecursive : Parser :=
-      (annotated str "recursive" → gArgSpec)
-
-    def argDim : Parser :=
-      (annotated str "dim" → gArgSpec)
 
   end GArgSpec
 
   section GConstructor
 
-    def gconstructor : Parser :=
-      (annotated str "constructor" str "name:" (special <string>) str "args:" many ((special <constructorArg>)) str "boundary:" many ((special <boundary>)) → gconstructor)
-
-    def constructorArg : Parser :=
-      (annotated str "(" (special <string>) str ":" (special <gArgSpec>) str ")" → constructorArg)
-
-    def boundary : Parser :=
-      (annotated str "[" (special <expr>) str "↦" (special <expr>) str "]" → boundary)
-
     def gconstructorName (t : Term) : Term :=
       match t with
-      | (gconstructorName (constructor (labeledArg name : $n) (labeledArg args : $a) (labeledArg boundary : $b))) => $n
+      | .con "app" [.var "gconstructorName", .con "constructor" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "args", .lit ":", a], .con "labeledArg" [.var "boundary", .lit ":", b]]] => n
       | _ => t
 
     def gconstructorArgs (t : Term) : Term :=
       match t with
-      | (gconstructorArgs (constructor (labeledArg name : $n) (labeledArg args : $a) (labeledArg boundary : $b))) => $a
+      | .con "app" [.var "gconstructorArgs", .con "constructor" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "args", .lit ":", a], .con "labeledArg" [.var "boundary", .lit ":", b]]] => a
       | _ => t
 
     def gconstructorBoundary (t : Term) : Term :=
       match t with
-      | (gconstructorBoundary (constructor (labeledArg name : $n) (labeledArg args : $a) (labeledArg boundary : $b))) => $b
+      | .con "app" [.var "gconstructorBoundary", .con "constructor" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "args", .lit ":", a], .con "labeledArg" [.var "boundary", .lit ":", b]]] => b
       | _ => t
 
   end GConstructor
 
   section GDataDesc
 
-    def gdataDesc : Parser :=
-      (annotated str "dataDesc" str "name:" (special <gname>) str "params:" many ((special <param>)) str "level:" (special <level>) str "constrs:" many ((special <gconstructor>)) → gdataDesc)
-
-    def param : Parser :=
-      (annotated str "(" (special <string>) str ":" (special <expr>) str ")" → param)
-
     def gdataDescName (t : Term) : Term :=
       match t with
-      | (gdataDescName (dataDesc (labeledArg name : $n) (labeledArg params : $p) (labeledArg level : $l) (labeledArg constrs : $c))) => $n
+      | .con "app" [.var "gdataDescName", .con "dataDesc" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "params", .lit ":", p], .con "labeledArg" [.var "level", .lit ":", l], .con "labeledArg" [.var "constrs", .lit ":", c]]] => n
       | _ => t
 
     def gdataDescParams (t : Term) : Term :=
       match t with
-      | (gdataDescParams (dataDesc (labeledArg name : $n) (labeledArg params : $p) (labeledArg level : $l) (labeledArg constrs : $c))) => $p
+      | .con "app" [.var "gdataDescParams", .con "dataDesc" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "params", .lit ":", p], .con "labeledArg" [.var "level", .lit ":", l], .con "labeledArg" [.var "constrs", .lit ":", c]]] => p
       | _ => t
 
     def gdataDescLevel (t : Term) : Term :=
       match t with
-      | (gdataDescLevel (dataDesc (labeledArg name : $n) (labeledArg params : $p) (labeledArg level : $l) (labeledArg constrs : $c))) => $l
+      | .con "app" [.var "gdataDescLevel", .con "dataDesc" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "params", .lit ":", p], .con "labeledArg" [.var "level", .lit ":", l], .con "labeledArg" [.var "constrs", .lit ":", c]]] => l
       | _ => t
 
     def gdataDescConstrs (t : Term) : Term :=
       match t with
-      | (gdataDescConstrs (dataDesc (labeledArg name : $n) (labeledArg params : $p) (labeledArg level : $l) (labeledArg constrs : $c))) => $c
+      | .con "app" [.var "gdataDescConstrs", .con "dataDesc" [.con "labeledArg" [.var "name", .lit ":", n], .con "labeledArg" [.var "params", .lit ":", p], .con "labeledArg" [.var "level", .lit ":", l], .con "labeledArg" [.var "constrs", .lit ":", c]]] => c
       | _ => t
 
   end GDataDesc
 
   section GEntry
 
-    def gEntryParam : Parser :=
-      (annotated str "param" (special <expr>) → gEntry)
-
-    def gEntryDefn : Parser :=
-      (annotated str "defn" str "type:" (special <expr>) str "value:" (special <expr>) → gEntry)
-
-    def gEntryDatatype : Parser :=
-      (annotated str "datatype" (special <gdataDesc>) → gEntry)
-
-    def gEntryDimVar : Parser :=
-      (annotated str "dimVar" → gEntry)
-
-    def gEntryMetaVar : Parser :=
-      (annotated str "metaVar" str "type:" (special <expr>) str "solution:" optional ((special <expr>)) → gEntry)
-
     def gEntryGetType (t : Term) : Term :=
       match t with
-      | (gEntryGetType (param $ty)) => (some $ty)
+      | .con "app" [.var "gEntryGetType", .con "app" [.var "param", ty]] => Term.con "app" [Term.var "some", ty]
       | _ => t
 
     def gEntryGetTypeDefn (t : Term) : Term :=
       match t with
-      | (gEntryGetType (defn (labeledArg type : $ty) (labeledArg value : $v))) => (some $ty)
+      | .con "app" [.var "gEntryGetType", .con "defn" [.con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "value", .lit ":", v]]] => Term.con "app" [Term.var "some", ty]
       | _ => t
 
     def gEntryGetTypeDatatype (t : Term) : Term :=
       match t with
-      | (gEntryGetType (datatype $desc)) => (some (univ (gdataDescLevel $desc)))
+      | .con "app" [.var "gEntryGetType", .con "app" [.var "datatype", desc]] => Term.con "app" [Term.var "some", Term.con "app" [Term.var "univ", Term.con "app" [Term.var "gdataDescLevel", desc]]]
       | _ => t
 
     def gEntryGetTypeDimVar (t : Term) : Term :=
       match t with
-      | (gEntryGetType (dimVar)) => (some (lit str "𝕀"))
+      | .con "app" [.var "gEntryGetType", .con "dimVar" []] => Term.con "app" [Term.var "some", Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "𝕀"]]]
       | _ => t
 
     def gEntryGetTypeMeta (t : Term) : Term :=
       match t with
-      | (gEntryGetType (metaVar (labeledArg type : $ty) (labeledArg solution : $sol))) => (some $ty)
+      | .con "app" [.var "gEntryGetType", .con "metaVar" [.con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "solution", .lit ":", sol]]] => Term.con "app" [Term.var "some", ty]
       | _ => t
 
   end GEntry
 
   section GlobalEnv
 
-    def globalEnv : Parser :=
-      (annotated str "globalEnv" str "entries:" many ((special <envEntry>)) str "order:" many ((special <gname>)) → globalEnv)
-
-    def envEntry : Parser :=
-      (annotated str "(" (special <gname>) str "↦" (special <gEntry>) str ")" → envEntry)
-
     def globalEnvEmpty (t : Term) : Term :=
       match t with
-      | (globalEnvEmpty) => (globalEnv (labeledArg entries : (unit ( ))) (labeledArg order : (unit ( ))))
+      | .con "globalEnvEmpty" [] => Term.con "globalEnv" [Term.con "labeledArg" [Term.var "entries", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]], Term.con "labeledArg" [Term.var "order", Term.lit ":", Term.con "unit" [Term.lit "(", Term.lit ")"]]]
       | _ => t
 
     def globalEnvExtend (t : Term) : Term :=
       match t with
-      | (globalEnvExtend (globalEnv (labeledArg entries : $entries) (labeledArg order : $order)) $nm $entry) => (globalEnv (labeledArg entries : ($entries ((( $nm (↦) $entry ))))) (labeledArg order : ($nm $order)))
+      | .con "globalEnvExtend" [.con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]], nm, entry] => Term.con "globalEnv" [Term.con "labeledArg" [Term.var "entries", Term.lit ":", Term.con "tuple" [entries, Term.con "app" [Term.lit "(", nm, Term.lit "↦", entry, Term.lit ")"]]], Term.con "labeledArg" [Term.var "order", Term.lit ":", Term.con "tuple" [nm, order]]]
       | _ => t
 
     def globalEnvDefine (t : Term) : Term :=
       match t with
-      | (globalEnvDefine $env $nm $ty $tm) => (globalEnvExtend $env $nm (defn (labeledArg type : $ty) (labeledArg value : $tm)))
+      | .con "globalEnvDefine" [env, nm, ty, tm] => Term.con "globalEnvExtend" [env, nm, Term.con "defn" [Term.con "labeledArg" [Term.var "type", Term.lit ":", ty], Term.con "labeledArg" [Term.var "value", Term.lit ":", tm]]]
       | _ => t
 
     def globalEnvDeclareParam (t : Term) : Term :=
       match t with
-      | (globalEnvDeclareParam $env $nm $ty) => (globalEnvExtend $env $nm (param $ty))
+      | .con "globalEnvDeclareParam" [env, nm, ty] => Term.con "globalEnvExtend" [env, nm, Term.con "app" [Term.var "param", ty]]
       | _ => t
 
     def globalEnvDeclareDim (t : Term) : Term :=
       match t with
-      | (globalEnvDeclareDim $env $nm) => (globalEnvExtend $env $nm (dimVar))
+      | .con "globalEnvDeclareDim" [env, nm] => Term.con "globalEnvExtend" [env, nm, Term.con "dimVar" []]
       | _ => t
 
     def globalEnvDeclareDatatype (t : Term) : Term :=
       match t with
-      | (globalEnvDeclareDatatype $env $desc) => (globalEnvExtend $env (gdataDescName $desc) (datatype $desc))
+      | .con "globalEnvDeclareDatatype" [env, desc] => Term.con "globalEnvExtend" [env, Term.con "app" [Term.var "gdataDescName", desc], Term.con "app" [Term.var "datatype", desc]]
       | _ => t
 
     def globalEnvCreateMeta (t : Term) : Term :=
       match t with
-      | (globalEnvCreateMeta $env $nm $ty) => (globalEnvExtend $env $nm (metaVar (labeledArg type : $ty) (labeledArg solution : (none))))
+      | .con "globalEnvCreateMeta" [env, nm, ty] => Term.con "globalEnvExtend" [env, nm, Term.con "metaVar" [Term.con "labeledArg" [Term.var "type", Term.lit ":", ty], Term.con "labeledArg" [Term.var "solution", Term.lit ":", Term.con "none" []]]]
       | _ => t
 
     def globalEnvSolveMeta (t : Term) : Term :=
       match t with
-      | (globalEnvSolveMeta (globalEnv (labeledArg entries : $entries) (labeledArg order : $order)) $nm $solution) => (globalEnv (labeledArg entries : (solveMeta' $entries $nm $solution)) (labeledArg order : $order))
+      | .con "globalEnvSolveMeta" [.con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]], nm, solution] => Term.con "globalEnv" [Term.con "labeledArg" [Term.var "entries", Term.lit ":", Term.con "solveMeta'" [entries, nm, solution]], Term.con "labeledArg" [Term.var "order", Term.lit ":", order]]
       | _ => t
 
     def solveMeta'Nil (t : Term) : Term :=
       match t with
-      | (solveMeta' (unit ( )) $nm $sol) => (unit ( ))
+      | .con "solveMeta'" [.con "unit" [.lit "(", .lit ")"], nm, sol] => Term.con "unit" [Term.lit "(", Term.lit ")"]
       | _ => t
 
     def solveMeta'Match (t : Term) : Term :=
       match t with
-      | (solveMeta' (( ( ( $nm (↦) (metaVar (labeledArg type : $ty) (labeledArg solution : $old)) ) ) $rest )) $nm $sol) => ((( ($nm (↦) (metaVar (labeledArg type : $ty) (labeledArg solution : (some $sol)))) )) $rest)
+      | .con "solveMeta'" [.con "app" [.lit "(", .lit "(", .lit "(", nm, .lit "↦", .con "metaVar" [.con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "solution", .lit ":", old]], .lit ")", .lit ")", rest, .lit ")"], nm_dup, sol] => Term.con "tuple" [Term.con "app" [Term.lit "(", Term.con "tuple" [nm, Term.lit "↦", Term.con "metaVar" [Term.con "labeledArg" [Term.var "type", Term.lit ":", ty], Term.con "labeledArg" [Term.var "solution", Term.lit ":", Term.con "app" [Term.var "some", sol]]]], Term.lit ")"], rest]
       | _ => t
 
     def solveMeta'Miss (t : Term) : Term :=
       match t with
-      | (solveMeta' (( ( $entry ) $rest )) $nm $sol) => ((( $entry )) (solveMeta' $rest $nm $sol))
+      | .con "solveMeta'" [.con "app" [.lit "(", .lit "(", entry, .lit ")", rest, .lit ")"], nm, sol] => Term.con "tuple" [Term.con "app" [Term.lit "(", entry, Term.lit ")"], Term.con "solveMeta'" [rest, nm, sol]]
       | _ => t
 
   end GlobalEnv
@@ -223,42 +184,42 @@ namespace GlobalEnv
 
     def globalEnvLookup (t : Term) : Term :=
       match t with
-      | (globalEnvLookup (globalEnv (labeledArg entries : $entries) (labeledArg order : $order)) $nm) => (lookupEntry $entries $nm)
+      | .con "globalEnvLookup" [.con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]], nm] => Term.con "lookupEntry" [entries, nm]
       | _ => t
 
     def lookupEntryNil (t : Term) : Term :=
       match t with
-      | (lookupEntry (unit ( )) $nm) => (none)
+      | .con "lookupEntry" [.con "unit" [.lit "(", .lit ")"], nm] => Term.con "none" []
       | _ => t
 
     def lookupEntryMatch (t : Term) : Term :=
       match t with
-      | (lookupEntry (( ( ( $nm (↦) $entry ) ) $rest )) $nm) => (some $entry)
+      | .con "lookupEntry" [.con "app" [.lit "(", .lit "(", .lit "(", nm, .lit "↦", entry, .lit ")", .lit ")", rest, .lit ")"], nm_dup] => Term.con "app" [Term.var "some", entry]
       | _ => t
 
     def lookupEntryMiss (t : Term) : Term :=
       match t with
-      | (lookupEntry (( ( ( $nm' (↦) $entry ) ) $rest )) $nm) => (lookupEntry $rest $nm)
+      | .con "lookupEntry" [.con "app" [.lit "(", .lit "(", .lit "(", nm', .lit "↦", entry, .lit ")", .lit ")", rest, .lit ")"], nm] => Term.con "lookupEntry" [rest, nm]
       | _ => t
 
     def globalEnvLookupType (t : Term) : Term :=
       match t with
-      | (globalEnvLookupType $env $nm) => (caseExpr ( case (globalEnvLookup $env $nm) (arm ( some $entry ) => (gEntryGetType $entry)) (arm none => (none)) ))
+      | .con "globalEnvLookupType" [env, nm] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "globalEnvLookup" [env, nm], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "entry", Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "gEntryGetType", Term.var "entry"]], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def globalEnvLookupValue (t : Term) : Term :=
       match t with
-      | (globalEnvLookupValue (globalEnv (labeledArg entries : $entries) (labeledArg order : $order)) $nm) => (caseExpr ( case (lookupEntry $entries $nm) (arm ( some (defn (labeledArg type : $ty) (labeledArg value : $v)) ) => (some $v)) (arm _ => (none)) ))
+      | .con "globalEnvLookupValue" [.con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]], nm] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "lookupEntry" [entries, nm], Term.con "arm" [Term.lit "(", Term.var "some", Term.con "defn" [Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "value", Term.lit ":", Term.var "v"]], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "some", Term.var "v"]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def globalEnvLookupDatatype (t : Term) : Term :=
       match t with
-      | (globalEnvLookupDatatype (globalEnv (labeledArg entries : $entries) (labeledArg order : $order)) $nm) => (caseExpr ( case (lookupEntry $entries $nm) (arm ( some (datatype $desc) ) => (some $desc)) (arm _ => (none)) ))
+      | .con "globalEnvLookupDatatype" [.con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]], nm] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "lookupEntry" [entries, nm], Term.con "arm" [Term.lit "(", Term.var "some", Term.con "app" [Term.var "datatype", Term.var "desc"], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "some", Term.var "desc"]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
     def globalEnvLookupMeta (t : Term) : Term :=
       match t with
-      | (globalEnvLookupMeta (globalEnv (labeledArg entries : $entries) (labeledArg order : $order)) $nm) => (caseExpr ( case (lookupEntry $entries $nm) (arm ( some (metaVar (labeledArg type : $ty) (labeledArg solution : $sol)) ) => (some (record ( type : $ty (labeledArg solution : $sol) )))) (arm _ => (none)) ))
+      | .con "globalEnvLookupMeta" [.con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]], nm] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "lookupEntry" [entries, nm], Term.con "arm" [Term.lit "(", Term.var "some", Term.con "metaVar" [Term.con "labeledArg" [Term.var "type", Term.lit ":", Term.var "ty"], Term.con "labeledArg" [Term.var "solution", Term.lit ":", Term.var "sol"]], Term.lit ")", Term.lit "=>", Term.con "app" [Term.var "some", Term.con "record" [Term.lit "(", Term.var "type", Term.lit ":", Term.var "ty", Term.con "labeledArg" [Term.var "solution", Term.lit ":", Term.var "sol"], Term.lit ")"]]], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "none" []], Term.lit ")"]
       | _ => t
 
   end Lookup
@@ -267,52 +228,52 @@ namespace GlobalEnv
 
     def globalEnvIsDefined (t : Term) : Term :=
       match t with
-      | (globalEnvIsDefined $env $nm) => (caseExpr ( case (globalEnvLookup $env $nm) (arm ( some (_) ) => (true)) (arm none => (false)) ))
+      | .con "globalEnvIsDefined" [env, nm] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "globalEnvLookup" [env, nm], Term.con "arm" [Term.lit "(", Term.var "some", Term.con "_" [], Term.lit ")", Term.lit "=>", Term.con "true" []], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "false" []], Term.lit ")"]
       | _ => t
 
     def globalEnvIsMetaSolved (t : Term) : Term :=
       match t with
-      | (globalEnvIsMetaSolved $env $nm) => (caseExpr ( case (globalEnvLookupMeta $env $nm) (arm ( some (type (:) $ty (labeledArg solution : (some $sol))) ) => (true)) (arm _ => (false)) ))
+      | .con "globalEnvIsMetaSolved" [env, nm] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "globalEnvLookupMeta" [env, nm], Term.con "arm" [Term.lit "(", Term.var "some", Term.con "type" [Term.lit ":", Term.var "ty", Term.con "labeledArg" [Term.var "solution", Term.lit ":", Term.con "app" [Term.var "some", Term.var "sol"]]], Term.lit ")", Term.lit "=>", Term.con "true" []], Term.con "arm" [Term.var "_", Term.lit "=>", Term.con "false" []], Term.lit ")"]
       | _ => t
 
     def globalEnvAllNames (t : Term) : Term :=
       match t with
-      | (globalEnvAllNames (globalEnv (labeledArg entries : $entries) (labeledArg order : $order))) => $order
+      | .con "app" [.var "globalEnvAllNames", .con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]]] => order
       | _ => t
 
     def globalEnvFilterByKind (t : Term) : Term :=
       match t with
-      | (globalEnvFilterByKind (globalEnv (labeledArg entries : $entries) (labeledArg order : $order)) $kind) => (filter (fun (nm) (=>) (matchKind (lookupEntry $entries (nm)) $kind)) $order)
+      | .con "globalEnvFilterByKind" [.con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]], kind] => Term.con "filter" [Term.con "fun" [Term.con "nm" [], Term.lit "=>", Term.con "matchKind" [Term.con "lookupEntry" [entries, Term.con "nm" []], kind]], order]
       | _ => t
 
     def matchKindDefn (t : Term) : Term :=
       match t with
-      | (matchKind (some (defn (labeledArg type : $t) (labeledArg value : $v))) (defn)) => (true)
+      | .con "matchKind" [.con "app" [.var "some", .con "defn" [.con "labeledArg" [.var "type", .lit ":", t], .con "labeledArg" [.var "value", .lit ":", v]]], .con "defn" []] => Term.con "true" []
       | _ => t
 
     def matchKindParam (t : Term) : Term :=
       match t with
-      | (matchKind (some (param $t)) (param)) => (true)
+      | .con "matchKind" [.con "app" [.var "some", .con "app" [.var "param", t]], .con "param" []] => Term.con "true" []
       | _ => t
 
     def matchKindDatatype (t : Term) : Term :=
       match t with
-      | (matchKind (some (datatype $d)) (datatype)) => (true)
+      | .con "matchKind" [.con "app" [.var "some", .con "app" [.var "datatype", d]], .con "datatype" []] => Term.con "true" []
       | _ => t
 
     def matchKindDimVar (t : Term) : Term :=
       match t with
-      | (matchKind (some (dimVar)) (dimVar)) => (true)
+      | .con "matchKind" [.con "app" [.var "some", .con "dimVar" []], .con "dimVar" []] => Term.con "true" []
       | _ => t
 
     def matchKindMetaVar (t : Term) : Term :=
       match t with
-      | (matchKind (some (metaVar (labeledArg type : $t) (labeledArg solution : $s))) (metaVar)) => (true)
+      | .con "matchKind" [.con "app" [.var "some", .con "metaVar" [.con "labeledArg" [.var "type", .lit ":", t], .con "labeledArg" [.var "solution", .lit ":", s]]], .con "metaVar" []] => Term.con "true" []
       | _ => t
 
     def matchKindOther (t : Term) : Term :=
       match t with
-      | (matchKind $entry $kind) => (false)
+      | .con "matchKind" [entry, kind] => Term.con "false" []
       | _ => t
 
   end Query
@@ -321,52 +282,52 @@ namespace GlobalEnv
 
     def unfoldOne (t : Term) : Term :=
       match t with
-      | (unfoldOne $env (lit $name)) => (caseExpr ( case (globalEnvLookupValue $env (gnameNamed $name)) (arm ( some $val ) => $val) (arm none => (lit $name)) ))
+      | .con "unfoldOne" [env, .con "app" [.var "lit", name]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "globalEnvLookupValue" [env, Term.con "app" [Term.var "gnameNamed", name]], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "val", Term.lit ")", Term.lit "=>", Term.var "val"], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "app" [Term.var "lit", name]], Term.lit ")"]
       | _ => t
 
     def unfoldOneOther (t : Term) : Term :=
       match t with
-      | (unfoldOne $env $e) => $e
+      | .con "unfoldOne" [env, e] => e
       | _ => t
 
     def unfoldAll (t : Term) : Term :=
       match t with
-      | (unfoldAll $env $e) => (unfoldAll' $env $e (num (number 100)))
+      | .con "unfoldAll" [env, e] => Term.con "unfoldAll'" [env, e, Term.con "num" [Term.con "number" [Term.lit "100"]]]
       | _ => t
 
     def unfoldAll'0 (t : Term) : Term :=
       match t with
-      | (unfoldAll' $env $e (num (number 0))) => $e
+      | .con "unfoldAll'" [env, e, .con "num" [.con "number" [.lit "0"]]] => e
       | _ => t
 
     def unfoldAll' (t : Term) : Term :=
       match t with
-      | (unfoldAll' $env $e (suc $fuel)) => (letIn ( let e' = (unfoldStep $env $e) in (caseExpr case (eq (e') $e) (arm true => (e')) (arm false => (unfoldAll' $env (e') $fuel))) ))
+      | .con "unfoldAll'" [env, e, .con "app" [.var "suc", fuel]] => Term.con "letIn" [Term.lit "(", Term.lit "let", Term.var "e'", Term.lit "=", Term.con "unfoldStep" [env, e], Term.lit "in", Term.con "caseExpr" [Term.lit "case", Term.con "eq" [Term.con "e'" [], e], Term.con "arm" [Term.var "true", Term.lit "=>", Term.con "e'" []], Term.con "arm" [Term.var "false", Term.lit "=>", Term.con "unfoldAll'" [env, Term.con "e'" [], fuel]]], Term.lit ")"]
       | _ => t
 
     def unfoldStepLit (t : Term) : Term :=
       match t with
-      | (unfoldStep $env (lit $name)) => (caseExpr ( case (globalEnvLookupValue $env (gnameNamed $name)) (arm ( some $val ) => $val) (arm none => (lit $name)) ))
+      | .con "unfoldStep" [env, .con "app" [.var "lit", name]] => Term.con "caseExpr" [Term.lit "(", Term.lit "case", Term.con "globalEnvLookupValue" [env, Term.con "app" [Term.var "gnameNamed", name]], Term.con "arm" [Term.lit "(", Term.var "some", Term.var "val", Term.lit ")", Term.lit "=>", Term.var "val"], Term.con "arm" [Term.var "none", Term.lit "=>", Term.con "app" [Term.var "lit", name]], Term.lit ")"]
       | _ => t
 
     def unfoldStepApp (t : Term) : Term :=
       match t with
-      | (unfoldStep $env (app $f $a)) => (app (unfoldStep $env $f) (unfoldStep $env $a))
+      | .con "unfoldStep" [env, .con "app" [f, a]] => Term.con "app" [Term.con "unfoldStep" [env, f], Term.con "unfoldStep" [env, a]]
       | _ => t
 
     def unfoldStepLam (t : Term) : Term :=
       match t with
-      | (unfoldStep $env (lam $body)) => (lam (unfoldStep $env $body))
+      | .con "unfoldStep" [env, .con "app" [.var "lam", body]] => Term.con "app" [Term.var "lam", Term.con "unfoldStep" [env, body]]
       | _ => t
 
     def unfoldStepPi (t : Term) : Term :=
       match t with
-      | (unfoldStep $env (pi $dom $cod)) => (pi (unfoldStep $env $dom) (unfoldStep $env $cod))
+      | .con "unfoldStep" [env, .con "pi" [dom, cod]] => Term.con "pi" [Term.con "unfoldStep" [env, dom], Term.con "unfoldStep" [env, cod]]
       | _ => t
 
     def unfoldStepOther (t : Term) : Term :=
       match t with
-      | (unfoldStep $env $e) => $e
+      | .con "unfoldStep" [env, e] => e
       | _ => t
 
   end Unfold
@@ -375,37 +336,37 @@ namespace GlobalEnv
 
     def globalEnvPrint (t : Term) : Term :=
       match t with
-      | (globalEnvPrint (globalEnv (labeledArg entries : $entries) (labeledArg order : $order))) => (mapReverse (fun (nm) (=>) (printEntry (nm (lookupEntry $entries (nm))))) $order)
+      | .con "app" [.var "globalEnvPrint", .con "globalEnv" [.con "labeledArg" [.var "entries", .lit ":", entries], .con "labeledArg" [.var "order", .lit ":", order]]] => Term.con "mapReverse" [Term.con "fun" [Term.con "nm" [], Term.lit "=>", Term.con "app" [Term.var "printEntry", Term.con "nm" [Term.con "lookupEntry" [entries, Term.con "nm" []]]]], order]
       | _ => t
 
     def printEntry (t : Term) : Term :=
       match t with
-      | (printEntry $nm (some (defn (labeledArg type : $ty) (labeledArg value : $v)))) => (concat str "def " (gnameName $nm) str " : " (show $ty) str " := " (show $v))
+      | .con "printEntry" [nm, .con "app" [.var "some", .con "defn" [.con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "value", .lit ":", v]]]] => Term.con "concat" [Term.con "terminal" [Term.lit "def "], Term.con "app" [Term.var "gnameName", nm], Term.con "terminal" [Term.lit " : "], Term.con "app" [Term.var "show", ty], Term.con "terminal" [Term.lit " := "], Term.con "app" [Term.var "show", v]]
       | _ => t
 
     def printEntryParam (t : Term) : Term :=
       match t with
-      | (printEntry $nm (some (param $ty))) => (concat str "param " (gnameName $nm) str " : " (show $ty))
+      | .con "printEntry" [nm, .con "app" [.var "some", .con "app" [.var "param", ty]]] => Term.con "concat" [Term.con "terminal" [Term.lit "param "], Term.con "app" [Term.var "gnameName", nm], Term.con "terminal" [Term.lit " : "], Term.con "app" [Term.var "show", ty]]
       | _ => t
 
     def printEntryDatatype (t : Term) : Term :=
       match t with
-      | (printEntry $nm (some (datatype $desc))) => (concat str "data " (gnameName $nm) str " ...")
+      | .con "printEntry" [nm, .con "app" [.var "some", .con "app" [.var "datatype", desc]]] => Term.con "concat" [Term.con "terminal" [Term.lit "data "], Term.con "app" [Term.var "gnameName", nm], Term.con "terminal" [Term.lit " ..."]]
       | _ => t
 
     def printEntryDimVar (t : Term) : Term :=
       match t with
-      | (printEntry $nm (some (dimVar))) => (concat str "dim " (gnameName $nm))
+      | .con "printEntry" [nm, .con "app" [.var "some", .con "dimVar" []]] => Term.con "concat" [Term.con "terminal" [Term.lit "dim "], Term.con "app" [Term.var "gnameName", nm]]
       | _ => t
 
     def printEntryMetaVar (t : Term) : Term :=
       match t with
-      | (printEntry $nm (some (metaVar (labeledArg type : $ty) (labeledArg solution : $sol)))) => (concat str "meta " (gnameName $nm) str " : " (show $ty))
+      | .con "printEntry" [nm, .con "app" [.var "some", .con "metaVar" [.con "labeledArg" [.var "type", .lit ":", ty], .con "labeledArg" [.var "solution", .lit ":", sol]]]] => Term.con "concat" [Term.con "terminal" [Term.lit "meta "], Term.con "app" [Term.var "gnameName", nm], Term.con "terminal" [Term.lit " : "], Term.con "app" [Term.var "show", ty]]
       | _ => t
 
     def printEntryNone (t : Term) : Term :=
       match t with
-      | (printEntry $nm (none)) => (concat str "unknown " (gnameName $nm))
+      | .con "printEntry" [nm, .con "none" []] => Term.con "concat" [Term.con "terminal" [Term.lit "unknown "], Term.con "app" [Term.var "gnameName", nm]]
       | _ => t
 
   end Print

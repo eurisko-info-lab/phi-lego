@@ -1,22 +1,24 @@
-(DImport import (modulePath Core) ;)
+/-
+  AUTO-GENERATED from .lego files
+  Do not edit directly.
+-/
 
-(DImport import (modulePath Cofibration) ;)
+import Lego.Algebra
+
+open Lego
 
 namespace Kan
 
   section Dir
 
-    def dir : Parser :=
-      (annotated str "dir" dim dim → dir)
-
     def isDegenerate (t : Term) : Term :=
       match t with
-      | (dirIsDegenerate (dir $src $tgt)) => (dimEqD $src $tgt)
+      | .con "app" [.var "dirIsDegenerate", .con "dir" [src, tgt]] => Term.con "dimEqD" [src, tgt]
       | _ => t
 
     def dirOfExpr (t : Term) : Term :=
       match t with
-      | (dirOfExpr $r $r') => (dir (dimOfExprForce $r) (dimOfExprForce $r'))
+      | .con "dirOfExpr" [r, r'] => Term.con "dir" [Term.con "app" [Term.var "dimOfExprForce", r], Term.con "app" [Term.var "dimOfExprForce", r']]
       | _ => t
 
     -- Test: test
@@ -31,27 +33,27 @@ namespace Kan
 
     def evalCofTop (t : Term) : Term :=
       match t with
-      | (evalCof $subst (cof_top)) => (true)
+      | .con "evalCof" [subst, .con "cof_top" []] => Term.con "true" []
       | _ => t
 
     def evalCofBot (t : Term) : Term :=
       match t with
-      | (evalCof $subst (cof_bot)) => (false)
+      | .con "evalCof" [subst, .con "cof_bot" []] => Term.con "false" []
       | _ => t
 
     def evalCofEq (t : Term) : Term :=
       match t with
-      | (evalCof $subst (cof_eq $r $s)) => (dimEqSubst $subst $r $s)
+      | .con "evalCof" [subst, .con "cof_eq" [r, s]] => Term.con "dimEqSubst" [subst, r, s]
       | _ => t
 
     def evalCofAnd (t : Term) : Term :=
       match t with
-      | (evalCof $subst (cof_and $φ $ψ)) => (and (evalCof $subst $φ) (evalCof $subst $ψ))
+      | .con "evalCof" [subst, .con "cof_and" [φ, ψ]] => Term.con "and" [Term.con "evalCof" [subst, φ], Term.con "evalCof" [subst, ψ]]
       | _ => t
 
     def evalCofOr (t : Term) : Term :=
       match t with
-      | (evalCof $subst (cof_or $φ $ψ)) => (or (evalCof $subst $φ) (evalCof $subst $ψ))
+      | .con "evalCof" [subst, .con "cof_or" [φ, ψ]] => Term.con "or" [Term.con "evalCof" [subst, φ], Term.con "evalCof" [subst, ψ]]
       | _ => t
 
   end EvalCof
@@ -60,47 +62,47 @@ namespace Kan
 
     def substDim0Ix (t : Term) : Term :=
       match t with
-      | (substDim0' $d (ix $n)) => (ix $n)
+      | .con "substDim0'" [d, .con "app" [.var "ix", n]] => Term.con "app" [Term.var "ix", n]
       | _ => t
 
     def substDim0Dim0 (t : Term) : Term :=
       match t with
-      | (substDim0' $d (dim0)) => (dim0)
+      | .con "substDim0'" [d, .con "dim0" []] => Term.con "dim0" []
       | _ => t
 
     def substDim0Dim1 (t : Term) : Term :=
       match t with
-      | (substDim0' $d (dim1)) => (dim1)
+      | .con "substDim0'" [d, .con "dim1" []] => Term.con "dim1" []
       | _ => t
 
     def substDim0DimVar0 (t : Term) : Term :=
       match t with
-      | (substDim0' $d (dimVar (num (number 0)))) => $d
+      | .con "substDim0'" [d, .con "app" [.var "dimVar", .con "num" [.con "number" [.lit "0"]]]] => d
       | _ => t
 
     def substDim0DimVarS (t : Term) : Term :=
       match t with
-      | (substDim0' $d (dimVar (suc $n))) => (dimVar $n)
+      | .con "substDim0'" [d, .con "app" [.var "dimVar", .con "app" [.var "suc", n]]] => Term.con "app" [Term.var "dimVar", n]
       | _ => t
 
     def substDim0Lam (t : Term) : Term :=
       match t with
-      | (substDim0' $d (lam $body)) => (lam (substDim0' $d $body))
+      | .con "substDim0'" [d, .con "app" [.var "lam", body]] => Term.con "app" [Term.var "lam", Term.con "substDim0'" [d, body]]
       | _ => t
 
     def substDim0Plam (t : Term) : Term :=
       match t with
-      | (substDim0' $d (plam $body)) => (plam (substDim0' (shift (num (number 0)) (num (number 1)) $d) $body))
+      | .con "substDim0'" [d, .con "app" [.var "plam", body]] => Term.con "app" [Term.var "plam", Term.con "substDim0'" [Term.con "shift" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "num" [Term.con "number" [Term.lit "1"]], d], body]]
       | _ => t
 
     def substDim0App (t : Term) : Term :=
       match t with
-      | (substDim0' $d (app $f $a)) => (app (substDim0' $d $f) (substDim0' $d $a))
+      | .con "substDim0'" [d, .con "app" [f, a]] => Term.con "app" [Term.con "substDim0'" [d, f], Term.con "substDim0'" [d, a]]
       | _ => t
 
     def substDim0Pi (t : Term) : Term :=
       match t with
-      | (substDim0' $d (pi $A $B)) => (pi (substDim0' $d $A) (substDim0' $d $B))
+      | .con "substDim0'" [d, .con "pi" [A, B]] => Term.con "pi" [Term.con "substDim0'" [d, A], Term.con "substDim0'" [d, B]]
       | _ => t
 
   end SubstDim0
@@ -109,27 +111,27 @@ namespace Kan
 
     def coeRefl (t : Term) : Term :=
       match t with
-      | (coe $r $r $ty $a) => $a
+      | .con "coe" [r, r_dup, ty, a] => a
       | _ => t
 
     def coeUniv (t : Term) : Term :=
       match t with
-      | (coe $r $r' (plam (univ $l)) $a) => $a
+      | .con "coe" [r, r', .con "app" [.var "plam", .con "app" [.var "univ", l]], a] => a
       | _ => t
 
     def coePi (t : Term) : Term :=
       match t with
-      | (coe $r $r' (plam (pi $dom $cod)) $f) => (lam (coe $r $r' (plamSubst (num (number 0)) (coe $r' $r (plamInv $dom) (ix (num (number 0)))) $cod) (app $f (coe $r' $r $dom (ix (num (number 0)))))))
+      | .con "coe" [r, r', .con "app" [.var "plam", .con "pi" [dom, cod]], f] => Term.con "app" [Term.var "lam", Term.con "coe" [r, r', Term.con "plamSubst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "coe" [r', r, Term.con "app" [Term.var "plamInv", dom], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], cod], Term.con "app" [f, Term.con "coe" [r', r, dom, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]]
       | _ => t
 
     def coeSigma (t : Term) : Term :=
       match t with
-      | (coe $r $r' (plam (sigma $dom $cod)) $p) => (pair (coe $r $r' $dom (fst $p)) (coe $r $r' (plamSubst (num (number 0)) (coe $r $r' $dom (fst $p)) $cod) (snd $p)))
+      | .con "coe" [r, r', .con "app" [.var "plam", .con "sigma" [dom, cod]], p] => Term.con "pair" [Term.con "coe" [r, r', dom, Term.con "app" [Term.var "fst", p]], Term.con "coe" [r, r', Term.con "plamSubst" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "coe" [r, r', dom, Term.con "app" [Term.var "fst", p]], cod], Term.con "app" [Term.var "snd", p]]]
       | _ => t
 
     def coePath (t : Term) : Term :=
       match t with
-      | (coe $r $r' (plam (path $A $a $b)) $p) => (plam (coe $r $r' $A (papp $p (dimVar (num (number 0))))))
+      | .con "coe" [r, r', .con "app" [.var "plam", .con "path" [A, a, b]], p] => Term.con "app" [Term.var "plam", Term.con "coe" [r, r', A, Term.con "papp" [p, Term.con "app" [Term.var "dimVar", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]
       | _ => t
 
     -- Test: test
@@ -144,32 +146,32 @@ namespace Kan
 
     def hcomRefl (t : Term) : Term :=
       match t with
-      | (hcom $r $r $ty $phi $cap) => $cap
+      | .con "hcom" [r, r_dup, ty, phi, cap] => cap
       | _ => t
 
     def hcomTrue (t : Term) : Term :=
       match t with
-      | (hcom $r $r' $ty (cof_top) $tube $cap) => (app (app $tube $r') (lit str "prf"))
+      | .con "hcom" [r, r', ty, .con "cof_top" [], tube, cap] => Term.con "app" [Term.con "app" [tube, r'], Term.con "app" [Term.var "lit", Term.con "terminal" [Term.lit "prf"]]]
       | _ => t
 
     def hcomFalse (t : Term) : Term :=
       match t with
-      | (hcom $r $r' $ty (cof_bot) $tube $cap) => $cap
+      | .con "hcom" [r, r', ty, .con "cof_bot" [], tube, cap] => cap
       | _ => t
 
     def hcomPi (t : Term) : Term :=
       match t with
-      | (hcom $r $r' (pi $A $B) $phi $tube $cap) => (lam (hcom $r $r' (substBody (num (number 0)) (ix (num (number 0))) $B) $phi (lam (lam (app (app (app $tube (ix (num (number 1)))) (ix (num (number 0)))) (ix (num (number 2)))))) (app $cap (ix (num (number 0))))))
+      | .con "hcom" [r, r', .con "pi" [A, B], phi, tube, cap] => Term.con "app" [Term.var "lam", Term.con "hcom" [r, r', Term.con "substBody" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]], B], phi, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.con "app" [Term.con "app" [tube, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "2"]]]]]], Term.con "app" [cap, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]
       | _ => t
 
     def hcomSigma (t : Term) : Term :=
       match t with
-      | (hcom $r $r' (sigma $A $B) $phi $tube $cap) => (pair (hcom $r $r' $A $phi (lam (lam (fst (app (app $tube (ix (num (number 1)))) (ix (num (number 0))))))) (fst $cap)) (com $r $r' (plam (substBody (num (number 0)) (hcom $r (dimVar (num (number 0))) $A $phi (lam (lam (fst (app (app $tube (ix (num (number 1)))) (ix (num (number 0))))))) (fst $cap)) $B)) $phi (lam (lam (snd (app (app $tube (ix (num (number 1)))) (ix (num (number 0))))))) (snd $cap)))
+      | .con "hcom" [r, r', .con "sigma" [A, B], phi, tube, cap] => Term.con "pair" [Term.con "hcom" [r, r', A, phi, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "fst", Term.con "app" [Term.con "app" [tube, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "app" [Term.var "fst", cap]], Term.con "com" [r, r', Term.con "app" [Term.var "plam", Term.con "substBody" [Term.con "num" [Term.con "number" [Term.lit "0"]], Term.con "hcom" [r, Term.con "app" [Term.var "dimVar", Term.con "num" [Term.con "number" [Term.lit "0"]]], A, phi, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "fst", Term.con "app" [Term.con "app" [tube, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "app" [Term.var "fst", cap]], B]], phi, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "app" [Term.var "snd", Term.con "app" [Term.con "app" [tube, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "app" [Term.var "snd", cap]]]
       | _ => t
 
     def hcomPath (t : Term) : Term :=
       match t with
-      | (hcom $r $r' (path $A $a $b) $phi $tube $cap) => (plam (hcom $r $r' $A (cof_or $phi (cof_or (cof_eq (dimVar (num (number 0))) (dim0)) (cof_eq (dimVar (num (number 0))) (dim1)))) (mkTube $tube (dimVar (num (number 0))) $a $b) (papp $cap (dimVar (num (number 0))))))
+      | .con "hcom" [r, r', .con "path" [A, a, b], phi, tube, cap] => Term.con "app" [Term.var "plam", Term.con "hcom" [r, r', A, Term.con "cof_or" [phi, Term.con "cof_or" [Term.con "cof_eq" [Term.con "app" [Term.var "dimVar", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim0" []], Term.con "cof_eq" [Term.con "app" [Term.var "dimVar", Term.con "num" [Term.con "number" [Term.lit "0"]]], Term.con "dim1" []]]], Term.con "mkTube" [tube, Term.con "app" [Term.var "dimVar", Term.con "num" [Term.con "number" [Term.lit "0"]]], a, b], Term.con "papp" [cap, Term.con "app" [Term.var "dimVar", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]
       | _ => t
 
     -- Test: test
@@ -184,12 +186,12 @@ namespace Kan
 
     def comRefl (t : Term) : Term :=
       match t with
-      | (com $r $r $line $phi $tube $cap) => $cap
+      | .con "com" [r, r_dup, line, phi, tube, cap] => cap
       | _ => t
 
     def comGen (t : Term) : Term :=
       match t with
-      | (com $r $r' $line $phi $tube $cap) => (hcom $r $r' (substDim0' $r' (plamBody $line)) $phi (lam (lam (coe (ix (num (number 1))) $r' $line (app (app $tube (ix (num (number 1)))) (ix (num (number 0))))))) (coe $r $r' $line $cap))
+      | .con "com" [r, r', line, phi, tube, cap] => Term.con "hcom" [r, r', Term.con "substDim0'" [r', Term.con "app" [Term.var "plamBody", line]], phi, Term.con "app" [Term.var "lam", Term.con "app" [Term.var "lam", Term.con "coe" [Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]], r', line, Term.con "app" [Term.con "app" [tube, Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "1"]]]], Term.con "app" [Term.var "ix", Term.con "num" [Term.con "number" [Term.lit "0"]]]]]]], Term.con "coe" [r, r', line, cap]]
       | _ => t
 
     -- Test: test
@@ -201,12 +203,12 @@ namespace Kan
 
     def ghcomRefl (t : Term) : Term :=
       match t with
-      | (ghcom $r $r $A $sys $cap) => $cap
+      | .con "ghcom" [r, r_dup, A, sys, cap] => cap
       | _ => t
 
     def ghcomBdy (t : Term) : Term :=
       match t with
-      | (ghcom $r $r' $A (sysCons (tuple ( $phi , $tube )) $rest) $cap) => (substDim0' $r' $tube)
+      | .con "ghcom" [r, r', A, .con "sysCons" [.con "tuple" [.lit "(", phi, .lit ",", tube, .lit ")"], rest], cap] => Term.con "substDim0'" [r', tube]
       | _ => t
 
   end GHCom
@@ -215,12 +217,12 @@ namespace Kan
 
     def gcomRefl (t : Term) : Term :=
       match t with
-      | (gcom $r $r $line $sys $cap) => $cap
+      | .con "gcom" [r, r_dup, line, sys, cap] => cap
       | _ => t
 
     def gcomBdy (t : Term) : Term :=
       match t with
-      | (gcom $r $r' $line (sysCons (tuple ( $phi , $tube )) $rest) $cap) => (substDim0' $r' $tube)
+      | .con "gcom" [r, r', line, .con "sysCons" [.con "tuple" [.lit "(", phi, .lit ",", tube, .lit ")"], rest], cap] => Term.con "substDim0'" [r', tube]
       | _ => t
 
   end GCom
