@@ -3377,7 +3377,7 @@ Lego.Term.con
                   Lego.Term.lit ")"],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "arg"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con
               "con"
               [Lego.Term.lit "(",
@@ -3405,7 +3405,7 @@ Lego.Term.con
                   Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "b"]],
                   Lego.Term.lit ")"],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "a"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3426,7 +3426,7 @@ Lego.Term.con
                   Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "b"]],
                   Lego.Term.lit ")"],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "b"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3443,7 +3443,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "val"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "body"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con
               "con"
               [Lego.Term.lit "(",
@@ -3472,7 +3472,7 @@ Lego.Term.con
                   Lego.Term.lit ")"],
                Lego.Term.con "con" [Lego.Term.lit "(", Lego.Term.con "ident" [Lego.Term.var "Dim0"], Lego.Term.lit ")"],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con
               "con"
               [Lego.Term.lit "(",
@@ -3501,7 +3501,7 @@ Lego.Term.con
                   Lego.Term.lit ")"],
                Lego.Term.con "con" [Lego.Term.lit "(", Lego.Term.con "ident" [Lego.Term.var "Dim1"], Lego.Term.lit ")"],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con
               "con"
               [Lego.Term.lit "(",
@@ -3526,7 +3526,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "ty"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3545,7 +3545,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "cap"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "sys"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "cap"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3568,7 +3568,7 @@ Lego.Term.con
                   Lego.Term.lit ")"],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3589,7 +3589,7 @@ Lego.Term.con
                   Lego.Term.lit ")"],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "r"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "a"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3611,7 +3611,7 @@ Lego.Term.con
                   Lego.Term.lit ")"],
                Lego.Term.con "con" [Lego.Term.lit "(", Lego.Term.con "ident" [Lego.Term.var "Dim0"], Lego.Term.lit ")"],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con
               "con"
               [Lego.Term.lit "(",
@@ -3640,7 +3640,7 @@ Lego.Term.con
                   Lego.Term.lit ")"],
                Lego.Term.con "con" [Lego.Term.lit "(", Lego.Term.con "ident" [Lego.Term.var "Dim1"], Lego.Term.lit ")"],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con
               "con"
               [Lego.Term.lit "(",
@@ -3665,7 +3665,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "ty1"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "equiv"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "ty0"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3683,7 +3683,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "ty1"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "equiv"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "ty1"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3700,7 +3700,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm0"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm1"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm0"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3717,7 +3717,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm0"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm1"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "tm1"]],
             Lego.Term.con "unit" [],
             Lego.Term.lit ";"],
@@ -3741,7 +3741,7 @@ Lego.Term.con
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "mot"]],
                Lego.Term.con "var" [Lego.Term.lit "$", Lego.Term.con "ident" [Lego.Term.var "clauses"]],
                Lego.Term.lit ")"],
-            Lego.Term.lit "~>",
+            Lego.Term.lit "~~>",
             Lego.Term.con
               "con"
               [Lego.Term.lit "(",
